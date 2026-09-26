@@ -1,25 +1,24 @@
-import { Ionicons } from "@expo/vector-icons";
-import { useEffect,useRef } from "react";
-import { Animated,Easing,ImageSourcePropType,StyleSheet,View } from "react-native";
-import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { useVoticTheme } from "../theme/ThemeProvider";
+import { Image,ImageSourcePropType,StyleSheet } from "react-native";
 
-function useOccasionalMotion(run:(value:Animated.Value)=>Animated.CompositeAnimation){
-  const {reduceMotion}=useAccessibilityPreferences();const value=useRef(new Animated.Value(0)).current;
-  useEffect(()=>{value.setValue(0);if(reduceMotion)return;const animation=Animated.loop(Animated.sequence([Animated.delay(1800),run(value),Animated.delay(4200)]));animation.start();return()=>animation.stop();},[reduceMotion,value,run]);return value;
-}
 const searchSource=require("../../assets/votic-search-mascot.png") as ImageSourcePropType;
 const notesSource=require("../../assets/notes-empty.png") as ImageSourcePropType;
 const homeSource=require("../../assets/home-empty-house.png") as ImageSourcePropType;
 const documentsSource=require("../../assets/documents-empty.png") as ImageSourcePropType;
-const sweep=(v:Animated.Value)=>Animated.sequence([Animated.timing(v,{toValue:1,duration:360,easing:Easing.inOut(Easing.quad),useNativeDriver:true}),Animated.timing(v,{toValue:-1,duration:620,easing:Easing.inOut(Easing.quad),useNativeDriver:true}),Animated.timing(v,{toValue:0,duration:360,easing:Easing.out(Easing.quad),useNativeDriver:true})]);
-const write=(v:Animated.Value)=>Animated.sequence([Animated.timing(v,{toValue:1,duration:900,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}),Animated.timing(v,{toValue:2,duration:760,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}),Animated.timing(v,{toValue:0,duration:280,useNativeDriver:true})]);
-const arrive=(v:Animated.Value)=>Animated.sequence([Animated.timing(v,{toValue:1,duration:800,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}),Animated.delay(700),Animated.timing(v,{toValue:0,duration:750,easing:Easing.inOut(Easing.cubic),useNativeDriver:true})]);
-const tumble=(v:Animated.Value)=>Animated.sequence([Animated.timing(v,{toValue:1,duration:520,easing:Easing.in(Easing.cubic),useNativeDriver:true}),Animated.spring(v,{toValue:0,damping:8,stiffness:100,mass:.7,useNativeDriver:true})]);
 
-export function AskVoticEmptyAnimation(){const m=useOccasionalMotion(sweep);return <Animated.Image accessibilityLabel="Votic looking through a magnifying glass" source={searchSource} resizeMode="contain" style={[s.search,{transform:[{translateX:m.interpolate({inputRange:[-1,0,1],outputRange:[-9,0,9]})},{rotate:m.interpolate({inputRange:[-1,0,1],outputRange:["-3deg","0deg","3deg"]})}]}]}/>;}
-export function NotesEmptyAnimation(){const {theme}=useVoticTheme();const m=useOccasionalMotion(write);return <View accessibilityLabel="Illustrated notebook with a pencil writing" style={s.notesWrap}><Animated.Image source={notesSource} resizeMode="contain" style={s.fillImage}/><Animated.View style={[s.pencil,{transform:[{translateX:m.interpolate({inputRange:[0,1,2],outputRange:[-30,20,-14]})},{translateY:m.interpolate({inputRange:[0,1,2],outputRange:[4,10,20]})},{rotate:"-42deg"}]}]}><Ionicons name="pencil" size={27} color={theme.accent}/></Animated.View><Animated.View style={[s.ink,{backgroundColor:theme.accent,transform:[{scaleX:m.interpolate({inputRange:[0,1,2],outputRange:[0,1,.55]})}]}]}/></View>;}
-export function HomeEmptyAnimation(){const {theme}=useVoticTheme();const m=useOccasionalMotion(arrive);return <View accessibilityLabel="Welcoming house with a person coming home" style={s.homeWrap}><Animated.Image source={homeSource} resizeMode="contain" style={[s.fillImage,{transform:[{scale:m.interpolate({inputRange:[0,1],outputRange:[1,1.015]})}]}]}/><Animated.View style={[s.doorGlow,{backgroundColor:theme.sentenceHighlight,opacity:m}]}/><Animated.View style={[s.person,{transform:[{translateX:m.interpolate({inputRange:[0,1],outputRange:[28,0]})}],opacity:m.interpolate({inputRange:[0,.15,1],outputRange:[0,1,1]})}]}><Ionicons name="person" size={18} color={theme.accent}/></Animated.View></View>;}
-export function DocumentsEmptyAnimation(){const {theme}=useVoticTheme();const m=useOccasionalMotion(tumble);return <View accessibilityLabel="Person organizing documents as papers flutter" style={s.documentsWrap}><Animated.Image source={documentsSource} resizeMode="contain" style={[s.fillImage,{transform:[{rotate:m.interpolate({inputRange:[0,1],outputRange:["0deg","-4deg"]})},{translateY:m.interpolate({inputRange:[0,1],outputRange:[0,5]})}]}]}/>{[-1,0,1].map((offset,index)=><Animated.View key={offset} style={[s.paper,{left:92+index*34,borderColor:theme.accent,transform:[{translateX:m.interpolate({inputRange:[0,1],outputRange:[0,offset*23]})},{translateY:m.interpolate({inputRange:[0,1],outputRange:[18,-38-Math.abs(offset)*9]})},{rotate:m.interpolate({inputRange:[0,1],outputRange:["0deg",`${offset*18}deg`]})}],opacity:m}]}><View style={[s.paperLine,{backgroundColor:theme.accent}]}/></Animated.View>)}</View>;}
+export function AskVoticEmptyAnimation(){
+  return <Image accessibilityLabel="Votic looking through a magnifying glass" source={searchSource} resizeMode="contain" style={s.search}/>;
+}
 
-const s=StyleSheet.create({fillImage:{width:"100%",height:"100%"},search:{width:150,height:126,marginBottom:8},notesWrap:{width:210,height:192},pencil:{position:"absolute",right:41,top:91},ink:{position:"absolute",left:76,top:125,width:62,height:3,borderRadius:3},homeWrap:{width:250,height:210,overflow:"hidden"},doorGlow:{position:"absolute",left:111,top:92,width:31,height:50,borderRadius:4},person:{position:"absolute",left:104,top:129},documentsWrap:{width:220,height:200},paper:{position:"absolute",top:68,width:24,height:31,borderWidth:1.5,borderRadius:2,backgroundColor:"#FFF",padding:5},paperLine:{height:2,borderRadius:2,width:12}});
+export function NotesEmptyAnimation(){
+  return <Image accessibilityLabel="Illustrated notebook and pencil" source={notesSource} resizeMode="contain" style={s.notes}/>;
+}
+
+export function HomeEmptyAnimation(){
+  return <Image accessibilityLabel="Welcoming house" source={homeSource} resizeMode="contain" style={s.home}/>;
+}
+
+export function DocumentsEmptyAnimation(){
+  return <Image accessibilityLabel="Person organizing documents" source={documentsSource} resizeMode="contain" style={s.documents}/>;
+}
+
+const s=StyleSheet.create({search:{width:150,height:126,marginBottom:8},notes:{width:210,height:192},home:{width:250,height:210},documents:{width:220,height:200}});
