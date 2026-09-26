@@ -23,7 +23,7 @@ export default function TabLayout(){
   const {theme}=useVoticTheme();
   const {reduceMotion}=useAccessibilityPreferences();
   const insets=useSafeAreaInsets();
-  return <Tabs screenOptions={{
+  return <View style={[s.navigator,{backgroundColor:theme.background}]}><Tabs detachInactiveScreens={false} screenOptions={{
     headerShown:false,
     animation:reduceMotion?"none":"shift",
     sceneStyle:{backgroundColor:theme.background},
@@ -46,10 +46,11 @@ export default function TabLayout(){
     <Tabs.Screen name="ask" options={{href:null}}/>
     <Tabs.Screen name="notes" options={{title:"Notes",tabBarAccessibilityLabel:"Notes",tabBarIcon:({color,size,focused})=><AnimatedTabIcon focused={focused} color={color} size={size} active="create" inactive="create-outline"/>}}/>
     <Tabs.Screen name="settings" options={{title:"Settings",tabBarAccessibilityLabel:"Settings",tabBarIcon:({color,size,focused})=><AnimatedTabIcon focused={focused} color={color} size={size} active="settings" inactive="settings-outline"/>}}/>
-  </Tabs>;
+  </Tabs></View>;
 }
 
 const s=StyleSheet.create({
+  navigator:{flex:1},
   iconWrap:{alignItems:"center",justifyContent:"center",minWidth:34},
   indicator:{position:"absolute",bottom:-5,width:18,height:2.5,borderRadius:999}
 });

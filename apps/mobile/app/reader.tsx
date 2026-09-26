@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
 import { ReactNode,useEffect,useMemo,useRef,useState } from "react";
-import { Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
+import { Animated,BackHandler,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { HighlightMode,ReaderFont,ReadingSpacing,TextSize,useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../src/components/PlaybackSpeedControl";
@@ -58,6 +58,7 @@ export default function Reader(){
 
   useEffect(()=>{void Speech.getAvailableVoicesAsync().then(available=>setVoices(available.filter(voice=>voice.language.toLowerCase().startsWith("en")).slice(0,8))).catch(()=>setVoices([]));},[]);
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
+  useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void stop();transition.closeReader(()=>router.back());return true;});return()=>subscription.remove();},[transition]);
   useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;updateProgress(activeDocument.id,index/Math.max(1,passages.length),index,wordIndex);},[index,wordIndex]);
   useEffect(()=>{scrollToSentence(index);},[index,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument)return;let lastSavedAt=Date.now();function saveElapsed(){if(!activeDocument)return;const seconds=Math.floor((Date.now()-lastSavedAt)/1000);if(seconds<1)return;lastSavedAt+=seconds*1000;recordActivity(activeDocument.id,seconds,playing?seconds:0);}const interval=setInterval(saveElapsed,10000);return()=>{clearInterval(interval);saveElapsed();};},[activeDocument?.id,playing]);
@@ -89,7 +90,7 @@ export default function Reader(){
   function confirmSavePassage(){if(!activeDocument||!passages[index])return;const now=Date.now();savePassage(activeDocument.id,{id:passageId,sentenceIndex:index,text:passages[index],note:noteDraft.trim(),createdAt:savedPassage?.createdAt||now,updatedAt:now});setSaveOpen(false);}
   function confirmRemovePassage(){if(!activeDocument||!savedPassage)return;removePassage(activeDocument.id,savedPassage.id);setSaveOpen(false);}
 
-  return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}>
+  return <Animated.View pointerEvents={transition.transitioning?"none":"auto"} accessibilityElementsHidden={transition.transitioning} importantForAccessibility={transition.transitioning?"no-hide-descendants":"auto"} style={[s.safe,{backgroundColor:theme.background},transition.readerStyle]}><SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}>
     <View style={s.content}>
       <View style={s.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void stop();transition.closeReader(()=>router.back());}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
@@ -178,7 +179,7 @@ export default function Reader(){
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  </SafeAreaView>;
+  </SafeAreaView></Animated.View>;
 }
 
 function ToolButton({icon,label,active,onPress}:{icon:React.ComponentProps<typeof Ionicons>["name"];label:string;active:boolean;onPress:()=>void}){const {theme}=useVoticTheme();return <Pressable accessibilityRole="button" accessibilityState={{expanded:active}} onPress={onPress} style={({pressed})=>[s.tool,{backgroundColor:active?theme.sentenceHighlight:"transparent",opacity:pressed?.65:1}]}><Ionicons name={icon} size={20} color={active?theme.accent:theme.text}/><Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={.72} style={[s.toolLabel,{color:active?theme.accent:theme.text}]}>{label}</Text></Pressable>;}
