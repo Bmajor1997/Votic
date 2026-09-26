@@ -1,11 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo,useState } from "react";
-import { Image,Pressable,StyleSheet,Text,TextInput,View } from "react-native";
+import { Pressable,StyleSheet,Text,TextInput,View } from "react-native";
 import { Screen } from "../../src/components/Screen";
 import { radii,spacing,typography } from "../../src/design/tokens";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { NotesEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 
 type Filter="all"|"notes"|"saved";
 function dateLabel(value:number){return new Date(value).toLocaleDateString(undefined,{month:"short",day:"numeric",year:"numeric"});}
@@ -32,7 +33,7 @@ export default function Notes(){
       <Text numberOfLines={4} style={[s.passage,{color:theme.text}]}>{passage.text}</Text>
       {passage.note.trim()?<View style={[s.note,{backgroundColor:theme.surfaceMuted}]}><Text style={[s.noteLabel,{color:theme.accent}]}>YOUR NOTE</Text><Text style={[s.noteText,{color:theme.text}]}>{passage.note}</Text></View>:<Text style={[s.savedLabel,{color:theme.mutedText}]}>Saved passage</Text>}
       <View style={s.source}><Text style={[s.sourceText,{color:theme.accent}]}>Open in Reader</Text><Ionicons name="arrow-forward" size={17} color={theme.accent}/></View>
-    </Pressable>)}</View>:<View style={s.empty}>{!query?<Image accessibilityLabel="Illustrated notebook and pencil" source={require("../../assets/notes-empty.png")} resizeMode="contain" style={s.emptyImage}/>:<Ionicons name="search-outline" size={34} color={theme.mutedText}/>}<Text style={[s.emptyTitle,{color:theme.text}]}>{query?"No matches":"No notes yet"}</Text><Text style={[s.emptyCopy,{color:theme.mutedText}]}>{query?"Try another search or filter.":"Save a passage in the Reader and add a note. It will appear here automatically."}</Text></View>}
+    </Pressable>)}</View>:<View style={s.empty}>{!query?<NotesEmptyAnimation/>:<Ionicons name="search-outline" size={34} color={theme.mutedText}/>}<Text style={[s.emptyTitle,{color:theme.text}]}>{query?"No matches":"No notes yet"}</Text><Text style={[s.emptyCopy,{color:theme.mutedText}]}>{query?"Try another search or filter.":"Save a passage in the Reader and add a note. It will appear here automatically."}</Text></View>}
   </Screen>;
 }
 function FilterButton({label,value,current,onPress}:{label:string;value:Filter;current:Filter;onPress:(value:Filter)=>void}){const {theme}=useVoticTheme();const active=value===current;return <Pressable accessibilityRole="radio" accessibilityState={{checked:active}} onPress={()=>onPress(value)} style={[s.filter,{borderColor:active?theme.accent:theme.border,backgroundColor:active?theme.sentenceHighlight:theme.surface}]}><Text style={[s.filterText,{color:active?theme.accent:theme.text}]}>{label}</Text></Pressable>;}

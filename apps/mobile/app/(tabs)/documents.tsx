@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useMemo,useRef,useState } from "react";
-import { ActivityIndicator,Alert,Image,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
+import { ActivityIndicator,Alert,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
 import { extractDocument } from "../../src/api/voticApi";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes,radii,spacing,typography } from "../../src/design/tokens";
@@ -10,6 +10,7 @@ import { canReadLocally,validateImport } from "../../src/documents/importDocumen
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
+import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 
 export default function Documents(){
   const {theme}=useVoticTheme();
@@ -50,7 +51,7 @@ export default function Documents(){
         <Pressable ref={node=>{documentRefs.current[doc.id]=node;}} accessibilityRole="button" accessibilityLabel={"Open "+doc.title} accessibilityHint={doc.progress?"Resume reading":"Open in Votic reader"} onPress={()=>open(doc.id)} style={({pressed})=>[s.documentMain,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}><View style={s.documentText}><Text numberOfLines={2} style={[s.h,{color:theme.text}]}>{doc.title}</Text><Text numberOfLines={1} style={[s.meta,{color:theme.mutedText}]}>{doc.progress?Math.round(doc.progress*100)+"% complete":"Ready to read"} · {doc.collection||"Unfiled"}</Text><View accessibilityRole="progressbar" accessibilityValue={{min:0,max:100,now:Math.round(doc.progress*100)}} style={[s.track,{backgroundColor:theme.border}]}><View style={[s.fill,{backgroundColor:theme.accent,width:`${doc.progress*100}%` as `${number}%`}]}/></View></View><Ionicons name="chevron-forward" size={20} color={theme.mutedText}/></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={"Choose a collection for "+doc.title} onPress={()=>setAssigningId(doc.id)} style={({pressed})=>[s.folderButton,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}><Ionicons name={doc.collection?"folder":"folder-outline"} size={21} color={doc.collection?theme.accent:theme.mutedText}/></Pressable>
       </View>)}</View>:<View style={s.filteredEmpty}><Text style={[s.body,{color:theme.mutedText}]}>No documents are in this collection yet.</Text></View>}
-    </>:<View style={s.empty}><Image accessibilityLabel="Person organizing documents" source={require("../../assets/documents-empty.png")} resizeMode="contain" style={s.emptyImage}/><Text style={[s.h,{color:theme.text}]}>No documents yet</Text><Text style={[s.body,{color:theme.mutedText}]}>Add a PDF, Word, PowerPoint, EPUB, TXT, or Markdown document to begin reading and listening.</Text></View>}
+    </>:<View style={s.empty}><DocumentsEmptyAnimation/><Text style={[s.h,{color:theme.text}]}>No documents yet</Text><Text style={[s.body,{color:theme.mutedText}]}>Add a PDF, Word, PowerPoint, EPUB, TXT, or Markdown document to begin reading and listening.</Text></View>}
 
     {saved.length?<View style={s.savedSection}><Text style={[s.sectionTitle,{color:theme.text}]}>Saved passages</Text><Text style={[s.sectionCopy,{color:theme.mutedText}]}>Bookmarks and notes you want to revisit.</Text>{saved.map(({document,passage})=><Pressable key={document.id+passage.id} accessibilityRole="button" accessibilityLabel={"Open saved passage from "+document.title} onPress={()=>open(document.id,passage.sentenceIndex)} style={({pressed})=>[s.savedCard,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><View style={s.savedTop}><Ionicons name="bookmark" size={18} color={theme.accent}/><Text numberOfLines={1} style={[s.savedDocument,{color:theme.mutedText}]}>{document.title}</Text></View><Text numberOfLines={3} style={[s.savedText,{color:theme.text}]}>{passage.text}</Text>{passage.note?<Text numberOfLines={2} style={[s.savedNote,{color:theme.mutedText}]}>{passage.note}</Text>:null}</Pressable>)}</View>:null}
 
