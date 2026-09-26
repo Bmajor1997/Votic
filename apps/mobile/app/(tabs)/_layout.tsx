@@ -26,6 +26,7 @@ export default function TabLayout(){
   return <Tabs screenOptions={{
     headerShown:false,
     animation:reduceMotion?"none":"shift",
+    sceneStyle:{backgroundColor:theme.background},
     tabBarActiveTintColor:theme.accent,
     tabBarInactiveTintColor:theme.mutedText,
     tabBarHideOnKeyboard:true,
