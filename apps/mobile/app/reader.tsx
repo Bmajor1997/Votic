@@ -12,6 +12,7 @@ import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
 import { formatPlaybackRate } from "../src/playback/rates";
 import { AppearanceMode,useVoticTheme } from "../src/theme/ThemeProvider";
+import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 
 type ReaderSheet="appearance"|"focus"|"listen"|null;
 type Voice=Awaited<ReturnType<typeof Speech.getAvailableVoicesAsync>>[number];
@@ -37,6 +38,7 @@ function Setting({label,children}:{label:string;children:ReactNode}){const {them
 export default function Reader(){
   const {theme,appearanceMode,setAppearanceMode}=useVoticTheme();
   const accessibility=useAccessibilityPreferences();
+  const transition=useDocumentTransition();
   const {activeDocument,savePassage,removePassage,updateProgress,recordActivity,completeDocument,updatePlaybackRate}=useDocumentLibrary();
   const passages=useMemo(()=>sentences(activeDocument?.plainText||""),[activeDocument?.plainText]);
   const [index,setIndex]=useState(activeDocument?.sentenceIndex||0);
@@ -90,7 +92,7 @@ export default function Reader(){
   return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}>
     <View style={s.content}>
       <View style={s.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void stop();router.back();}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void stop();transition.closeReader(()=>router.back());}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
         <VoticLogo compact/>
         <View style={s.headerActions}><Pressable accessibilityRole="button" accessibilityLabel={savedPassage?"Edit saved passage":"Save current passage"} accessibilityState={{selected:Boolean(savedPassage)}} onPress={openSavePassage} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name={savedPassage?"bookmark":"bookmark-outline"} size={22} color={savedPassage?theme.accent:theme.text}/></Pressable></View>
       </View>

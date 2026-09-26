@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import { useMemo,useState } from "react";
+import { useMemo,useRef,useState } from "react";
 import { ActivityIndicator,Alert,Image,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
 import { extractDocument } from "../../src/api/voticApi";
 import { Screen } from "../../src/components/Screen";
@@ -9,9 +9,11 @@ import { controlSizes,radii,spacing,typography } from "../../src/design/tokens";
 import { canReadLocally,validateImport } from "../../src/documents/importDocument";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 
 export default function Documents(){
   const {theme}=useVoticTheme();
+  const transition=useDocumentTransition();
   const {documents,collections,addTextDocument,openDocument,addCollection,setDocumentCollection}=useDocumentLibrary();
   const [importing,setImporting]=useState(false);
   const [query,setQuery]=useState("");
@@ -19,13 +21,20 @@ export default function Documents(){
   const [assigningId,setAssigningId]=useState<string|null>(null);
   const [createOpen,setCreateOpen]=useState(false);
   const [collectionName,setCollectionName]=useState("");
+  const documentRefs=useRef<Record<string,View|null>>({});
   const scoped=filter==="all"?documents:filter==="unfiled"?documents.filter(document=>!document.collection):documents.filter(document=>document.collection===filter);
   const filtered=scoped.filter(document=>document.title.toLowerCase().includes(query.trim().toLowerCase()));
   const saved=useMemo(()=>documents.flatMap(document=>(document.savedPassages||[]).map(passage=>({document,passage}))).sort((a,b)=>b.passage.updatedAt-a.passage.updatedAt),[documents]);
   const assigningDocument=documents.find(document=>document.id===assigningId);
 
   async function addDocument(){setImporting(true);try{const result=await DocumentPicker.getDocumentAsync({type:["text/plain","text/markdown","application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-powerpoint","application/epub+zip"],copyToCacheDirectory:true,multiple:false});if(result.canceled)return;const asset=result.assets[0];validateImport({name:asset.name,size:asset.size,uri:asset.uri,mimeType:asset.mimeType});const response=await fetch(asset.uri);if(!response.ok)throw new Error("Votic could not access this file. Please choose it again from your device.");let text:string;if(canReadLocally(asset.name))text=await response.text();else text=await extractDocument(asset.name,await response.arrayBuffer());if(!text.trim())throw new Error("This document does not contain readable text.");addTextDocument(asset.name,text);router.push("/reader");}catch(error){Alert.alert("Could not import document",error instanceof Error?error.message:"Votic could not read this document.");}finally{setImporting(false);}}
-  function open(id:string,sentenceIndex?:number){openDocument(id,sentenceIndex);router.push("/reader");}
+  function open(id:string,sentenceIndex?:number){
+    const document=documents.find(item=>item.id===id);openDocument(id,sentenceIndex);
+    const navigate=()=>router.push("/reader");
+    const node=documentRefs.current[id];
+    if(!document||!node){navigate();return;}
+    node.measureInWindow((x,y,width,height)=>transition.openReader({title:document.title,subtitle:document.progress?`${Math.round(document.progress*100)}% complete · ${document.collection||"Unfiled"}`:`Ready to read · ${document.collection||"Unfiled"}`,progress:document.progress,rect:{x,y,width,height}},navigate));
+  }
   function createCollection(){const clean=collectionName.trim();if(!clean)return;addCollection(clean);setFilter(clean);setCollectionName("");setCreateOpen(false);}
   function assign(collection?:string){if(!assigningId)return;setDocumentCollection(assigningId,collection);setAssigningId(null);}
 
@@ -38,7 +47,7 @@ export default function Documents(){
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
         <Filter label="All" value="all" current={filter} onPress={setFilter}/><Filter label="Unfiled" value="unfiled" current={filter} onPress={setFilter}/>{collections.map(collection=><Filter key={collection} label={collection} value={collection} current={filter} onPress={setFilter}/>)}</ScrollView>
       {filtered.length?<View style={s.list}>{filtered.map(doc=><View key={doc.id} style={[s.documentRow,{borderBottomColor:theme.border}]}>
-        <Pressable accessibilityRole="button" accessibilityLabel={"Open "+doc.title} accessibilityHint={doc.progress?"Resume reading":"Open in Votic reader"} onPress={()=>open(doc.id)} style={({pressed})=>[s.documentMain,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}><View style={s.documentText}><Text numberOfLines={2} style={[s.h,{color:theme.text}]}>{doc.title}</Text><Text numberOfLines={1} style={[s.meta,{color:theme.mutedText}]}>{doc.progress?Math.round(doc.progress*100)+"% complete":"Ready to read"} · {doc.collection||"Unfiled"}</Text><View accessibilityRole="progressbar" accessibilityValue={{min:0,max:100,now:Math.round(doc.progress*100)}} style={[s.track,{backgroundColor:theme.border}]}><View style={[s.fill,{backgroundColor:theme.accent,width:`${doc.progress*100}%` as `${number}%`}]}/></View></View><Ionicons name="chevron-forward" size={20} color={theme.mutedText}/></Pressable>
+        <Pressable ref={node=>{documentRefs.current[doc.id]=node;}} accessibilityRole="button" accessibilityLabel={"Open "+doc.title} accessibilityHint={doc.progress?"Resume reading":"Open in Votic reader"} onPress={()=>open(doc.id)} style={({pressed})=>[s.documentMain,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}><View style={s.documentText}><Text numberOfLines={2} style={[s.h,{color:theme.text}]}>{doc.title}</Text><Text numberOfLines={1} style={[s.meta,{color:theme.mutedText}]}>{doc.progress?Math.round(doc.progress*100)+"% complete":"Ready to read"} · {doc.collection||"Unfiled"}</Text><View accessibilityRole="progressbar" accessibilityValue={{min:0,max:100,now:Math.round(doc.progress*100)}} style={[s.track,{backgroundColor:theme.border}]}><View style={[s.fill,{backgroundColor:theme.accent,width:`${doc.progress*100}%` as `${number}%`}]}/></View></View><Ionicons name="chevron-forward" size={20} color={theme.mutedText}/></Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel={"Choose a collection for "+doc.title} onPress={()=>setAssigningId(doc.id)} style={({pressed})=>[s.folderButton,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}><Ionicons name={doc.collection?"folder":"folder-outline"} size={21} color={doc.collection?theme.accent:theme.mutedText}/></Pressable>
       </View>)}</View>:<View style={s.filteredEmpty}><Text style={[s.body,{color:theme.mutedText}]}>No documents are in this collection yet.</Text></View>}
     </>:<View style={s.empty}><Image accessibilityLabel="Person organizing documents" source={require("../../assets/documents-empty.png")} resizeMode="contain" style={s.emptyImage}/><Text style={[s.h,{color:theme.text}]}>No documents yet</Text><Text style={[s.body,{color:theme.mutedText}]}>Add a PDF, Word, PowerPoint, EPUB, TXT, or Markdown document to begin reading and listening.</Text></View>}
