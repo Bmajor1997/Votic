@@ -24,16 +24,20 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
     Animated.timing(progress,{toValue,duration,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(({finished})=>{if(finished)onComplete();});
   }
   function openReader(next:DocumentTransitionSnapshot,navigate:()=>void){
-    origin.current=next;setSnapshot(next);progress.setValue(0);navigate();
-    if(reduceMotion){animate(1,150,()=>setSnapshot(null));return;}
-    requestAnimationFrame(()=>animate(1,280,()=>setSnapshot(null)));
+    origin.current=next;setSnapshot(next);progress.setValue(0);
+    requestAnimationFrame(()=>{
+      navigate();
+      requestAnimationFrame(()=>animate(1,reduceMotion?170:360,()=>setSnapshot(null)));
+    });
   }
   function closeReader(navigate:()=>void){
     const previous=origin.current;
     if(!previous||reduceMotion){navigate();return;}
-    setSnapshot(previous);
-    progress.setValue(1);navigate();
-    requestAnimationFrame(()=>animate(0,240,()=>setSnapshot(null)));
+    setSnapshot(previous);progress.setValue(1);
+    requestAnimationFrame(()=>{
+      navigate();
+      requestAnimationFrame(()=>animate(0,280,()=>setSnapshot(null)));
+    });
   }
 
   const left=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.x,spacing.md]}):0;
@@ -44,6 +48,7 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
   return <TransitionContext.Provider value={{openReader,closeReader}}>
     {children}
     {snapshot?<View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={StyleSheet.absoluteFill}>
+      <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.background,opacity:progress.interpolate({inputRange:[0,.65,1],outputRange:[0,.96,1]})}]}/>
       <Animated.View style={[s.card,{left,top,width,height,opacity,backgroundColor:theme.surface,borderColor:theme.border}]}>
         <Animated.View style={[s.copy,{opacity:progress.interpolate({inputRange:[0,.72,1],outputRange:[1,1,0]})}]}>
           <Text numberOfLines={2} style={[s.title,{color:theme.text}]}>{snapshot.title}</Text>
@@ -61,4 +66,4 @@ export function useDocumentTransition(){
   return value;
 }
 
-const s=StyleSheet.create({card:{position:"absolute",borderWidth:1,borderRadius:radii.lg,overflow:"hidden",shadowColor:"#000",shadowOpacity:.12,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:8},copy:{padding:spacing.lg,gap:spacing.sm},title:{...typography.sectionTitle},subtitle:{fontSize:14},track:{height:3,borderRadius:2,overflow:"hidden"},fill:{height:"100%"}});
+const s=StyleSheet.create({card:{position:"absolute",borderWidth:1,borderRadius:radii.lg,overflow:"hidden",shadowColor:"#000",shadowOpacity:.14,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8},copy:{padding:spacing.lg,gap:spacing.sm},title:{...typography.sectionTitle},subtitle:{fontSize:14},track:{height:3,borderRadius:2,overflow:"hidden"},fill:{height:"100%"}});
