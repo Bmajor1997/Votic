@@ -45,7 +45,7 @@ export function VoticLogo({compact=false,markOnly=false}:{compact?:boolean;markO
 
   return <View accessible accessibilityRole="image" accessibilityLabel="Votic logo" style={s.row}>
     <View style={{width:size,height:size,marginTop:1}}>
-      <Image source={require("../../assets/votic-mark.png")} resizeMode="contain" style={{width:size,height:size}}/>
+      <Image source={require("../../assets/votic-mark.png")} resizeMode="contain" tintColor={theme.isDark?"#FFF":undefined} style={{width:size,height:size}}/>
       {wing(wing1,0,.34)}
       {wing(wing2,.31,.34)}
       {wing(wing3,.62,.38)}

@@ -28,8 +28,11 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
   function openReader(next:DocumentTransitionSnapshot,navigate:()=>void){
     origin.current=next;setSnapshot(next);progress.setValue(0);
     requestAnimationFrame(()=>{
-      navigate();
-      requestAnimationFrame(()=>animate(1,reduceMotion?140:400,()=>setSnapshot(null)));
+      animate(reduceMotion?1:.08,reduceMotion?140:55,()=>{
+        navigate();
+        if(reduceMotion){setSnapshot(null);return;}
+        requestAnimationFrame(()=>animate(1,345,()=>setSnapshot(null)));
+      });
     });
   }
   function closeReader(navigate:()=>void){
