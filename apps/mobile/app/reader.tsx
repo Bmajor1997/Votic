@@ -10,7 +10,7 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes,radii,spacing,typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
-import { formatPlaybackRate } from "../src/playback/rates";
+import { formatPlaybackRate,normalizePlaybackRate } from "../src/playback/rates";
 import { AppearanceMode,useVoticTheme } from "../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 
@@ -90,7 +90,7 @@ export default function Reader(){
   const passages=useMemo(()=>sentences(activeDocument?.plainText||""),[activeDocument?.plainText]);
   const [index,setIndex]=useState(activeDocument?.sentenceIndex||0);
   const [wordIndex,setWordIndex]=useState(activeDocument?.wordIndex||0);
-  const [rate,setRate]=useState(activeDocument?.playbackRate||1);
+  const [rate,setRate]=useState(normalizePlaybackRate(activeDocument?.playbackRate||1));
   const [playing,setPlaying]=useState(false);
   const [sheet,setSheet]=useState<ReaderSheet>(null);
   const [completionOpen,setCompletionOpen]=useState(false);

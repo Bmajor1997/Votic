@@ -1,8 +1,6 @@
 import { PropsWithChildren,createContext,useContext,useRef,useState } from "react";
-import { Animated,Easing,StyleSheet,View,useWindowDimensions } from "react-native";
+import { Animated,Easing } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { radii } from "../design/tokens";
-import { useVoticTheme } from "../theme/ThemeProvider";
 
 export type DocumentTransitionSnapshot={title:string;subtitle:string;progress:number;rect:{x:number;y:number;width:number;height:number}};
 type TransitionContextValue={
@@ -15,12 +13,10 @@ type TransitionContextValue={
 const TransitionContext=createContext<TransitionContextValue|null>(null);
 
 export function DocumentTransitionProvider({children}:PropsWithChildren){
-  const {theme}=useVoticTheme();
   const {reduceMotion}=useAccessibilityPreferences();
   const [snapshot,setSnapshot]=useState<DocumentTransitionSnapshot|null>(null);
   const origin=useRef<DocumentTransitionSnapshot|null>(null);
   const progress=useRef(new Animated.Value(0)).current;
-  const screen=useWindowDimensions();
 
   function animate(toValue:number,duration:number,onComplete:()=>void){
     Animated.timing(progress,{toValue,duration,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(({finished})=>{if(finished)onComplete();});
@@ -28,11 +24,8 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
   function openReader(next:DocumentTransitionSnapshot,navigate:()=>void){
     origin.current=next;setSnapshot(next);progress.setValue(0);
     requestAnimationFrame(()=>{
-      animate(reduceMotion?1:.08,reduceMotion?140:55,()=>{
-        navigate();
-        if(reduceMotion){setSnapshot(null);return;}
-        requestAnimationFrame(()=>animate(1,345,()=>setSnapshot(null)));
-      });
+      navigate();
+      requestAnimationFrame(()=>animate(1,reduceMotion?120:260,()=>setSnapshot(null)));
     });
   }
   function closeReader(navigate:()=>void){
@@ -45,22 +38,9 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
     });
   }
 
-  const left=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.x,0]}):0;
-  const top=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.y,0]}):0;
-  const width=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.width,screen.width]}):0;
-  const height=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.height,screen.height]}):0;
-  const radius=progress.interpolate({inputRange:[0,1],outputRange:[radii.lg,0]});
-  const cardOpacity=reduceMotion?progress:progress.interpolate({inputRange:[0,.82,1],outputRange:[1,1,0]});
-  const surfaceOpacity=reduceMotion?progress:progress.interpolate({inputRange:[0,.08,1],outputRange:[0,1,1]});
-  const readerStyle=snapshot?{opacity:reduceMotion?progress:progress.interpolate({inputRange:[0,.68,1],outputRange:[0,0,1]}),transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,.7,1],outputRange:[12,12,0]})}]}:{opacity:1,transform:[{translateY:0}]};
+  const readerStyle=snapshot?{opacity:progress,transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,1],outputRange:[8,0]})}]}:{opacity:1,transform:[{translateY:0}]};
   return <TransitionContext.Provider value={{openReader,closeReader,readerStyle,transitioning:Boolean(snapshot)}}>
     {children}
-    {snapshot?<View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={s.overlay}>
-      <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.background,opacity:progress}]}/>
-      <Animated.View style={[s.card,{left,top,width,height,borderRadius:radius,opacity:cardOpacity,borderColor:theme.border}]}>
-        <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.surface,opacity:surfaceOpacity}]}/>
-      </Animated.View>
-    </View>:null}
   </TransitionContext.Provider>;
 }
 
@@ -69,5 +49,3 @@ export function useDocumentTransition(){
   if(!value)throw new Error("useDocumentTransition must be used inside DocumentTransitionProvider");
   return value;
 }
-
-const s=StyleSheet.create({overlay:{position:"absolute",left:0,right:0,top:0,bottom:0,zIndex:999,elevation:999,backgroundColor:"transparent"},card:{position:"absolute",borderWidth:1,overflow:"hidden",shadowColor:"#000",shadowOpacity:.14,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8}});
