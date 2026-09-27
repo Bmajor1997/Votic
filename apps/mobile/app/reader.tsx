@@ -109,6 +109,7 @@ export default function Reader(){
   const readingType=readerType(accessibility.textSize,accessibility.readingSpacing,accessibility.readerFont,accessibility.textSpacing);
   const progress=useMemo(()=>progressForLocation(passages,index,wordIndex),[passages,index,wordIndex]);
 
+  useEffect(()=>{transition.readerReady();},[]);
   useEffect(()=>{void Speech.getAvailableVoicesAsync().then(available=>setVoices(uniqueEnglishVoices(available))).catch(()=>setVoices([]));},[]);
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
   useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void stop();transition.closeReader(()=>router.back());return true;});return()=>subscription.remove();},[transition]);
