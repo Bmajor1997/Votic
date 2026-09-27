@@ -5,11 +5,12 @@ import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvide
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
+import { FirstRunTourProvider } from "../src/onboarding/FirstRunTourProvider";
 
 function ThemedStack(){
   const {theme}=useVoticTheme();
   const {reduceMotion}=useAccessibilityPreferences();
-  return <DocumentLibraryProvider><DocumentTransitionProvider>
+  return <DocumentLibraryProvider><DocumentTransitionProvider><FirstRunTourProvider>
     <Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:theme.background},animation:reduceMotion?"none":"fade"}}>
       <Stack.Screen name="(tabs)"/>
       <Stack.Screen name="reader" options={{animation:"none",gestureEnabled:false,contentStyle:{backgroundColor:theme.background}}}/>
@@ -17,7 +18,7 @@ function ThemedStack(){
       <Stack.Screen name="review"/>
       <Stack.Screen name="recap"/>
     </Stack>
-  </DocumentTransitionProvider></DocumentLibraryProvider>;
+  </FirstRunTourProvider></DocumentTransitionProvider></DocumentLibraryProvider>;
 }
 
 export default function RootLayout(){

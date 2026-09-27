@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
 import { ReactNode,useEffect,useMemo,useRef,useState } from "react";
-import { Animated,BackHandler,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
+import { Animated,BackHandler,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,NativeScrollEvent,NativeSyntheticEvent,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { HighlightMode,ReaderFont,ReadingSpacing,TextSize,useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../src/components/PlaybackSpeedControl";
@@ -101,7 +101,10 @@ export default function Reader(){
   const scrollRef=useRef<ScrollView>(null);
   const speechSession=useRef(0);
   const seekWasPlaying=useRef(false);
-  const sentenceY=useRef<Record<number,number>>({});
+  const sentenceLayout=useRef<Record<number,{y:number;height:number}>>({});
+  const scrollOffset=useRef(0);
+  const viewportHeight=useRef(0);
+  const manuallyScrolling=useRef(false);
   const completedRef=useRef(activeDocument?.progress===1);
   const readingType=readerType(accessibility.textSize,accessibility.readingSpacing,accessibility.readerFont,accessibility.textSpacing);
   const progress=useMemo(()=>progressForLocation(passages,index,wordIndex),[passages,index,wordIndex]);
@@ -110,11 +113,17 @@ export default function Reader(){
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
   useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void stop();transition.closeReader(()=>router.back());return true;});return()=>subscription.remove();},[transition]);
   useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;updateProgress(activeDocument.id,progress,index,wordIndex);},[activeDocument?.id,passages.length,progress,index,wordIndex]);
-  useEffect(()=>{scrollToSentence(index);},[index,accessibility.reduceMotion]);
+  useEffect(()=>{followActiveWord();},[index,wordIndex,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument)return;let lastSavedAt=Date.now();function saveElapsed(){if(!activeDocument)return;const seconds=Math.floor((Date.now()-lastSavedAt)/1000);if(seconds<1)return;lastSavedAt+=seconds*1000;recordActivity(activeDocument.id,seconds,playing?seconds:0);}const interval=setInterval(saveElapsed,10000);return()=>{clearInterval(interval);saveElapsed();};},[activeDocument?.id,playing]);
 
-  function scrollToSentence(sentenceIndex:number){const y=sentenceY.current[sentenceIndex];if(y===undefined)return;scrollRef.current?.scrollTo({y:Math.max(0,y-72),animated:!accessibility.reduceMotion});}
-  function measureSentence(sentenceIndex:number,event:LayoutChangeEvent){sentenceY.current[sentenceIndex]=event.nativeEvent.layout.y;if(sentenceIndex===index)scrollToSentence(sentenceIndex);}
+  function followActiveWord(force=false){
+    if(manuallyScrolling.current&&!force)return;const layout=sentenceLayout.current[index];if(!layout||!viewportHeight.current)return;
+    const words=Math.max(1,wordMatches(passages[index]||"").length);const wordFraction=Math.max(0,Math.min(1,wordIndex/words));const estimatedY=layout.y+layout.height*wordFraction;
+    const top=scrollOffset.current+24;const bottom=scrollOffset.current+viewportHeight.current*.7;
+    if(force||estimatedY<top||estimatedY>bottom)scrollRef.current?.scrollTo({y:Math.max(0,estimatedY-viewportHeight.current*.45),animated:!accessibility.reduceMotion});
+  }
+  function measureSentence(sentenceIndex:number,event:LayoutChangeEvent){const {y,height}=event.nativeEvent.layout;sentenceLayout.current[sentenceIndex]={y,height};if(sentenceIndex===index)followActiveWord(true);}
+  function trackScroll(event:NativeSyntheticEvent<NativeScrollEvent>){scrollOffset.current=event.nativeEvent.contentOffset.y;}
   async function stop(){speechSession.current+=1;setPlaying(false);setPreviewVoiceIdentifier(null);await Speech.stop();}
   async function previewVoice(voice:Voice,voiceIndex:number){
     speechSession.current+=1;setPlaying(false);await Speech.stop();setPreviewVoiceIdentifier(voice.identifier);
@@ -162,7 +171,7 @@ export default function Reader(){
         <SeekableProgress value={progress} onSeekStart={beginSeek} onSeek={value=>void seekTo(value)}/>
         <Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>{void stop();router.push("/assistant");}} style={({pressed})=>[s.readingAsk,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.accent}/><Text numberOfLines={1} style={[s.readingAskText,{color:theme.accent}]}>Ask Votic</Text><Ionicons name="arrow-forward" size={16} color={theme.accent}/></Pressable>
       </View>
-      <ScrollView ref={scrollRef} style={s.textArea} contentContainerStyle={s.readingContent}>
+      <ScrollView ref={scrollRef} style={s.textArea} contentContainerStyle={s.readingContent} scrollEventThrottle={16} onLayout={event=>{viewportHeight.current=event.nativeEvent.layout.height;followActiveWord(true);}} onScroll={trackScroll} onScrollBeginDrag={()=>{manuallyScrolling.current=true;}} onMomentumScrollBegin={()=>{manuallyScrolling.current=true;}} onScrollEndDrag={()=>{manuallyScrolling.current=false;}} onMomentumScrollEnd={()=>{manuallyScrolling.current=false;}}>
         {passages.map((passage,passageIndex)=>{const current=passageIndex===index;const tokens=current?passage.split(/(\s+)/):[];return <Text key={passageIndex} onLayout={event=>measureSentence(passageIndex,event)} style={[s.sentence,readingType,{color:theme.text},current&&sentenceHighlight&&{backgroundColor:theme.sentenceHighlight}]}>{current?tokens.map((token,tokenIndex)=>{if(/^\s+$/.test(token))return token;const before=tokens.slice(0,tokenIndex).join("");const spokenIndex=before.match(/\S+/g)?.length||0;const active=spokenIndex===wordIndex;return <Text key={tokenIndex} style={active&&wordHighlight?{color:theme.text,fontWeight:"900",fontSize:(readingType.fontSize as number)+2}:undefined}>{token}</Text>;}):passage}</Text>;})}
       </ScrollView>
 
