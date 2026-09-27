@@ -159,7 +159,7 @@ export default function Reader(){
   function confirmSavePassage(){if(!activeDocument||!passages[index])return;const now=Date.now();savePassage(activeDocument.id,{id:passageId,sentenceIndex:index,text:passages[index],note:noteDraft.trim(),createdAt:savedPassage?.createdAt||now,updatedAt:now});setSaveOpen(false);}
   function confirmRemovePassage(){if(!activeDocument||!savedPassage)return;removePassage(activeDocument.id,savedPassage.id);setSaveOpen(false);}
 
-  return <Animated.View pointerEvents={transition.transitioning?"none":"auto"} accessibilityElementsHidden={transition.transitioning} importantForAccessibility={transition.transitioning?"no-hide-descendants":"auto"} style={[s.safe,{backgroundColor:theme.background},transition.readerStyle]}><SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}>
+  return <View pointerEvents={transition.transitioning?"none":"auto"} accessibilityElementsHidden={transition.transitioning} importantForAccessibility={transition.transitioning?"no-hide-descendants":"auto"} style={s.safe}><Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill,{backgroundColor:theme.background},transition.backdropStyle]}/><Animated.View style={[s.safe,transition.readerStyle]}><SafeAreaView edges={["top","bottom","left","right"]} style={s.safe}>
     <View style={s.content}>
       <View style={s.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void stop();transition.closeReader(()=>router.back());}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
@@ -248,7 +248,7 @@ export default function Reader(){
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  </SafeAreaView></Animated.View>;
+  </SafeAreaView></Animated.View></View>;
 }
 
 function VoiceChoice({name,selected,previewing,onPreview,onSelect}:{name:string;selected:boolean;previewing:boolean;onPreview:()=>void;onSelect:()=>void}){const {theme}=useVoticTheme();return <View style={[s.voiceChoice,{borderColor:selected?theme.accent:theme.border,backgroundColor:selected?theme.sentenceHighlight:theme.surface}]}><Pressable accessibilityRole="button" accessibilityLabel={previewing?`Stop ${name} voice preview`:`Preview ${name} voice`} onPress={onPreview} style={({pressed})=>[s.voicePreview,{backgroundColor:selected?theme.accent:theme.surfaceMuted,opacity:pressed?.7:1}]}><Ionicons name={previewing?"stop":"play"} size={18} color={selected?"#FFF":theme.accent}/></Pressable><Pressable accessibilityRole="radio" accessibilityState={{checked:selected}} accessibilityLabel={`Select ${name} voice`} onPress={onSelect} style={({pressed})=>[s.voiceSelect,{opacity:pressed?.7:1}]}><Text style={[s.voiceName,{color:selected?theme.accent:theme.text}]}>{name}</Text>{selected?<Ionicons name="checkmark-circle" size={19} color={theme.accent}/>:null}</Pressable></View>;}

@@ -7,6 +7,7 @@ type TransitionContextValue={
   openReader:(snapshot:DocumentTransitionSnapshot,navigate:()=>void)=>void;
   closeReader:(navigate:()=>void)=>void;
   readerReady:()=>void;
+  backdropStyle:any;
   readerStyle:any;
   transitioning:boolean;
 };
@@ -37,8 +38,9 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
     requestAnimationFrame(()=>animate(0,240,()=>{navigate();setSnapshot(null);}));
   }
 
-  const readerStyle=snapshot?{opacity:progress,transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,1],outputRange:[8,0]})},{scale:reduceMotion?1:progress.interpolate({inputRange:[0,1],outputRange:[.965,1]})}]}:{opacity:1,transform:[{translateY:0},{scale:1}]};
-  return <TransitionContext.Provider value={{openReader,closeReader,readerReady,readerStyle,transitioning:Boolean(snapshot)}}>
+  const backdropStyle=snapshot?{opacity:progress}:{opacity:1};
+  const readerStyle=snapshot?{opacity:progress,transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,1],outputRange:[8,0]})},{scale:reduceMotion?1:progress.interpolate({inputRange:[0,1],outputRange:[.975,1]})}]}:{opacity:1,transform:[{translateY:0},{scale:1}]};
+  return <TransitionContext.Provider value={{openReader,closeReader,readerReady,backdropStyle,readerStyle,transitioning:Boolean(snapshot)}}>
     {children}
   </TransitionContext.Provider>;
 }
