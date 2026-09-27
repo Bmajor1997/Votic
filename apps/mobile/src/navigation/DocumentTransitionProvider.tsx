@@ -1,7 +1,7 @@
 import { PropsWithChildren,createContext,useContext,useRef,useState } from "react";
-import { Animated,Easing,StyleSheet,Text,View,useWindowDimensions } from "react-native";
+import { Animated,Easing,StyleSheet,View,useWindowDimensions } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { radii,spacing,typography } from "../design/tokens";
+import { radii } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 export type DocumentTransitionSnapshot={title:string;subtitle:string;progress:number;rect:{x:number;y:number;width:number;height:number}};
@@ -51,17 +51,14 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
   const height=snapshot?progress.interpolate({inputRange:[0,1],outputRange:[snapshot.rect.height,screen.height]}):0;
   const radius=progress.interpolate({inputRange:[0,1],outputRange:[radii.lg,0]});
   const cardOpacity=reduceMotion?progress:progress.interpolate({inputRange:[0,.82,1],outputRange:[1,1,0]});
+  const surfaceOpacity=reduceMotion?progress:progress.interpolate({inputRange:[0,.08,1],outputRange:[0,1,1]});
   const readerStyle=snapshot?{opacity:reduceMotion?progress:progress.interpolate({inputRange:[0,.68,1],outputRange:[0,0,1]}),transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,.7,1],outputRange:[12,12,0]})}]}:{opacity:1,transform:[{translateY:0}]};
   return <TransitionContext.Provider value={{openReader,closeReader,readerStyle,transitioning:Boolean(snapshot)}}>
     {children}
     {snapshot?<View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={s.overlay}>
       <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.background,opacity:progress}]}/>
-      <Animated.View style={[s.card,{left,top,width,height,borderRadius:radius,opacity:cardOpacity,backgroundColor:theme.surface,borderColor:theme.border}]}>
-        <Animated.View style={[s.copy,{transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[0,44]})}],opacity:progress.interpolate({inputRange:[0,.84,1],outputRange:[1,1,0]})}]}>
-          <Text numberOfLines={2} style={[s.title,{color:theme.text}]}>{snapshot.title}</Text>
-          <Text numberOfLines={1} style={[s.subtitle,{color:theme.mutedText}]}>{snapshot.subtitle}</Text>
-          <View style={[s.track,{backgroundColor:theme.border}]}><View style={[s.fill,{backgroundColor:theme.accent,width:`${snapshot.progress*100}%` as `${number}%`}]}/></View>
-        </Animated.View>
+      <Animated.View style={[s.card,{left,top,width,height,borderRadius:radius,opacity:cardOpacity,borderColor:theme.border}]}>
+        <Animated.View style={[StyleSheet.absoluteFill,{backgroundColor:theme.surface,opacity:surfaceOpacity}]}/>
       </Animated.View>
     </View>:null}
   </TransitionContext.Provider>;
@@ -73,4 +70,4 @@ export function useDocumentTransition(){
   return value;
 }
 
-const s=StyleSheet.create({overlay:{position:"absolute",left:0,right:0,top:0,bottom:0,zIndex:999,elevation:999,backgroundColor:"transparent"},card:{position:"absolute",borderWidth:1,overflow:"hidden",shadowColor:"#000",shadowOpacity:.14,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8},copy:{padding:spacing.lg,gap:spacing.sm},title:{...typography.sectionTitle},subtitle:{fontSize:14},track:{height:3,borderRadius:2,overflow:"hidden"},fill:{height:"100%"}});
+const s=StyleSheet.create({overlay:{position:"absolute",left:0,right:0,top:0,bottom:0,zIndex:999,elevation:999,backgroundColor:"transparent"},card:{position:"absolute",borderWidth:1,overflow:"hidden",shadowColor:"#000",shadowOpacity:.14,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8}});
