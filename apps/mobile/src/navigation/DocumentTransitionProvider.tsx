@@ -17,6 +17,7 @@ const TransitionContext=createContext<TransitionContextValue|null>(null);
 export function DocumentTransitionProvider({children}:PropsWithChildren){
   const {reduceMotion}=useAccessibilityPreferences();
   const [snapshot,setSnapshot]=useState<DocumentTransitionSnapshot|null>(null);
+  const [closing,setClosing]=useState(false);
   const origin=useRef<DocumentTransitionSnapshot|null>(null);
   const progress=useRef(new Animated.Value(0)).current;
 
@@ -24,7 +25,7 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
     Animated.timing(progress,{toValue,duration,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(({finished})=>{if(finished)onComplete();});
   }
   function openReader(next:DocumentTransitionSnapshot,navigate:()=>void){
-    origin.current=next;setSnapshot(next);progress.setValue(0);
+    origin.current=next;setClosing(false);setSnapshot(next);progress.setValue(0);
     requestAnimationFrame(navigate);
   }
   function readerReady(){
@@ -34,12 +35,12 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
   function closeReader(navigate:()=>void){
     const previous=origin.current;
     if(!previous||reduceMotion){navigate();return;}
-    setSnapshot(previous);progress.setValue(1);
-    requestAnimationFrame(()=>animate(0,240,()=>{navigate();setSnapshot(null);}));
+    setClosing(true);setSnapshot(previous);progress.setValue(1);
+    requestAnimationFrame(()=>animate(0,180,()=>{navigate();setSnapshot(null);setClosing(false);}));
   }
 
   const backdropStyle=snapshot?{opacity:progress}:{opacity:1};
-  const readerStyle=snapshot?{opacity:progress,transform:[{translateY:reduceMotion?0:progress.interpolate({inputRange:[0,1],outputRange:[8,0]})},{scale:reduceMotion?1:progress.interpolate({inputRange:[0,1],outputRange:[.975,1]})}]}:{opacity:1,transform:[{translateY:0},{scale:1}]};
+  const readerStyle=snapshot?{opacity:progress,transform:[{translateY:reduceMotion||closing?0:progress.interpolate({inputRange:[0,1],outputRange:[8,0]})},{scale:reduceMotion||closing?1:progress.interpolate({inputRange:[0,1],outputRange:[.975,1]})}]}:{opacity:1,transform:[{translateY:0},{scale:1}]};
   return <TransitionContext.Provider value={{openReader,closeReader,readerReady,backdropStyle,readerStyle,transitioning:Boolean(snapshot)}}>
     {children}
   </TransitionContext.Provider>;
