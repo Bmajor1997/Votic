@@ -16,11 +16,11 @@ type Message={role:"user"|"votic";text:string;saved?:boolean};
 type PromptFlight={label:string;x:number;y:number;dx:number;dy:number};
 export function AskVotic({embedded=false}:{embedded?:boolean}){
  const {theme}=useVoticTheme();const {activeDocument,documents,savePassage}=useDocumentLibrary();
- const params=useLocalSearchParams<{notesDocumentId?:string;notesPassageId?:string}>();
+ const params=useLocalSearchParams<{notesDocumentId?:string;notesPassageId?:string;initialQuestion?:string}>();
  const notesScope={documentId:typeof params.notesDocumentId==="string"?params.notesDocumentId:undefined,passageId:typeof params.notesPassageId==="string"?params.notesPassageId:undefined};
  const notesDocument=buildNotesAskDocument(documents,notesScope);const notesScopeLabel=notesAskScopeLabel(documents,notesScope);
  const {reduceMotion}=useAccessibilityPreferences();
- const [question,setQuestion]=useState("");const [messages,setMessages]=useState<Message[]>([]);const [sending,setSending]=useState(false);const [retrying,setRetrying]=useState(false);const [launching,setLaunching]=useState(false);const [error,setError]=useState("");const scrollRef=useRef<ScrollView>(null);const lastQuestion=useRef("");
+ const [question,setQuestion]=useState(typeof params.initialQuestion==="string"?params.initialQuestion:"");const [messages,setMessages]=useState<Message[]>([]);const [sending,setSending]=useState(false);const [retrying,setRetrying]=useState(false);const [launching,setLaunching]=useState(false);const [error,setError]=useState("");const scrollRef=useRef<ScrollView>(null);const lastQuestion=useRef("");
  const [flight,setFlight]=useState<PromptFlight|null>(null);const rootRef=useRef<View>(null);const composerTargetRef=useRef<View>(null);const promptRefs=useRef<Record<string,View|null>>({});
  const promptEntry=useRef(new Animated.Value(1)).current;const sendBounce=useRef(new Animated.Value(0)).current;const sendSpin=useRef(new Animated.Value(0)).current;const sendLaunch=useRef(new Animated.Value(0)).current;const sendOpacity=useRef(new Animated.Value(1)).current;const flightProgress=useRef(new Animated.Value(0)).current;
  const retryScale=useRef(new Animated.Value(1)).current;
