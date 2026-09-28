@@ -1,0 +1,58 @@
+name: Votic Reliability & Edge-Case Checks
+
+on:
+  push:
+    paths:
+      - "apps/mobile/**"
+      - "app_parts/**"
+      - "votic_server.js"
+      - "code_checks/**"
+      - ".github/workflows/reliability-edge-cases.yml"
+  pull_request:
+    paths:
+      - "apps/mobile/**"
+      - "app_parts/**"
+      - "votic_server.js"
+      - "code_checks/**"
+      - ".github/workflows/reliability-edge-cases.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: reliability-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  reliability:
+    name: Mobile Reliability Regression Guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Get Votic's code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Run reliability and edge-case regression tests
+        run: node --test code_checks/reliability_edge_cases.test.js code_checks/reliability_security_regressions.test.js code_checks/reader_transition.test.js
+
+      - name: Install mobile dependencies
+        working-directory: apps/mobile
+        run: npm install --ignore-scripts
+
+      - name: Type-check reliability-sensitive mobile code
+        working-directory: apps/mobile
+        run: npm run typecheck
+
+      - name: Validate Expo configuration
+        working-directory: apps/mobile
+        run: npx expo config --type public
+
+      - name: Check Expo dependency compatibility
+        working-directory: apps/mobile
+        run: npx expo install --check
