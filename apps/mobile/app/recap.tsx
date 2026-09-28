@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable,SafeAreaView,ScrollView,StyleSheet,Text,View } from "react-native";
+import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes,radii,spacing,typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
@@ -13,7 +14,7 @@ export default function Recap(){
   const {theme}=useVoticTheme();const {documents,openDocument}=useDocumentLibrary();const {current,previous,change}=weeklyComparison(documents);const weeks=recentWeekActivity(documents);const recent=mostRecentIncomplete(documents);const maxMinutes=Math.max(1,...weeks.map(week=>week.readingMinutes));
   const comparison=change===null?(current.readingMinutes?"Your first tracked week is underway.":"Your progress will build as you read."):change===0?"You matched last week’s focused reading time.":change>0?`You read ${change}% more than last week.`:`You read ${Math.abs(change)}% less than last week.`;
   function open(documentId:string,sentenceIndex?:number){openDocument(documentId,sentenceIndex);router.push("/reader");}
-  return <SafeAreaView style={[s.safe,{backgroundColor:theme.background}]}><View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Close weekly recap" onPress={()=>router.back()} style={s.close}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><VoticLogo compact/><View style={s.close}/></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+  return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}><View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Close weekly recap" onPress={()=>router.back()} style={s.close}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><VoticLogo compact/><View style={s.close}/></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
     <View><Text style={[s.eyebrow,{color:theme.accent}]}>YOUR WEEK WITH VOTIC</Text><Text accessibilityRole="header" style={[s.title,{color:theme.text}]}>Weekly recap</Text><Text style={[s.lead,{color:theme.mutedText}]}>{comparison}</Text></View>
 
     <View style={s.metrics}><Metric icon="book-outline" value={minutes(current.readingMinutes)} label="Focused reading"/><Metric icon="headset-outline" value={minutes(current.listeningMinutes)} label="Listening"/><Metric icon="calendar-outline" value={String(current.activeDays)} label={current.activeDays===1?"Active day":"Active days"}/><Metric icon="checkmark-circle-outline" value={String(current.completed)} label={current.completed===1?"Document finished":"Documents finished"}/></View>

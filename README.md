@@ -19,9 +19,28 @@ A text-to-speech document reader prototype focused on making documents easier to
 - `package.json` tells Node which packages and commands Votic needs.
 - `package-lock.json` records the exact package versions installed for Votic.
 
-> **Current status:** Prototype 1 implementation has begun. The first interactive listening slice is available as a dependency-free web prototype.
+> **Current status:** Votic is transitioning to a mobile-first product. The existing dependency-light web prototype remains intact while a new React Native/Expo mobile client is being built in `apps/mobile/`. The mobile foundation uses TypeScript and establishes native navigation, theming, accessibility-aware controls, and a dedicated reader screen.
 
-## Run Prototype 1
+## Project Structure
+
+- `apps/mobile/` contains the new React Native/Expo mobile application.
+  - `app/(tabs)/` contains the Home, Documents, and Settings destinations.
+  - `app/reader.tsx` is the dedicated mobile reader/player screen.
+  - `src/theme/` contains the centralized mobile theme system.
+  - `src/components/` contains reusable mobile UI components.
+- The existing root web files remain the working web prototype during the mobile transition. They will move into `apps/web/` only after the mobile foundation is stable, to avoid breaking working functionality during the restructure.
+- `packages/shared/` is reserved for platform-neutral business logic reviewed as safe to share across mobile, web, and future desktop clients.
+- `.github/` continues to contain repository automation and quality/security checks.
+
+### Mobile navigation decision
+
+The mobile client uses bottom navigation for the three primary destinations: **Home**, **Documents**, and **Settings**. The reader opens as a dedicated screen rather than occupying a permanent tab. This keeps high-frequency destinations visible on phones and leaves room for future areas such as Votic Study without forcing a navigation rewrite. Secondary features may use contextual menus or a drawer later if user testing supports them.
+
+### Mobile-first implementation plan
+
+The mobile foundation now includes the Expo/TypeScript shell, bottom navigation, centralized theming, accessibility preferences, a native document picker/library, TXT/Markdown local import, PDF/DOCX extraction through the existing Votic API, and native text-to-speech reader controls with 0.1× speed steps. Persistence, production API configuration/authentication, background playback, lock-screen controls, voice selection, and richer document navigation remain future slices. Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+
+## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:
 
@@ -40,7 +59,7 @@ Finishing a document reveals one optional **Review what I heard** action. Votic 
 
 **Ask Votic** provides built-in product guidance without needing AI. When a document is open, the listener may explicitly select **Use the current document to answer this question**. If AI is connected, Votic sends that question and document text in a stateless `store: false` request, answers only from the supplied document, and can offer a verified link to the most relevant document section. Set `OPENAI_DOCUMENT_MODEL` to choose a document-question model, or let it use `OPENAI_MODEL`/the application default.
 
-Playback speed is adjustable from 1× through 3× in fine 0.05× increments. Opening the compact, scrollable speed menu pauses playback, and selecting a rate leaves playback paused.
+Playback speed is adjustable in 0.1× increments across Votic's planned 0.5× through 6× range. The mobile reader uses the same normalized rate model, avoiding floating-point display artifacts. Opening the compact, scrollable speed menu pauses playback, and selecting a rate leaves playback paused.
 
 Follow-along highlighting can be personalized with Warm orange, Blue, Green, Purple, and High contrast presets. Each preset coordinates the current-passage background with the stronger active-word color, and the preference is remembered across documents.
 
@@ -120,8 +139,8 @@ The following ideas may be valuable later, but they are explicitly out of scope 
 - Podcast generation
 - A general-purpose AI chatbot
 - Browser extensions
-- Native iOS application
-- Native Android application
+- Separate native Swift-only iOS client
+- Separate native Kotlin-only Android client
 - Native Windows application
 - Native macOS application
 - Collaboration features
@@ -251,7 +270,7 @@ Immediate next steps:
 
 ## Long-Term Vision
 
-If the core reading experience proves valuable and attracts paying users, possible later expansions include additional voices, proprietary voice technology, intelligent document processing, audiobook tools, podcast creation, conversational AI, browser extensions, native applications, collaboration, enterprise capabilities, and integrations.
+If the core reading experience proves valuable and attracts paying users, possible later expansions include additional voices, proprietary voice technology, intelligent document processing, audiobook tools, podcast creation, conversational AI, browser extensions, additional platform clients, collaboration, enterprise capabilities, and integrations.
 
 Those are future possibilities—not commitments.
 

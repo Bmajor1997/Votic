@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node votic_server.js",
-    "test": "node --test --test-isolation=none",
+    "test": "node --test --test-isolation=none \"code_checks/**/*.test.js\" \"app_parts/**/*.test.js\" \"*.test.js\"",
     "test:browser": "playwright test -c browser_check_settings.js",
     "lint": "npx --yes eslint@9.39.5 .",
     "lint:html": "npx --yes html-validate@10.17.0 votic_home_page.html",
@@ -17,7 +17,9 @@
   },
   "dependencies": {
     "docx": "^9.7.1",
+    "jszip": "^3.10.1",
     "mammoth": "^1.12.3",
+    "office-oxide": "^0.1.8",
     "pdf-parse": "^2.4.5"
   }
 }

@@ -120,7 +120,8 @@ export function create_votic_handler(options = {}) {
 export function create_votic_server(options = {}) { return createServer(create_votic_handler(options)); }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  const port = positive_integer("PORT", 4173);
- create_votic_server().listen(port, () => console.log(`Votic is ready at http://localhost:${port}`));
+ const server_host = process.env.VOTIC_HOST || "0.0.0.0";
+ create_votic_server().listen(port, server_host, () => console.log(`Votic is ready on port ${port} for local and mobile devices`));
 }
 
 async function read_body(request, limit, timeout_ms) {
@@ -140,14 +141,15 @@ function set_security_headers(response, extra = {}) { for (const [key, value] of
 function send_json(response, status, body, headers = {}) { set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
 function send_error(response, error, logger) { const known = error instanceof HttpError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request." }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
-function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx)$/i.test(name)) throw new HttpError(415, "Choose a PDF or DOCX document."); return name; }
-function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.docx$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); return false; }
+function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, or EPUB document."); return name; }
+function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.(docx|pptx|epub)$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); if (/\.ppt$/i.test(name)) return body.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])); return false; }
 function extraction_error_message(error) {
   const message = String(error?.message || error);
   if (/password|encrypted/i.test(message)) return "This document is password-protected. Remove the password and upload it again.";
   if (/no selectable text|scanned/i.test(message)) return "Votic could not find selectable text in this PDF. It may be a scanned document; scanned-PDF reading is not supported yet.";
-  if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf/i.test(message)) return "This file appears to be damaged or is not a valid PDF or Word document. Try opening and saving it again, then re-upload it.";
-  return message || "Votic could not read this document. Try saving a fresh copy or uploading a TXT version.";
+  if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf|invalid.*(?:ppt|cfb|ole)|compound file/i.test(message)) return "This file appears to be damaged or is not a valid PDF, Word, PowerPoint, or EPUB document. Try opening and saving it again, then re-upload it.";
+  if (/does not contain readable text|publication manifest|publication package|too many reading sections|expands beyond|image-only|drm-protected/i.test(message)) return message;
+  return "Votic could not read this document. The file may be damaged or unsupported; try saving a fresh copy and uploading it again.";
 }
 async function answer_with_ai(question, { env, fetch_impl, timeout_ms }) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout_ms);

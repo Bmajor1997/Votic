@@ -1,4 +1,5 @@
 import { createContext,PropsWithChildren,useContext,useEffect,useState } from "react";
+import { AccessibilityInfo } from "react-native";
 import { loadAccessibilityPreferences,saveAccessibilityPreferences } from "../preferences/preferenceStorage";
 
 export type TextSize="default"|"large"|"extra-large";
@@ -35,7 +36,10 @@ export function AccessibilityProvider({children}:PropsWithChildren){
   const [textSpacing,setTextSpacing]=useState<TextSpacing>("default");
   const [highlightMode,setHighlightMode]=useState<HighlightMode>("both");
   const [voiceIdentifier,setVoiceIdentifier]=useState<string|null>(null);
-  const [reduceMotion,setReduceMotion]=useState(false);
+  const [reduceMotionPreference,setReduceMotionPreference]=useState(false);
+  const [systemReduceMotion,setSystemReduceMotion]=useState(false);
+  const reduceMotion=reduceMotionPreference||systemReduceMotion;
+  const setReduceMotion=setReduceMotionPreference;
   const [wordEmphasis,setWordEmphasis]=useState(true);
   const [hydrated,setHydrated]=useState(false);
 
@@ -47,15 +51,21 @@ export function AccessibilityProvider({children}:PropsWithChildren){
       if(["default","wide"].includes(saved?.textSpacing))setTextSpacing(saved.textSpacing);
       if(["off","sentence","word","both"].includes(saved?.highlightMode))setHighlightMode(saved.highlightMode);
       if(typeof saved?.voiceIdentifier==="string")setVoiceIdentifier(saved.voiceIdentifier);
-      if(typeof saved?.reduceMotion==="boolean")setReduceMotion(saved.reduceMotion);
+      if(typeof saved?.reduceMotion==="boolean")setReduceMotionPreference(saved.reduceMotion);
       if(typeof saved?.wordEmphasis==="boolean")setWordEmphasis(saved.wordEmphasis);
       setHydrated(true);
     });
   },[]);
 
   useEffect(()=>{
-    if(hydrated)saveAccessibilityPreferences({textSize,readingSpacing,readerFont,textSpacing,highlightMode,voiceIdentifier,reduceMotion,wordEmphasis}).catch(()=>{});
-  },[textSize,readingSpacing,readerFont,textSpacing,highlightMode,voiceIdentifier,reduceMotion,wordEmphasis,hydrated]);
+    AccessibilityInfo.isReduceMotionEnabled().then(setSystemReduceMotion).catch(()=>{});
+    const subscription=AccessibilityInfo.addEventListener("reduceMotionChanged",setSystemReduceMotion);
+    return()=>subscription.remove();
+  },[]);
+
+  useEffect(()=>{
+    if(hydrated)saveAccessibilityPreferences({textSize,readingSpacing,readerFont,textSpacing,highlightMode,voiceIdentifier,reduceMotion:reduceMotionPreference,wordEmphasis}).catch(()=>{});
+  },[textSize,readingSpacing,readerFont,textSpacing,highlightMode,voiceIdentifier,reduceMotionPreference,wordEmphasis,hydrated]);
 
   return <AccessibilityContext.Provider value={{textSize,setTextSize,readingSpacing,setReadingSpacing,readerFont,setReaderFont,textSpacing,setTextSpacing,highlightMode,setHighlightMode,voiceIdentifier,setVoiceIdentifier,reduceMotion,setReduceMotion,wordEmphasis,setWordEmphasis}}>{children}</AccessibilityContext.Provider>;
 }

@@ -49,8 +49,15 @@ test("accepts binary documents and validates names, signatures, and content type
     const valid = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent("file.pdf") }, body: pdf });
     assert.equal(valid.status, 200);
     assert.deepEqual(await valid.json(), { text: `read ${pdf.length}` });
+    const powerpoint = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "slides.pptx" }, body: Buffer.from([0x50, 0x4b, 0x03, 0x04]) });
+    assert.equal(powerpoint.status, 200);
+    const epub = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "book.epub" }, body: Buffer.from([0x50, 0x4b, 0x03, 0x04]) });
+    assert.equal(epub.status, 200);
+    const legacyPowerpoint = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "slides.ppt" }, body: Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]) });
+    assert.equal(legacyPowerpoint.status, 200);
     assert.equal((await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/json", "X-Votic-Filename": "file.pdf" }, body: "{}" })).status, 415);
     assert.equal((await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.docx" }, body: pdf })).status, 415);
+    assert.equal((await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.ppt" }, body: Buffer.from([0x50, 0x4b, 0x03, 0x04]) })).status, 415);
     assert.equal((await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: pdf })).status, 400);
   });
 });

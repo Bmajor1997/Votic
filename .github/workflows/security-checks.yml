@@ -6,38 +6,58 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  security:
-    name: Quality, Security, and Test Checks
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    steps:
+      - name: Review dependency changes for vulnerabilities
+        uses: actions/dependency-review-action@v5
 
+
+  codeql:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - name: Get Votic's code
         uses: actions/checkout@v4
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - name: Analyze JavaScript and TypeScript with CodeQL
+        uses: github/codeql-action/analyze@v3
 
+  security:
+    name: Web Quality, Security, and Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get Votic's code
+        uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
-      
       - name: Install Votic dependencies
         run: npm ci
-
       - name: Check JavaScript with ESLint
         run: npm run lint
-
       - name: Validate Votic HTML
         run: npm run lint:html
-
       - name: Check Votic CSS with Stylelint
         run: npm run lint:css
-
       - name: Run Votic automated tests
         run: npm test
-
+      - name: Guard Reader transition against flash and overlay regressions
+        if: ${{ hashFiles('code_checks/reader_transition.test.js') != '' }}
+        run: node --test code_checks/reader_transition.test.js
       - name: Check dependencies for vulnerabilities
         run: |
           npm audit --json > npm-audit.json || true
@@ -45,72 +65,44 @@ jobs:
           const fs = require("fs");
           const path = "security/vulnerability-report.md";
           const audit = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
-          const vulnerabilities = audit.vulnerabilities || {};
           const rows = [];
-
-          for (const [name, finding] of Object.entries(vulnerabilities)) {
+          for (const [name, finding] of Object.entries(audit.vulnerabilities || {})) {
             if (!["low", "moderate"].includes(finding.severity)) continue;
-
-            const via = Array.isArray(finding.via) ? finding.via : [];
-            const details = via.find(item => typeof item === "object") || {};
+            const details = (Array.isArray(finding.via) ? finding.via : []).find(item => typeof item === "object") || {};
             const title = details.title || "Dependency vulnerability";
-            const cause = details.url
-              ? `Reported by npm audit. Advisory: ${details.url}`
-              : "Reported by npm audit.";
-            const fix = finding.fixAvailable
-              ? "Review npm audit fix guidance and update the affected dependency."
-              : "Review the advisory and dependency tree; upgrade or replace the dependency when a patched version is available.";
-
-            rows.push(
-              `| ${finding.severity[0].toUpperCase() + finding.severity.slice(1)} | ${title.replaceAll("|", "\\|")} | ${name.replaceAll("|", "\\|")} | ${cause.replaceAll("|", "\\|")} | ${fix.replaceAll("|", "\\|")} | Open |`
-            );
+            const cause = details.url ? `Reported by npm audit. Advisory: ${details.url}` : "Reported by npm audit.";
+            const fix = finding.fixAvailable ? "Review npm audit fix guidance and update the affected dependency." : "Review the advisory and dependency tree; upgrade or replace the dependency when a patched version is available.";
+            rows.push(`| ${finding.severity[0].toUpperCase() + finding.severity.slice(1)} | ${title.replaceAll("|", "\\|")} | ${name.replaceAll("|", "\\|")} | ${cause.replaceAll("|", "\\|")} | ${fix.replaceAll("|", "\\|")} | Open |`);
           }
-
           const start = "<!-- AUTO-GENERATED-NPM-AUDIT:START -->";
           const end = "<!-- AUTO-GENERATED-NPM-AUDIT:END -->";
-          const body = rows.length
-            ? rows.join("\n")
-            : "| None | No low or moderate npm dependency vulnerabilities detected | — | — | — | — |";
-
+          const body = rows.length ? rows.join("\n") : "| None | No low or moderate npm dependency vulnerabilities detected | — | — | — | — |";
           let report = fs.readFileSync(path, "utf8");
           const block = `${start}\n\n## Current npm audit findings\n\n| Severity | Vulnerability / Finding | Affected dependency or code | Cause | Recommended fix | Status |\n| --- | --- | --- | --- | --- | --- |\n${body}\n\n${end}`;
-
-          if (report.includes(start) && report.includes(end)) {
-            report = report.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block);
-          } else {
-            report += `\n\n${block}\n`;
-          }
-
+          report = report.includes(start) && report.includes(end) ? report.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block) : `${report}\n\n${block}\n`;
           fs.writeFileSync(path, report);
           NODE
-
           npm audit --audit-level=high
+      - name: Preserve dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-vulnerability-report
+          path: |
+            npm-audit.json
+            security/vulnerability-report.md
+      - name: Scan dependencies with OSV-Scanner
+        run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan -r /src
 
       - name: Install Semgrep
         run: pip install semgrep
-
       - name: Scan Votic source code with Semgrep
         run: semgrep scan --config auto .
-
       - name: Scan repository for exposed secrets
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_VERSION: 8.30.1
-
-      - name: Commit updated vulnerability report
-        if: github.event_name != 'pull_request'
-        run: |
-          if git diff --quiet -- security/vulnerability-report.md; then
-            echo "Vulnerability report is already current."
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add security/vulnerability-report.md
-          git commit -m "Update vulnerability report [skip ci]"
-          git push
 
   mobile:
     name: React Native / Expo CI
@@ -118,35 +110,26 @@ jobs:
     defaults:
       run:
         working-directory: apps/mobile
-
     steps:
       - name: Get Votic's code
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
-
       - name: Install mobile dependencies
-        run: npm install --ignore-scripts
-
+        run: npm ci --ignore-scripts
       - name: Type-check React Native code
         run: npm run typecheck
-
       - name: Validate Expo configuration
         run: npx expo config --type public
-
       - name: Check Expo dependency compatibility
         run: npx expo install --check
-
       - name: Install Semgrep for mobile security scanning
         run: pip install semgrep
         working-directory: .
-
       - name: Scan React Native TypeScript with Semgrep
         run: semgrep scan --config auto apps/mobile --error
         working-directory: .
-
       - name: Audit mobile production dependencies
         run: npm audit --omit=dev --audit-level=high

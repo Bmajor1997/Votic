@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect,useState } from "react";
-import { Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
+import { Pressable,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { radii,spacing,typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
@@ -15,7 +16,7 @@ export default function Review(){
   useEffect(()=>{setResponses(activeDocument?.reviewResponses||{});},[activeDocument?.id]);
   function update(id:string,value:string){const next={...responses,[id]:value};setResponses(next);if(activeDocument)updateReviewResponses(activeDocument.id,next);}
   function revisit(sentenceIndex:number){if(!activeDocument)return;openDocument(activeDocument.id,sentenceIndex);router.replace("/reader");}
-  return <SafeAreaView style={[s.safe,{backgroundColor:theme.background}]}><View style={[s.header,{borderBottomColor:theme.border}]}><Pressable accessibilityRole="button" accessibilityLabel="Close document review" onPress={()=>router.back()} style={s.icon}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><View style={s.headerCopy}><Text style={[s.headerTitle,{color:theme.text}]}>Review</Text><Text numberOfLines={1} style={[s.context,{color:theme.mutedText}]}>{activeDocument?.title||"Document"}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>router.push("/assistant")} style={s.icon}><Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.accent}/></Pressable></View>
+  return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}><View style={[s.header,{borderBottomColor:theme.border}]}><Pressable accessibilityRole="button" accessibilityLabel="Close document review" onPress={()=>router.back()} style={s.icon}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><View style={s.headerCopy}><Text style={[s.headerTitle,{color:theme.text}]}>Review</Text><Text numberOfLines={1} style={[s.context,{color:theme.mutedText}]}>{activeDocument?.title||"Document"}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>router.push("/assistant")} style={s.icon}><Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.accent}/></Pressable></View>
     <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <View style={s.intro}><Text style={[s.title,{color:theme.text}]}>Make the reading yours</Text><Text style={[s.body,{color:theme.mutedText}]}>Pause over what mattered. Your responses save automatically on this device.</Text></View>
       <View style={[s.summary,{backgroundColor:theme.surfaceMuted}]}><Summary value={duration(documentTimeSpent(activeDocument))} label="Time spent"/><View style={[s.summaryDivider,{backgroundColor:theme.border}]}/><Summary value={String(activeDocument?.savedPassages?.length||0)} label="Saved passages"/></View>
