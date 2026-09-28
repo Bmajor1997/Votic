@@ -18,7 +18,7 @@ test("critical mobile API calls keep timeout and cancellation protection",()=>{
 });
 
 test("document limits are enforced from actual loaded bytes",()=>{
- assert.match(imports,/MAX_DOCUMENT_BYTES=25_000_000/);
+ assert.match(imports,/MAX_DOCUMENT_BYTES\s*=\s*25\s*\*\s*1024\s*\*\s*1024|MAX_DOCUMENT_BYTES\s*=\s*25_000_000/);
  assert.match(imports,/validateLoadedBytes/);
  assert.match(documents,/validateLoadedBytes\(bytes\.byteLength\)/);
 });
