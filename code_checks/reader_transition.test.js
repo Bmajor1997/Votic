@@ -17,11 +17,14 @@ test("Reader route leaves the source screen mounted and disables competing stack
   assert.match(layout,/name="reader"[\s\S]*backgroundColor:"transparent"/);
 });
 
-test("Reader container owns a reversible zoom transition",()=>{
-  assert.match(reader,/duration:380/);
-  assert.match(reader,/duration:320/);
-  assert.match(reader,/transform:\[\{scale:entrance\.interpolate/);
-  assert.match(reader,/outputRange:\[\.985,1\]/);
+test("Reader container owns a reversible source-geometry transition",()=>{
+  assert.match(provider,/duration:420/);
+  assert.match(provider,/duration:340/);
+  assert.match(reader,/source\.width\/window\.width/);
+  assert.match(reader,/source\.x\+source\.width\/2-window\.width\/2/);
+  assert.match(reader,/scaleX:transition\.progress\.interpolate/);
+  assert.match(reader,/scaleY:transition\.progress\.interpolate/);
+  assert.match(reader,/readerReady/);
   assert.match(reader,/async function closeReader\(\)/);
-  assert.doesNotMatch(reader,/translateY:entrance\.interpolate/);
+  assert.doesNotMatch(reader,/outputRange:\[\.985,1\]/);
 });

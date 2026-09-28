@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
 import { ReactNode,useEffect,useMemo,useRef,useState } from "react";
-import { Animated,BackHandler,Easing,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,NativeScrollEvent,NativeSyntheticEvent,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
+import { Animated,BackHandler,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,NativeScrollEvent,NativeSyntheticEvent,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View,useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { HighlightMode,ReaderFont,ReadingSpacing,TextSize,useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../src/components/PlaybackSpeedControl";
@@ -86,6 +86,7 @@ export default function Reader(){
   const {theme,appearanceMode,setAppearanceMode}=useVoticTheme();
   const accessibility=useAccessibilityPreferences();
   const transition=useDocumentTransition();
+  const window=useWindowDimensions();
   const {activeDocument,savePassage,removePassage,updateProgress,recordActivity,completeDocument,updatePlaybackRate}=useDocumentLibrary();
   const passages=useMemo(()=>sentences(activeDocument?.plainText||""),[activeDocument?.plainText]);
   const [index,setIndex]=useState(activeDocument?.sentenceIndex||0);
@@ -105,18 +106,14 @@ export default function Reader(){
   const scrollOffset=useRef(0);
   const viewportHeight=useRef(0);
   const manuallyScrolling=useRef(false);
-  const entrance=useRef(new Animated.Value(accessibility.reduceMotion?1:0)).current;
   const closing=useRef(false);
+  const readerPrepared=useRef(false);
+  const [readerReady,setReaderReady]=useState(false);
   const completedRef=useRef(activeDocument?.progress===1);
   const readingType=readerType(accessibility.textSize,accessibility.readingSpacing,accessibility.readerFont,accessibility.textSpacing);
   const progress=useMemo(()=>progressForLocation(passages,index,wordIndex),[passages,index,wordIndex]);
 
   useEffect(()=>{void Speech.getAvailableVoicesAsync().then(available=>setVoices(uniqueEnglishVoices(available))).catch(()=>setVoices([]));},[]);
-  useEffect(()=>{
-    if(accessibility.reduceMotion){entrance.setValue(1);return;}
-    entrance.setValue(0);
-    Animated.timing(entrance,{toValue:1,duration:380,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start();
-  },[accessibility.reduceMotion,entrance]);
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
   useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void closeReader();return true;});return()=>subscription.remove();},[transition,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;updateProgress(activeDocument.id,progress,index,wordIndex);},[activeDocument?.id,passages.length,progress,index,wordIndex]);
@@ -127,19 +124,22 @@ export default function Reader(){
     if(closing.current)return;
     closing.current=true;
     await stop();
-    if(accessibility.reduceMotion){transition.closeReader(()=>router.back());return;}
-    Animated.timing(entrance,{toValue:0,duration:320,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}).start(({finished})=>{
-      if(finished)transition.closeReader(()=>router.back());
-      else closing.current=false;
-    });
+    transition.closeReader(()=>router.back());
   }
-  function followActiveWord(force=false){
+  function prepareReader(){
+    if(readerPrepared.current||!viewportHeight.current)return;
+    if(passages.length&&sentenceLayout.current[index]===undefined)return;
+    readerPrepared.current=true;
+    followActiveWord(true,false);
+    requestAnimationFrame(()=>{setReaderReady(true);transition.beginReader();});
+  }
+  function followActiveWord(force=false,animated=!accessibility.reduceMotion){
     if(manuallyScrolling.current&&!force)return;const layout=sentenceLayout.current[index];if(!layout||!viewportHeight.current)return;
     const words=Math.max(1,wordMatches(passages[index]||"").length);const wordFraction=Math.max(0,Math.min(1,wordIndex/words));const estimatedY=layout.y+layout.height*wordFraction;
     const top=scrollOffset.current+24;const bottom=scrollOffset.current+viewportHeight.current*.7;
-    if(force||estimatedY<top||estimatedY>bottom)scrollRef.current?.scrollTo({y:Math.max(0,estimatedY-viewportHeight.current*.45),animated:!accessibility.reduceMotion});
+    if(force||estimatedY<top||estimatedY>bottom)scrollRef.current?.scrollTo({y:Math.max(0,estimatedY-viewportHeight.current*.45),animated});
   }
-  function measureSentence(sentenceIndex:number,event:LayoutChangeEvent){const {y,height}=event.nativeEvent.layout;sentenceLayout.current[sentenceIndex]={y,height};if(sentenceIndex===index)followActiveWord(true);}
+  function measureSentence(sentenceIndex:number,event:LayoutChangeEvent){const {y,height}=event.nativeEvent.layout;sentenceLayout.current[sentenceIndex]={y,height};if(sentenceIndex===index)prepareReader();}
   function trackScroll(event:NativeSyntheticEvent<NativeScrollEvent>){scrollOffset.current=event.nativeEvent.contentOffset.y;}
   async function stop(){speechSession.current+=1;setPlaying(false);setPreviewVoiceIdentifier(null);await Speech.stop();}
   async function previewVoice(voice:Voice,voiceIndex:number){
@@ -175,7 +175,14 @@ export default function Reader(){
   function confirmSavePassage(){if(!activeDocument||!passages[index])return;const now=Date.now();savePassage(activeDocument.id,{id:passageId,sentenceIndex:index,text:passages[index],note:noteDraft.trim(),createdAt:savedPassage?.createdAt||now,updatedAt:now});setSaveOpen(false);}
   function confirmRemovePassage(){if(!activeDocument||!savedPassage)return;removePassage(activeDocument.id,savedPassage.id);setSaveOpen(false);}
 
-  return <View style={s.safe}><Animated.View style={[s.safe,{backgroundColor:theme.background,opacity:entrance.interpolate({inputRange:[0,1],outputRange:[.94,1]}),transform:[{scale:entrance.interpolate({inputRange:[0,1],outputRange:[.985,1]})}]}]}><SafeAreaView edges={["top","bottom","left","right"]} style={s.safe}>
+  const source=transition.sourceRect;
+  const sourceScaleX=source?Math.max(.05,source.width/window.width):1;
+  const sourceScaleY=source?Math.max(.05,source.height/window.height):1;
+  const sourceTranslateX=source?source.x+source.width/2-window.width/2:0;
+  const sourceTranslateY=source?source.y+source.height/2-window.height/2:0;
+  const readerOpacity=readerReady?transition.progress.interpolate({inputRange:[0,.62,1],outputRange:[0,0,1],extrapolate:"clamp"}):0;
+
+  return <View style={s.safe}><Animated.View style={[s.safe,{backgroundColor:theme.background,transform:[{translateX:transition.progress.interpolate({inputRange:[0,1],outputRange:[sourceTranslateX,0]})},{translateY:transition.progress.interpolate({inputRange:[0,1],outputRange:[sourceTranslateY,0]})},{scaleX:transition.progress.interpolate({inputRange:[0,1],outputRange:[sourceScaleX,1]})},{scaleY:transition.progress.interpolate({inputRange:[0,1],outputRange:[sourceScaleY,1]})}]}]}><Animated.View style={[s.safe,{opacity:readerOpacity}]}><SafeAreaView edges={["top","bottom","left","right"]} style={s.safe}>
     <View style={s.content}>
       <View style={s.topBar}>
         <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void closeReader();}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
@@ -188,7 +195,7 @@ export default function Reader(){
         <SeekableProgress value={progress} onSeekStart={beginSeek} onSeek={value=>void seekTo(value)}/>
         <Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>{void stop();router.push("/assistant");}} style={({pressed})=>[s.readingAsk,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.accent}/><Text numberOfLines={1} style={[s.readingAskText,{color:theme.accent}]}>Ask Votic</Text><Ionicons name="arrow-forward" size={16} color={theme.accent}/></Pressable>
       </View>
-      <ScrollView ref={scrollRef} style={s.textArea} contentContainerStyle={s.readingContent} scrollEventThrottle={16} onLayout={event=>{viewportHeight.current=event.nativeEvent.layout.height;followActiveWord(true);}} onScroll={trackScroll} onScrollBeginDrag={()=>{manuallyScrolling.current=true;}} onMomentumScrollBegin={()=>{manuallyScrolling.current=true;}} onScrollEndDrag={()=>{manuallyScrolling.current=false;}} onMomentumScrollEnd={()=>{manuallyScrolling.current=false;}}>
+      <ScrollView ref={scrollRef} style={s.textArea} contentContainerStyle={s.readingContent} scrollEventThrottle={16} onLayout={event=>{viewportHeight.current=event.nativeEvent.layout.height;prepareReader();}} onScroll={trackScroll} onScrollBeginDrag={()=>{manuallyScrolling.current=true;}} onMomentumScrollBegin={()=>{manuallyScrolling.current=true;}} onScrollEndDrag={()=>{manuallyScrolling.current=false;}} onMomentumScrollEnd={()=>{manuallyScrolling.current=false;}}>
         {passages.map((passage,passageIndex)=>{const current=passageIndex===index;const tokens=current?passage.split(/(\s+)/):[];return <Text key={passageIndex} onLayout={event=>measureSentence(passageIndex,event)} style={[s.sentence,readingType,{color:theme.text},current&&sentenceHighlight&&{backgroundColor:theme.sentenceHighlight}]}>{current?tokens.map((token,tokenIndex)=>{if(/^\s+$/.test(token))return token;const before=tokens.slice(0,tokenIndex).join("");const spokenIndex=before.match(/\S+/g)?.length||0;const active=spokenIndex===wordIndex;return <Text key={tokenIndex} style={active&&wordHighlight?{color:theme.text,fontWeight:"900",fontSize:(readingType.fontSize as number)+2}:undefined}>{token}</Text>;}):passage}</Text>;})}
       </ScrollView>
 
@@ -264,7 +271,7 @@ export default function Reader(){
         </View>
       </KeyboardAvoidingView>
     </Modal>
-  </SafeAreaView></Animated.View></View>;
+  </SafeAreaView></Animated.View></Animated.View></View>;
 }
 
 function VoiceChoice({name,selected,previewing,onPreview,onSelect}:{name:string;selected:boolean;previewing:boolean;onPreview:()=>void;onSelect:()=>void}){const {theme}=useVoticTheme();return <View style={[s.voiceChoice,{borderColor:selected?theme.accent:theme.border,backgroundColor:selected?theme.sentenceHighlight:theme.surface}]}><Pressable accessibilityRole="button" accessibilityLabel={previewing?`Stop ${name} voice preview`:`Preview ${name} voice`} onPress={onPreview} style={({pressed})=>[s.voicePreview,{backgroundColor:selected?theme.accent:theme.surfaceMuted,opacity:pressed?.7:1}]}><Ionicons name={previewing?"stop":"play"} size={18} color={selected?"#FFF":theme.accent}/></Pressable><Pressable accessibilityRole="radio" accessibilityState={{checked:selected}} accessibilityLabel={`Select ${name} voice`} onPress={onSelect} style={({pressed})=>[s.voiceSelect,{opacity:pressed?.7:1}]}><Text style={[s.voiceName,{color:selected?theme.accent:theme.text}]}>{name}</Text>{selected?<Ionicons name="checkmark-circle" size={19} color={theme.accent}/>:null}</Pressable></View>;}
