@@ -5,7 +5,6 @@ test.beforeEach(async ({ page }) => {
   await page.evaluate(() => localStorage.clear());
   await page.reload();
 });
-
 test("opens with a focused empty state and personalization", async ({ page }) => {
   await expect(page).toHaveTitle(/Votic/);
   await expect(page.getByRole("heading", { name: "Turn a document into a listening experience." })).toBeVisible();
@@ -54,7 +53,7 @@ test("navigates between Home Documents and Settings", async ({ page }) => {
 
 test("saved documents appear in the Documents library and reopen", async ({ page }) => {
   await page.getByRole("button", { name: "Add document" }).first().click();
-  await page.getByLabel("Remember this document and worksheet answers on this device").check();
+  await page.getByLabel("Remember this document on this device").check();
   await page.locator("#documentFile").setInputFiles({ name: "library.md", mimeType: "text/markdown", buffer: Buffer.from("# Library document\n\n## Notes\nThis document should be saved.") });
   await page.getByRole("button", { name: "Open in reader" }).click();
   await page.getByRole("button", { name: /Documents/ }).click();
@@ -109,16 +108,3 @@ test("stores document content only after explicit consent and can clear it", asy
   await expect.poll(() => page.evaluate(() => localStorage.getItem("votic.resume.v1"))).toBeNull();
 });
 
-test("completes worksheet controls and downloads a Word copy", async ({ page }) => {
-  await page.getByRole("button", { name: "Add document" }).click();
-  await page.getByRole("radio", { name: /Worksheet document/ }).check();
-  await page.locator("#documentFile").setInputFiles({ name: "plan.md", mimeType: "text/markdown", buffer: Buffer.from("# Plan\n\n## Tasks\n☐ Approved. Why? __________") });
-  await page.getByRole("button", { name: "Open in reader" }).click();
-  await page.getByRole("button", { name: /Check this worksheet item/ }).click();
-  await page.getByPlaceholder("Type your answer").fill("Because it is ready.");
-  const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Download Word document" }).click();
-  const download = await downloadPromise;
-  expect(download.suggestedFilename()).toMatch(/-completed\.docx$/);
-  await expect(page.getByText("Word document downloaded.")).toBeVisible();
-});

@@ -43,7 +43,7 @@ jobs:
 
       - name: Install mobile dependencies
         working-directory: apps/mobile
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
 
       - name: Run Vitest behavioral reliability tests
         working-directory: apps/mobile

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_DOCUMENT_BYTES, supportedDocument, validateImport, validateLoadedBytes } from "./importDocument";
+import { cleanLocalDocumentText, MAX_DOCUMENT_BYTES, supportedDocument, validateImport, validateLoadedBytes } from "./importDocument";
 
 describe("document import reliability",()=>{
  it("accepts every supported document extension regardless of case",()=>{
@@ -23,5 +23,9 @@ describe("document import reliability",()=>{
  it("rejects invalid size values instead of treating them as safe",()=>{
   expect(()=>validateImport({name:"book.pdf",uri:"file:///book.pdf",size:-1})).toThrow(/determine this document's size/i);
   expect(()=>validateLoadedBytes(Number.NaN)).toThrow(/determine this document's size/i);
+ });
+
+ it("cleans local text without damaging readable content",()=>{
+  expect(cleanLocalDocumentText("Title\r\n\u0000First line.   \n\n\nSecond line.")).toBe("Title\nFirst line.\n\nSecond line.");
  });
 });

@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { create_completed_docx, extract_document } from "./app_parts/document_file_tools.js";
+import { extract_document } from "./app_parts/document_file_tools.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT } from "./app_parts/help_answers.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
@@ -79,14 +79,6 @@ export function create_votic_handler(options = {}) {
     finally { active_extractions -= 1; }
     return;
   }
-   if (request.method === "POST" && path === "/api/export-docx") {
-    const payload = await read_json_body(request, 2_000_000, config.body_timeout_ms);
-    if (!Array.isArray(payload.blocks) || !payload.blocks.length) throw new HttpError(400, "The worksheet does not contain anything to export.");
-    const body = await (options.createDocx || create_completed_docx)(payload.title, payload.blocks);
-    set_security_headers(response, { "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "Content-Length": body.length });
-    response.writeHead(200).end(body);
-    return;
-  }
    if (request.method === "POST" && path === "/api/help") {
       rate_limit(`${client}:help`, config.help_rate_limit);
       const { question, document } = await read_json_body(request, 500_000, config.body_timeout_ms);
@@ -158,10 +150,6 @@ function extraction_error_message(error) {
   if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf|invalid.*(?:ppt|cfb|ole)|compound file/i.test(message)) return "This file appears to be damaged or is not a valid PDF, Word, PowerPoint, or EPUB document. Try opening and saving it again, then re-upload it.";
   if (/does not contain readable text|publication manifest|publication package|too many reading sections|expands beyond|image-only|drm-protected/i.test(message)) return message;
   return "Votic could not read this document. The file may be damaged or unsupported; try saving a fresh copy and uploading it again.";
-}
-function export_error_message(error) {
-  const message = String(error?.message || error);
-  return message || "Votic could not create the Word document. Please try the text download instead.";
 }
 async function answer_with_ai(question, { env, fetch_impl, timeout_ms }) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout_ms);

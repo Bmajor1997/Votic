@@ -59,7 +59,38 @@ jobs:
         if: ${{ hashFiles('code_checks/reader_transition.test.js') != '' }}
         run: node --test code_checks/reader_transition.test.js
       - name: Check dependencies for vulnerabilities
-        run: npm audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          node - <<'NODE'
+          const fs = require("fs");
+          const path = "security/vulnerability-report.md";
+          const audit = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
+          const rows = [];
+          for (const [name, finding] of Object.entries(audit.vulnerabilities || {})) {
+            if (!["low", "moderate"].includes(finding.severity)) continue;
+            const details = (Array.isArray(finding.via) ? finding.via : []).find(item => typeof item === "object") || {};
+            const title = details.title || "Dependency vulnerability";
+            const cause = details.url ? `Reported by npm audit. Advisory: ${details.url}` : "Reported by npm audit.";
+            const fix = finding.fixAvailable ? "Review npm audit fix guidance and update the affected dependency." : "Review the advisory and dependency tree; upgrade or replace the dependency when a patched version is available.";
+            rows.push(`| ${finding.severity[0].toUpperCase() + finding.severity.slice(1)} | ${title.replaceAll("|", "\\|")} | ${name.replaceAll("|", "\\|")} | ${cause.replaceAll("|", "\\|")} | ${fix.replaceAll("|", "\\|")} | Open |`);
+          }
+          const start = "<!-- AUTO-GENERATED-NPM-AUDIT:START -->";
+          const end = "<!-- AUTO-GENERATED-NPM-AUDIT:END -->";
+          const body = rows.length ? rows.join("\n") : "| None | No low or moderate npm dependency vulnerabilities detected | — | — | — | — |";
+          let report = fs.readFileSync(path, "utf8");
+          const block = `${start}\n\n## Current npm audit findings\n\n| Severity | Vulnerability / Finding | Affected dependency or code | Cause | Recommended fix | Status |\n| --- | --- | --- | --- | --- | --- |\n${body}\n\n${end}`;
+          report = report.includes(start) && report.includes(end) ? report.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block) : `${report}\n\n${block}\n`;
+          fs.writeFileSync(path, report);
+          NODE
+          npm audit --audit-level=high
+      - name: Preserve dependency audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-vulnerability-report
+          path: |
+            npm-audit.json
+            security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner
         run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan -r /src
 
@@ -87,7 +118,7 @@ jobs:
         with:
           node-version: 24
       - name: Install mobile dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Type-check React Native code
         run: npm run typecheck
       - name: Validate Expo configuration
