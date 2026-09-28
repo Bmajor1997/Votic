@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
 import { ReactNode,useEffect,useMemo,useRef,useState } from "react";
-import { Animated,BackHandler,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,NativeScrollEvent,NativeSyntheticEvent,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
+import { Animated,BackHandler,Easing,GestureResponderEvent,Image,KeyboardAvoidingView,LayoutChangeEvent,Modal,NativeScrollEvent,NativeSyntheticEvent,Platform,Pressable,ScrollView,StyleSheet,Switch,Text,TextInput,TextStyle,View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { HighlightMode,ReaderFont,ReadingSpacing,TextSize,useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../src/components/PlaybackSpeedControl";
@@ -106,18 +106,33 @@ export default function Reader(){
   const viewportHeight=useRef(0);
   const manuallyScrolling=useRef(false);
   const entrance=useRef(new Animated.Value(accessibility.reduceMotion?1:0)).current;
+  const closing=useRef(false);
   const completedRef=useRef(activeDocument?.progress===1);
   const readingType=readerType(accessibility.textSize,accessibility.readingSpacing,accessibility.readerFont,accessibility.textSpacing);
   const progress=useMemo(()=>progressForLocation(passages,index,wordIndex),[passages,index,wordIndex]);
 
   useEffect(()=>{void Speech.getAvailableVoicesAsync().then(available=>setVoices(uniqueEnglishVoices(available))).catch(()=>setVoices([]));},[]);
-  useEffect(()=>{if(accessibility.reduceMotion){entrance.setValue(1);return;}Animated.timing(entrance,{toValue:1,duration:270,useNativeDriver:true}).start();},[accessibility.reduceMotion,entrance]);
+  useEffect(()=>{
+    if(accessibility.reduceMotion){entrance.setValue(1);return;}
+    entrance.setValue(0);
+    Animated.timing(entrance,{toValue:1,duration:380,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start();
+  },[accessibility.reduceMotion,entrance]);
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
-  useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void stop();transition.closeReader(()=>router.back());return true;});return()=>subscription.remove();},[transition]);
+  useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void closeReader();return true;});return()=>subscription.remove();},[transition,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;updateProgress(activeDocument.id,progress,index,wordIndex);},[activeDocument?.id,passages.length,progress,index,wordIndex]);
   useEffect(()=>{followActiveWord();},[index,wordIndex,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument)return;let lastSavedAt=Date.now();function saveElapsed(){if(!activeDocument)return;const seconds=Math.floor((Date.now()-lastSavedAt)/1000);if(seconds<1)return;lastSavedAt+=seconds*1000;recordActivity(activeDocument.id,seconds,playing?seconds:0);}const interval=setInterval(saveElapsed,10000);return()=>{clearInterval(interval);saveElapsed();};},[activeDocument?.id,playing]);
 
+  async function closeReader(){
+    if(closing.current)return;
+    closing.current=true;
+    await stop();
+    if(accessibility.reduceMotion){transition.closeReader(()=>router.back());return;}
+    Animated.timing(entrance,{toValue:0,duration:320,easing:Easing.inOut(Easing.cubic),useNativeDriver:true}).start(({finished})=>{
+      if(finished)transition.closeReader(()=>router.back());
+      else closing.current=false;
+    });
+  }
   function followActiveWord(force=false){
     if(manuallyScrolling.current&&!force)return;const layout=sentenceLayout.current[index];if(!layout||!viewportHeight.current)return;
     const words=Math.max(1,wordMatches(passages[index]||"").length);const wordFraction=Math.max(0,Math.min(1,wordIndex/words));const estimatedY=layout.y+layout.height*wordFraction;
@@ -160,10 +175,10 @@ export default function Reader(){
   function confirmSavePassage(){if(!activeDocument||!passages[index])return;const now=Date.now();savePassage(activeDocument.id,{id:passageId,sentenceIndex:index,text:passages[index],note:noteDraft.trim(),createdAt:savedPassage?.createdAt||now,updatedAt:now});setSaveOpen(false);}
   function confirmRemovePassage(){if(!activeDocument||!savedPassage)return;removePassage(activeDocument.id,savedPassage.id);setSaveOpen(false);}
 
-  return <View style={[s.safe,{backgroundColor:theme.background}]}><Animated.View style={[s.safe,{opacity:entrance,transform:[{translateY:entrance.interpolate({inputRange:[0,1],outputRange:[10,0]})}]}]}><SafeAreaView edges={["top","bottom","left","right"]} style={s.safe}>
+  return <View style={s.safe}><Animated.View style={[s.safe,{backgroundColor:theme.background,opacity:entrance.interpolate({inputRange:[0,1],outputRange:[.94,1]}),transform:[{scale:entrance.interpolate({inputRange:[0,1],outputRange:[.985,1]})}]}]}><SafeAreaView edges={["top","bottom","left","right"]} style={s.safe}>
     <View style={s.content}>
       <View style={s.topBar}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void stop();transition.closeReader(()=>router.back());}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close reader" onPress={()=>{void closeReader();}} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable>
         <VoticLogo compact/>
         <View style={s.headerActions}><Pressable accessibilityRole="button" accessibilityLabel={savedPassage?"Edit saved passage":"Save current passage"} accessibilityState={{selected:Boolean(savedPassage)}} onPress={openSavePassage} style={({pressed})=>[s.iconButton,{opacity:pressed?.55:1}]}><Ionicons name={savedPassage?"bookmark":"bookmark-outline"} size={22} color={savedPassage?theme.accent:theme.text}/></Pressable></View>
       </View>
