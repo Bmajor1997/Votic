@@ -15,6 +15,7 @@ import { cleanTags,NOTE_TYPES } from "../src/notes/noteMetadata";
 import { formatPlaybackRate,normalizePlaybackRate } from "../src/playback/rates";
 import { AppearanceMode,useVoticTheme } from "../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
+import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 
 type ReaderSheet="appearance"|"focus"|"listen"|null;
 type Voice=Awaited<ReturnType<typeof Speech.getAvailableVoicesAsync>>[number];
@@ -90,6 +91,7 @@ export default function Reader(){
   const transition=useDocumentTransition();
   const window=useWindowDimensions();
   const {activeDocument,savePassage,removePassage,updateProgress,recordActivity,completeDocument,updatePlaybackRate}=useDocumentLibrary();
+  const {purpose}=useVoticPurpose();
   const passages=useMemo(()=>sentences(activeDocument?.plainText||""),[activeDocument?.plainText]);
   const [index,setIndex]=useState(activeDocument?.sentenceIndex||0);
   const [wordIndex,setWordIndex]=useState(activeDocument?.wordIndex||0);
@@ -198,7 +200,7 @@ export default function Reader(){
         <Text numberOfLines={1} maxFontSizeMultiplier={1.2} style={[s.title,s.compactTitle,{color:theme.text}]}>{activeDocument?.title||"Document reader"}</Text>
         <View style={s.progressCopy}><Text maxFontSizeMultiplier={1.2} style={[s.progressText,{color:theme.mutedText}]}>{Math.round(progress*100)}% read</Text><Text maxFontSizeMultiplier={1.2} style={[s.progressText,{color:theme.mutedText}]}>{Math.max(0,passages.length-index-1)} passages left</Text></View>
         <SeekableProgress value={progress} onSeekStart={beginSeek} onSeek={value=>void seekTo(value)}/>
-        <Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>{void stop();router.push("/assistant");}} style={({pressed})=>[s.readingAsk,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.accent}/><Text numberOfLines={1} style={[s.readingAskText,{color:theme.accent}]}>Ask Votic</Text><Ionicons name="arrow-forward" size={16} color={theme.accent}/></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>{void stop();router.push("/assistant");}} style={({pressed})=>[s.readingAsk,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="chatbubble-ellipses-outline" size={18} color={theme.accent}/><Text numberOfLines={1} style={[s.readingAskText,{color:theme.accent}]}>{purpose==="learning"?"Ask Votic · Learn":purpose==="work"?"Ask Votic · Work":purpose==="research"?"Ask Votic · Research":"Ask Votic"}</Text><Ionicons name="arrow-forward" size={16} color={theme.accent}/></Pressable>
       </View>
       <ScrollView ref={scrollRef} style={s.textArea} contentContainerStyle={s.readingContent} scrollEventThrottle={16} onLayout={event=>{viewportHeight.current=event.nativeEvent.layout.height;prepareReader();}} onScroll={trackScroll} onScrollBeginDrag={()=>{manuallyScrolling.current=true;}} onMomentumScrollBegin={()=>{manuallyScrolling.current=true;}} onScrollEndDrag={()=>{manuallyScrolling.current=false;}} onMomentumScrollEnd={()=>{manuallyScrolling.current=false;}}>
         {passages.map((passage,passageIndex)=>{const current=passageIndex===index;const tokens=current?passage.split(/(\s+)/):[];return <Text key={passageIndex} onLayout={event=>measureSentence(passageIndex,event)} style={[s.sentence,readingType,{color:theme.text},current&&sentenceHighlight&&{backgroundColor:theme.sentenceHighlight}]}>{current?tokens.map((token,tokenIndex)=>{if(/^\s+$/.test(token))return token;const before=tokens.slice(0,tokenIndex).join("");const spokenIndex=before.match(/\S+/g)?.length||0;const active=spokenIndex===wordIndex;return <Text key={tokenIndex} style={active&&wordHighlight?{color:theme.text,fontWeight:"900",fontSize:(readingType.fontSize as number)+2}:undefined}>{token}</Text>;}):passage}</Text>;})}
