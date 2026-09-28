@@ -4,12 +4,10 @@ import { AccessibilityProvider } from "../src/accessibility/AccessibilityProvide
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
-import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { FirstRunTourProvider } from "../src/onboarding/FirstRunTourProvider";
 
 function ThemedStack(){
   const {theme}=useVoticTheme();
-  const {reduceMotion}=useAccessibilityPreferences();
   return <DocumentLibraryProvider><DocumentTransitionProvider><FirstRunTourProvider>
     <Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:theme.background},animation:"none"}}>
       <Stack.Screen name="(tabs)"/>
