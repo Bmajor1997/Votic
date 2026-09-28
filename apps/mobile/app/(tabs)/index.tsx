@@ -10,13 +10,14 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
+import { useVoticPurpose } from "../../src/personalization/PurposeProvider";
 
 export default function Home(){
-  const {theme}=useVoticTheme(); const {documents,collections,openDocument,setDocumentCollection,removeDocument}=useDocumentLibrary();
+  const {theme}=useVoticTheme(); const {purpose}=useVoticPurpose(); const {documents,collections,openDocument,setDocumentCollection,removeDocument}=useDocumentLibrary();
   const transition=useDocumentTransition();
   const cardRefs=useRef<Record<string,View|null>>({});
   const [menuId,setMenuId]=useState<string|null>(null);
-  const recent=mostRecentIncomplete(documents); const visible=documents.slice(0,3);
+  const recent=mostRecentIncomplete(documents); const visible=documents.slice(0,3); const purposeCopy=purpose==="learning"?{title:"Ready to learn?",body:"Read, listen, ask questions, and turn important ideas into notes."}:purpose==="work"?{title:"Ready to get through it?",body:"Read, listen, summarize, and capture the details that matter."}:purpose==="research"?{title:"Ready to dig in?",body:"Read closely, ask questions, compare ideas, and capture findings."}:purpose==="accessibility"?{title:"Read your way",body:"Choose reading, listening, highlighting, and controls that work for you."}:purpose==="personal"?{title:"Ready to read?",body:"Read or listen at your pace, ask questions, and save what stands out."}:{title:"Ready to dive in?",body:"Read, listen, ask questions, or capture what matters."};
   const menuDocument=documents.find(document=>document.id===menuId);
   function open(id:string,sourceKey=id){
     const source=cardRefs.current[sourceKey];
@@ -25,7 +26,7 @@ export default function Home(){
   }
   function remove(){if(!menuDocument)return;const selected=menuDocument;setMenuId(null);Alert.alert("Delete document?",`Remove ${selected.title} from Votic? This cannot be undone.`,[{text:"Cancel",style:"cancel"},{text:"Delete",style:"destructive",onPress:()=>removeDocument(selected.id)}]);}
   return <Screen title="Home" hideTitle>
-    <ScrollFadeItem><View style={[s.hero,{backgroundColor:theme.surfaceMuted}]}><View style={s.heroCopy}><Text style={[s.welcome,{color:theme.mutedText}]}>Welcome back</Text><Text style={[s.heroTitle,{color:theme.text}]}>Ready to dive in?</Text><Text style={[s.heroBody,{color:theme.mutedText}]}>Read, listen, ask questions, or capture what matters.</Text></View><View style={[s.heroArt,{backgroundColor:theme.sentenceHighlight}]}><Ionicons name="document-text" size={44} color={theme.accent}/></View><Pressable onPress={()=>router.push("/documents")} style={[s.upload,{backgroundColor:theme.accent}]}><Ionicons name="add" size={22} color="#FFF"/><Text style={s.uploadText}>Upload Document</Text></Pressable></View></ScrollFadeItem>
+    <ScrollFadeItem><View style={[s.hero,{backgroundColor:theme.surfaceMuted}]}><View style={s.heroCopy}><Text style={[s.welcome,{color:theme.mutedText}]}>Welcome back</Text><Text style={[s.heroTitle,{color:theme.text}]}>{purposeCopy.title}</Text><Text style={[s.heroBody,{color:theme.mutedText}]}>{purposeCopy.body}</Text></View><View style={[s.heroArt,{backgroundColor:theme.sentenceHighlight}]}><Ionicons name="document-text" size={44} color={theme.accent}/></View><Pressable onPress={()=>router.push("/documents")} style={[s.upload,{backgroundColor:theme.accent}]}><Ionicons name="add" size={22} color="#FFF"/><Text style={s.uploadText}>Upload Document</Text></Pressable></View></ScrollFadeItem>
     <SectionHeader title="Continue Reading" onPress={()=>router.push("/documents")}/>
     {recent?<ScrollFadeItem><Pressable ref={node=>{cardRefs.current["recent:"+recent.id]=node;}} collapsable={false} onPress={()=>open(recent.id,"recent:"+recent.id)} style={({pressed})=>[s.continueCard,{backgroundColor:theme.surface,borderColor:theme.border,opacity:pressed?.82:1}]}><DocumentTypeIcon sourceName={recent.sourceName}/><View style={s.flex}><Text numberOfLines={1} style={[s.docTitle,{color:theme.text}]}>{recent.title}</Text><Text style={[s.meta,{color:theme.mutedText}]}>{recent.sentenceIndex+1} passages · {Math.round(recent.progress*100)}% read</Text><View style={[s.track,{backgroundColor:theme.border}]}><View style={[s.progress,{backgroundColor:theme.accent,width:`${recent.progress*100}%` as `${number}%`}]}/></View></View><View style={[s.play,{backgroundColor:theme.accent}]}><Ionicons name="play" size={20} color="#FFF"/></View></Pressable></ScrollFadeItem>:<Pressable accessibilityRole="button" accessibilityLabel="Choose your first document" onPress={()=>router.push("/documents")} style={[s.homeEmpty,{borderColor:theme.border}]}><HomeEmptyAnimation/><Text style={[s.emptyText,{color:theme.text}]}>Choose your first document</Text></Pressable>}
     <SectionHeader title="My Documents" onPress={()=>router.push("/documents")}/>
