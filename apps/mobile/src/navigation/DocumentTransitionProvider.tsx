@@ -25,14 +25,14 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
 
   function beginReader(){
     if(reduceMotion){progress.setValue(1);locked.current=false;setTransitioning(false);return;}
-    Animated.timing(progress,{toValue:1,duration:420,useNativeDriver:true}).start(({finished})=>{if(finished){locked.current=false;setTransitioning(false);}});
+    Animated.timing(progress,{toValue:1,duration:300,useNativeDriver:true}).start(({finished})=>{if(finished){locked.current=false;setTransitioning(false);}});
   }
   function closeReader(navigate:()=>void){
     if(locked.current)return;
     locked.current=true;
     setTransitioning(true);
     if(reduceMotion){progress.setValue(0);locked.current=false;setTransitioning(false);navigate();return;}
-    Animated.timing(progress,{toValue:0,duration:340,useNativeDriver:true}).start(()=>{locked.current=false;setTransitioning(false);navigate();});
+    Animated.timing(progress,{toValue:0,duration:240,useNativeDriver:true}).start(()=>{locked.current=false;setTransitioning(false);navigate();});
   }
 
   const value=useMemo(()=>({openReader,beginReader,closeReader,sourceRect,progress,transitioning}),[sourceRect,transitioning,reduceMotion]);

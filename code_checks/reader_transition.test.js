@@ -18,8 +18,8 @@ test("Reader route leaves the source screen mounted and disables competing stack
 });
 
 test("Reader container owns a reversible source-geometry transition",()=>{
-  assert.match(provider,/duration:420/);
-  assert.match(provider,/duration:340/);
+  assert.match(provider,/duration:300/);
+  assert.match(provider,/duration:240/);
   assert.match(reader,/source\.width\/window\.width/);
   assert.match(reader,/source\.x\+source\.width\/2-window\.width\/2/);
   assert.match(reader,/scaleX:transition\.progress\.interpolate/);
