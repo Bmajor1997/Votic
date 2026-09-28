@@ -11,7 +11,7 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { NotesEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { DocumentTypeIcon,documentTypeColor } from "../../src/components/DocumentTypeIcon";
 
-type Filter="all"|"notes"|"saved";
+type Filter="all"|"notes"|"saved"|"pinned"|"key-point"|"question"|"definition";
 type NoteItem={document:VoticDocument;passage:SavedPassage};
 function dateLabel(value:number){const date=new Date(value),today=new Date();if(date.toDateString()===today.toDateString())return "Today";const yesterday=new Date(today);yesterday.setDate(today.getDate()-1);if(date.toDateString()===yesterday.toDateString())return "Yesterday";return date.toLocaleDateString(undefined,{month:"short",day:"numeric"});}
 
@@ -31,8 +31,11 @@ export default function Notes(){
     const passages=(document.savedPassages||[]).filter(passage=>{
       if(filter==="notes"&&!passage.note.trim())return false;
       if(filter==="saved"&&passage.note.trim())return false;
+      if(filter==="pinned"&&!passage.pinned)return false;
+      if(["key-point","question","definition"].includes(filter)&&(passage.noteType||"note")!==filter)return false;
       const needle=query.trim().toLocaleLowerCase();
-      return !needle||document.title.toLocaleLowerCase().includes(needle)||passage.text.toLocaleLowerCase().includes(needle)||passage.note.toLocaleLowerCase().includes(needle);
+      const searchable=[document.title,passage.text,passage.note,passage.title||"",noteTypeLabel(passage.noteType),...(passage.tags||[])].join(" ").toLocaleLowerCase();
+      return !needle||searchable.includes(needle);
     }).sort((a,b)=>b.updatedAt-a.updatedAt);
     return {document,passages};
   }).filter(group=>group.passages.length).sort((a,b)=>b.passages[0].updatedAt-a.passages[0].updatedAt),[documents,query,filter]);
@@ -44,8 +47,8 @@ export default function Notes(){
   function remove(){if(!menuItem)return;const selected=menuItem;setMenuItem(null);Alert.alert("Remove from Notes?","This note and its saved passage will be removed from Votic.",[{text:"Cancel",style:"cancel"},{text:"Remove",style:"destructive",onPress:()=>removePassage(selected.document.id,selected.passage.id)}]);}
 
   return <Screen title="Notes">
-    <View style={[s.search,{backgroundColor:theme.surfaceMuted}]}><Ionicons name="search" size={19} color={theme.mutedText}/><TextInput accessibilityLabel="Search notes" value={query} onChangeText={setQuery} placeholder="Search notes, passages..." placeholderTextColor={theme.mutedText} style={[s.input,{color:theme.text}]}/>{query?<Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={()=>setQuery("")} style={s.clear}><Ionicons name="close-circle" size={20} color={theme.mutedText}/></Pressable>:null}</View>
-    <View style={s.filters}><FilterButton label="All" value="all" current={filter} onPress={setFilter}/><FilterButton label="Notes" value="notes" current={filter} onPress={setFilter}/><FilterButton label="Saved passages" value="saved" current={filter} onPress={setFilter}/></View>
+    <View style={[s.search,{backgroundColor:theme.surfaceMuted}]}><Ionicons name="search" size={19} color={theme.mutedText}/><TextInput accessibilityLabel="Search notes" value={query} onChangeText={setQuery} placeholder="Search notes, titles, tags..." placeholderTextColor={theme.mutedText} style={[s.input,{color:theme.text}]}/>{query?<Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={()=>setQuery("")} style={s.clear}><Ionicons name="close-circle" size={20} color={theme.mutedText}/></Pressable>:null}</View>
+    <View style={s.filters}><FilterButton label="All" value="all" current={filter} onPress={setFilter}/><FilterButton label="Notes" value="notes" current={filter} onPress={setFilter}/><FilterButton label="Saved passages" value="saved" current={filter} onPress={setFilter}/><FilterButton label="Pinned" value="pinned" current={filter} onPress={setFilter}/><FilterButton label="Key Points" value="key-point" current={filter} onPress={setFilter}/><FilterButton label="Questions" value="question" current={filter} onPress={setFilter}/><FilterButton label="Definitions" value="definition" current={filter} onPress={setFilter}/></View>
     {groups.length?<View style={s.list}>{groups.map(({document,passages})=>{const color=documentTypeColor(document.sourceName),noteCount=passages.filter(passage=>passage.note.trim()).length,savedCount=passages.length-noteCount;return <ScrollFadeItem key={document.id}>
       <View style={[s.group,{borderColor:theme.border,backgroundColor:theme.surface}]}>
         <Pressable accessibilityRole="button" accessibilityLabel={`Open ${document.title}`} onPress={()=>open(document.id,passages[0].sentenceIndex)} style={({pressed})=>[s.groupHeader,{backgroundColor:pressed?theme.surfaceMuted:"transparent"}]}>
