@@ -156,7 +156,8 @@ function extraction_error_message(error) {
   if (/password|encrypted/i.test(message)) return "This document is password-protected. Remove the password and upload it again.";
   if (/no selectable text|scanned/i.test(message)) return "Votic could not find selectable text in this PDF. It may be a scanned document; scanned-PDF reading is not supported yet.";
   if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf|invalid.*(?:ppt|cfb|ole)|compound file/i.test(message)) return "This file appears to be damaged or is not a valid PDF, Word, PowerPoint, or EPUB document. Try opening and saving it again, then re-upload it.";
-  return message || "Votic could not read this document. Try saving a fresh copy or uploading a TXT version.";
+  if (/does not contain readable text|publication manifest|publication package|too many reading sections|expands beyond|image-only|drm-protected/i.test(message)) return message;
+  return "Votic could not read this document. The file may be damaged or unsupported; try saving a fresh copy and uploading it again.";
 }
 function export_error_message(error) {
   const message = String(error?.message || error);
