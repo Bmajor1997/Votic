@@ -5,6 +5,7 @@ import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvide
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { FirstRunTourProvider } from "../src/onboarding/FirstRunTourProvider";
+import { PurposeProvider } from "../src/personalization/PurposeProvider";
 
 function ThemedStack(){
   const {theme}=useVoticTheme();
@@ -20,5 +21,5 @@ function ThemedStack(){
 }
 
 export default function RootLayout(){
-  return <ThemeProvider><AccessibilityProvider><ThemedStack/></AccessibilityProvider></ThemeProvider>;
+  return <ThemeProvider><AccessibilityProvider><PurposeProvider><ThemedStack/></PurposeProvider></AccessibilityProvider></ThemeProvider>;
 }
