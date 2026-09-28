@@ -24,3 +24,16 @@ test("unknown extraction failures do not expose raw parser errors",()=>{
  assert.match(server,/The file may be damaged or unsupported/);
  assert.doesNotMatch(server,/return message \|\| "Votic could not read this document/);
 });
+
+test("library storage failures cannot masquerade as an empty successful load",()=>{
+ const storage=fs.readFileSync("apps/mobile/src/documents/documentStorage.ts","utf8");
+ const provider=fs.readFileSync("apps/mobile/src/documents/DocumentLibraryProvider.tsx","utf8");
+ const screen=fs.readFileSync("apps/mobile/src/components/Screen.tsx","utf8");
+ assert.match(storage,/Saved \\?\$?\{?label\}? data could not be read|could not be read/);
+ assert.doesNotMatch(storage,/catch\s*\{\s*return\s*\[\]\s*\}/);
+ assert.match(provider,/\.catch\(\(\)=>\{/);
+ assert.match(provider,/setHydrated\(false\)/);
+ assert.match(provider,/Your stored data has not been overwritten/);
+ assert.match(screen,/accessibilityRole="alert"/);
+ assert.match(screen,/persistenceError/);
+});
