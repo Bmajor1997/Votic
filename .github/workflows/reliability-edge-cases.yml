@@ -45,7 +45,11 @@ jobs:
         working-directory: apps/mobile
         run: npm install --ignore-scripts
 
-      - name: Run Vitest behavioral reliability tests\n        working-directory: apps/mobile\n        run: npm run test:reliability\n\n      - name: Type-check reliability-sensitive mobile code
+      - name: Run Vitest behavioral reliability tests
+        working-directory: apps/mobile
+        run: npm run test:reliability
+
+      - name: Type-check reliability-sensitive mobile code
         working-directory: apps/mobile
         run: npm run typecheck
 
