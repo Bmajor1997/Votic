@@ -10,9 +10,9 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 const TOUR_KEY="votic.mobile.first-run-tour.v1";
 const EXISTING_KEYS=["votic.mobile.documents.v1","votic.mobile.collections.v1","votic.mobile.theme.v1","votic.mobile.accessibility.v1"];
 const steps=[
-  {icon:"home-outline",title:"Welcome to Votic",body:"Home keeps recent reading close and gives you quick access to Reader, Ask Votic, and Notes."},
+  {icon:"home-outline",title:"Welcome to Votic",body:"Votic helps you read, listen, understand, ask questions, and capture what matters from your documents."},
   {icon:"documents-outline",title:"Your document library",body:"Open Documents to search, organize, and continue your files. Choose Upload to add PDF, Word, PowerPoint, EPUB, text, or Markdown files."},
-  {icon:"book-outline",title:"Read and listen",body:"Open a document to read, play narration, seek with the progress bar, adjust speed, and follow highlighted words."},
+  {icon:"book-outline",title:"Read your way",body:"Open a document to read normally, or choose Listen whenever you want narration, synchronized highlighting, speed controls, and voices."},
   {icon:"bookmark-outline",title:"Save useful passages",body:"Bookmark a passage in Reader, add an optional note, and find it later from Notes or your document library."},
   {icon:"chatbubble-ellipses-outline",title:"Ask Votic",body:"Use Ask Votic when you want help understanding the current document or exploring an idea."},
   {icon:"settings-outline",title:"Make reading yours",body:"Settings includes Light, Dark, and System appearance, accent colors, text size, spacing, and Reduce Motion. Reader controls also include highlighting, voice, and speed."}
