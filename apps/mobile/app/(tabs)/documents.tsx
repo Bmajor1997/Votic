@@ -6,7 +6,7 @@ import { ActivityIndicator,Alert,Modal,Pressable,ScrollView,StyleSheet,Text,Text
 import { extractDocument } from "../../src/api/voticApi";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes,radii,spacing,typography } from "../../src/design/tokens";
-import { canReadLocally,validateImport } from "../../src/documents/importDocument";
+import { canReadLocally,validateImport,validateLoadedBytes } from "../../src/documents/importDocument";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
@@ -27,7 +27,7 @@ export default function Documents(){
   const saved=useMemo(()=>documents.flatMap(document=>(document.savedPassages||[]).map(passage=>({document,passage}))).sort((a,b)=>b.passage.updatedAt-a.passage.updatedAt),[documents]);
   const assigningDocument=documents.find(document=>document.id===assigningId);
 
-  async function addDocument(){setImporting(true);try{const result=await DocumentPicker.getDocumentAsync({type:["text/plain","text/markdown","application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-powerpoint","application/epub+zip"],copyToCacheDirectory:true,multiple:false});if(result.canceled)return;const asset=result.assets[0];validateImport({name:asset.name,size:asset.size,uri:asset.uri,mimeType:asset.mimeType});const response=await fetch(asset.uri);if(!response.ok)throw new Error("Votic could not access this file. Please choose it again from your device.");let text:string;if(canReadLocally(asset.name))text=await response.text();else text=await extractDocument(asset.name,await response.arrayBuffer());if(!text.trim())throw new Error("This document does not contain readable text.");addTextDocument(asset.name,text);router.push("/reader");}catch(error){Alert.alert("Could not import document",error instanceof Error?error.message:"Votic could not read this document.");}finally{setImporting(false);}}
+  async function addDocument(){setImporting(true);try{const result=await DocumentPicker.getDocumentAsync({type:["text/plain","text/markdown","application/pdf","application/vnd.openxmlformats-officedocument.wordprocessingml.document","application/vnd.openxmlformats-officedocument.presentationml.presentation","application/vnd.ms-powerpoint","application/epub+zip"],copyToCacheDirectory:true,multiple:false});if(result.canceled)return;const asset=result.assets[0];validateImport({name:asset.name,size:asset.size,uri:asset.uri,mimeType:asset.mimeType});const response=await fetch(asset.uri);if(!response.ok)throw new Error("Votic could not access this file. Please choose it again from your device.");const bytes=await response.arrayBuffer();validateLoadedBytes(bytes.byteLength);let text:string;if(canReadLocally(asset.name))text=new TextDecoder().decode(bytes);else text=await extractDocument(asset.name,bytes);if(!text.trim())throw new Error("This document does not contain readable text.");addTextDocument(asset.name,text);router.push("/reader");}catch(error){Alert.alert("Could not import document",error instanceof Error?error.message:"Votic could not read this document.");}finally{setImporting(false);}}
   function open(id:string,sentenceIndex?:number){
     openDocument(id,sentenceIndex);
     transition.openReader(()=>router.push("/reader"));
