@@ -28,8 +28,10 @@ export default function Notes(){
   const [draftTitle,setDraftTitle]=useState("");
   const [draftType,setDraftType]=useState<NoteType>("note");
   const [draftTags,setDraftTags]=useState("");
-  const groups=useMemo(()=>documents.filter(document=>!notebookId||document.id===notebookId).map(document=>{
+  const notebook=notebookId?documents.find(document=>document.id===notebookId):undefined;
+  const groups=useMemo(()=>documents.map(document=>{
     const passages=(document.savedPassages||[]).filter(passage=>{
+      if(notebookId&&document.id!==notebookId)return false;
       if(filter==="notes"&&!passage.note.trim())return false;
       if(filter==="saved"&&passage.note.trim())return false;
       if(filter==="pinned"&&!passage.pinned)return false;
