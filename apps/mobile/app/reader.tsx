@@ -205,7 +205,7 @@ export default function Reader(){
       </ScrollView>
 
       <View style={[s.dock,{borderColor:theme.border,backgroundColor:theme.surface}]}>
-        <View style={[s.nowListeningHeader,s.compactListeningHeader]}><VoticLogo compact markOnly progress={progress}/><View style={s.nowListeningCopy}><Text maxFontSizeMultiplier={1.15} style={[s.nowListeningLabel,{color:theme.text}]}>Now Listening</Text><Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[s.nowListeningTitle,{color:theme.mutedText}]}>{activeDocument?.title||"Document"}</Text></View><Ionicons name="chevron-up" size={18} color={theme.mutedText}/></View>
+        <View style={[s.nowListeningHeader,s.compactListeningHeader]}><VoticLogo compact markOnly progress={progress}/><View style={s.nowListeningCopy}><Text maxFontSizeMultiplier={1.15} style={[s.nowListeningLabel,{color:theme.text}]}>{playing?"Now Listening":"Listen"}</Text><Text numberOfLines={1} maxFontSizeMultiplier={1.15} style={[s.nowListeningTitle,{color:theme.mutedText}]}>{activeDocument?.title||"Document"}</Text></View><Ionicons name="chevron-up" size={18} color={theme.mutedText}/></View>
         <View style={[s.controls,s.compactControls]}>
           <Pressable disabled={index===0} accessibilityRole="button" accessibilityLabel="Previous passage" onPress={()=>jump(-1)} style={({pressed})=>[s.control,{opacity:index===0?.3:pressed?.55:1}]}><Ionicons name="play-skip-back" size={25} color={index===0?theme.mutedText:theme.text}/></Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={playing?"Pause":"Play"} onPress={toggle} style={({pressed})=>[s.play,{backgroundColor:theme.playButton},!accessibility.reduceMotion&&{transform:[{scale:pressed?.96:1}]}]}><Ionicons name={playing?"pause":"play"} size={30} color={theme.playIcon}/></Pressable>
@@ -216,7 +216,7 @@ export default function Reader(){
         <View style={[s.toolRow,{borderTopColor:theme.border}]}>
           <ToolButton icon="text-outline" label="Text" active={sheet==="appearance"} onPress={()=>openSheet("appearance")}/>
           <ToolButton icon="color-palette-outline" label="Color" active={sheet==="appearance"} onPress={()=>openSheet("appearance")}/>
-          <ToolButton icon="speedometer-outline" label="Speed" active={sheet==="listen"} onPress={()=>openSheet("listen")}/>
+          <ToolButton icon="headset-outline" label="Listen" active={sheet==="listen"||playing} onPress={()=>openSheet("listen")}/>
           <ToolButton icon={savedPassage?"bookmark":"bookmark-outline"} label="Bookmark" active={saveOpen} onPress={openSavePassage}/>
           <ToolButton icon="ellipsis-horizontal" label="More" active={sheet==="focus"} onPress={()=>openSheet("focus")}/>
         </View>
