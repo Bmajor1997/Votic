@@ -6,6 +6,7 @@ type Library={
   documents:VoticDocument[];
   collections:string[];
   activeDocument:VoticDocument|null;
+  persistenceError:string|null;
   addTextDocument:(sourceName:string,text:string)=>VoticDocument;
   openDocument:(id:string,sentenceIndex?:number)=>void;
   addCollection:(name:string)=>void;
@@ -33,6 +34,7 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
   const [collections,setCollections]=useState<string[]>([]);
   const [activeId,setActiveId]=useState<string|null>(null);
   const [hydrated,setHydrated]=useState(false);
+  const [persistenceError,setPersistenceError]=useState<string|null>(null);
 
   useEffect(()=>{
     let mounted=true;
@@ -41,13 +43,18 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
       setDocuments(savedDocuments);
       setCollections(savedCollections);
       setActiveId(savedDocuments[0]?.id||null);
+      setPersistenceError(null);
       setHydrated(true);
+    }).catch(()=>{
+      if(!mounted)return;
+      setPersistenceError("Votic could not read its saved library. Your stored data has not been overwritten. Restart Votic and try again before making library changes.");
+      setHydrated(false);
     });
     return()=>{mounted=false;};
   },[]);
 
-  useEffect(()=>{if(hydrated)saveDocuments(documents).catch(()=>{});},[documents,hydrated]);
-  useEffect(()=>{if(hydrated)saveCollections(collections).catch(()=>{});},[collections,hydrated]);
+  useEffect(()=>{if(hydrated)saveDocuments(documents).then(()=>setPersistenceError(null)).catch(()=>setPersistenceError("Votic could not save your library changes. Keep Votic open and try the change again."));},[documents,hydrated]);
+  useEffect(()=>{if(hydrated)saveCollections(collections).then(()=>setPersistenceError(null)).catch(()=>setPersistenceError("Votic could not save your collection changes. Keep Votic open and try the change again."));},[collections,hydrated]);
 
   const activeDocument=useMemo(()=>documents.find(document=>document.id===activeId)||null,[documents,activeId]);
 
@@ -158,7 +165,7 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
   }
 
   return <C.Provider value={{
-    documents,collections,activeDocument,addTextDocument,openDocument,addCollection,
+    documents,collections,activeDocument,persistenceError,addTextDocument,openDocument,addCollection,
     setDocumentCollection,removeDocument,savePassage,removePassage,updateProgress,recordActivity,
     completeDocument,updatePlaybackRate,updateReviewResponses
   }}>{children}</C.Provider>;
