@@ -37,4 +37,9 @@ test("Notes are grouped by document and remain editable",()=>{
   assert.match(notes,/noteCount/);
   assert.match(notes,/savePassage\(editing\.document\.id/);
   assert.match(notes,/Add a note/);
+  assert.match(notes,/setViewing\(\{document,passage\}\)/);
+  assert.match(notes,/Note options/);
+  assert.match(notes,/Open in Reader/);
+  assert.match(notes,/Remove from Notes/);
+  assert.match(notes,/Alert\.alert\("Remove from Notes\?"/);
 });
