@@ -42,4 +42,19 @@ test("Notes are grouped by document and remain editable",()=>{
   assert.match(notes,/Open in Reader/);
   assert.match(notes,/Remove from Notes/);
   assert.match(notes,/Alert\.alert\("Remove from Notes\?"/);
+  assert.match(notes,/YOUR NOTE/);
+  assert.match(notes,/note\.trim\(\)\?<View[\s\S]*:.*SAVED PASSAGE/);
+});
+
+test("document icons consistently reflect their source file type",()=>{
+  const icon=read("apps/mobile/src/components/DocumentTypeIcon.tsx");
+  const home=read("apps/mobile/app/(tabs)/index.tsx");
+  const documents=read("apps/mobile/app/(tabs)/documents.tsx");
+  assert.match(icon,/endsWith\("\.pdf"\).*#DC2626/s);
+  assert.match(icon,/doc\|docx.*#2563EB/s);
+  assert.match(icon,/ppt\|pptx.*#EA580C/s);
+  assert.match(icon,/endsWith\("\.epub"\).*#7C3AED/s);
+  assert.match(icon,/return "#059669"/);
+  assert.match(home,/DocumentTypeIcon sourceName=\{doc\.sourceName\}/);
+  assert.match(documents,/DocumentTypeIcon sourceName=\{doc\.sourceName\}/);
 });
