@@ -53,8 +53,8 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
     return()=>{mounted=false;};
   },[]);
 
-  useEffect(()=>{if(hydrated)saveDocuments(documents).then(()=>setPersistenceError(null)).catch(()=>setPersistenceError("Votic could not save your library changes. Keep Votic open and try the change again."));},[documents,hydrated]);
-  useEffect(()=>{if(hydrated)saveCollections(collections).then(()=>setPersistenceError(null)).catch(()=>setPersistenceError("Votic could not save your collection changes. Keep Votic open and try the change again."));},[collections,hydrated]);
+  useEffect(()=>{if(hydrated)saveDocuments(documents).catch(()=>setPersistenceError("Votic could not save your library changes. Keep Votic open and try the change again."));},[documents,hydrated]);
+  useEffect(()=>{if(hydrated)saveCollections(collections).catch(()=>setPersistenceError("Votic could not save your collection changes. Keep Votic open and try the change again."));},[collections,hydrated]);
 
   const activeDocument=useMemo(()=>documents.find(document=>document.id===activeId)||null,[documents,activeId]);
 
