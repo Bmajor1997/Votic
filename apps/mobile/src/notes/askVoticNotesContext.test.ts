@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { buildNotesAskDocument,notesAskScopeLabel } from "./askVoticNotesContext";
+import { buildNotesAskDocument,noteSelectionId,notesAskScopeLabel } from "./askVoticNotesContext";
 import { VoticDocument } from "../documents/types";
 
 const documents:VoticDocument[]=[{
@@ -8,6 +8,11 @@ const documents:VoticDocument[]=[{
   {id:"p1",sentenceIndex:4,text:"Working memory is limited.",note:"Chunking can reduce memory load.",createdAt:1,updatedAt:2},
   {id:"p2",sentenceIndex:8,text:"A saved quote.",note:"",createdAt:1,updatedAt:3}
  ]
+}];
+
+const documentsWithDuplicatePassageIds:VoticDocument[]=[...documents,{
+ id:"doc-2",title:"Biology",sourceName:"biology.pdf",plainText:"",importedAt:1,updatedAt:1,progress:0,sentenceIndex:0,wordIndex:0,playbackRate:1,
+ savedPassages:[{id:"p1",sentenceIndex:2,text:"Cells use energy.",note:"ATP stores usable energy.",createdAt:1,updatedAt:2}]
 }];
 
 describe("Ask Votic notes context",()=>{
@@ -25,5 +30,11 @@ describe("Ask Votic notes context",()=>{
  });
  it("does not send saved passages without a user note as notes context",()=>{
   expect(buildNotesAskDocument(documents,{documentId:"doc-1",passageId:"p2"})).toBeUndefined();
+ });
+ it("keeps selected passage IDs scoped to their document",()=>{
+  const context=buildNotesAskDocument(documentsWithDuplicatePassageIds,{passageIds:[noteSelectionId("doc-2","p1")]});
+  expect(context?.sections).toHaveLength(1);
+  expect(context?.sections[0].heading).toContain("Biology");
+  expect(context?.sections[0].text).toContain("ATP stores usable energy.");
  });
 });

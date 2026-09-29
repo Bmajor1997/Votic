@@ -2,11 +2,13 @@ import { VoticDocument } from "../documents/types";
 
 export type NotesAskScope={documentId?:string;passageId?:string;passageIds?:string[]};
 
+export function noteSelectionId(documentId:string,passageId:string){return `${documentId}::${passageId}`;}
+
 export function notesForAskVotic(documents:VoticDocument[],scope:NotesAskScope){
   const selected=scope.documentId?documents.filter(document=>document.id===scope.documentId):documents;
   return selected.flatMap(document=>(document.savedPassages||[])
     .filter(passage=>!scope.passageId||passage.id===scope.passageId)
-    .filter(passage=>!scope.passageIds?.length||scope.passageIds.includes(passage.id))
+    .filter(passage=>!scope.passageIds?.length||scope.passageIds.includes(noteSelectionId(document.id,passage.id)))
     .filter(passage=>Boolean(passage.note.trim()))
     .map(passage=>({document,passage})));
 }
