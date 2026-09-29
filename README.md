@@ -19,14 +19,20 @@ A text-to-speech document reader prototype focused on making documents easier to
 - `package.json` tells Node which packages and commands Votic needs.
 - `package-lock.json` records the exact package versions installed for Votic.
 
-> **Current status:** Votic is transitioning to a mobile-first product. The existing dependency-light web prototype remains intact while a new React Native/Expo mobile client is being built in `apps/mobile/`. The mobile foundation uses TypeScript and establishes native navigation, theming, accessibility-aware controls, and a dedicated reader screen.
+> **Current status:** Votic is transitioning to a mobile-first product. The React Native/Expo mobile client in `apps/mobile/` is the primary app; the dependency-light web prototype remains intact and its server (`votic_server.js`) also serves the mobile app's document extraction and AI features.
 
 ## Project Structure
 
-- `apps/mobile/` contains the new React Native/Expo mobile application.
-  - `app/(tabs)/` contains the Home, Documents, and Settings destinations.
-  - `app/reader.tsx` is the dedicated mobile reader/player screen.
-  - `src/theme/` contains the centralized mobile theme system.
+- `apps/mobile/` contains the React Native/Expo mobile application (TypeScript, expo-router).
+  - `app/(tabs)/` contains the Home, Documents, Notes, and Settings tabs, plus a hidden Ask tab.
+  - `app/reader.tsx` is the Reader: reading, optional listening with synchronized highlighting, and saving passages and notes.
+  - `app/assistant.tsx` is Ask Votic, which answers questions about the open document or selected notes.
+  - `app/review.tsx` and `app/recap.tsx` are the end-of-document review and the weekly recap.
+  - `src/ask/` builds Ask Votic requests: which document or notes to send, relevant excerpts of long documents, conversation history, and where answers link and save.
+  - `src/documents/` contains the document library, its on-device storage, and import validation.
+  - `src/notes/` contains note metadata and the Notes context sent to Ask Votic.
+  - `src/api/` talks to the Votic server.
+  - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, purpose personalization, and the first-run tour.
   - `src/components/` contains reusable mobile UI components.
 - The existing root web files remain the working web prototype during the mobile transition. They will move into `apps/web/` only after the mobile foundation is stable, to avoid breaking working functionality during the restructure.
 - `packages/shared/` is reserved for platform-neutral business logic reviewed as safe to share across mobile, web, and future desktop clients.
@@ -34,11 +40,17 @@ A text-to-speech document reader prototype focused on making documents easier to
 
 ### Mobile navigation decision
 
-The mobile client uses bottom navigation for the three primary destinations: **Home**, **Documents**, and **Settings**. The reader opens as a dedicated screen rather than occupying a permanent tab. This keeps high-frequency destinations visible on phones and leaves room for future areas such as Votic Study without forcing a navigation rewrite. Secondary features may use contextual menus or a drawer later if user testing supports them.
+The mobile client uses bottom navigation for four primary destinations: **Home**, **Documents**, **Notes**, and **Settings**. The Reader and Ask Votic open as dedicated screens rather than occupying permanent tabs; Ask Votic is also reachable from Home, the Reader, and Notes. This keeps high-frequency destinations visible on phones and leaves room for future areas without forcing a navigation rewrite.
 
-### Mobile-first implementation plan
+### Mobile-first implementation status
 
-The mobile foundation now includes the Expo/TypeScript shell, bottom navigation, centralized theming, accessibility preferences, a native document picker/library, TXT/Markdown local import, PDF/DOCX extraction through the existing Votic API, and native text-to-speech reader controls with 0.1× speed steps. Persistence, production API configuration/authentication, background playback, lock-screen controls, voice selection, and richer document navigation remain future slices. Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–6× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; and the first-run tour. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+
+Not yet implemented: user accounts, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+
+### Run the mobile app
+
+From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Run `npm run test:reliability` (Vitest) and `npm run typecheck` before pushing mobile changes.
 
 ## Run the existing web prototype
 
