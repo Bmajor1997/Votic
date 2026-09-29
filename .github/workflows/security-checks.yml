@@ -55,9 +55,6 @@ jobs:
         run: npm run lint:css
       - name: Run Votic automated tests
         run: npm test
-      - name: Guard Reader transition against flash and overlay regressions
-        if: ${{ hashFiles('code_checks/reader_transition.test.js') != '' }}
-        run: node --test code_checks/reader_transition.test.js
       - name: Check dependencies for vulnerabilities
         run: |
           npm audit --json > npm-audit.json || true

@@ -1,32 +1,230 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect,useState } from "react";
-import { Pressable,ScrollView,StyleSheet,Text,TextInput,View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { radii,spacing,typography } from "../src/design/tokens";
+import { radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
-const PROMPTS=[{id:"main-idea",label:"What was the central idea?"},{id:"important-detail",label:"What detail do you most want to remember?"},{id:"explain",label:"How would you explain this to someone else?"}];
-function duration(seconds:number){if(seconds<30)return "<1 min";const minutes=Math.round(seconds/60);if(minutes<60)return `${minutes} min`;const hours=Math.floor(minutes/60);const remainder=minutes%60;return remainder?`${hours} hr ${remainder} min`:`${hours} hr`;}
-
-export default function Review(){
-  const {theme}=useVoticTheme();const {activeDocument,openDocument,updateReviewResponses}=useDocumentLibrary();const [responses,setResponses]=useState<Record<string,string>>(activeDocument?.reviewResponses||{});
-  useEffect(()=>{setResponses(activeDocument?.reviewResponses||{});},[activeDocument?.id]);
-  function update(id:string,value:string){const next={...responses,[id]:value};setResponses(next);if(activeDocument)updateReviewResponses(activeDocument.id,next);}
-  function revisit(sentenceIndex:number){if(!activeDocument)return;openDocument(activeDocument.id,sentenceIndex);router.replace("/reader");}
-  return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}><View style={[s.header,{borderBottomColor:theme.border}]}><Pressable accessibilityRole="button" accessibilityLabel="Close document review" onPress={()=>router.back()} style={s.icon}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><View style={s.headerCopy}><Text style={[s.headerTitle,{color:theme.text}]}>Review</Text><Text numberOfLines={1} style={[s.context,{color:theme.mutedText}]}>{activeDocument?.title||"Document"}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Ask Votic about this document" onPress={()=>router.push("/assistant")} style={s.icon}><Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.accent}/></Pressable></View>
-    <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <View style={s.intro}><Text style={[s.title,{color:theme.text}]}>Make the reading yours</Text><Text style={[s.body,{color:theme.mutedText}]}>Pause over what mattered. Your responses save automatically on this device.</Text></View>
-      <View style={[s.summary,{backgroundColor:theme.surfaceMuted}]}><Summary value={duration(documentTimeSpent(activeDocument))} label="Time spent"/><View style={[s.summaryDivider,{backgroundColor:theme.border}]}/><Summary value={String(activeDocument?.savedPassages?.length||0)} label="Saved passages"/></View>
-      {(activeDocument?.savedPassages?.length||0)>0?<View style={s.section}><Text style={[s.sectionTitle,{color:theme.text}]}>Your saved ideas</Text>{activeDocument?.savedPassages?.map(passage=><Pressable key={passage.id} accessibilityRole="button" accessibilityLabel="Revisit saved passage" onPress={()=>revisit(passage.sentenceIndex)} style={({pressed})=>[s.saved,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="bookmark" size={18} color={theme.accent}/><View style={s.savedCopy}><Text numberOfLines={3} style={[s.savedText,{color:theme.text}]}>{passage.text}</Text>{passage.note?<Text numberOfLines={2} style={[s.savedNote,{color:theme.mutedText}]}>{passage.note}</Text>:null}</View><Ionicons name="chevron-forward" size={18} color={theme.mutedText}/></Pressable>)}</View>:null}
-      <View style={s.section}><Text style={[s.sectionTitle,{color:theme.text}]}>Reflect</Text>{PROMPTS.map((prompt,index)=><View key={prompt.id} style={s.prompt}><Text style={[s.promptNumber,{color:theme.accent}]}>{String(index+1).padStart(2,"0")}</Text><Text style={[s.promptLabel,{color:theme.text}]}>{prompt.label}</Text><TextInput accessibilityLabel={prompt.label} value={responses[prompt.id]||""} onChangeText={value=>update(prompt.id,value)} placeholder="Write a few words…" placeholderTextColor={theme.mutedText} multiline maxLength={1000} style={[s.input,{color:theme.text,borderColor:theme.border,backgroundColor:theme.surfaceMuted}]}/></View>)}</View>
-      <Pressable accessibilityRole="button" accessibilityLabel="Ask Votic to help review this document" onPress={()=>router.push("/assistant")} style={({pressed})=>[s.ask,{backgroundColor:theme.accent,opacity:pressed?.78:1}]}><Ionicons name="chatbubble-ellipses" size={20} color="#FFF"/><Text style={s.askText}>Ask Votic to explore an idea</Text></Pressable>
-    </ScrollView>
-  </SafeAreaView>;
+const PROMPTS = [
+  { id: "main-idea", label: "What was the central idea?" },
+  { id: "important-detail", label: "What detail do you most want to remember?" },
+  { id: "explain", label: "How would you explain this to someone else?" },
+];
+function duration(seconds: number) {
+  if (seconds < 30) return "<1 min";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
 }
 
-function Summary({value,label}:{value:string;label:string}){const {theme}=useVoticTheme();return <View style={s.summaryItem}><Text style={[s.summaryValue,{color:theme.text}]}>{value}</Text><Text style={[s.summaryLabel,{color:theme.mutedText}]}>{label}</Text></View>;}
+export default function Review() {
+  const { theme } = useVoticTheme();
+  const { activeDocument, openDocument, updateReviewResponses } = useDocumentLibrary();
+  const [responses, setResponses] = useState<Record<string, string>>(activeDocument?.reviewResponses || {});
+  // Load the saved responses when a different document becomes active (adjusting state during render,
+  // rather than in an effect, avoids a render with the previous document's answers).
+  const [responsesFor, setResponsesFor] = useState(activeDocument?.id);
+  if (responsesFor !== activeDocument?.id) {
+    setResponsesFor(activeDocument?.id);
+    setResponses(activeDocument?.reviewResponses || {});
+  }
+  function update(id: string, value: string) {
+    const next = { ...responses, [id]: value };
+    setResponses(next);
+    if (activeDocument) updateReviewResponses(activeDocument.id, next);
+  }
+  function revisit(sentenceIndex: number) {
+    if (!activeDocument) return;
+    openDocument(activeDocument.id, sentenceIndex);
+    router.replace("/reader");
+  }
+  return (
+    <SafeAreaView
+      edges={["top", "bottom", "left", "right"]}
+      style={[s.safe, { backgroundColor: theme.background }]}
+    >
+      <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close document review"
+          onPress={() => router.back()}
+          style={s.icon}
+        >
+          <Ionicons name="chevron-down" size={27} color={theme.text} />
+        </Pressable>
+        <View style={s.headerCopy}>
+          <Text style={[s.headerTitle, { color: theme.text }]}>Review</Text>
+          <Text numberOfLines={1} style={[s.context, { color: theme.mutedText }]}>
+            {activeDocument?.title || "Document"}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ask Votic about this document"
+          onPress={() => router.push("/assistant")}
+          style={s.icon}
+        >
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={theme.accent} />
+        </Pressable>
+      </View>
+      <ScrollView
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={s.intro}>
+          <Text style={[s.title, { color: theme.text }]}>Make the reading yours</Text>
+          <Text style={[s.body, { color: theme.mutedText }]}>
+            Pause over what mattered. Your responses save automatically on this device.
+          </Text>
+        </View>
+        <View style={[s.summary, { backgroundColor: theme.surfaceMuted }]}>
+          <Summary value={duration(documentTimeSpent(activeDocument))} label="Time spent" />
+          <View style={[s.summaryDivider, { backgroundColor: theme.border }]} />
+          <Summary value={String(activeDocument?.savedPassages?.length || 0)} label="Saved passages" />
+        </View>
+        {(activeDocument?.savedPassages?.length || 0) > 0 ? (
+          <View style={s.section}>
+            <Text style={[s.sectionTitle, { color: theme.text }]}>Your saved ideas</Text>
+            {activeDocument?.savedPassages?.map((passage) => (
+              <Pressable
+                key={passage.id}
+                accessibilityRole="button"
+                accessibilityLabel="Revisit saved passage"
+                onPress={() => revisit(passage.sentenceIndex)}
+                style={({ pressed }) => [
+                  s.saved,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: pressed ? theme.surfaceMuted : theme.surface,
+                  },
+                ]}
+              >
+                <Ionicons name="bookmark" size={18} color={theme.accent} />
+                <View style={s.savedCopy}>
+                  <Text numberOfLines={3} style={[s.savedText, { color: theme.text }]}>
+                    {passage.text}
+                  </Text>
+                  {passage.note ? (
+                    <Text numberOfLines={2} style={[s.savedNote, { color: theme.mutedText }]}>
+                      {passage.note}
+                    </Text>
+                  ) : null}
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.mutedText} />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        <View style={s.section}>
+          <Text style={[s.sectionTitle, { color: theme.text }]}>Reflect</Text>
+          {PROMPTS.map((prompt, index) => (
+            <View key={prompt.id} style={s.prompt}>
+              <Text style={[s.promptNumber, { color: theme.accent }]}>
+                {String(index + 1).padStart(2, "0")}
+              </Text>
+              <Text style={[s.promptLabel, { color: theme.text }]}>{prompt.label}</Text>
+              <TextInput
+                accessibilityLabel={prompt.label}
+                value={responses[prompt.id] || ""}
+                onChangeText={(value) => update(prompt.id, value)}
+                placeholder="Write a few words…"
+                placeholderTextColor={theme.mutedText}
+                multiline
+                maxLength={1000}
+                style={[
+                  s.input,
+                  { color: theme.text, borderColor: theme.border, backgroundColor: theme.surfaceMuted },
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ask Votic to help review this document"
+          onPress={() => router.push("/assistant")}
+          style={({ pressed }) => [s.ask, { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 }]}
+        >
+          <Ionicons name="chatbubble-ellipses" size={20} color="#FFF" />
+          <Text style={s.askText}>Ask Votic to explore an idea</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
 
-const s=StyleSheet.create({safe:{flex:1},header:{minHeight:68,borderBottomWidth:1,flexDirection:"row",alignItems:"center",paddingHorizontal:spacing.md},icon:{width:48,height:48,alignItems:"center",justifyContent:"center"},headerCopy:{flex:1,alignItems:"center"},headerTitle:{...typography.sectionTitle},context:{fontSize:12,maxWidth:"90%"},content:{padding:spacing.xl,paddingBottom:spacing.section,gap:spacing.xl},intro:{gap:spacing.sm},title:{...typography.screenTitle,fontSize:26},body:{...typography.body},summary:{borderRadius:radii.lg,padding:spacing.lg,flexDirection:"row",alignItems:"center"},summaryItem:{flex:1,alignItems:"center",gap:spacing.xs},summaryValue:{fontSize:21,fontWeight:"800"},summaryLabel:{fontSize:12},summaryDivider:{width:1,height:42},section:{gap:spacing.md},sectionTitle:{...typography.sectionTitle},saved:{borderWidth:1,borderRadius:radii.md,padding:spacing.md,flexDirection:"row",alignItems:"center",gap:spacing.md},savedCopy:{flex:1,gap:spacing.xs},savedText:{fontSize:15,lineHeight:21},savedNote:{fontSize:13,lineHeight:18,fontStyle:"italic"},prompt:{gap:spacing.sm},promptNumber:{...typography.eyebrow},promptLabel:{fontSize:17,fontWeight:"700"},input:{minHeight:88,maxHeight:180,borderWidth:1,borderRadius:radii.md,padding:spacing.md,fontSize:16,lineHeight:23,textAlignVertical:"top"},ask:{minHeight:52,borderRadius:radii.md,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:spacing.sm,paddingHorizontal:spacing.md},askText:{...typography.control,color:"#FFF"}});
+function Summary({ value, label }: { value: string; label: string }) {
+  const { theme } = useVoticTheme();
+  return (
+    <View style={s.summaryItem}>
+      <Text style={[s.summaryValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[s.summaryLabel, { color: theme.mutedText }]}>{label}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    minHeight: 68,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+  },
+  icon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  headerCopy: { flex: 1, alignItems: "center" },
+  headerTitle: { ...typography.sectionTitle },
+  context: { fontSize: 12, maxWidth: "90%" },
+  content: { padding: spacing.xl, paddingBottom: spacing.section, gap: spacing.xl },
+  intro: { gap: spacing.sm },
+  title: { ...typography.screenTitle, fontSize: 26 },
+  body: { ...typography.body },
+  summary: { borderRadius: radii.lg, padding: spacing.lg, flexDirection: "row", alignItems: "center" },
+  summaryItem: { flex: 1, alignItems: "center", gap: spacing.xs },
+  summaryValue: { fontSize: 21, fontWeight: "800" },
+  summaryLabel: { fontSize: 12 },
+  summaryDivider: { width: 1, height: 42 },
+  section: { gap: spacing.md },
+  sectionTitle: { ...typography.sectionTitle },
+  saved: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  savedCopy: { flex: 1, gap: spacing.xs },
+  savedText: { fontSize: 15, lineHeight: 21 },
+  savedNote: { fontSize: 13, lineHeight: 18, fontStyle: "italic" },
+  prompt: { gap: spacing.sm },
+  promptNumber: { ...typography.eyebrow },
+  promptLabel: { fontSize: 17, fontWeight: "700" },
+  input: {
+    minHeight: 88,
+    maxHeight: 180,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    fontSize: 16,
+    lineHeight: 23,
+    textAlignVertical: "top",
+  },
+  ask: {
+    minHeight: 52,
+    borderRadius: radii.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  askText: { ...typography.control, color: "#FFF" },
+});

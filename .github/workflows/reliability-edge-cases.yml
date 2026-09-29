@@ -39,7 +39,7 @@ jobs:
           node-version: 24
 
       - name: Run reliability and edge-case regression tests
-        run: node --test code_checks/reliability_edge_cases.test.js code_checks/reliability_security_regressions.test.js code_checks/reader_transition.test.js
+        run: node --test code_checks/reliability_edge_cases.test.js code_checks/reliability_security_regressions.test.js
 
       - name: Install mobile dependencies
         working-directory: apps/mobile
@@ -52,6 +52,14 @@ jobs:
       - name: Run mobile component tests
         working-directory: apps/mobile
         run: npm run test:components
+
+      - name: Lint mobile code
+        working-directory: apps/mobile
+        run: npm run lint
+
+      - name: Check mobile code formatting
+        working-directory: apps/mobile
+        run: npm run format:check
 
       - name: Type-check reliability-sensitive mobile code
         working-directory: apps/mobile

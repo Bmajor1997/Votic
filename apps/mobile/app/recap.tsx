@@ -1,36 +1,300 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Pressable,ScrollView,StyleSheet,Text,View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
-import { controlSizes,radii,spacing,typography } from "../src/design/tokens";
+import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
-import { estimatedMinutesRemaining,mostRecentIncomplete,recentWeekActivity,weeklyComparison } from "../src/documents/insights";
+import {
+  estimatedMinutesRemaining,
+  mostRecentIncomplete,
+  recentWeekActivity,
+  weeklyComparison,
+} from "../src/documents/insights";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
-function minutes(value:number){return value===1?"1 min":value+" min";}
-
-export default function Recap(){
-  const {theme}=useVoticTheme();const {documents,openDocument}=useDocumentLibrary();const {current,previous,change}=weeklyComparison(documents);const weeks=recentWeekActivity(documents);const recent=mostRecentIncomplete(documents);const maxMinutes=Math.max(1,...weeks.map(week=>week.readingMinutes));
-  const comparison=change===null?(current.readingMinutes?"Your first tracked week is underway.":"Your progress will build as you read."):change===0?"You matched last week’s focused reading time.":change>0?`You read ${change}% more than last week.`:`You read ${Math.abs(change)}% less than last week.`;
-  function open(documentId:string,sentenceIndex?:number){openDocument(documentId,sentenceIndex);router.push("/reader");}
-  return <SafeAreaView edges={["top","bottom","left","right"]} style={[s.safe,{backgroundColor:theme.background}]}><View style={s.header}><Pressable accessibilityRole="button" accessibilityLabel="Close weekly recap" onPress={()=>router.back()} style={s.close}><Ionicons name="chevron-down" size={27} color={theme.text}/></Pressable><VoticLogo compact/><View style={s.close}/></View><ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-    <View><Text style={[s.eyebrow,{color:theme.accent}]}>YOUR WEEK WITH VOTIC</Text><Text accessibilityRole="header" style={[s.title,{color:theme.text}]}>Weekly recap</Text><Text style={[s.lead,{color:theme.mutedText}]}>{comparison}</Text></View>
-
-    <View style={s.metrics}><Metric icon="book-outline" value={minutes(current.readingMinutes)} label="Focused reading"/><Metric icon="headset-outline" value={minutes(current.listeningMinutes)} label="Listening"/><Metric icon="calendar-outline" value={String(current.activeDays)} label={current.activeDays===1?"Active day":"Active days"}/><Metric icon="checkmark-circle-outline" value={String(current.completed)} label={current.completed===1?"Document finished":"Documents finished"}/></View>
-
-    <View style={[s.card,{borderColor:theme.border,backgroundColor:theme.surface}]}><Text style={[s.cardTitle,{color:theme.text}]}>Four-week view</Text><Text style={[s.cardCopy,{color:theme.mutedText}]}>Focused reading time—not a target you have to beat.</Text><View accessibilityLabel="Focused reading over the last four weeks" style={s.chart}>{weeks.map((week,index)=>{const height=Math.max(6,Math.round((week.readingMinutes/maxMinutes)*100));return <View key={week.start.toISOString()} style={s.barColumn}><Text style={[s.barValue,{color:theme.mutedText}]}>{week.readingMinutes}</Text><View style={[s.barTrack,{backgroundColor:theme.surfaceMuted}]}><View style={[s.bar,{backgroundColor:theme.accent,height:`${height}%` as `${number}%`}]}/></View><Text style={[s.barLabel,{color:theme.mutedText}]}>{index===weeks.length-1?"This week":week.start.toLocaleDateString(undefined,{month:"short",day:"numeric"})}</Text></View>;})}</View></View>
-
-    <View style={s.section}><View style={s.sectionHeading}><Text style={[s.cardTitle,{color:theme.text}]}>Ideas you saved</Text><View style={[s.count,{backgroundColor:theme.sentenceHighlight}]}><Text style={[s.countText,{color:theme.accent}]}>{current.saved}</Text></View></View>{current.savedPassages.length?current.savedPassages.slice(0,3).map(({document,passage})=><Pressable key={document.id+passage.id} accessibilityRole="button" accessibilityLabel={"Open saved passage from "+document.title} onPress={()=>open(document.id,passage.sentenceIndex)} style={({pressed})=>[s.row,{borderColor:theme.border,backgroundColor:pressed?theme.surfaceMuted:theme.surface}]}><Ionicons name="bookmark" size={19} color={theme.accent}/><View style={s.rowCopy}><Text numberOfLines={1} style={[s.rowTitle,{color:theme.text}]}>{document.title}</Text><Text numberOfLines={2} style={[s.rowDetail,{color:theme.mutedText}]}>{passage.note||passage.text}</Text></View><Ionicons name="chevron-forward" size={18} color={theme.mutedText}/></Pressable>):<Text style={[s.empty,{color:theme.mutedText}]}>Passages you bookmark this week will be collected here.</Text>}</View>
-
-    {current.completedDocuments.length?<View style={s.section}><Text style={[s.cardTitle,{color:theme.text}]}>Completed this week</Text>{current.completedDocuments.map(document=><View key={document.id} style={[s.row,{borderColor:theme.border,backgroundColor:theme.surface}]}><Ionicons name="checkmark-circle" size={21} color={theme.accent}/><Text style={[s.rowTitle,{color:theme.text,flex:1}]}>{document.title}</Text></View>)}</View>:null}
-
-    {recent?<View style={[s.continueCard,{backgroundColor:theme.surfaceMuted}]}><View style={s.continueCopy}><Text style={[s.eyebrow,{color:theme.accent}]}>KEEP GOING</Text><Text numberOfLines={2} style={[s.continueTitle,{color:theme.text}]}>{recent.title}</Text><Text style={[s.rowDetail,{color:theme.mutedText}]}>About {minutes(estimatedMinutesRemaining(recent))} remaining</Text></View><Pressable accessibilityRole="button" accessibilityLabel={"Continue "+recent.title} onPress={()=>open(recent.id)} style={[s.play,{backgroundColor:theme.accent}]}><Ionicons name="play" size={22} color="#FFF"/></Pressable></View>:null}
-
-    {!current.readingMinutes&&!current.saved&&!current.completed?<View style={[s.gentleNote,{borderColor:theme.border}]}><Ionicons name="leaf-outline" size={22} color={theme.accent}/><Text style={[s.gentleText,{color:theme.mutedText}]}>There is nothing to catch up on. Your recap is here to reflect your reading, not pressure you.</Text></View>:null}
-  </ScrollView></SafeAreaView>;
+function minutes(value: number) {
+  return value === 1 ? "1 min" : value + " min";
 }
 
-function Metric({icon,value,label}:{icon:React.ComponentProps<typeof Ionicons>["name"];value:string;label:string}){const {theme}=useVoticTheme();return <View style={[s.metric,{backgroundColor:theme.surfaceMuted}]}><Ionicons name={icon} size={20} color={theme.accent}/><Text style={[s.metricValue,{color:theme.text}]}>{value}</Text><Text style={[s.metricLabel,{color:theme.mutedText}]}>{label}</Text></View>;}
+export default function Recap() {
+  const { theme } = useVoticTheme();
+  const { documents, openDocument } = useDocumentLibrary();
+  const { current, change } = weeklyComparison(documents);
+  const weeks = recentWeekActivity(documents);
+  const recent = mostRecentIncomplete(documents);
+  const maxMinutes = Math.max(1, ...weeks.map((week) => week.readingMinutes));
+  const comparison =
+    change === null
+      ? current.readingMinutes
+        ? "Your first tracked week is underway."
+        : "Your progress will build as you read."
+      : change === 0
+        ? "You matched last week’s focused reading time."
+        : change > 0
+          ? `You read ${change}% more than last week.`
+          : `You read ${Math.abs(change)}% less than last week.`;
+  function open(documentId: string, sentenceIndex?: number) {
+    openDocument(documentId, sentenceIndex);
+    router.push("/reader");
+  }
+  return (
+    <SafeAreaView
+      edges={["top", "bottom", "left", "right"]}
+      style={[s.safe, { backgroundColor: theme.background }]}
+    >
+      <View style={s.header}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close weekly recap"
+          onPress={() => router.back()}
+          style={s.close}
+        >
+          <Ionicons name="chevron-down" size={27} color={theme.text} />
+        </Pressable>
+        <VoticLogo compact />
+        <View style={s.close} />
+      </View>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <View>
+          <Text style={[s.eyebrow, { color: theme.accent }]}>YOUR WEEK WITH VOTIC</Text>
+          <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+            Weekly recap
+          </Text>
+          <Text style={[s.lead, { color: theme.mutedText }]}>{comparison}</Text>
+        </View>
 
-const s=StyleSheet.create({safe:{flex:1},header:{height:56,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:spacing.md},close:{width:controlSizes.minimumTouch,height:controlSizes.minimumTouch,alignItems:"center",justifyContent:"center"},content:{paddingHorizontal:spacing.xl,paddingBottom:spacing.section,gap:spacing.xl},eyebrow:{...typography.eyebrow},title:{...typography.screenTitle,marginTop:spacing.xs},lead:{...typography.body,marginTop:spacing.sm},metrics:{flexDirection:"row",flexWrap:"wrap",gap:spacing.sm},metric:{width:"48%",flexGrow:1,minHeight:104,borderRadius:radii.md,padding:spacing.md,gap:spacing.xs},metricValue:{fontSize:22,fontWeight:"800",marginTop:spacing.xs},metricLabel:{fontSize:13},card:{borderWidth:1,borderRadius:radii.lg,padding:spacing.lg,gap:spacing.xs},cardTitle:{...typography.sectionTitle},cardCopy:{fontSize:13,lineHeight:19},chart:{height:170,flexDirection:"row",alignItems:"flex-end",gap:spacing.sm,marginTop:spacing.lg},barColumn:{flex:1,height:"100%",alignItems:"center",gap:spacing.xs},barValue:{fontSize:11,fontWeight:"700"},barTrack:{width:"70%",flex:1,borderRadius:radii.sm,overflow:"hidden",justifyContent:"flex-end"},bar:{width:"100%",borderRadius:radii.sm},barLabel:{fontSize:10,textAlign:"center",minHeight:24},section:{gap:spacing.md},sectionHeading:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},count:{minWidth:28,height:28,borderRadius:14,alignItems:"center",justifyContent:"center"},countText:{fontSize:13,fontWeight:"800"},row:{minHeight:68,borderWidth:1,borderRadius:radii.md,padding:spacing.md,flexDirection:"row",alignItems:"center",gap:spacing.md},rowCopy:{flex:1,gap:3},rowTitle:{fontSize:15,fontWeight:"800"},rowDetail:{fontSize:13,lineHeight:18},empty:{fontSize:14,lineHeight:20},continueCard:{borderRadius:radii.lg,padding:spacing.lg,flexDirection:"row",alignItems:"center",gap:spacing.md},continueCopy:{flex:1,gap:spacing.xs},continueTitle:{fontSize:18,fontWeight:"800"},play:{width:50,height:50,borderRadius:25,alignItems:"center",justifyContent:"center"},gentleNote:{borderWidth:1,borderRadius:radii.md,padding:spacing.md,flexDirection:"row",alignItems:"flex-start",gap:spacing.md},gentleText:{fontSize:13,lineHeight:19,flex:1}});
+        <View style={s.metrics}>
+          <Metric icon="book-outline" value={minutes(current.readingMinutes)} label="Focused reading" />
+          <Metric icon="headset-outline" value={minutes(current.listeningMinutes)} label="Listening" />
+          <Metric
+            icon="calendar-outline"
+            value={String(current.activeDays)}
+            label={current.activeDays === 1 ? "Active day" : "Active days"}
+          />
+          <Metric
+            icon="checkmark-circle-outline"
+            value={String(current.completed)}
+            label={current.completed === 1 ? "Document finished" : "Documents finished"}
+          />
+        </View>
+
+        <View style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+          <Text style={[s.cardTitle, { color: theme.text }]}>Four-week view</Text>
+          <Text style={[s.cardCopy, { color: theme.mutedText }]}>
+            Focused reading time—not a target you have to beat.
+          </Text>
+          <View accessibilityLabel="Focused reading over the last four weeks" style={s.chart}>
+            {weeks.map((week, index) => {
+              const height = Math.max(6, Math.round((week.readingMinutes / maxMinutes) * 100));
+              return (
+                <View key={week.start.toISOString()} style={s.barColumn}>
+                  <Text style={[s.barValue, { color: theme.mutedText }]}>{week.readingMinutes}</Text>
+                  <View style={[s.barTrack, { backgroundColor: theme.surfaceMuted }]}>
+                    <View
+                      style={[s.bar, { backgroundColor: theme.accent, height: `${height}%` as `${number}%` }]}
+                    />
+                  </View>
+                  <Text style={[s.barLabel, { color: theme.mutedText }]}>
+                    {index === weeks.length - 1
+                      ? "This week"
+                      : week.start.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={s.section}>
+          <View style={s.sectionHeading}>
+            <Text style={[s.cardTitle, { color: theme.text }]}>Ideas you saved</Text>
+            <View style={[s.count, { backgroundColor: theme.sentenceHighlight }]}>
+              <Text style={[s.countText, { color: theme.accent }]}>{current.saved}</Text>
+            </View>
+          </View>
+          {current.savedPassages.length ? (
+            current.savedPassages.slice(0, 3).map(({ document, passage }) => (
+              <Pressable
+                key={document.id + passage.id}
+                accessibilityRole="button"
+                accessibilityLabel={"Open saved passage from " + document.title}
+                onPress={() => open(document.id, passage.sentenceIndex)}
+                style={({ pressed }) => [
+                  s.row,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: pressed ? theme.surfaceMuted : theme.surface,
+                  },
+                ]}
+              >
+                <Ionicons name="bookmark" size={19} color={theme.accent} />
+                <View style={s.rowCopy}>
+                  <Text numberOfLines={1} style={[s.rowTitle, { color: theme.text }]}>
+                    {document.title}
+                  </Text>
+                  <Text numberOfLines={2} style={[s.rowDetail, { color: theme.mutedText }]}>
+                    {passage.note || passage.text}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.mutedText} />
+              </Pressable>
+            ))
+          ) : (
+            <Text style={[s.empty, { color: theme.mutedText }]}>
+              Passages you bookmark this week will be collected here.
+            </Text>
+          )}
+        </View>
+
+        {current.completedDocuments.length ? (
+          <View style={s.section}>
+            <Text style={[s.cardTitle, { color: theme.text }]}>Completed this week</Text>
+            {current.completedDocuments.map((document) => (
+              <View
+                key={document.id}
+                style={[s.row, { borderColor: theme.border, backgroundColor: theme.surface }]}
+              >
+                <Ionicons name="checkmark-circle" size={21} color={theme.accent} />
+                <Text style={[s.rowTitle, { color: theme.text, flex: 1 }]}>{document.title}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {recent ? (
+          <View style={[s.continueCard, { backgroundColor: theme.surfaceMuted }]}>
+            <View style={s.continueCopy}>
+              <Text style={[s.eyebrow, { color: theme.accent }]}>KEEP GOING</Text>
+              <Text numberOfLines={2} style={[s.continueTitle, { color: theme.text }]}>
+                {recent.title}
+              </Text>
+              <Text style={[s.rowDetail, { color: theme.mutedText }]}>
+                About {minutes(estimatedMinutesRemaining(recent))} remaining
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={"Continue " + recent.title}
+              onPress={() => open(recent.id)}
+              style={[s.play, { backgroundColor: theme.accent }]}
+            >
+              <Ionicons name="play" size={22} color="#FFF" />
+            </Pressable>
+          </View>
+        ) : null}
+
+        {!current.readingMinutes && !current.saved && !current.completed ? (
+          <View style={[s.gentleNote, { borderColor: theme.border }]}>
+            <Ionicons name="leaf-outline" size={22} color={theme.accent} />
+            <Text style={[s.gentleText, { color: theme.mutedText }]}>
+              There is nothing to catch up on. Your recap is here to reflect your reading, not pressure you.
+            </Text>
+          </View>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function Metric({
+  icon,
+  value,
+  label,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  value: string;
+  label: string;
+}) {
+  const { theme } = useVoticTheme();
+  return (
+    <View style={[s.metric, { backgroundColor: theme.surfaceMuted }]}>
+      <Ionicons name={icon} size={20} color={theme.accent} />
+      <Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[s.metricLabel, { color: theme.mutedText }]}>{label}</Text>
+    </View>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1 },
+  header: {
+    height: 56,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.md,
+  },
+  close: {
+    width: controlSizes.minimumTouch,
+    height: controlSizes.minimumTouch,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.section, gap: spacing.xl },
+  eyebrow: { ...typography.eyebrow },
+  title: { ...typography.screenTitle, marginTop: spacing.xs },
+  lead: { ...typography.body, marginTop: spacing.sm },
+  metrics: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  metric: {
+    width: "48%",
+    flexGrow: 1,
+    minHeight: 104,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    gap: spacing.xs,
+  },
+  metricValue: { fontSize: 22, fontWeight: "800", marginTop: spacing.xs },
+  metricLabel: { fontSize: 13 },
+  card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.xs },
+  cardTitle: { ...typography.sectionTitle },
+  cardCopy: { fontSize: 13, lineHeight: 19 },
+  chart: {
+    height: 170,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  barColumn: { flex: 1, height: "100%", alignItems: "center", gap: spacing.xs },
+  barValue: { fontSize: 11, fontWeight: "700" },
+  barTrack: { width: "70%", flex: 1, borderRadius: radii.sm, overflow: "hidden", justifyContent: "flex-end" },
+  bar: { width: "100%", borderRadius: radii.sm },
+  barLabel: { fontSize: 10, textAlign: "center", minHeight: 24 },
+  section: { gap: spacing.md },
+  sectionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  count: { minWidth: 28, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  countText: { fontSize: 13, fontWeight: "800" },
+  row: {
+    minHeight: 68,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  rowCopy: { flex: 1, gap: 3 },
+  rowTitle: { fontSize: 15, fontWeight: "800" },
+  rowDetail: { fontSize: 13, lineHeight: 18 },
+  empty: { fontSize: 14, lineHeight: 20 },
+  continueCard: {
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  continueCopy: { flex: 1, gap: spacing.xs },
+  continueTitle: { fontSize: 18, fontWeight: "800" },
+  play: { width: 50, height: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
+  gentleNote: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  gentleText: { fontSize: 13, lineHeight: 19, flex: 1 },
+});
