@@ -49,6 +49,10 @@ jobs:
         working-directory: apps/mobile
         run: npm run test:reliability
 
+      - name: Run mobile component tests
+        working-directory: apps/mobile
+        run: npm run test:components
+
       - name: Type-check reliability-sensitive mobile code
         working-directory: apps/mobile
         run: npm run typecheck
