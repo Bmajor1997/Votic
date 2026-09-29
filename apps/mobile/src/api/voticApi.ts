@@ -2,7 +2,12 @@ import Constants from "expo-constants";
 
 const DEFAULT_API_URL="http://localhost:4173";
 const API_TIMEOUT_MS=20_000;
-function developmentApiUrl(){const hostUri=Constants.expoConfig?.hostUri;const host=hostUri?.split(":")[0];return host?`http://${host}:4173`:DEFAULT_API_URL;}
+export function developmentApiUrl(constants:typeof Constants=Constants){
+ const legacy=constants as typeof Constants&{expoGoConfig?:{debuggerHost?:string};manifest2?:{extra?:{expoClient?:{hostUri?:string}}}};
+ const hostUri=constants.expoConfig?.hostUri||legacy.expoGoConfig?.debuggerHost||legacy.manifest2?.extra?.expoClient?.hostUri;
+ const host=hostUri?.replace(/^https?:\/\//,"").split(":")[0];
+ return host?`http://${host}:4173`:DEFAULT_API_URL;
+}
 export function voticApiUrl(){return (process.env.EXPO_PUBLIC_VOTIC_API_URL||developmentApiUrl()).replace(/\/$/,"")}
 
 async function apiFetch(path:string,init:RequestInit,timeoutMs=API_TIMEOUT_MS){

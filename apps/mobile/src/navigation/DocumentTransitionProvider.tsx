@@ -1,37 +1,42 @@
-import { PropsWithChildren,createContext,useContext,useEffect,useRef,useState } from "react";
+import { PropsWithChildren,createContext,useContext,useMemo,useRef,useState } from "react";
+import { Animated } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
-type TransitionContextValue={openReader:(navigate:()=>void)=>void;closeReader:(navigate:()=>void)=>void;transitioning:boolean};
+export type DocumentSourceRect={x:number;y:number;width:number;height:number};
+type TransitionContextValue={openReader:(source:DocumentSourceRect,navigate:()=>void)=>void;beginReader:()=>void;closeReader:(navigate:()=>void)=>void;sourceRect:DocumentSourceRect|null;progress:Animated.Value;transitioning:boolean};
 const TransitionContext=createContext<TransitionContextValue|null>(null);
 
 export function DocumentTransitionProvider({children}:PropsWithChildren){
   const {reduceMotion}=useAccessibilityPreferences();
+  const [sourceRect,setSourceRect]=useState<DocumentSourceRect|null>(null);
   const [transitioning,setTransitioning]=useState(false);
-  const opening=useRef(false);
-  const unlockTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+  const locked=useRef(false);
+  const progress=useRef(new Animated.Value(0)).current;
 
-  useEffect(()=>()=>{if(unlockTimer.current)clearTimeout(unlockTimer.current);},[]);
-
-  function unlock(){
-    opening.current=false;
-    setTransitioning(false);
-    if(unlockTimer.current){clearTimeout(unlockTimer.current);unlockTimer.current=null;}
-  }
-
-  function openReader(navigate:()=>void){
-    if(opening.current)return;
-    opening.current=true;
+  function openReader(source:DocumentSourceRect,navigate:()=>void){
+    if(locked.current)return;
+    locked.current=true;
+    progress.stopAnimation();
+    progress.setValue(reduceMotion?1:0);
+    setSourceRect(source);
     setTransitioning(true);
     navigate();
-    unlockTimer.current=setTimeout(unlock,reduceMotion?150:520);
   }
 
+  function beginReader(){
+    if(reduceMotion){progress.setValue(1);locked.current=false;setTransitioning(false);return;}
+    Animated.timing(progress,{toValue:1,duration:240,useNativeDriver:true}).start(({finished})=>{if(finished){locked.current=false;setTransitioning(false);}});
+  }
   function closeReader(navigate:()=>void){
-    unlock();
-    navigate();
+    locked.current=true;
+    setTransitioning(true);
+    progress.stopAnimation();
+    if(reduceMotion){progress.setValue(0);locked.current=false;setTransitioning(false);navigate();return;}
+    Animated.timing(progress,{toValue:0,duration:190,useNativeDriver:true}).start(()=>{locked.current=false;setTransitioning(false);navigate();});
   }
 
-  return <TransitionContext.Provider value={{openReader,closeReader,transitioning}}>{children}</TransitionContext.Provider>;
+  const value=useMemo(()=>({openReader,beginReader,closeReader,sourceRect,progress,transitioning}),[sourceRect,transitioning,reduceMotion]);
+  return <TransitionContext.Provider value={value}>{children}</TransitionContext.Provider>;
 }
 
 export function useDocumentTransition(){
