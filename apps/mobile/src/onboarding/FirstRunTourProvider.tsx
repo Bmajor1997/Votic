@@ -8,7 +8,7 @@ import { radii,spacing,typography } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 const TOUR_KEY="votic.mobile.first-run-tour.v1";
-const EXISTING_KEYS=["votic.mobile.documents.v1","votic.mobile.collections.v1","votic.mobile.theme.v1","votic.mobile.accessibility.v1"];
+const EXISTING_KEYS=["votic.mobile.documents.v1","votic.mobile.library.v2","votic.mobile.collections.v1","votic.mobile.theme.v1","votic.mobile.accessibility.v1"];
 const steps=[
   {icon:"home-outline",title:"Welcome to Votic",body:"Votic helps you read, listen, understand, ask questions, and capture what matters from your documents."},
   {icon:"documents-outline",title:"Your document library",body:"Open Documents to search, organize, and continue your files. Choose Upload to add PDF, Word, PowerPoint, EPUB, text, or Markdown files."},

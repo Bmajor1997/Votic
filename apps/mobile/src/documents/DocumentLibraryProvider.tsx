@@ -1,6 +1,10 @@
-import { createContext,PropsWithChildren,useContext,useEffect,useMemo,useState } from "react";
+import { createContext,PropsWithChildren,useContext,useEffect,useMemo,useRef,useState } from "react";
+import { AppState } from "react-native";
 import { SavedPassage,VoticDocument } from "./types";
-import { loadCollections,loadDocuments,saveCollections,saveDocuments } from "./documentStorage";
+import { createDocumentStore,loadCollections,saveCollections } from "./documentStorage";
+import { createThrottledSaver } from "./throttledSaver";
+
+const LIBRARY_SAVE_INTERVAL_MS=1000;
 
 type Library={
   documents:VoticDocument[];
@@ -35,10 +39,12 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
   const [activeId,setActiveId]=useState<string|null>(null);
   const [hydrated,setHydrated]=useState(false);
   const [persistenceError,setPersistenceError]=useState<string|null>(null);
+  const store=useRef(createDocumentStore()).current;
+  const librarySaver=useRef(createThrottledSaver(store.saveDocuments,LIBRARY_SAVE_INTERVAL_MS,()=>setPersistenceError("Votic could not save your library changes. Keep Votic open and try the change again."))).current;
 
   useEffect(()=>{
     let mounted=true;
-    Promise.all([loadDocuments(),loadCollections()]).then(([savedDocuments,savedCollections])=>{
+    Promise.all([store.loadDocuments(),loadCollections()]).then(([savedDocuments,savedCollections])=>{
       if(!mounted)return;
       setDocuments(savedDocuments);
       setCollections(savedCollections);
@@ -53,7 +59,11 @@ export function DocumentLibraryProvider({children}:PropsWithChildren){
     return()=>{mounted=false;};
   },[]);
 
-  useEffect(()=>{if(hydrated)saveDocuments(documents).catch(()=>setPersistenceError("Votic could not save your library changes. Keep Votic open and try the change again."));},[documents,hydrated]);
+  useEffect(()=>{if(hydrated)librarySaver.schedule(documents);},[documents,hydrated]);
+  useEffect(()=>{
+    const subscription=AppState.addEventListener("change",state=>{if(state!=="active")void librarySaver.flush();});
+    return()=>{subscription.remove();void librarySaver.flush();};
+  },[]);
   useEffect(()=>{if(hydrated)saveCollections(collections).catch(()=>setPersistenceError("Votic could not save your collection changes. Keep Votic open and try the change again."));},[collections,hydrated]);
 
   const activeDocument=useMemo(()=>documents.find(document=>document.id===activeId)||null,[documents,activeId]);

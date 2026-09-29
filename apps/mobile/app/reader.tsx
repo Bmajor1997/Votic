@@ -10,6 +10,8 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes,radii,spacing,typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
+import { createThrottledSaver } from "../src/documents/throttledSaver";
+import { splitPassages } from "../src/documents/passages";
 import { NoteType } from "../src/documents/types";
 import { cleanTags,NOTE_TYPES } from "../src/notes/noteMetadata";
 import { formatPlaybackRate,normalizePlaybackRate } from "../src/playback/rates";
@@ -18,6 +20,7 @@ import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvi
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 
 type ReaderSheet="appearance"|"focus"|"listen"|null;
+const PROGRESS_SYNC_INTERVAL_MS=2000;
 type Voice=Awaited<ReturnType<typeof Speech.getAvailableVoicesAsync>>[number];
 
 const VOTIC_VOICE_NAMES=["Arden","Kaia","Soren","Mira","Evren","Nyla","Kellan","Elara"] as const;
@@ -38,7 +41,7 @@ function uniqueEnglishVoices(available:Voice[]){
   return available.filter(voice=>voice.language.toLowerCase().startsWith("en")).filter(voice=>{const key=(voice.name.trim()||voice.identifier).toLocaleLowerCase();if(seen.has(key))return false;seen.add(key);return true;}).slice(0,VOTIC_VOICE_NAMES.length);
 }
 
-function sentences(text:string){return text.match(/[^.!?]+[.!?]+[\]"')]*|[^.!?]+$/g)?.map(value=>value.trim()).filter(Boolean)||[];}
+const sentences=splitPassages;
 function wordMatches(text:string){return [...text.matchAll(/\S+/g)];}
 function locationForProgress(passages:string[],progress:number){
   const counts=passages.map(passage=>wordMatches(passage).length);const total=counts.reduce((sum,count)=>sum+count,0);
@@ -117,13 +120,16 @@ export default function Reader(){
   const readerPrepared=useRef(false);
   const [readerReady,setReaderReady]=useState(false);
   const completedRef=useRef(activeDocument?.progress===1);
+  // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
+  const progressSync=useRef(createThrottledSaver<{id:string;progress:number;index:number;wordIndex:number}>(value=>{if(!completedRef.current)updateProgress(value.id,value.progress,value.index,value.wordIndex);},PROGRESS_SYNC_INTERVAL_MS)).current;
   const readingType=readerType(accessibility.textSize,accessibility.readingSpacing,accessibility.readerFont,accessibility.textSpacing);
   const progress=useMemo(()=>progressForLocation(passages,index,wordIndex),[passages,index,wordIndex]);
 
   useEffect(()=>{void Speech.getAvailableVoicesAsync().then(available=>setVoices(uniqueEnglishVoices(available))).catch(()=>setVoices([]));},[]);
   useEffect(()=>()=>{speechSession.current+=1;void Speech.stop();},[]);
   useEffect(()=>{const subscription=BackHandler.addEventListener("hardwareBackPress",()=>{void closeReader();return true;});return()=>subscription.remove();},[transition,accessibility.reduceMotion]);
-  useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;updateProgress(activeDocument.id,progress,index,wordIndex);},[activeDocument?.id,passages.length,progress,index,wordIndex]);
+  useEffect(()=>{if(!activeDocument||!passages.length||completedRef.current)return;progressSync.schedule({id:activeDocument.id,progress,index,wordIndex});},[activeDocument?.id,passages.length,progress,index,wordIndex]);
+  useEffect(()=>()=>{void progressSync.flush();},[]);
   useEffect(()=>{followActiveWord();},[index,wordIndex,accessibility.reduceMotion]);
   useEffect(()=>{if(!activeDocument)return;let lastSavedAt=Date.now();function saveElapsed(){if(!activeDocument)return;const seconds=Math.floor((Date.now()-lastSavedAt)/1000);if(seconds<1)return;lastSavedAt+=seconds*1000;recordActivity(activeDocument.id,seconds,playing?seconds:0);}const interval=setInterval(saveElapsed,10000);return()=>{clearInterval(interval);saveElapsed();};},[activeDocument?.id,playing]);
 
@@ -148,7 +154,7 @@ export default function Reader(){
   }
   function measureSentence(sentenceIndex:number,event:LayoutChangeEvent){const {y,height}=event.nativeEvent.layout;sentenceLayout.current[sentenceIndex]={y,height};if(sentenceIndex===index)prepareReader();}
   function trackScroll(event:NativeSyntheticEvent<NativeScrollEvent>){scrollOffset.current=event.nativeEvent.contentOffset.y;}
-  async function stop(){speechSession.current+=1;setPlaying(false);setPreviewVoiceIdentifier(null);await Speech.stop();}
+  async function stop(){void progressSync.flush();speechSession.current+=1;setPlaying(false);setPreviewVoiceIdentifier(null);await Speech.stop();}
   async function previewVoice(voice:Voice,voiceIndex:number){
     speechSession.current+=1;setPlaying(false);await Speech.stop();setPreviewVoiceIdentifier(voice.identifier);
     Speech.speak(voticVoicePreview(voiceIndex),{voice:voice.identifier,rate:1,onDone:()=>setPreviewVoiceIdentifier(current=>current===voice.identifier?null:current),onStopped:()=>setPreviewVoiceIdentifier(current=>current===voice.identifier?null:current),onError:()=>setPreviewVoiceIdentifier(current=>current===voice.identifier?null:current)});

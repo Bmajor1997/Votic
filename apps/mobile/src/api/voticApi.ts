@@ -29,8 +29,8 @@ export async function extractDocument(name:string,bytes:ArrayBuffer){
 }
 
 export type VoticAnswer={answer:string;mode:string;sectionIndex:number|null;sectionTitle:string|null};
-export async function askVotic(question:string,document?:{title:string;sections:{heading:string;text:string}[]}):Promise<VoticAnswer>{
- const response=await apiFetch("/api/help",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,document})});
+export async function askVotic(question:string,document?:{title:string;sections:{heading:string;text:string}[]},history:{role:"user"|"assistant";text:string}[]=[]):Promise<VoticAnswer>{
+ const response=await apiFetch("/api/help",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({question,document,...(history.length?{history}:{})})});
  const result=await responseJson(response);
  if(!response.ok)throw new Error(serverError(result,"Votic could not answer right now."));
  if(typeof result.answer!=="string"||!result.answer.trim())throw new Error("Votic returned an empty answer.");
