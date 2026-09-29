@@ -26,5 +26,8 @@ test("Reader container owns a reversible source-geometry transition",()=>{
   assert.match(reader,/scaleY:transition\.progress\.interpolate/);
   assert.match(reader,/readerReady/);
   assert.match(reader,/async function closeReader\(\)/);
+  assert.match(provider,/function closeReader\(navigate:\(\)=>void\)\{\s*locked\.current=true;/);
+  assert.match(provider,/closeReader[\s\S]*progress\.stopAnimation\(\)/);
+  assert.doesNotMatch(provider,/function closeReader\(navigate:\(\)=>void\)\{\s*if\(locked\.current\)return;/);
   assert.doesNotMatch(reader,/outputRange:\[\.985,1\]/);
 });

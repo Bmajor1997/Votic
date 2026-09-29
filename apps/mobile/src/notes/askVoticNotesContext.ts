@@ -5,13 +5,13 @@ export type NotesAskItem={document:VoticDocument;passage:SavedPassage};
 
 // Reader passage ids ("passage-<sentence>") repeat across documents, so selections must include the document id.
 const SELECTION_SEPARATOR="::";
-export function noteSelectionKey(documentId:string,passageId:string){return documentId+SELECTION_SEPARATOR+passageId;}
+export function noteSelectionId(documentId:string,passageId:string){return `${documentId}${SELECTION_SEPARATOR}${passageId}`;}
 
 export function notesForAskVotic(documents:VoticDocument[],scope:NotesAskScope):NotesAskItem[]{
   const selected=scope.documentId?documents.filter(document=>document.id===scope.documentId):documents;
   return selected.flatMap(document=>(document.savedPassages||[])
     .filter(passage=>!scope.passageId||passage.id===scope.passageId)
-    .filter(passage=>!scope.passageIds?.length||scope.passageIds.includes(noteSelectionKey(document.id,passage.id)))
+    .filter(passage=>!scope.passageIds?.length||scope.passageIds.includes(noteSelectionId(document.id,passage.id)))
     .filter(passage=>Boolean(passage.note.trim()||passage.text.trim()))
     .map(passage=>({document,passage})));
 }

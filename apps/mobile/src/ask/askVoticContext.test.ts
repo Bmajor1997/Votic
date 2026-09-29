@@ -1,6 +1,6 @@
 import { describe,expect,it } from "vitest";
 import { answerLink,answerNoteForSource,askVoticContextKey,prepareAskRequest,recentHistory,initialQuestionFromParams,notesScopeFromParams,resolveAskVoticContext } from "./askVoticContext";
-import { noteSelectionKey } from "../notes/askVoticNotesContext";
+import { noteSelectionId } from "../notes/askVoticNotesContext";
 import { VoticDocument } from "../documents/types";
 
 function doc(id:string,title:string,extra:Partial<VoticDocument>={}):VoticDocument{
@@ -39,7 +39,7 @@ describe("Ask Votic context resolution",()=>{
   expect(context).toEqual({kind:"notes-missing",label:"Notes unavailable"});
  });
  it("includes saved passages selected without a note",()=>{
-  const context=resolveAskVoticContext(documents,history,{notesPassageIds:noteSelectionKey("doc-a","passage-7")});
+  const context=resolveAskVoticContext(documents,history,{notesPassageIds:noteSelectionId("doc-a","passage-7")});
   expect(context.kind).toBe("notes");
   if(context.kind!=="notes")return;
   expect(prepareAskRequest(context,"q",[]).document?.sections[0].text).toBe("Saved passage: DNA replicates.\nLocation: passage 8 of Biology");
@@ -65,12 +65,12 @@ describe("saving Ask Votic answers to Notes",()=>{
   expect(context.saveSource).toEqual({documentId:"doc-a",sentenceIndex:3,text:"Ask Votic answer about Biology"});
  });
  it("attaches a single-document selection to that document even without a documentId param",()=>{
-  const context=resolveAskVoticContext(documents,history,{notesPassageIds:[noteSelectionKey("doc-a","passage-3"),noteSelectionKey("doc-a","passage-7")].join(",")});
+  const context=resolveAskVoticContext(documents,history,{notesPassageIds:[noteSelectionId("doc-a","passage-3"),noteSelectionId("doc-a","passage-7")].join(",")});
   if(context.kind!=="notes")throw new Error("expected notes context");
   expect(context.saveSource?.documentId).toBe("doc-a");
  });
  it("does not attach answers about notes from several documents to any single document",()=>{
-  const context=resolveAskVoticContext(documents,biology,{notesPassageIds:[noteSelectionKey("doc-a","passage-3"),noteSelectionKey("doc-b","passage-3")].join(",")});
+  const context=resolveAskVoticContext(documents,biology,{notesPassageIds:[noteSelectionId("doc-a","passage-3"),noteSelectionId("doc-b","passage-3")].join(",")});
   if(context.kind!=="notes")throw new Error("expected notes context");
   expect(context.saveSource).toBeNull();
  });
@@ -144,7 +144,7 @@ describe("Ask Votic requests for long documents",()=>{
   expect(answerLink(request,999)).toBeNull();
  });
  it("links answers about notes to the note's own document and passage",()=>{
-  const context=resolveAskVoticContext(documents,history,{notesPassageIds:[noteSelectionKey("doc-a","passage-7"),noteSelectionKey("doc-b","passage-3")].join(",")});
+  const context=resolveAskVoticContext(documents,history,{notesPassageIds:[noteSelectionId("doc-a","passage-7"),noteSelectionId("doc-b","passage-3")].join(",")});
   const request=prepareAskRequest(context,"q",[]);
   expect(request.links).toEqual([{documentId:"doc-a",sentenceIndex:7},{documentId:"doc-b",sentenceIndex:3}]);
  });

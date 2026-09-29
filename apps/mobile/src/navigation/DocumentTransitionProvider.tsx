@@ -28,9 +28,9 @@ export function DocumentTransitionProvider({children}:PropsWithChildren){
     Animated.timing(progress,{toValue:1,duration:240,useNativeDriver:true}).start(({finished})=>{if(finished){locked.current=false;setTransitioning(false);}});
   }
   function closeReader(navigate:()=>void){
-    if(locked.current)return;
     locked.current=true;
     setTransitioning(true);
+    progress.stopAnimation();
     if(reduceMotion){progress.setValue(0);locked.current=false;setTransitioning(false);navigate();return;}
     Animated.timing(progress,{toValue:0,duration:190,useNativeDriver:true}).start(()=>{locked.current=false;setTransitioning(false);navigate();});
   }

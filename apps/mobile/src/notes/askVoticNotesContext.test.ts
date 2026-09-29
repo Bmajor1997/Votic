@@ -1,5 +1,5 @@
 import { describe,expect,it } from "vitest";
-import { buildNotesAskDocument,noteSelectionKey,notesAskScopeLabel,notesForAskVotic } from "./askVoticNotesContext";
+import { buildNotesAskDocument,noteSelectionId,notesAskScopeLabel,notesForAskVotic } from "./askVoticNotesContext";
 import { VoticDocument } from "../documents/types";
 
 const documents:VoticDocument[]=[{
@@ -45,13 +45,26 @@ describe("multi-select notes scope",()=>{
   {...documents[0],id:"doc-b",title:"History",savedPassages:[{id:"passage-3",sentenceIndex:3,text:"Rome fell.",note:"",createdAt:1,updatedAt:1}]}
  ];
  it("selects a passage in one document without also selecting the same passage id in another",()=>{
-  const items=notesForAskVotic(twoDocuments,{passageIds:[noteSelectionKey("doc-b","passage-3")]});
+  const items=notesForAskVotic(twoDocuments,{passageIds:[noteSelectionId("doc-b","passage-3")]});
   expect(items.map(item=>item.document.id)).toEqual(["doc-b"]);
-  expect(buildNotesAskDocument(twoDocuments,{passageIds:[noteSelectionKey("doc-b","passage-3")]})?.sections[0].text).toContain("Rome fell.");
+  expect(buildNotesAskDocument(twoDocuments,{passageIds:[noteSelectionId("doc-b","passage-3")]})?.sections[0].text).toContain("Rome fell.");
  });
  it("combines selections across documents and keeps each source title",()=>{
-  const context=buildNotesAskDocument(twoDocuments,{passageIds:[noteSelectionKey("doc-a","passage-3"),noteSelectionKey("doc-b","passage-3")]});
+  const context=buildNotesAskDocument(twoDocuments,{passageIds:[noteSelectionId("doc-a","passage-3"),noteSelectionId("doc-b","passage-3")]});
   expect(context?.title).toBe("My Votic notes");
   expect(context?.sections.map(section=>section.heading)).toEqual(["Note 1 — Biology","Saved passage 2 — History"]);
+ });
+});
+
+describe("selected note ids",()=>{
+ const documentsWithDuplicatePassageIds:VoticDocument[]=[...documents,{
+  id:"doc-2",title:"Biology",sourceName:"biology.pdf",plainText:"",importedAt:1,updatedAt:1,progress:0,sentenceIndex:0,wordIndex:0,playbackRate:1,
+  savedPassages:[{id:"p1",sentenceIndex:2,text:"Cells use energy.",note:"ATP stores usable energy.",createdAt:1,updatedAt:2}]
+ }];
+ it("keeps selected passage IDs scoped to their document",()=>{
+  const context=buildNotesAskDocument(documentsWithDuplicatePassageIds,{passageIds:[noteSelectionId("doc-2","p1")]});
+  expect(context?.sections).toHaveLength(1);
+  expect(context?.sections[0].heading).toContain("Biology");
+  expect(context?.sections[0].text).toContain("ATP stores usable energy.");
  });
 });
