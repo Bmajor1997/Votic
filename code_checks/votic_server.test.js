@@ -230,3 +230,61 @@ test("explains when a document question is too long instead of silently dropping
     assert.doesNotMatch(error, /review/);
   });
 });
+
+const CLIENT_KEY = "votic-mobile-test-key-1";
+
+test("requires a valid client key for API routes when client keys are configured", async () => {
+  await with_server({ env: { VOTIC_CLIENT_KEYS: `old-rotated-key-0001, ${CLIENT_KEY}` } }, async (base) => {
+    const ask = (headers = {}) => fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify({ question: "How do I upload?" }) });
+    assert.equal((await ask()).status, 401);
+    assert.equal((await ask({ "X-Votic-Client-Key": "wrong-key-wrong-key" })).status, 401);
+    const allowed = await ask({ "X-Votic-Client-Key": CLIENT_KEY });
+    assert.equal(allowed.status, 200);
+    assert.equal((await ask({ "X-Votic-Client-Key": "old-rotated-key-0001" })).status, 200);
+    assert.equal((await fetch(base + "/")).status, 200);
+  });
+});
+
+test("leaves API routes open when no client keys are configured", async () => {
+  await with_server({ env: {} }, async (base) => {
+    assert.equal((await help_request(base, { question: "How do I upload?" })).status, 200);
+  });
+});
+
+test("rejects client keys that are too short to be meaningful", () => {
+  assert.throws(() => load_server_config({ VOTIC_CLIENT_KEYS: "short" }), /at least 16 characters/);
+  assert.deepEqual(load_server_config({ VOTIC_CLIENT_KEYS: ` ${CLIENT_KEY} ,, ` }).client_keys, [CLIENT_KEY]);
+});
+
+test("caps paid AI calls per day across all clients", async () => {
+  let calls = 0;
+  const fetchImpl = async (_url, options) => { calls += 1; const body = JSON.parse(options.body); return { ok: true, async json() { return body.text?.format?.name === "votic_document_answer" ? { output_text: JSON.stringify({ answer: "From the document.", sectionIndex: null, sectionTitle: null }) } : { output_text: "AI help." }; } }; };
+  await with_server({ env: { OPENAI_API_KEY: "test-key", VOTIC_AI_DAILY_LIMIT: "2" }, fetchImpl }, async (base) => {
+    const document = { title: "Plan", sections: [{ heading: "Start", text: "Ready." }] };
+    assert.equal((await (await help_request(base, { question: "Is it ready?", document })).json()).mode, "document-ai");
+    assert.equal((await (await help_request(base, { question: "How do I upload?" })).json()).mode, "ai");
+    const limited_document = await (await help_request(base, { question: "Is it ready?", document })).json();
+    assert.equal(limited_document.mode, "built-in");
+    assert.match(limited_document.answer, /today's limit/);
+    assert.equal((await (await help_request(base, { question: "How do I upload?" })).json()).mode, "built-in");
+    const review = await fetch(base + "/api/review", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(document) });
+    assert.equal(review.status, 503);
+    assert.match((await review.json()).error, /today's limit/);
+    assert.equal(calls, 2);
+  });
+});
+
+test("rate limits by forwarded client address only behind a trusted proxy", async () => {
+  const ask = (base, forwarded) => fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json", "X-Forwarded-For": forwarded }, body: JSON.stringify({ question: "How do I upload?" }) });
+  await with_server({ env: { VOTIC_TRUST_PROXY: "1" }, config: { help_rate_limit: 1 } }, async (base) => {
+    assert.equal((await ask(base, "203.0.113.1")).status, 200);
+    assert.equal((await ask(base, "203.0.113.2")).status, 200);
+    assert.equal((await ask(base, "203.0.113.1")).status, 429);
+    // A client can prepend fake addresses, but the proxy-appended last entry still identifies it.
+    assert.equal((await ask(base, "198.51.100.9, 203.0.113.1")).status, 429);
+  });
+  await with_server({ env: {}, config: { help_rate_limit: 1 } }, async (base) => {
+    assert.equal((await ask(base, "203.0.113.1")).status, 200);
+    assert.equal((await ask(base, "203.0.113.2")).status, 429);
+  });
+});

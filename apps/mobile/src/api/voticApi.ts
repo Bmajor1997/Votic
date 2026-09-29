@@ -1,19 +1,18 @@
 import Constants from "expo-constants";
+import { clientHeaders,resolveApiUrl } from "./apiConfig";
 
-const DEFAULT_API_URL="http://localhost:4173";
 const API_TIMEOUT_MS=20_000;
-export function developmentApiUrl(constants:typeof Constants=Constants){
+function developmentHostUri(constants:typeof Constants=Constants){
  const legacy=constants as typeof Constants&{expoGoConfig?:{debuggerHost?:string};manifest2?:{extra?:{expoClient?:{hostUri?:string}}}};
- const hostUri=constants.expoConfig?.hostUri||legacy.expoGoConfig?.debuggerHost||legacy.manifest2?.extra?.expoClient?.hostUri;
- const host=hostUri?.replace(/^https?:\/\//,"").split(":")[0];
- return host?`http://${host}:4173`:DEFAULT_API_URL;
+ return constants.expoConfig?.hostUri||legacy.expoGoConfig?.debuggerHost||legacy.manifest2?.extra?.expoClient?.hostUri;
 }
-export function voticApiUrl(){return (process.env.EXPO_PUBLIC_VOTIC_API_URL||developmentApiUrl()).replace(/\/$/,"")}
+export function voticApiUrl(){return resolveApiUrl({isDevelopment:__DEV__,configuredUrl:process.env.EXPO_PUBLIC_VOTIC_API_URL,developmentHostUri:developmentHostUri()});}
 
 async function apiFetch(path:string,init:RequestInit,timeoutMs=API_TIMEOUT_MS){
+ const url=voticApiUrl()+path;
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),timeoutMs);
- try{return await fetch(voticApiUrl()+path,{...init,signal:controller.signal});}
+ try{return await fetch(url,{...init,headers:{...clientHeaders(process.env.EXPO_PUBLIC_VOTIC_CLIENT_KEY),...(init.headers as Record<string,string>|undefined)},signal:controller.signal});}
  catch(error){if(error instanceof Error&&error.name==="AbortError")throw new Error("Votic took too long to respond. Check your connection and try again.");throw new Error("Votic could not connect. Check your connection and try again.");}
  finally{clearTimeout(timer);}
 }

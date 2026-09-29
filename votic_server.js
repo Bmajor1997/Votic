@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -44,24 +45,58 @@ export function load_server_config(env = process.env) {
     help_rate_limit: positive_integer("VOTIC_HELP_RATE_LIMIT", 20, 1, env),
     review_rate_limit: positive_integer("VOTIC_REVIEW_RATE_LIMIT", 10, 1, env),
     max_document_bytes: positive_integer("VOTIC_MAX_DOCUMENT_BYTES", MAX_DOCUMENT_BYTES, 1, env),
+    ai_daily_limit: positive_integer("VOTIC_AI_DAILY_LIMIT", 1_000, 1, env),
+    trust_proxy: ["1", "true"].includes(String(env.VOTIC_TRUST_PROXY || "").toLowerCase()),
+    client_keys: client_keys(env),
   };
 }
+function client_keys(env) {
+  const keys = String(env.VOTIC_CLIENT_KEYS || "").split(",").map((key) => key.trim()).filter(Boolean);
+  if (keys.some((key) => key.length < 16)) throw new Error("VOTIC_CLIENT_KEYS entries must be at least 16 characters.");
+  return keys;
+}
+const key_digest = (value) => createHash("sha256").update(value).digest();
+function valid_client_key(request, keys) {
+  const supplied = request.headers["x-votic-client-key"];
+  if (typeof supplied !== "string" || !supplied) return false;
+  const digest = key_digest(supplied);
+  // Check every key so timing does not reveal which (if any) matched.
+  return keys.reduce((matched, key) => timingSafeEqual(digest, key_digest(key)) || matched, false);
+}
+// Behind a trusted proxy the socket address is the proxy's; the last X-Forwarded-For entry is the one it appended.
+function client_address(request, trust_proxy) {
+  const forwarded = trust_proxy ? request.headers["x-forwarded-for"] : undefined;
+  const last = typeof forwarded === "string" ? forwarded.split(",").map((value) => value.trim()).filter(Boolean).at(-1) : undefined;
+  return last || request.socket.remoteAddress || "unknown";
+}
+const AI_LIMIT_MESSAGE = "Votic's AI features have reached today's limit. Please try again tomorrow.";
 
 export function create_votic_handler(options = {}) {
  const env = options.env || process.env, config = { ...load_server_config(env), ...options.config };
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
  const authorize = options.authorize || (() => true);
- let active_extractions = 0;
+ let active_extractions = 0, next_prune = 0, ai_day = "", ai_calls = 0;
+ // A server-wide daily cap on paid AI calls, independent of which client asks.
+ const take_ai_call = () => {
+   const today = new Date().toISOString().slice(0, 10);
+   if (today !== ai_day) { ai_day = today; ai_calls = 0; }
+   if (ai_calls >= config.ai_daily_limit) { logger.warn?.("Votic AI daily limit reached"); return false; }
+   ai_calls += 1;
+   return true;
+ };
  const rate_limit = (key, limit) => {
-   const now = Date.now(), prior = hits.get(key), entry = !prior || now >= prior.reset ? { count: 0, reset: now + config.rate_window_ms } : prior;
+   const now = Date.now();
+   if (now >= next_prune) { for (const [stale, entry] of hits) if (now >= entry.reset) hits.delete(stale); next_prune = now + config.rate_window_ms; }
+   const prior = hits.get(key), entry = !prior || now >= prior.reset ? { count: 0, reset: now + config.rate_window_ms } : prior;
    entry.count += 1; hits.set(key, entry);
    if (entry.count > limit) throw new HttpError(429, "Too many requests. Please try again shortly.", { "Retry-After": String(Math.max(1, Math.ceil((entry.reset - now) / 1000))) });
  };
  return async (request, response) => {
   set_security_headers(response);
   try {
-   const path = safe_request_path(request), client = request.socket.remoteAddress || "unknown";
+   const path = safe_request_path(request), client = client_address(request, config.trust_proxy);
    rate_limit(`${client}:all`, config.general_rate_limit);
+   if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
    if (!authorize(request, path)) throw new HttpError(401, "Authentication is required.");
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
    if (request.method === "POST" && path === "/api/extract") {
@@ -88,9 +123,10 @@ export function create_votic_handler(options = {}) {
       if (document) {
         const safe_document = validate_review_document(document, { too_long_message: HELP_DOCUMENT_TOO_LONG, reject_extra_sections: true });
         if (!env.OPENAI_API_KEY) answer = "Questions about this document require the AI connection. I can still help you use Votic without sending the document.";
+        else if (!take_ai_call()) answer = `${AI_LIMIT_MESSAGE} Your document remains open, and I can still help with Votic’s controls.`;
         else try { ({ answer, sectionIndex, sectionTitle } = await answer_document_question(question, safe_document, safe_history, { env, fetch_impl, timeout_ms: config.ai_timeout_ms })); mode = "document-ai"; }
         catch { logger.warn?.("Votic document help unavailable; using built-in guidance"); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
-      } else if (env.OPENAI_API_KEY) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl, timeout_ms: config.ai_timeout_ms }); mode = "ai"; } catch { logger.warn?.("Votic AI help unavailable; using built-in guidance"); } }
+      } else if (env.OPENAI_API_KEY && take_ai_call()) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl, timeout_ms: config.ai_timeout_ms }); mode = "ai"; } catch { logger.warn?.("Votic AI help unavailable; using built-in guidance"); } }
       send_json(response, 200, { answer, mode, sectionIndex, sectionTitle });
     return;
   }
@@ -99,6 +135,7 @@ export function create_votic_handler(options = {}) {
       if (!env.OPENAI_API_KEY) throw new HttpError(503, "AI review is not connected yet. The local review is still available.");
       const payload = await read_json_body(request, 500_000, config.body_timeout_ms);
       const document = validate_review_document(payload);
+      if (!take_ai_call()) throw new HttpError(503, `${AI_LIMIT_MESSAGE} The local review is still available.`);
       try {
         const review = await generate_review_with_ai(document, { env, fetch_impl, timeout_ms: config.ai_timeout_ms });
         send_json(response, 200, { ...review, mode: "ai" });
@@ -122,6 +159,7 @@ export function create_votic_server(options = {}) { return createServer(create_v
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  const port = positive_integer("PORT", 4173);
  const server_host = process.env.VOTIC_HOST || "0.0.0.0";
+ if (process.env.NODE_ENV === "production" && process.env.OPENAI_API_KEY && !load_server_config().client_keys.length) console.warn("Votic AI is enabled without VOTIC_CLIENT_KEYS; any client can use it (up to VOTIC_AI_DAILY_LIMIT calls per day).");
  create_votic_server().listen(port, server_host, () => console.log(`Votic is ready on port ${port} for local and mobile devices`));
 }
 

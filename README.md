@@ -63,6 +63,22 @@ Playback speed is adjustable in 0.1× increments across Votic's planned 0.5× th
 
 Follow-along highlighting can be personalized with Warm orange, Blue, Green, Purple, and High contrast presets. Each preset coordinates the current-passage background with the stronger active-word color, and the preference is remembered across documents.
 
+## Deploying the Votic server
+
+The mobile app uses `votic_server.js` for document extraction and AI features. Serve it over HTTPS (for example behind a load balancer) and configure it with environment variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
+| `VOTIC_AI_DAILY_LIMIT` | `1000` | Server-wide cap on paid AI calls per UTC day. When reached, help falls back to built-in answers and reviews report the limit. |
+| `VOTIC_CLIENT_KEYS` | unset | Comma-separated keys (16+ characters). When set, every `/api/*` request must send one in `X-Votic-Client-Key`. List two keys while rotating. The web prototype does not send a key, so leave this unset if it must use the same server. |
+| `VOTIC_TRUST_PROXY` | off | Set to `1` only behind a proxy that appends `X-Forwarded-For`, so rate limits apply per user instead of per proxy. |
+| `VOTIC_RATE_LIMIT`, `VOTIC_HELP_RATE_LIMIT`, `VOTIC_EXTRACT_RATE_LIMIT`, `VOTIC_REVIEW_RATE_LIMIT` | 120 / 20 / 10 / 10 | Requests per client per `VOTIC_RATE_WINDOW_MS` (60 s). |
+
+Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
+
+A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost. Per-user protection requires user accounts, which are not implemented yet.
+
 ## Product Hypothesis
 
 People already use text-to-speech tools for studying, work, accessibility, long-form reading, multitasking, and listening on the go. Existing products can generate good speech, but users may still struggle with document parsing, navigation, reliability, confusing interfaces, and understanding complex documents through audio.
