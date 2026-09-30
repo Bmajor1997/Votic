@@ -89,7 +89,7 @@ type ReaderAskMessage = {
 type ConversationSummary = { text: string; source?: AskAnswerSource; saved?: boolean; partial?: boolean };
 
 const CONVERSATION_SUMMARY_PROMPT =
-  "Turn our conversation into concise study notes. Use short bullet points, include important key terms, and keep only the most useful takeaways supported by the document.";
+  "Create a quick summary of our conversation. Start with one short main-idea sentence, then list the essential answers and key takeaways as clear bullet points. Include important terms only when they help understanding. Keep it concise, accurate, and supported by the document.";
 
 export default function Reader() {
   const { theme } = useVoticTheme();
@@ -117,6 +117,7 @@ export default function Reader() {
   const [completionOpen, setCompletionOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [listenExpanded, setListenExpanded] = useState(false);
+  const [dockHeight, setDockHeight] = useState(ASK_COMPOSER_HEIGHT);
   const [askPhase, setAskPhase] = useState<AskPhase>("closed");
   const askOpen = askPhase !== "closed";
   const askClosing = askPhase === "closing";
@@ -129,6 +130,7 @@ export default function Reader() {
   const [askSending, setAskSending] = useState(false);
   const [askError, setAskError] = useState("");
   const [conversationSummary, setConversationSummary] = useState<ConversationSummary | null>(null);
+  const [conversationSaved, setConversationSaved] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
   const [previewVoiceIdentifier, setPreviewVoiceIdentifier] = useState<string | null>(null);
@@ -240,6 +242,7 @@ export default function Reader() {
       setAskSending(false);
       setAskError("");
       setConversationSummary(null);
+      setConversationSaved(false);
       setSummarizing(false);
     });
     return () => cancelAnimationFrame(frame);
@@ -409,11 +412,38 @@ export default function Reader() {
     if (!note) return;
     savePassage(note.documentId, {
       ...note.passage,
-      title: "Ask Votic conversation takeaways",
+      title: "Ask Votic quick summary",
       noteType: "key-point",
       tags: ["votic", "summary"],
     });
     setConversationSummary((current) => (current ? { ...current, saved: true } : current));
+  }
+
+  function saveConversationToNotes() {
+    if (conversationSaved || !activeDocument) return;
+    const messages = conversationMessages(askMessages);
+    if (!messages.some((message) => message.role === "votic")) return;
+    const context = resolveAskVoticContext(documents, activeDocument, {});
+    if ((context.kind !== "document" && context.kind !== "notes") || !context.saveSource) return;
+    const now = Date.now();
+    const transcript = messages
+      .map((message) => `${message.role === "user" ? "You" : "Votic"}: ${message.text}`)
+      .join("\n\n");
+    const note = answerNoteForSource(
+      documents,
+      context.saveSource,
+      transcript,
+      now,
+      `votic-conversation-${now}-${Math.random().toString(36).slice(2, 7)}`,
+    );
+    if (!note) return;
+    savePassage(note.documentId, {
+      ...note.passage,
+      title: "Ask Votic conversation",
+      noteType: "note",
+      tags: ["votic", "conversation"],
+    });
+    setConversationSaved(true);
   }
 
   function openAskAnswerLink(link: AskLink) {
@@ -620,6 +650,12 @@ export default function Reader() {
   } = readerSourceTransform(transition.sourceRect, window);
   // The panel starts just below the screen and slides up into place.
   const askPanelSlide = askProgress.interpolate({ inputRange: [0, 1], outputRange: [askPanelHeight, 0] });
+  // The Reader dock follows the inverse path, leaving and returning on the same curve as Ask Votic.
+  const dockSlide = askProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, dockHeight + spacing.sm],
+  });
+  const dockOpacity = askProgress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 0, 0] });
   const readerOpacity = readerReady
     ? transition.progress.interpolate({
         inputRange: [0, 0.62, 1],
@@ -783,7 +819,13 @@ export default function Reader() {
                   })}
                 </View>
               </ScrollView>
-              <View
+              <Animated.View
+                testID="reader-dock-container"
+                onLayout={(event) => {
+                  const measured = Math.ceil(event.nativeEvent.layout.height);
+                  if (measured > 0 && measured !== dockHeight) setDockHeight(measured);
+                }}
+                style={{ opacity: dockOpacity, transform: [{ translateY: dockSlide }] }}
                 pointerEvents={dockCovered ? "none" : "auto"}
                 accessibilityElementsHidden={dockCovered}
                 importantForAccessibility={dockCovered ? "no-hide-descendants" : "auto"}
@@ -944,7 +986,7 @@ export default function Reader() {
                     </View>
                   ) : null}
                 </View>
-              </View>
+              </Animated.View>
               {askOpen ? (
                 <Animated.View
                   accessibilityLabel="Ask Votic conversation"
@@ -1043,30 +1085,46 @@ export default function Reader() {
                           </View>
                         ),
                       )}
-                      {askMessages.some((message) => message.role === "votic" && !message.fallback) &&
-                      !conversationSummary ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Summarize conversation into notes"
-                          disabled={summarizing || askSending}
-                          onPress={() => void summarizeConversation()}
-                          style={({ pressed }) => [
-                            s.summarizeButton,
-                            {
-                              borderColor: theme.accent,
-                              opacity: summarizing || askSending ? 0.5 : pressed ? 0.7 : 1,
-                            },
-                          ]}
-                        >
-                          {summarizing ? (
-                            <ActivityIndicator size="small" color={theme.accent} />
-                          ) : (
-                            <Ionicons name="sparkles-outline" size={17} color={theme.accent} />
-                          )}
-                          <Text style={[s.summarizeButtonText, { color: theme.accent }]}>
-                            {summarizing ? "Creating notes…" : "Create notes from this conversation"}
-                          </Text>
-                        </Pressable>
+                      {askMessages.some((message) => message.role === "votic" && !message.fallback) ? (
+                        <View style={s.conversationNoteActions}>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes"
+                            }
+                            disabled={conversationSaved}
+                            onPress={saveConversationToNotes}
+                            style={[s.askSave, { borderColor: theme.text }]}
+                          >
+                            <Text style={[s.askSaveText, { color: theme.text }]}>
+                              {conversationSaved ? "✓ Conversation saved" : "+ Save conversation"}
+                            </Text>
+                          </Pressable>
+                          {!conversationSummary ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel="Create a quick summary"
+                              disabled={summarizing || askSending}
+                              onPress={() => void summarizeConversation()}
+                              style={({ pressed }) => [
+                                s.summarizeButton,
+                                {
+                                  borderColor: theme.accent,
+                                  opacity: summarizing || askSending ? 0.5 : pressed ? 0.7 : 1,
+                                },
+                              ]}
+                            >
+                              {summarizing ? (
+                                <ActivityIndicator size="small" color={theme.accent} />
+                              ) : (
+                                <Ionicons name="sparkles-outline" size={17} color={theme.accent} />
+                              )}
+                              <Text style={[s.summarizeButtonText, { color: theme.accent }]}>
+                                {summarizing ? "Creating summary…" : "Quick summary"}
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
                       ) : null}
                       {conversationSummary ? (
                         <View
@@ -1078,9 +1136,7 @@ export default function Reader() {
                         >
                           <View style={s.summaryTitleRow}>
                             <Ionicons name="sparkles" size={17} color={theme.accent} />
-                            <Text style={[s.summaryTitle, { color: theme.text }]}>
-                              Conversation takeaways
-                            </Text>
+                            <Text style={[s.summaryTitle, { color: theme.text }]}>Quick summary</Text>
                           </View>
                           {conversationSummary.partial ? (
                             <Text style={[s.askStatus, { color: theme.mutedText }]}>
@@ -1130,11 +1186,12 @@ export default function Reader() {
                       accessibilityLabel="Ask Votic a question"
                       value={askQuestion}
                       onChangeText={setAskQuestion}
-                      placeholder="Ask about this document…"
+                      placeholder="Ask Votic about this document…"
                       placeholderTextColor={theme.mutedText}
-                      multiline
+                      multiline={hasAskConversation}
+                      numberOfLines={hasAskConversation ? undefined : 1}
                       maxLength={1000}
-                      style={[s.askInput, { color: theme.text }]}
+                      style={[s.askInput, !hasAskConversation && s.compactAskInput, { color: theme.text }]}
                       onSubmitEditing={() => void sendAskVotic()}
                     />
                     <Pressable
@@ -1289,6 +1346,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: spacing.xs,
   },
+  conversationNoteActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
   summarizeButtonText: { fontSize: 13, fontWeight: "800" },
   summaryCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.md },
   summaryTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
@@ -1305,6 +1363,7 @@ const s = StyleSheet.create({
     gap: spacing.sm,
   },
   askInput: { flex: 1, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
+  compactAskInput: { height: 46, paddingVertical: 0 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   askComposerClose: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
   dock: {

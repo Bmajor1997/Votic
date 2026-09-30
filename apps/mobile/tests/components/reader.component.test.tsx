@@ -43,6 +43,18 @@ function askPanelOffset() {
 function askPanelHeight() {
   return StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height as number;
 }
+function readerDockOffset(includeHiddenElements = false) {
+  const style = StyleSheet.flatten(
+    screen.getByTestId("reader-dock-container", { includeHiddenElements }).props.style,
+  );
+  const transform = (style.transform ?? []) as { translateY?: number }[];
+  return transform.find((step) => step.translateY !== undefined)?.translateY ?? 0;
+}
+function readerDockOpacity(includeHiddenElements = false) {
+  return StyleSheet.flatten(
+    screen.getByTestId("reader-dock-container", { includeHiddenElements }).props.style,
+  ).opacity as number;
+}
 
 async function expandListeningControls() {
   await fireEvent.press(screen.getByRole("button", { name: "Expand listening controls" }));
@@ -240,7 +252,12 @@ describe("Reader", () => {
 
     expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
     expect(screen.queryByText("This document only")).toBeNull();
+    expect(readerDockOffset(true)).toBeGreaterThan(0);
+    expect(readerDockOpacity(true)).toBe(0);
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    const compactAskInput = screen.getByPlaceholderText("Ask Votic about this document…");
+    expect(compactAskInput.props.multiline).toBe(false);
+    expect(compactAskInput.props.numberOfLines).toBe(1);
 
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
@@ -252,6 +269,10 @@ describe("Reader", () => {
       expect.objectContaining({ title: "Field Guide" }),
       [],
     );
+    expect(screen.getByRole("button", { name: "Save conversation to Notes" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Create a quick summary" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Save conversation to Notes" }));
+    expect(screen.getByRole("button", { name: "Conversation saved to Notes" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save answer to Notes" }));
     expect(screen.getByRole("button", { name: "Saved to Notes" })).toBeTruthy();
 
@@ -261,7 +282,7 @@ describe("Reader", () => {
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Summarize conversation into notes" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create a quick summary" }));
     await waitFor(() => expect(screen.getByLabelText("Conversation notes preview")).toBeTruthy());
     expect(screen.getByText(/Key term: focus/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save conversation notes" }));
@@ -284,7 +305,7 @@ describe("Reader", () => {
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByText("· From this document")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Summarize conversation into notes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Create a quick summary" })).toBeNull();
 
     // The notice is not sent back as if it were an earlier answer.
     askVoticMock.mockResolvedValueOnce({
@@ -322,7 +343,7 @@ describe("Reader", () => {
       sectionIndex: null,
       sectionTitle: null,
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Summarize conversation into notes" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create a quick summary" }));
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByLabelText("Conversation notes preview")).toBeNull();
     // All ten messages were sent, not just the last six.
@@ -372,6 +393,8 @@ describe("Reader", () => {
     expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
     // Reader controls and position are back, and closing does not start or change narration.
     expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+    expect(readerDockOffset()).toBe(0);
+    expect(readerDockOpacity()).toBe(1);
     expect(screen.getByText("1 passages left")).toBeTruthy();
     expect(speak).not.toHaveBeenCalled();
 
@@ -439,9 +462,13 @@ describe("Reader", () => {
       expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
       expect(askPanelOffset()).toBeGreaterThan(0);
       expect(askPanelOffset()).toBeLessThan(askPanelHeight());
+      expect(readerDockOffset(true)).toBeGreaterThan(0);
+      expect(readerDockOpacity(true)).toBeLessThan(1);
 
       await act(async () => jest.advanceTimersByTime(400));
       expect(askPanelOffset()).toBe(0);
+      expect(readerDockOffset(true)).toBeGreaterThan(0);
+      expect(readerDockOpacity(true)).toBe(0);
       expect(askPanelHeight()).toBeLessThan(Dimensions.get("window").height * 0.2);
       expect(screen.getByLabelText("Ask Votic a question")).toBeTruthy();
       // The Reader is still there above the panel; only the listening dock is covered.
@@ -459,6 +486,7 @@ describe("Reader", () => {
       await act(async () => jest.advanceTimersByTime(150));
       expect(askPanelOffset()).toBeGreaterThan(0);
       expect(askPanelOffset()).toBeLessThan(askPanelHeight());
+      expect(readerDockOffset()).toBeGreaterThan(0);
       await act(async () => jest.advanceTimersByTime(400));
       expectReaderRestored();
     });
