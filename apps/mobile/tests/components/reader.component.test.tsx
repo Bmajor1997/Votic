@@ -332,6 +332,8 @@ describe("Reader", () => {
       await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
       await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
       await screen.findByText(answer);
+      // The close control lives in the persistent Reader top bar, so it remains available after chat starts.
+      expect(screen.getByRole("button", { name: "Close Ask Votic" })).toBeTruthy();
       speak.mockClear();
       jest.mocked(Speech.stop).mockClear();
     }
