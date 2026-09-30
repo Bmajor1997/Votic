@@ -23,6 +23,7 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { AskVoticEmptyAnimation } from "../src/components/EmptyStateIllustrations";
 import {
+  answeredFromContext,
   answerLink,
   answerNoteForSource,
   AskAnswerSource,
@@ -42,6 +43,8 @@ type Message = {
   saved?: boolean;
   source?: AskAnswerSource;
   link?: AskLink;
+  /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
+  fallback?: boolean;
 };
 type PromptFlight = { label: string; x: number; y: number; dx: number; dy: number };
 /** Timestamp and unique id for a note saved from an answer (called only from the Save button). */
@@ -260,14 +263,17 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       const answer = await askVotic(clean, request.document, request.history);
       if (!current()) return;
       setError("");
+      const grounded = answeredFromContext(request, answer);
       setMessages((v) => [
         ...v,
-        {
-          role: "votic",
-          text: answer.answer,
-          source: askContext.kind === "general" ? undefined : (askContext.saveSource ?? undefined),
-          link: answerLink(request, answer.sectionIndex) ?? undefined,
-        },
+        grounded
+          ? {
+              role: "votic",
+              text: answer.answer,
+              source: askContext.kind === "general" ? undefined : (askContext.saveSource ?? undefined),
+              link: answerLink(request, answer.sectionIndex) ?? undefined,
+            }
+          : { role: "votic", text: answer.answer, fallback: true },
       ]);
     } catch (e) {
       if (current()) setError(e instanceof Error ? e.message : "Votic could not answer right now.");

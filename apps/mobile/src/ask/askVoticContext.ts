@@ -44,6 +44,10 @@ export const MISSING_NOTES_MESSAGE =
   "These notes are no longer available. Go back to Notes and choose them again.";
 export const HISTORY_MESSAGES = 6;
 export const HISTORY_MESSAGE_CHARS = 1500;
+/** The most history the server accepts; used when the whole conversation matters, as in a summary. */
+export const FULL_HISTORY = { messages: 20, chars: 2000 };
+type HistoryLimit = { messages: number; chars: number };
+type ChatMessage = { role: "user" | "votic"; text: string; fallback?: boolean };
 
 function single(value: Param) {
   const text = Array.isArray(value) ? value[0] : value;
@@ -122,20 +126,32 @@ export function resolveAskVoticContext(
   return { kind: "general", label: "Reading and document help" };
 }
 
+/** Conversation messages that count as history: fallback notices (limits, errors) are not answers. */
+export function conversationMessages<T extends ChatMessage>(messages: T[]) {
+  return messages.filter((message) => !message.fallback);
+}
+
 /** The last few exchanges, so follow-up questions make sense. Excludes the question being asked. */
 export function recentHistory(
-  messages: { role: "user" | "votic"; text: string }[],
+  messages: ChatMessage[],
   question: string,
+  limit: HistoryLimit = { messages: HISTORY_MESSAGES, chars: HISTORY_MESSAGE_CHARS },
 ): AskHistoryItem[] {
-  const last = messages[messages.length - 1];
-  const prior = last?.role === "user" && last.text === question ? messages.slice(0, -1) : messages;
-  return prior.slice(-HISTORY_MESSAGES).map((message) => ({
+  const conversation = conversationMessages(messages);
+  const last = conversation[conversation.length - 1];
+  const prior = last?.role === "user" && last.text === question ? conversation.slice(0, -1) : conversation;
+  return prior.slice(-limit.messages).map((message) => ({
     role: message.role === "user" ? "user" : "assistant",
-    text:
-      message.text.length > HISTORY_MESSAGE_CHARS
-        ? message.text.slice(0, HISTORY_MESSAGE_CHARS) + "…"
-        : message.text,
+    text: message.text.length > limit.chars ? message.text.slice(0, limit.chars - 1) + "…" : message.text,
   }));
+}
+
+/**
+ * Whether an answer came from the document or notes that were sent. When they could not be used
+ * (daily limit, AI unavailable), the server still replies, but with a notice rather than an answer.
+ */
+export function answeredFromContext(request: AskRequest, answer: { mode: string }) {
+  return !request.document || answer.mode === "document-ai";
 }
 
 function toRequest(
@@ -156,9 +172,10 @@ function toRequest(
 export function prepareAskRequest(
   context: AskVoticContext,
   question: string,
-  messages: { role: "user" | "votic"; text: string }[],
+  messages: ChatMessage[],
+  historyLimit?: HistoryLimit,
 ): AskRequest {
-  const history = recentHistory(messages, question);
+  const history = recentHistory(messages, question, historyLimit);
   if (context.kind === "notes")
     return toRequest(context.title, selectSections(context.sections, question), history);
   if (context.kind === "document") {

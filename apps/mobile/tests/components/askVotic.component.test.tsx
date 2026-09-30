@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, VoticAnswer } from "../../src/api/voticApi";
-import { renderWithProviders } from "../renderWithProviders";
+import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
 const askVoticMock = jest.mocked(askVotic);
@@ -36,5 +36,32 @@ describe("Ask Votic retry", () => {
     expect(screen.getByText("ATP stores energy.")).toBeTruthy();
     expect(screen.queryByText(CONNECTION_ERROR)).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry question" })).toBeNull();
+  });
+});
+
+describe("Ask Votic answers", () => {
+  it("does not offer to save a notice that replaced a document answer", async () => {
+    const book = testDocument("doc-book", "Field Guide", { plainText: "Focus matters. Rest helps." });
+    await renderWithProviders(<AskVotic />, { documents: [book], reduceMotion: true });
+    askVoticMock.mockResolvedValueOnce({
+      answer: "Real answer.",
+      mode: "document-ai",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    await ask("Why focus?");
+    expect(await screen.findByText("Real answer.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Save answer to Notes" })).toBeTruthy();
+
+    const LIMIT = "Votic's AI features have reached today's limit. Please try again tomorrow.";
+    askVoticMock.mockResolvedValueOnce({
+      answer: LIMIT,
+      mode: "built-in",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    await ask("Why rest?");
+    expect(await screen.findByText(LIMIT)).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Save answer to Notes" })).toHaveLength(1);
   });
 });

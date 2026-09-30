@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { VoticDocument } from "./types";
-import { createDocumentStore, documentTextKey, LIBRARY_KEY } from "./documentStorage";
+import { createDocumentStore, documentTextKey, LIBRARY_KEY, TEXT_CHUNK_CHARS } from "./documentStorage";
 
 // vi.mock is hoisted above these imports, so documentStorage sees the in-memory AsyncStorage.
 
@@ -22,6 +22,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
     multiRemove: vi.fn(async (keys: string[]) => {
       for (const key of keys) memory.delete(key);
     }),
+    getAllKeys: vi.fn(async () => [...memory.keys()]),
   },
 }));
 
@@ -130,9 +131,64 @@ describe("document storage", () => {
     memory.set(LIBRARY_KEY, "{not json");
     await expect(createDocumentStore().loadDocuments()).rejects.toThrow(/could not be read/);
   });
-  it("fails instead of dropping a document whose text is missing", async () => {
-    await createDocumentStore().saveDocuments([doc("a", "Alpha text.")]);
+  it("sets aside a document whose text is missing without losing it or the rest of the library", async () => {
+    const notes = [
+      { id: "passage-0", sentenceIndex: 0, text: "Alpha.", note: "keep", createdAt: 1, updatedAt: 1 },
+    ];
+    await createDocumentStore().saveDocuments([
+      doc("a", "Alpha text.", { savedPassages: notes }),
+      doc("b", "Beta text."),
+    ]);
     memory.delete(documentTextKey("a"));
-    await expect(createDocumentStore().loadDocuments()).rejects.toThrow(/text could not be read/);
+    const store = createDocumentStore();
+    expect(await store.loadDocuments()).toEqual([doc("b", "Beta text.")]);
+    expect(store.unavailableDocuments()).toEqual(["a"]);
+    // Saving the readable library keeps the unreadable document's metadata and notes.
+    await store.saveDocuments([doc("b", "Beta text.", { progress: 0.5 })]);
+    const saved = JSON.parse(memory.get(LIBRARY_KEY) || "[]");
+    expect(saved.map((item: VoticDocument) => item.id)).toEqual(["b", "a"]);
+    expect(saved[1].savedPassages).toEqual(notes);
+    // Once its text is back, it loads again.
+    memory.set(documentTextKey("a"), "Alpha text.");
+    const reloaded = createDocumentStore();
+    expect((await reloaded.loadDocuments()).map((item) => item.id)).toEqual(["b", "a"]);
+    expect(reloaded.unavailableDocuments()).toEqual([]);
+  });
+  it("reads documents one at a time when reading the whole library at once fails", async () => {
+    await createDocumentStore().saveDocuments([doc("a", "Alpha text."), doc("b", "Beta text.")]);
+    vi.mocked(AsyncStorage.multiGet)
+      .mockRejectedValueOnce(new Error("Row too big to fit into CursorWindow"))
+      .mockRejectedValueOnce(new Error("Row too big to fit into CursorWindow"));
+    const store = createDocumentStore();
+    expect((await store.loadDocuments()).map((item) => item.id)).toEqual(["b"]);
+    expect(store.unavailableDocuments()).toEqual(["a"]);
+  });
+  it("splits long text across several stored values and reads it back", async () => {
+    const long = "a".repeat(TEXT_CHUNK_CHARS * 2 + 10);
+    await createDocumentStore().saveDocuments([doc("a", long)]);
+    expect(memory.get(documentTextKey("a"))).toHaveLength(TEXT_CHUNK_CHARS);
+    expect(memory.get(documentTextKey("a", 2))).toHaveLength(10);
+    for (const value of memory.values()) expect(value.length).toBeLessThanOrEqual(TEXT_CHUNK_CHARS);
+    expect(await createDocumentStore().loadDocuments()).toEqual([doc("a", long)]);
+  });
+  it("deletes every chunk of a removed document, and extra chunks when a text gets shorter", async () => {
+    const store = createDocumentStore();
+    await store.loadDocuments();
+    await store.saveDocuments([
+      doc("a", "a".repeat(TEXT_CHUNK_CHARS * 3)),
+      doc("b", "b".repeat(TEXT_CHUNK_CHARS + 1)),
+    ]);
+    await store.saveDocuments([doc("a", "Short now.")]);
+    expect([...memory.keys()].filter((key) => key !== LIBRARY_KEY)).toEqual([documentTextKey("a")]);
+    expect(await createDocumentStore().loadDocuments()).toEqual([doc("a", "Short now.")]);
+  });
+  it("removes text left behind by an interrupted save when the library loads", async () => {
+    await createDocumentStore().saveDocuments([doc("a", "Alpha text.")]);
+    memory.set(documentTextKey("never-saved"), "Orphaned text.");
+    memory.set(documentTextKey("a", 1), "Stale chunk.");
+    await createDocumentStore().loadDocuments();
+    await vi.waitFor(() => expect(memory.has(documentTextKey("never-saved"))).toBe(false));
+    expect(memory.has(documentTextKey("a", 1))).toBe(false);
+    expect(memory.get(documentTextKey("a"))).toBe("Alpha text.");
   });
 });

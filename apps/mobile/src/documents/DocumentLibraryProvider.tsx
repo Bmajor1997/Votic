@@ -5,6 +5,17 @@ import { createDocumentStore, loadCollections, saveCollections } from "./documen
 import { createThrottledSaver } from "./throttledSaver";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
+const LIBRARY_SAVE_ERROR =
+  "Votic could not save your library changes. Keep Votic open and try the change again.";
+const COLLECTIONS_SAVE_ERROR =
+  "Votic could not save your collection changes. Keep Votic open and try the change again.";
+function unavailableMessage(titles: string[]) {
+  const which =
+    titles.length === 1
+      ? `“${titles[0]}” could not be opened`
+      : `${titles.length} documents could not be opened`;
+  return `${which}, so ${titles.length === 1 ? "it is" : "they are"} hidden from your library. ${titles.length === 1 ? "It has" : "They have"} been kept on this device, along with ${titles.length === 1 ? "its" : "their"} notes.`;
+}
 
 type Library = {
   documents: VoticDocument[];
@@ -45,11 +56,17 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [store] = useState(createDocumentStore);
+  // A save error clears once a later save succeeds; other notices (such as unreadable documents) stay.
+  const clearSaveError = (message: string) =>
+    setPersistenceError((current) => (current === message ? null : current));
   const [librarySaver] = useState(() =>
-    createThrottledSaver(store.saveDocuments, LIBRARY_SAVE_INTERVAL_MS, () =>
-      setPersistenceError(
-        "Votic could not save your library changes. Keep Votic open and try the change again.",
-      ),
+    createThrottledSaver(
+      async (value: VoticDocument[]) => {
+        await store.saveDocuments(value);
+        clearSaveError(LIBRARY_SAVE_ERROR);
+      },
+      LIBRARY_SAVE_INTERVAL_MS,
+      () => setPersistenceError(LIBRARY_SAVE_ERROR),
     ),
   );
 
@@ -61,7 +78,8 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         setDocuments(savedDocuments);
         setCollections(savedCollections);
         setActiveId(savedDocuments[0]?.id || null);
-        setPersistenceError(null);
+        const unavailable = store.unavailableDocuments();
+        setPersistenceError(unavailable.length ? unavailableMessage(unavailable) : null);
         setHydrated(true);
       })
       .catch(() => {
@@ -90,10 +108,9 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }, [librarySaver]);
   useEffect(() => {
     if (hydrated)
-      saveCollections(collections).catch(() =>
-        setPersistenceError(
-          "Votic could not save your collection changes. Keep Votic open and try the change again.",
-        ),
+      saveCollections(collections).then(
+        () => setPersistenceError((current) => (current === COLLECTIONS_SAVE_ERROR ? null : current)),
+        () => setPersistenceError(COLLECTIONS_SAVE_ERROR),
       );
   }, [collections, hydrated]);
 

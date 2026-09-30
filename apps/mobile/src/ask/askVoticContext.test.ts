@@ -5,6 +5,8 @@ import {
   askVoticContextKey,
   prepareAskRequest,
   recentHistory,
+  answeredFromContext,
+  FULL_HISTORY,
   initialQuestionFromParams,
   notesScopeFromParams,
   resolveAskVoticContext,
@@ -294,6 +296,39 @@ describe("Ask Votic conversation history", () => {
   });
   it("trims long earlier answers", () => {
     const [item] = recentHistory([{ role: "votic", text: "a".repeat(5000) }], "Next?");
-    expect(item.text.length).toBe(1501);
+    expect(item.text.length).toBe(1500);
+    expect(item.text.endsWith("…")).toBe(true);
+  });
+  it("leaves fallback notices out of history", () => {
+    expect(
+      recentHistory(
+        [
+          { role: "user", text: "First?" },
+          { role: "votic", text: "Votic's AI features have reached today's limit.", fallback: true },
+          { role: "user", text: "Second?" },
+          { role: "votic", text: "Real answer." },
+        ],
+        "Next?",
+      ),
+    ).toEqual([
+      { role: "user", text: "First?" },
+      { role: "user", text: "Second?" },
+      { role: "assistant", text: "Real answer." },
+    ]);
+  });
+  it("can send the whole conversation the server accepts, for summaries", () => {
+    const messages = Array.from({ length: 30 }, (_, index) => ({
+      role: index % 2 ? ("votic" as const) : ("user" as const),
+      text: "x".repeat(3000),
+    }));
+    const history = recentHistory(messages, "Summarize", FULL_HISTORY);
+    expect(history).toHaveLength(20);
+    expect(history.every((item) => item.text.length === 2000)).toBe(true);
+  });
+  it("treats document replies that did not use the document as fallbacks", () => {
+    const withDocument = { document: { title: "T", sections: [] }, links: [], history: [] };
+    expect(answeredFromContext(withDocument, { mode: "document-ai" })).toBe(true);
+    expect(answeredFromContext(withDocument, { mode: "built-in" })).toBe(false);
+    expect(answeredFromContext({ links: [], history: [] }, { mode: "built-in" })).toBe(true);
   });
 });

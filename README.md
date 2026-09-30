@@ -46,7 +46,7 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 ### Mobile-first implementation status
 
-Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–6× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; and the first-run tour. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; and the first-run tour. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
 Not yet implemented: user accounts, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
@@ -85,13 +85,14 @@ The mobile app uses `votic_server.js` for document extraction and AI features. S
 |---|---|---|
 | `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
 | `VOTIC_AI_DAILY_LIMIT` | `1000` | Server-wide cap on paid AI calls per UTC day. When reached, help falls back to built-in answers and reviews report the limit. |
+| `VOTIC_AI_CLIENT_DAILY_LIMIT` | `100` | Cap on paid AI calls per client address per UTC day, so one client cannot use up the server-wide cap for everyone. |
 | `VOTIC_CLIENT_KEYS` | unset | Comma-separated keys (16+ characters). When set, every `/api/*` request must send one in `X-Votic-Client-Key`. List two keys while rotating. The web prototype does not send a key, so leave this unset if it must use the same server. |
-| `VOTIC_TRUST_PROXY` | off | Set to `1` only behind a proxy that appends `X-Forwarded-For`, so rate limits apply per user instead of per proxy. |
+| `VOTIC_TRUST_PROXY` | off | The number of proxies in front of the server that append `X-Forwarded-For` (`true` means `1`), so rate limits apply per user instead of per proxy. Behind a CDN and a load balancer, use `2`. Set it only when every request passes through those proxies. |
 | `VOTIC_RATE_LIMIT`, `VOTIC_HELP_RATE_LIMIT`, `VOTIC_EXTRACT_RATE_LIMIT`, `VOTIC_REVIEW_RATE_LIMIT` | 120 / 20 / 10 / 10 | Requests per client per `VOTIC_RATE_WINDOW_MS` (60 s). |
 
 Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
 
-A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost. Per-user protection requires user accounts, which are not implemented yet.
+A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Per-user protection requires user accounts, which are not implemented yet.
 
 ## Product Hypothesis
 

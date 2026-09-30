@@ -228,7 +228,7 @@ describe("Reader", () => {
   it("opens Ask Votic inside Reader and keeps the document as context", async () => {
     askVoticMock.mockResolvedValue({
       answer: "Focus improves when distractions are reduced.",
-      mode: "document",
+      mode: "document-ai",
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });
@@ -254,7 +254,7 @@ describe("Reader", () => {
 
     askVoticMock.mockResolvedValueOnce({
       answer: "• Reduce distractions\n• Give one task full attention\n• Key term: focus",
-      mode: "document",
+      mode: "document-ai",
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });
@@ -266,10 +266,72 @@ describe("Reader", () => {
     expect(router.push).not.toHaveBeenCalledWith("/assistant");
   });
 
+  it("shows a limit notice as a notice, not as an answer from the document", async () => {
+    const LIMIT = "Votic's AI features have reached today's limit. Please try again tomorrow.";
+    askVoticMock.mockResolvedValue({
+      answer: LIMIT,
+      mode: "built-in",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
+    expect(screen.queryByText("· From this document")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Summarize conversation into notes" })).toBeNull();
+
+    // The notice is not sent back as if it were an earlier answer.
+    askVoticMock.mockResolvedValueOnce({
+      answer: "Real answer.",
+      mode: "document-ai",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "And now?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    await waitFor(() => expect(screen.getByText("Real answer.")).toBeTruthy());
+    expect(askVoticMock).toHaveBeenLastCalledWith("And now?", expect.anything(), [
+      { role: "user", text: "Why does focus help?" },
+    ]);
+  });
+
+  it("summarizes the whole conversation, and shows a limit notice instead of a summary", async () => {
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    for (let turn = 1; turn <= 5; turn += 1) {
+      askVoticMock.mockResolvedValueOnce({
+        answer: `Answer ${turn}.`,
+        mode: "document-ai",
+        sectionIndex: null,
+        sectionTitle: null,
+      });
+      await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), `Question ${turn}?`);
+      await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+      await waitFor(() => expect(screen.getByText(`Answer ${turn}.`)).toBeTruthy());
+    }
+    const LIMIT = "You've reached today's limit for Votic's AI features. Please try again tomorrow.";
+    askVoticMock.mockResolvedValueOnce({
+      answer: LIMIT,
+      mode: "built-in",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Summarize conversation into notes" }));
+    await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
+    expect(screen.queryByLabelText("Conversation notes preview")).toBeNull();
+    // All ten messages were sent, not just the last six.
+    const history = askVoticMock.mock.calls.at(-1)?.[2];
+    expect(history).toHaveLength(10);
+    expect(history?.[0]).toEqual({ role: "user", text: "Question 1?" });
+  });
+
   it("closes Ask Votic at once with Reduce Motion and returns to the Reader where it was", async () => {
     askVoticMock.mockResolvedValue({
       answer: "Focus improves when distractions are reduced.",
-      mode: "document",
+      mode: "document-ai",
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });
@@ -322,7 +384,7 @@ describe("Reader", () => {
     async function openAskWithAnswer() {
       askVoticMock.mockResolvedValue({
         answer,
-        mode: "document",
+        mode: "document-ai",
         sectionIndex: 0,
         sectionTitle: "Field Guide · 1/1",
       });
@@ -452,7 +514,7 @@ describe("Reader", () => {
   it("moves the open Reader to the passage an Ask Votic answer links to", async () => {
     askVoticMock.mockResolvedValue({
       answer: "It starts with the first passage.",
-      mode: "document",
+      mode: "document-ai",
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });

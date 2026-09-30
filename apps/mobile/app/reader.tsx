@@ -25,9 +25,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { askVotic } from "../src/api/voticApi";
 import {
+  answeredFromContext,
   answerLink,
   answerNoteForSource,
   AskAnswerSource,
+  conversationMessages,
+  FULL_HISTORY,
   prepareAskRequest,
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
@@ -80,8 +83,11 @@ type ReaderAskMessage = {
   saved?: boolean;
   source?: AskAnswerSource;
   link?: AskLink;
+  /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
+  fallback?: boolean;
 };
-type ConversationSummary = { text: string; source?: AskAnswerSource; saved?: boolean };
+/** `partial` when the conversation was longer than the server accepts, so only its latest part was summarized. */
+type ConversationSummary = { text: string; source?: AskAnswerSource; saved?: boolean; partial?: boolean };
 
 const CONVERSATION_SUMMARY_PROMPT =
   "Turn our conversation into concise study notes. Use short bullet points, include important key terms, and keep only the most useful takeaways supported by the document.";
@@ -330,17 +336,20 @@ export default function Reader() {
       const request = prepareAskRequest(context, clean, history);
       const answer = await askVotic(clean, request.document, request.history);
       if (generation !== askGeneration.current) return;
+      const grounded = answeredFromContext(request, answer);
       setAskMessages((current) => [
         ...current,
-        {
-          role: "votic",
-          text: answer.answer,
-          source:
-            context.kind === "document" || context.kind === "notes"
-              ? (context.saveSource ?? undefined)
-              : undefined,
-          link: answerLink(request, answer.sectionIndex) ?? undefined,
-        },
+        grounded
+          ? {
+              role: "votic",
+              text: answer.answer,
+              source:
+                context.kind === "document" || context.kind === "notes"
+                  ? (context.saveSource ?? undefined)
+                  : undefined,
+              link: answerLink(request, answer.sectionIndex) ?? undefined,
+            }
+          : { role: "votic", text: answer.answer, fallback: true },
       ]);
     } catch (error) {
       if (generation === askGeneration.current)
@@ -373,7 +382,7 @@ export default function Reader() {
       !activeDocument ||
       summarizing ||
       askSending ||
-      !askMessages.some((message) => message.role === "votic")
+      !askMessages.some((message) => message.role === "votic" && !message.fallback)
     )
       return;
     const generation = askGeneration.current;
@@ -381,10 +390,16 @@ export default function Reader() {
     setSummarizing(true);
     setAskError("");
     try {
-      const request = prepareAskRequest(context, CONVERSATION_SUMMARY_PROMPT, askMessages);
+      const request = prepareAskRequest(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
       const answer = await askVotic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
       if (generation !== askGeneration.current) return;
+      // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
+      if (!answeredFromContext(request, answer)) {
+        setAskError(answer.answer);
+        return;
+      }
       setConversationSummary({
+        partial: conversationMessages(askMessages).length > FULL_HISTORY.messages,
         text: answer.answer,
         source:
           context.kind === "document" || context.kind === "notes"
@@ -881,9 +896,11 @@ export default function Reader() {
                               <View style={s.askAnswerLabel}>
                                 <VoticLogo compact markOnly />
                                 <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
-                                <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
-                                  · From this document
-                                </Text>
+                                {message.fallback ? null : (
+                                  <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
+                                    · From this document
+                                  </Text>
+                                )}
                               </View>
                               <Text style={[s.askAnswerText, { color: theme.text }]}>{message.text}</Text>
                               <View style={s.askAnswerActions}>
@@ -921,7 +938,8 @@ export default function Reader() {
                             </View>
                           ),
                         )}
-                        {askMessages.some((message) => message.role === "votic") && !conversationSummary ? (
+                        {askMessages.some((message) => message.role === "votic" && !message.fallback) &&
+                        !conversationSummary ? (
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel="Summarize conversation into notes"
@@ -959,6 +977,11 @@ export default function Reader() {
                                 Conversation takeaways
                               </Text>
                             </View>
+                            {conversationSummary.partial ? (
+                              <Text style={[s.askStatus, { color: theme.mutedText }]}>
+                                Covers the most recent part of this conversation.
+                              </Text>
+                            ) : null}
                             <Text style={[s.askAnswerText, { color: theme.text }]}>
                               {conversationSummary.text}
                             </Text>
