@@ -30,10 +30,12 @@ A text-to-speech document reader prototype focused on making documents easier to
   - `app/review.tsx` and `app/recap.tsx` are the end-of-document review and the weekly recap.
   - `src/ask/` builds Ask Votic requests: which document or notes to send, relevant excerpts of long documents, conversation history, and where answers link and save.
   - `src/documents/` contains the document library, its on-device storage, and import validation.
-  - `src/notes/` contains note metadata and the Notes context sent to Ask Votic.
+  - `src/reader/` contains the Reader's text, progress, and voice helpers, and its sheets and controls.
+  - `src/notes/` contains note metadata, Notes filtering and grouping, the Notes context sent to Ask Votic, and the Notes sheets and cards.
   - `src/api/` talks to the Votic server.
   - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, purpose personalization, and the first-run tour.
   - `src/components/` contains reusable mobile UI components.
+  - `tests/` contains component and integration tests (Jest with React Native Testing Library); pure-logic tests sit next to their code in `src/` and run in Vitest.
 - The existing root web files remain the working web prototype during the mobile transition. They will move into `apps/web/` only after the mobile foundation is stable, to avoid breaking working functionality during the restructure.
 - `packages/shared/` is reserved for platform-neutral business logic reviewed as safe to share across mobile, web, and future desktop clients.
 - `.github/` continues to contain repository automation and quality/security checks.
@@ -50,7 +52,7 @@ Not yet implemented: user accounts, background playback and lock-screen controls
 
 ### Run the mobile app
 
-From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Run `npm run test:reliability` (Vitest) and `npm run typecheck` before pushing mobile changes.
+From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
 
 ## Run the existing web prototype
 

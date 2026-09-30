@@ -1,268 +1,53 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Speech from "expo-speech";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   Animated,
   BackHandler,
-  GestureResponderEvent,
-  Image,
-  KeyboardAvoidingView,
   LayoutChangeEvent,
-  Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
-  TextStyle,
   View,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  ReaderFont,
-  ReadingSpacing,
-  TextSize,
-  useAccessibilityPreferences,
-} from "../src/accessibility/AccessibilityProvider";
-import { PlaybackSpeedControl } from "../src/components/PlaybackSpeedControl";
+import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
-import { createThrottledSaver } from "../src/documents/throttledSaver";
 import { splitPassages } from "../src/documents/passages";
-import { NoteType } from "../src/documents/types";
-import { cleanTags, NOTE_TYPES } from "../src/notes/noteMetadata";
-import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
-import { AppearanceMode, useVoticTheme } from "../src/theme/ThemeProvider";
+import { createThrottledSaver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 import { readerSourceTransform } from "../src/navigation/readerTransform";
+import { cleanTags } from "../src/notes/noteMetadata";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
+import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
+import { CompletionModal } from "../src/reader/components/CompletionModal";
+import { SeekableProgress, ToolButton } from "../src/reader/components/ReaderControls";
+import { ReaderSettingsSheet, ReaderSheet } from "../src/reader/components/ReaderSettingsSheet";
+import { PassageDraft, SavePassageSheet } from "../src/reader/components/SavePassageSheet";
+import { sheetStyles } from "../src/reader/components/sheetStyles";
+import {
+  clockLabel,
+  locationForProgress,
+  progressForLocation,
+  readerType,
+  speechSegment,
+  wordMatches,
+} from "../src/reader/readerText";
+import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
+import { useVoticTheme } from "../src/theme/ThemeProvider";
 
-type ReaderSheet = "appearance" | "focus" | "listen" | null;
 const PROGRESS_SYNC_INTERVAL_MS = 2000;
-type Voice = Awaited<ReturnType<typeof Speech.getAvailableVoicesAsync>>[number];
-
-const VOTIC_VOICE_NAMES = ["Arden", "Kaia", "Soren", "Mira", "Evren", "Nyla", "Kellan", "Elara"] as const;
-const VOTIC_VOICE_PREVIEWS = [
-  "Hi, I'm Arden. I'm here to make reading feel clear, comfortable, and easy to follow.",
-  "Hi, I'm Kaia. Choose me when you want a bright, expressive voice to read alongside you.",
-  "Hi, I'm Soren. I'll help you settle in, focus on the words, and move through your reading at your pace.",
-  "Hi, I'm Mira. I'm here to make listening feel calm, natural, and comfortable.",
-  "Hi, I'm Evren. I'll keep your reading clear and steady, whether you're studying or simply listening.",
-  "Hi, I'm Nyla. I'm here to make your documents feel a little more conversational and easy to enjoy.",
-  "Hi, I'm Kellan. Choose me for a relaxed, grounded reading experience that stays out of your way.",
-  "Hi, I'm Elara. I'll bring a gentle, polished voice to whatever you choose to read.",
-] as const;
-function voticVoiceName(index: number) {
-  return VOTIC_VOICE_NAMES[index] ?? `Voice ${index + 1}`;
-}
-function voticVoicePreview(index: number) {
-  return (
-    VOTIC_VOICE_PREVIEWS[index] ??
-    `Hi, I'm Voice ${index + 1}. Here's a quick preview of how I'll sound while reading with you.`
-  );
-}
-function uniqueEnglishVoices(available: Voice[]) {
-  const seen = new Set<string>();
-  return available
-    .filter((voice) => voice.language.toLowerCase().startsWith("en"))
-    .filter((voice) => {
-      const key = (voice.name.trim() || voice.identifier).toLocaleLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, VOTIC_VOICE_NAMES.length);
-}
-
-const sentences = splitPassages;
-function wordMatches(text: string) {
-  return [...text.matchAll(/\S+/g)];
-}
-function locationForProgress(passages: string[], progress: number) {
-  const counts = passages.map((passage) => wordMatches(passage).length);
-  const total = counts.reduce((sum, count) => sum + count, 0);
-  if (!total) return { sentenceIndex: 0, wordIndex: 0 };
-  let target = Math.min(total - 1, Math.max(0, Math.floor(Math.max(0, Math.min(1, progress)) * total)));
-  for (let sentenceIndex = 0; sentenceIndex < counts.length; sentenceIndex += 1) {
-    if (target < counts[sentenceIndex]) return { sentenceIndex, wordIndex: target };
-    target -= counts[sentenceIndex];
-  }
-  return {
-    sentenceIndex: Math.max(0, passages.length - 1),
-    wordIndex: Math.max(0, counts[counts.length - 1] - 1),
-  };
-}
-function progressForLocation(passages: string[], sentenceIndex: number, wordIndex: number) {
-  const counts = passages.map((passage) => wordMatches(passage).length);
-  const total = counts.reduce((sum, count) => sum + count, 0);
-  if (total <= 1) return total ? 1 : 0;
-  const before = counts.slice(0, Math.max(0, sentenceIndex)).reduce((sum, count) => sum + count, 0);
-  const current = Math.min(Math.max(0, wordIndex), Math.max(0, (counts[sentenceIndex] || 1) - 1));
-  return Math.max(0, Math.min(1, (before + current) / (total - 1)));
-}
-function speechSegment(text: string, startWord: number) {
-  const words = wordMatches(text);
-  const safe = Math.max(0, Math.min(startWord, Math.max(0, words.length - 1)));
-  const start = words[safe]?.index ?? 0;
-  return { text: text.slice(start), startChar: start, startWord: safe, words };
-}
-function timeSpentLabel(seconds: number) {
-  if (seconds < 30) return "<1 min";
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const remainder = minutes % 60;
-  return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
-}
-function clockLabel(seconds: number) {
-  const safe = Math.max(0, Math.round(seconds));
-  const minutes = Math.floor(safe / 60);
-  return `${minutes}:${String(safe % 60).padStart(2, "0")}`;
-}
-function readerType(
-  textSize: TextSize,
-  readingSpacing: ReadingSpacing,
-  readerFont: ReaderFont,
-  textSpacing: "default" | "wide",
-): TextStyle {
-  const fontSize = textSize === "extra-large" ? 25 : textSize === "large" ? 21 : 18;
-  const lineScale = readingSpacing === "extra" ? 1.9 : readingSpacing === "compact" ? 1.42 : 1.65;
-  return {
-    fontSize,
-    lineHeight: Math.round(fontSize * lineScale),
-    letterSpacing: textSpacing === "wide" ? 0.75 : 0,
-    fontFamily: readerFont === "serif" ? "serif" : readerFont === "accessible" ? "sans-serif" : undefined,
-  };
-}
-
-function Choice<T extends string>({
-  label,
-  value,
-  current,
-  onChange,
-}: {
-  label: string;
-  value: T;
-  current: T;
-  onChange: (value: T) => void;
-}) {
-  const { theme } = useVoticTheme();
-  const selected = value === current;
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: selected }}
-      onPress={() => onChange(value)}
-      style={({ pressed }) => [
-        s.choice,
-        {
-          borderColor: selected ? theme.accent : theme.border,
-          backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
-          opacity: pressed ? 0.7 : 1,
-        },
-      ]}
-    >
-      <Text style={[s.choiceText, { color: selected ? theme.accent : theme.text }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-function Setting({ label, children }: { label: string; children: ReactNode }) {
-  const { theme } = useVoticTheme();
-  return (
-    <View style={s.setting}>
-      <Text style={[s.settingLabel, { color: theme.mutedText }]}>{label}</Text>
-      <View style={s.choiceRow}>{children}</View>
-    </View>
-  );
-}
-
-function SeekableProgress({
-  value,
-  compact = false,
-  onSeekStart,
-  onSeek,
-}: {
-  value: number;
-  compact?: boolean;
-  onSeekStart: () => void;
-  onSeek: (value: number) => void;
-}) {
-  const { theme } = useVoticTheme();
-  const [draft, setDraft] = useState<number | null>(null);
-  const width = useRef(1);
-  const shown = draft ?? value;
-  function valueFromEvent(event: GestureResponderEvent) {
-    return Math.max(0, Math.min(1, event.nativeEvent.locationX / width.current));
-  }
-  function begin(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
-    onSeekStart();
-    setDraft(next);
-  }
-  function move(event: GestureResponderEvent) {
-    setDraft(valueFromEvent(event));
-  }
-  function finish(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
-    setDraft(null);
-    onSeek(next);
-  }
-  function adjust(direction: "increment" | "decrement") {
-    onSeekStart();
-    onSeek(Math.max(0, Math.min(1, value + (direction === "increment" ? 0.05 : -0.05))));
-  }
-  return (
-    <View
-      accessible
-      accessibilityRole="adjustable"
-      accessibilityLabel="Document playback position"
-      accessibilityValue={{
-        min: 0,
-        max: 100,
-        now: Math.round(shown * 100),
-        text: `${Math.round(shown * 100)} percent`,
-      }}
-      accessibilityActions={[
-        { name: "increment", label: "Move forward" },
-        { name: "decrement", label: "Move backward" },
-      ]}
-      onAccessibilityAction={(event) => {
-        const name = event.nativeEvent.actionName;
-        if (name === "increment" || name === "decrement") adjust(name);
-      }}
-      onLayout={(event) => {
-        width.current = Math.max(1, event.nativeEvent.layout.width);
-      }}
-      onStartShouldSetResponder={() => true}
-      onMoveShouldSetResponder={() => true}
-      onResponderGrant={begin}
-      onResponderMove={move}
-      onResponderRelease={finish}
-      onResponderTerminate={finish}
-      onResponderTerminationRequest={() => false}
-      style={[s.seekTarget, compact && s.seekTargetCompact]}
-    >
-      <View style={[compact ? s.dockTrack : s.track, { backgroundColor: theme.border }]}>
-        <View style={[s.fill, { backgroundColor: theme.accent, width: `${shown * 100}%` as `${number}%` }]} />
-        <View
-          style={[s.seekThumb, { backgroundColor: theme.accent, left: `${shown * 100}%` as `${number}%` }]}
-        />
-      </View>
-    </View>
-  );
-}
 
 export default function Reader() {
-  const { theme, appearanceMode, setAppearanceMode } = useVoticTheme();
+  const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const transition = useDocumentTransition();
   const window = useWindowDimensions();
@@ -276,7 +61,8 @@ export default function Reader() {
     updatePlaybackRate,
   } = useDocumentLibrary();
   const { purpose } = useVoticPurpose();
-  const passages = useMemo(() => sentences(activeDocument?.plainText || ""), [activeDocument?.plainText]);
+  const activeId = activeDocument?.id;
+  const passages = useMemo(() => splitPassages(activeDocument?.plainText || ""), [activeDocument?.plainText]);
   const [index, setIndex] = useState(activeDocument?.sentenceIndex || 0);
   const [wordIndex, setWordIndex] = useState(activeDocument?.wordIndex || 0);
   const [rate, setRate] = useState(normalizePlaybackRate(activeDocument?.playbackRate || 1));
@@ -284,11 +70,7 @@ export default function Reader() {
   const [sheet, setSheet] = useState<ReaderSheet>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
-  const [noteDraft, setNoteDraft] = useState("");
-  const [noteTitleDraft, setNoteTitleDraft] = useState("");
-  const [noteTypeDraft, setNoteTypeDraft] = useState<NoteType>("note");
-  const [noteTagsDraft, setNoteTagsDraft] = useState("");
-  const [voices, setVoices] = useState<Voice[]>([]);
+  const [voices, setVoices] = useState<DeviceVoice[]>([]);
   const [previewVoiceIdentifier, setPreviewVoiceIdentifier] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const speechSession = useRef(0);
@@ -318,6 +100,16 @@ export default function Reader() {
     [passages, index, wordIndex],
   );
 
+  // Effect events read the latest render's functions without restarting the effects that call them.
+  const onHardwareBack = useEffectEvent(() => {
+    void closeReader();
+    return true;
+  });
+  const onPositionChange = useEffectEvent(() => followActiveWord());
+  const recordElapsed = useEffectEvent((documentId: string, seconds: number, listening: boolean) =>
+    recordActivity(documentId, seconds, listening ? seconds : 0),
+  );
+
   useEffect(() => {
     void Speech.getAvailableVoicesAsync()
       .then((available) => setVoices(uniqueEnglishVoices(available)))
@@ -331,16 +123,13 @@ export default function Reader() {
     [],
   );
   useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      void closeReader();
-      return true;
-    });
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => onHardwareBack());
     return () => subscription.remove();
-  }, [transition, accessibility.reduceMotion]);
+  }, []);
   useEffect(() => {
-    if (!activeDocument || !passages.length || completedRef.current) return;
-    progressSync.schedule({ id: activeDocument.id, progress, index, wordIndex });
-  }, [activeDocument?.id, passages.length, progress, index, wordIndex]);
+    if (!activeId || !passages.length || completedRef.current) return;
+    progressSync.schedule({ id: activeId, progress, index, wordIndex });
+  }, [activeId, passages.length, progress, index, wordIndex, progressSync]);
   useEffect(
     () => () => {
       void progressSync.flush();
@@ -348,24 +137,25 @@ export default function Reader() {
     [progressSync],
   );
   useEffect(() => {
-    followActiveWord();
+    onPositionChange();
   }, [index, wordIndex, accessibility.reduceMotion]);
+  // Restarts when playback starts or stops, so time before the change is counted with the right mode.
   useEffect(() => {
-    if (!activeDocument) return;
+    if (!activeId) return;
     let lastSavedAt = Date.now();
     function saveElapsed() {
-      if (!activeDocument) return;
+      if (!activeId) return;
       const seconds = Math.floor((Date.now() - lastSavedAt) / 1000);
       if (seconds < 1) return;
       lastSavedAt += seconds * 1000;
-      recordActivity(activeDocument.id, seconds, playing ? seconds : 0);
+      recordElapsed(activeId, seconds, playing);
     }
     const interval = setInterval(saveElapsed, 10000);
     return () => {
       clearInterval(interval);
       saveElapsed();
     };
-  }, [activeDocument?.id, playing]);
+  }, [activeId, playing]);
 
   async function closeReader() {
     if (closing.current) return;
@@ -410,18 +200,19 @@ export default function Reader() {
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
   }
-  async function previewVoice(voice: Voice, voiceIndex: number) {
+  async function previewVoice(voice: DeviceVoice, voiceIndex: number) {
     speechSession.current += 1;
     setPlaying(false);
     await Speech.stop();
     setPreviewVoiceIdentifier(voice.identifier);
+    const clearPreview = () =>
+      setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current));
     Speech.speak(voticVoicePreview(voiceIndex), {
       voice: voice.identifier,
       rate: 1,
-      onDone: () => setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current)),
-      onStopped: () =>
-        setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current)),
-      onError: () => setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current)),
+      onDone: clearPreview,
+      onStopped: clearPreview,
+      onError: clearPreview,
     });
   }
   function speak(at = index, startWord = at === index ? wordIndex : 0) {
@@ -502,9 +293,6 @@ export default function Reader() {
     setRate(value);
     if (activeDocument) updatePlaybackRate(activeDocument.id, value);
   }
-  function openSheet(next: Exclude<ReaderSheet, null>) {
-    setSheet(next);
-  }
   function finishDocument(stopSpeech = true) {
     if (!activeDocument || !passages.length) return;
     if (stopSpeech) void stop();
@@ -530,23 +318,19 @@ export default function Reader() {
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
   function openSavePassage() {
     void stop();
-    setNoteDraft(savedPassage?.note || "");
-    setNoteTitleDraft(savedPassage?.title || "");
-    setNoteTypeDraft(savedPassage?.noteType || "note");
-    setNoteTagsDraft((savedPassage?.tags || []).join(", "));
     setSaveOpen(true);
   }
-  function confirmSavePassage() {
+  function confirmSavePassage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
     savePassage(activeDocument.id, {
       id: passageId,
       sentenceIndex: index,
       text: passages[index],
-      note: noteDraft.trim(),
-      title: noteTitleDraft.trim() || undefined,
-      noteType: noteTypeDraft,
-      tags: cleanTags(noteTagsDraft),
+      note: draft.note.trim(),
+      title: draft.title.trim() || undefined,
+      noteType: draft.noteType,
+      tags: cleanTags(draft.tags),
       pinned: savedPassage?.pinned,
       createdAt: savedPassage?.createdAt || now,
       updatedAt: now,
@@ -619,7 +403,7 @@ export default function Reader() {
                   onPress={() => {
                     void closeReader();
                   }}
-                  style={({ pressed }) => [s.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                  style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                 >
                   <Ionicons name="chevron-down" size={27} color={theme.text} />
                 </Pressable>
@@ -630,7 +414,7 @@ export default function Reader() {
                     accessibilityLabel={savedPassage ? "Edit saved passage" : "Save current passage"}
                     accessibilityState={{ selected: Boolean(savedPassage) }}
                     onPress={openSavePassage}
-                    style={({ pressed }) => [s.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                    style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                   >
                     <Ionicons
                       name={savedPassage ? "bookmark" : "bookmark-outline"}
@@ -822,7 +606,7 @@ export default function Reader() {
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Playback speed ${formatPlaybackRate(rate)}`}
-                    onPress={() => openSheet("listen")}
+                    onPress={() => setSheet("listen")}
                     style={s.rateButton}
                   >
                     <Text maxFontSizeMultiplier={1.15} style={[s.rateText, { color: theme.mutedText }]}>
@@ -842,19 +626,19 @@ export default function Reader() {
                     icon="text-outline"
                     label="Text"
                     active={sheet === "appearance"}
-                    onPress={() => openSheet("appearance")}
+                    onPress={() => setSheet("appearance")}
                   />
                   <ToolButton
                     icon="color-palette-outline"
                     label="Color"
                     active={sheet === "appearance"}
-                    onPress={() => openSheet("appearance")}
+                    onPress={() => setSheet("appearance")}
                   />
                   <ToolButton
                     icon="headset-outline"
                     label="Listen"
                     active={sheet === "listen" || playing}
-                    onPress={() => openSheet("listen")}
+                    onPress={() => setSheet("listen")}
                   />
                   <ToolButton
                     icon={savedPassage ? "bookmark" : "bookmark-outline"}
@@ -866,567 +650,47 @@ export default function Reader() {
                     icon="ellipsis-horizontal"
                     label="More"
                     active={sheet === "focus"}
-                    onPress={() => openSheet("focus")}
+                    onPress={() => setSheet("focus")}
                   />
                 </View>
               </View>
             </View>
 
-            <Modal
-              visible={sheet !== null}
-              transparent
-              animationType={accessibility.reduceMotion ? "none" : "slide"}
-              onRequestClose={() => setSheet(null)}
-            >
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Close reader controls"
-                onPress={() => setSheet(null)}
-                style={s.modalBackdrop}
-              >
-                <Pressable
-                  accessibilityRole="none"
-                  onPress={(event) => event.stopPropagation()}
-                  style={[s.sheet, { backgroundColor: theme.surface }]}
-                >
-                  <View style={[s.handle, { backgroundColor: theme.border }]} />
-                  <View style={s.sheetHeader}>
-                    <View>
-                      <Text accessibilityRole="header" style={[s.sheetTitle, { color: theme.text }]}>
-                        {sheet === "appearance"
-                          ? "Appearance"
-                          : sheet === "focus"
-                            ? "Reading focus"
-                            : "Listen"}
-                      </Text>
-                      <Text style={[s.sheetSubtitle, { color: theme.mutedText }]}>
-                        {sheet === "appearance"
-                          ? "Changes appear in the document immediately."
-                          : sheet === "focus"
-                            ? "Choose the guidance that helps you track the text."
-                            : "Choose a voice and comfortable listening speed."}
-                      </Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close reader controls"
-                      onPress={() => setSheet(null)}
-                      style={s.iconButton}
-                    >
-                      <Ionicons name="close" size={24} color={theme.text} />
-                    </Pressable>
-                  </View>
-                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.sheetContent}>
-                    {sheet === "appearance" ? (
-                      <>
-                        <Setting label="Text size">
-                          <Choice
-                            label="A"
-                            value="default"
-                            current={accessibility.textSize}
-                            onChange={accessibility.setTextSize}
-                          />
-                          <Choice
-                            label="A+"
-                            value="large"
-                            current={accessibility.textSize}
-                            onChange={accessibility.setTextSize}
-                          />
-                          <Choice
-                            label="A++"
-                            value="extra-large"
-                            current={accessibility.textSize}
-                            onChange={accessibility.setTextSize}
-                          />
-                        </Setting>
-                        <Setting label="Font">
-                          <Choice
-                            label="Votic Sans"
-                            value="system"
-                            current={accessibility.readerFont}
-                            onChange={accessibility.setReaderFont}
-                          />
-                          <Choice
-                            label="Serif"
-                            value="serif"
-                            current={accessibility.readerFont}
-                            onChange={accessibility.setReaderFont}
-                          />
-                          <Choice
-                            label="Accessible"
-                            value="accessible"
-                            current={accessibility.readerFont}
-                            onChange={accessibility.setReaderFont}
-                          />
-                        </Setting>
-                        <Setting label="Theme">
-                          <Choice
-                            label="Light"
-                            value="light"
-                            current={appearanceMode}
-                            onChange={(value: AppearanceMode) => setAppearanceMode(value)}
-                          />
-                          <Choice
-                            label="Dark"
-                            value="dark"
-                            current={appearanceMode}
-                            onChange={(value: AppearanceMode) => setAppearanceMode(value)}
-                          />
-                          <Choice
-                            label="Device"
-                            value="system"
-                            current={appearanceMode}
-                            onChange={(value: AppearanceMode) => setAppearanceMode(value)}
-                          />
-                        </Setting>
-                        <Setting label="Line spacing">
-                          <Choice
-                            label="Compact"
-                            value="compact"
-                            current={accessibility.readingSpacing}
-                            onChange={accessibility.setReadingSpacing}
-                          />
-                          <Choice
-                            label="Comfortable"
-                            value="default"
-                            current={accessibility.readingSpacing}
-                            onChange={accessibility.setReadingSpacing}
-                          />
-                          <Choice
-                            label="Open"
-                            value="extra"
-                            current={accessibility.readingSpacing}
-                            onChange={accessibility.setReadingSpacing}
-                          />
-                        </Setting>
-                        <Setting label="Text spacing">
-                          <Choice
-                            label="Standard"
-                            value="default"
-                            current={accessibility.textSpacing}
-                            onChange={accessibility.setTextSpacing}
-                          />
-                          <Choice
-                            label="Wide"
-                            value="wide"
-                            current={accessibility.textSpacing}
-                            onChange={accessibility.setTextSpacing}
-                          />
-                        </Setting>
-                      </>
-                    ) : null}
-                    {sheet === "focus" ? (
-                      <>
-                        <Setting label="Spoken-text highlight">
-                          <Choice
-                            label="Off"
-                            value="off"
-                            current={accessibility.highlightMode}
-                            onChange={accessibility.setHighlightMode}
-                          />
-                          <Choice
-                            label="Sentence"
-                            value="sentence"
-                            current={accessibility.highlightMode}
-                            onChange={accessibility.setHighlightMode}
-                          />
-                          <Choice
-                            label="Word"
-                            value="word"
-                            current={accessibility.highlightMode}
-                            onChange={accessibility.setHighlightMode}
-                          />
-                          <Choice
-                            label="Both"
-                            value="both"
-                            current={accessibility.highlightMode}
-                            onChange={accessibility.setHighlightMode}
-                          />
-                        </Setting>
-                        <View style={[s.toggleRow, { borderColor: theme.border }]}>
-                          <View style={s.toggleCopy}>
-                            <Text style={[s.toggleTitle, { color: theme.text }]}>Emphasize current word</Text>
-                            <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
-                              Adds weight and size as Votic reads.
-                            </Text>
-                          </View>
-                          <Switch
-                            accessibilityLabel="Emphasize current word"
-                            value={accessibility.wordEmphasis}
-                            onValueChange={accessibility.setWordEmphasis}
-                            trackColor={{ true: theme.accent }}
-                          />
-                        </View>
-                      </>
-                    ) : null}
-                    {sheet === "listen" ? (
-                      <>
-                        <PlaybackSpeedControl rate={rate} onChange={changeRate} />
-                        <Setting label="Voice">
-                          {voices.length ? (
-                            voices.map((voice, voiceIndex) => (
-                              <VoiceChoice
-                                key={voice.identifier}
-                                name={voticVoiceName(voiceIndex)}
-                                selected={accessibility.voiceIdentifier === voice.identifier}
-                                previewing={previewVoiceIdentifier === voice.identifier}
-                                onPreview={() => {
-                                  if (previewVoiceIdentifier === voice.identifier) void stop();
-                                  else void previewVoice(voice, voiceIndex);
-                                }}
-                                onSelect={() => {
-                                  void stop();
-                                  accessibility.setVoiceIdentifier(voice.identifier);
-                                }}
-                              />
-                            ))
-                          ) : (
-                            <Text style={[s.emptyVoices, { color: theme.mutedText }]}>
-                              Your device voice will be used.
-                            </Text>
-                          )}
-                        </Setting>
-                      </>
-                    ) : null}
-                  </ScrollView>
-                </Pressable>
-              </Pressable>
-            </Modal>
-
-            <Modal
+            <ReaderSettingsSheet
+              sheet={sheet}
+              onClose={() => setSheet(null)}
+              rate={rate}
+              onRateChange={changeRate}
+              voices={voices}
+              previewVoiceIdentifier={previewVoiceIdentifier}
+              onPreviewVoice={(voice, voiceIndex) => {
+                if (previewVoiceIdentifier === voice.identifier) void stop();
+                else void previewVoice(voice, voiceIndex);
+              }}
+              onSelectVoice={(voice) => {
+                void stop();
+                accessibility.setVoiceIdentifier(voice.identifier);
+              }}
+            />
+            <CompletionModal
               visible={completionOpen}
-              transparent
-              animationType={accessibility.reduceMotion ? "none" : "fade"}
-              onRequestClose={() => setCompletionOpen(false)}
-            >
-              <View style={s.completionBackdrop}>
-                <View
-                  accessibilityViewIsModal
-                  style={[s.completionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                >
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="Close completion experience"
-                    onPress={() => setCompletionOpen(false)}
-                    style={s.completionClose}
-                  >
-                    <Ionicons name="close" size={23} color={theme.mutedText} />
-                  </Pressable>
-                  <Image
-                    accessibilityLabel="Highlighted reading notes"
-                    source={require("../assets/reader-highlight.png")}
-                    resizeMode="contain"
-                    style={s.completionImage}
-                  />
-                  <Text accessibilityRole="header" style={[s.completionTitle, { color: theme.text }]}>
-                    Nicely done.
-                  </Text>
-                  <Text numberOfLines={2} style={[s.completionDocument, { color: theme.mutedText }]}>
-                    {activeDocument?.title}
-                  </Text>
-                  <Text style={[s.completionMessage, { color: theme.mutedText }]}>
-                    You made it through the whole document. Choose what would be useful next.
-                  </Text>
-                  <View style={s.completionStats}>
-                    <View style={s.completionStat}>
-                      <Text style={[s.completionValue, { color: theme.text }]}>
-                        {timeSpentLabel(documentTimeSpent(activeDocument))}
-                      </Text>
-                      <Text style={[s.completionLabel, { color: theme.mutedText }]}>Time spent</Text>
-                    </View>
-                    <View style={[s.completionDivider, { backgroundColor: theme.border }]} />
-                    <View style={s.completionStat}>
-                      <Text style={[s.completionValue, { color: theme.text }]}>{passages.length}</Text>
-                      <Text style={[s.completionLabel, { color: theme.mutedText }]}>Passages</Text>
-                    </View>
-                  </View>
-                  <View style={s.completionGrid}>
-                    <CompletionAction
-                      icon="chatbubble-ellipses-outline"
-                      label="Ask Votic"
-                      onPress={() => {
-                        setCompletionOpen(false);
-                        router.push("/assistant");
-                      }}
-                    />
-                    <CompletionAction
-                      icon="bookmarks-outline"
-                      label="Notes"
-                      onPress={() => {
-                        setCompletionOpen(false);
-                        router.push("/notes");
-                      }}
-                    />
-                    <CompletionAction
-                      icon="refresh-outline"
-                      label="Review"
-                      onPress={() => {
-                        setCompletionOpen(false);
-                        router.push("/review");
-                      }}
-                    />
-                    <CompletionAction
-                      icon="add-circle-outline"
-                      label="Start another"
-                      onPress={() => {
-                        setCompletionOpen(false);
-                        router.replace("/documents");
-                      }}
-                    />
-                  </View>
-                </View>
-              </View>
-            </Modal>
-
-            <Modal
+              onClose={() => setCompletionOpen(false)}
+              title={activeDocument?.title}
+              timeSpentSeconds={documentTimeSpent(activeDocument)}
+              passageCount={passages.length}
+            />
+            <SavePassageSheet
               visible={saveOpen}
-              transparent
-              animationType={accessibility.reduceMotion ? "none" : "slide"}
-              onRequestClose={() => setSaveOpen(false)}
-            >
-              <KeyboardAvoidingView
-                style={s.modalBackdrop}
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close saved passage editor"
-                  onPress={() => setSaveOpen(false)}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View accessibilityViewIsModal style={[s.sheet, { backgroundColor: theme.surface }]}>
-                  <View style={[s.handle, { backgroundColor: theme.border }]} />
-                  <View style={s.sheetHeader}>
-                    <View>
-                      <Text accessibilityRole="header" style={[s.sheetTitle, { color: theme.text }]}>
-                        {savedPassage ? "Saved passage" : "Save passage"}
-                      </Text>
-                      <Text style={[s.sheetSubtitle, { color: theme.mutedText }]}>
-                        Return to this moment from your document library.
-                      </Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close saved passage editor"
-                      onPress={() => setSaveOpen(false)}
-                      style={s.iconButton}
-                    >
-                      <Ionicons name="close" size={24} color={theme.text} />
-                    </Pressable>
-                  </View>
-                  <Text
-                    numberOfLines={4}
-                    style={[s.savedExcerpt, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                  >
-                    {passages[index]}
-                  </Text>
-                  <Text style={[s.settingLabel, { color: theme.mutedText }]}>QUICK NOTE — OPTIONAL</Text>
-                  <TextInput
-                    accessibilityLabel="Quick note title"
-                    value={noteTitleDraft}
-                    onChangeText={setNoteTitleDraft}
-                    placeholder="Title (optional)"
-                    placeholderTextColor={theme.mutedText}
-                    maxLength={100}
-                    style={[
-                      s.quickField,
-                      { color: theme.text, borderColor: theme.border, backgroundColor: theme.background },
-                    ]}
-                  />
-                  <View style={s.quickTypes}>
-                    {NOTE_TYPES.map((item) => (
-                      <Pressable
-                        key={item.value}
-                        accessibilityRole="radio"
-                        accessibilityState={{ checked: noteTypeDraft === item.value }}
-                        onPress={() => setNoteTypeDraft(item.value)}
-                        style={[
-                          s.quickType,
-                          {
-                            borderColor: noteTypeDraft === item.value ? theme.accent : theme.border,
-                            backgroundColor:
-                              noteTypeDraft === item.value ? theme.sentenceHighlight : theme.surface,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            s.quickTypeText,
-                            { color: noteTypeDraft === item.value ? theme.accent : theme.text },
-                          ]}
-                        >
-                          {item.label}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <TextInput
-                    accessibilityLabel="Quick note tags"
-                    value={noteTagsDraft}
-                    onChangeText={setNoteTagsDraft}
-                    placeholder="Tags, separated by commas"
-                    placeholderTextColor={theme.mutedText}
-                    maxLength={240}
-                    style={[
-                      s.quickField,
-                      { color: theme.text, borderColor: theme.border, backgroundColor: theme.background },
-                    ]}
-                  />
-                  <TextInput
-                    accessibilityLabel="Note about saved passage"
-                    value={noteDraft}
-                    onChangeText={setNoteDraft}
-                    placeholder="Why do you want to remember this?"
-                    placeholderTextColor={theme.mutedText}
-                    multiline
-                    maxLength={500}
-                    style={[
-                      s.noteInput,
-                      { color: theme.text, borderColor: theme.border, backgroundColor: theme.background },
-                    ]}
-                  />
-                  <View style={s.savedActions}>
-                    {savedPassage ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Remove saved passage"
-                        onPress={confirmRemovePassage}
-                        style={({ pressed }) => [
-                          s.removeButton,
-                          { borderColor: theme.border, opacity: pressed ? 0.65 : 1 },
-                        ]}
-                      >
-                        <Text style={[s.removeText, { color: theme.text }]}>Remove</Text>
-                      </Pressable>
-                    ) : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={savedPassage ? "Update saved passage" : "Save passage"}
-                      onPress={confirmSavePassage}
-                      style={({ pressed }) => [
-                        s.saveButton,
-                        { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 },
-                      ]}
-                    >
-                      <Text style={s.saveText}>{savedPassage ? "Update" : "Save"}</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </KeyboardAvoidingView>
-            </Modal>
+              passageText={passages[index] || ""}
+              savedPassage={savedPassage}
+              onClose={() => setSaveOpen(false)}
+              onSave={confirmSavePassage}
+              onRemove={confirmRemovePassage}
+            />
           </SafeAreaView>
         </Animated.View>
       </Animated.View>
     </View>
-  );
-}
-
-function VoiceChoice({
-  name,
-  selected,
-  previewing,
-  onPreview,
-  onSelect,
-}: {
-  name: string;
-  selected: boolean;
-  previewing: boolean;
-  onPreview: () => void;
-  onSelect: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View
-      style={[
-        s.voiceChoice,
-        {
-          borderColor: selected ? theme.accent : theme.border,
-          backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
-        },
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={previewing ? `Stop ${name} voice preview` : `Preview ${name} voice`}
-        onPress={onPreview}
-        style={({ pressed }) => [
-          s.voicePreview,
-          { backgroundColor: selected ? theme.accent : theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
-        ]}
-      >
-        <Ionicons name={previewing ? "stop" : "play"} size={18} color={selected ? "#FFF" : theme.accent} />
-      </Pressable>
-      <Pressable
-        accessibilityRole="radio"
-        accessibilityState={{ checked: selected }}
-        accessibilityLabel={`Select ${name} voice`}
-        onPress={onSelect}
-        style={({ pressed }) => [s.voiceSelect, { opacity: pressed ? 0.7 : 1 }]}
-      >
-        <Text style={[s.voiceName, { color: selected ? theme.accent : theme.text }]}>{name}</Text>
-        {selected ? <Ionicons name="checkmark-circle" size={19} color={theme.accent} /> : null}
-      </Pressable>
-    </View>
-  );
-}
-function ToolButton({
-  icon,
-  label,
-  active,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ expanded: active }}
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.tool,
-        { backgroundColor: active ? theme.sentenceHighlight : "transparent", opacity: pressed ? 0.65 : 1 },
-      ]}
-    >
-      <Ionicons name={icon} size={19} color={active ? theme.accent : theme.text} />
-      <Text
-        numberOfLines={1}
-        maxFontSizeMultiplier={1.1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.72}
-        style={[s.toolLabel, { color: active ? theme.accent : theme.text }]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-function CompletionAction({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  onPress: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.completionAction,
-        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
-      ]}
-    >
-      <Ionicons name={icon} size={22} color={theme.accent} />
-      <Text style={[s.completionActionText, { color: theme.text }]}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -1435,22 +699,11 @@ const s = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: spacing.lg },
   topBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerActions: { flexDirection: "row" },
-  iconButton: {
-    width: controlSizes.minimumTouch,
-    height: controlSizes.minimumTouch,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   documentHeader: { gap: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.sm },
   title: { ...typography.screenTitle, fontSize: 25 },
   compactTitle: { fontSize: 19, lineHeight: 24 },
   progressCopy: { flexDirection: "row", justifyContent: "space-between" },
   progressText: { fontSize: 12, fontWeight: "600" },
-  seekTarget: { minHeight: 36, justifyContent: "center" },
-  seekTargetCompact: { minHeight: 28, marginHorizontal: spacing.md, marginBottom: 0 },
-  track: { height: 4, borderRadius: 2, overflow: "hidden" },
-  fill: { height: "100%" },
-  seekThumb: { position: "absolute", top: -3, width: 10, height: 10, borderRadius: 5, marginLeft: -5 },
   textArea: { flex: 1 },
   readingContent: { paddingTop: spacing.sm, paddingBottom: 190 },
   sentence: { marginBottom: spacing.sm, paddingHorizontal: 2, borderRadius: 4 },
@@ -1514,183 +767,5 @@ const s = StyleSheet.create({
   timeText: { fontSize: 11, fontWeight: "600" },
   rateButton: { minHeight: 28, flexDirection: "row", alignItems: "center", gap: 4 },
   rateText: { fontSize: 11, fontWeight: "700" },
-  dockTrack: { height: 4, borderRadius: 2, overflow: "hidden" },
   toolRow: { borderTopWidth: 1, flexDirection: "row", padding: 2 },
-  tool: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: 48,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 1,
-  },
-  toolLabel: { fontSize: 10, fontWeight: "700", maxWidth: "100%" },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,.24)", justifyContent: "flex-end" },
-  sheet: {
-    maxHeight: "66%",
-    borderTopLeftRadius: radii.sheet,
-    borderTopRightRadius: radii.sheet,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
-  },
-  handle: { width: 38, height: 4, borderRadius: 2, alignSelf: "center", marginBottom: spacing.md },
-  sheetHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-  },
-  sheetTitle: { ...typography.sheetTitle },
-  sheetSubtitle: { fontSize: 13, marginTop: 3, maxWidth: 300 },
-  sheetContent: { paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
-  setting: { gap: spacing.sm },
-  settingLabel: { fontSize: 13, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 },
-  choiceRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  choice: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-    flexGrow: 1,
-  },
-  choiceText: { ...typography.control },
-  toggleRow: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  toggleCopy: { flex: 1 },
-  toggleTitle: { ...typography.control },
-  toggleDescription: { fontSize: 13, marginTop: 2 },
-  emptyVoices: { fontSize: 14, paddingVertical: spacing.sm },
-  voiceChoice: {
-    width: "100%",
-    minHeight: 54,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.xs,
-  },
-  voicePreview: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
-  voiceSelect: {
-    flex: 1,
-    minHeight: 44,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  voiceName: { ...typography.control, fontSize: 15 },
-  completionBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,.45)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: spacing.xl,
-  },
-  completionCard: {
-    width: "100%",
-    maxWidth: 420,
-    borderWidth: 1,
-    borderRadius: radii.sheet,
-    padding: spacing.xl,
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  completionClose: {
-    position: "absolute",
-    right: spacing.sm,
-    top: spacing.sm,
-    width: controlSizes.minimumTouch,
-    height: controlSizes.minimumTouch,
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  completionImage: { width: 150, height: 132 },
-  completionTitle: { ...typography.screenTitle, fontSize: 26, textAlign: "center" },
-  completionDocument: { fontSize: 15, textAlign: "center" },
-  completionMessage: { fontSize: 14, lineHeight: 20, textAlign: "center" },
-  completionStats: { width: "100%", flexDirection: "row", alignItems: "center", marginVertical: spacing.sm },
-  completionStat: { flex: 1, alignItems: "center", gap: spacing.xs },
-  completionValue: { fontSize: 21, fontWeight: "800" },
-  completionLabel: { fontSize: 13 },
-  completionDivider: { width: 1, height: 44 },
-  completionGrid: { width: "100%", flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  completionAction: {
-    width: "48%",
-    flexGrow: 1,
-    minHeight: 64,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.xs,
-  },
-  completionActionText: { fontSize: 14, fontWeight: "700" },
-  savedExcerpt: {
-    fontSize: 16,
-    lineHeight: 24,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
-  },
-  quickField: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    fontSize: 14,
-    marginTop: spacing.sm,
-  },
-  quickTypes: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.sm },
-  quickType: {
-    minHeight: 36,
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickTypeText: { fontSize: 12, fontWeight: "700" },
-  noteInput: {
-    minHeight: 104,
-    maxHeight: 180,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    fontSize: 16,
-    lineHeight: 23,
-    textAlignVertical: "top",
-    marginTop: spacing.sm,
-  },
-  savedActions: { flexDirection: "row", justifyContent: "flex-end", gap: spacing.sm, marginTop: spacing.lg },
-  removeButton: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.xl,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  removeText: { ...typography.control },
-  saveButton: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.xxl,
-    alignItems: "center",
-    justifyContent: "center",
-    flex: 1,
-  },
-  saveText: { ...typography.control, color: "#FFF" },
 });

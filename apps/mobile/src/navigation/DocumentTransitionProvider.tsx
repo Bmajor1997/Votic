@@ -1,4 +1,4 @@
-import { PropsWithChildren, createContext, useContext, useMemo, useRef, useState } from "react";
+import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
@@ -18,19 +18,22 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
   const [sourceRect, setSourceRect] = useState<DocumentSourceRect | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const locked = useRef(false);
-  const progress = useState(() => new Animated.Value(0))[0];
+  const [progress] = useState(() => new Animated.Value(0));
 
-  function openReader(source: DocumentSourceRect, navigate: () => void) {
-    if (locked.current) return;
-    locked.current = true;
-    progress.stopAnimation();
-    progress.setValue(reduceMotion ? 1 : 0);
-    setSourceRect(source);
-    setTransitioning(true);
-    navigate();
-  }
+  const openReader = useCallback(
+    (source: DocumentSourceRect, navigate: () => void) => {
+      if (locked.current) return;
+      locked.current = true;
+      progress.stopAnimation();
+      progress.setValue(reduceMotion ? 1 : 0);
+      setSourceRect(source);
+      setTransitioning(true);
+      navigate();
+    },
+    [progress, reduceMotion],
+  );
 
-  function beginReader() {
+  const beginReader = useCallback(() => {
     if (reduceMotion) {
       progress.setValue(1);
       locked.current = false;
@@ -43,28 +46,33 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
         setTransitioning(false);
       }
     });
-  }
-  function closeReader(navigate: () => void) {
-    locked.current = true;
-    setTransitioning(true);
-    progress.stopAnimation();
-    if (reduceMotion) {
-      progress.setValue(0);
-      locked.current = false;
-      setTransitioning(false);
-      navigate();
-      return;
-    }
-    Animated.timing(progress, { toValue: 0, duration: 190, useNativeDriver: true }).start(() => {
-      locked.current = false;
-      setTransitioning(false);
-      navigate();
-    });
-  }
+  }, [progress, reduceMotion]);
+
+  // Closing always wins, even mid-opening: stop the opening animation and go back.
+  const closeReader = useCallback(
+    (navigate: () => void) => {
+      locked.current = true;
+      setTransitioning(true);
+      progress.stopAnimation();
+      if (reduceMotion) {
+        progress.setValue(0);
+        locked.current = false;
+        setTransitioning(false);
+        navigate();
+        return;
+      }
+      Animated.timing(progress, { toValue: 0, duration: 190, useNativeDriver: true }).start(() => {
+        locked.current = false;
+        setTransitioning(false);
+        navigate();
+      });
+    },
+    [progress, reduceMotion],
+  );
 
   const value = useMemo(
     () => ({ openReader, beginReader, closeReader, sourceRect, progress, transitioning }),
-    [sourceRect, transitioning, reduceMotion],
+    [openReader, beginReader, closeReader, sourceRect, progress, transitioning],
   );
   return <TransitionContext.Provider value={value}>{children}</TransitionContext.Provider>;
 }
