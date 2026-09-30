@@ -270,9 +270,11 @@ describe("Reader", () => {
       [],
     );
     expect(screen.getByRole("button", { name: "Save conversation to Notes" })).toBeTruthy();
+    expect(screen.getByText("+ Save conversation to Notes")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Create a quick summary" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save conversation to Notes" }));
     expect(screen.getByRole("button", { name: "Conversation saved to Notes" })).toBeTruthy();
+    expect(screen.getByText("✓ Saved to Notes")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save answer to Notes" }));
     expect(screen.getByRole("button", { name: "Saved to Notes" })).toBeTruthy();
 

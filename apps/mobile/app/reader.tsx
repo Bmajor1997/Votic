@@ -1097,7 +1097,7 @@ export default function Reader() {
                             style={[s.askSave, { borderColor: theme.text }]}
                           >
                             <Text style={[s.askSaveText, { color: theme.text }]}>
-                              {conversationSaved ? "✓ Conversation saved" : "+ Save conversation"}
+                              {conversationSaved ? "✓ Saved to Notes" : "+ Save conversation to Notes"}
                             </Text>
                           </Pressable>
                           {!conversationSummary ? (
