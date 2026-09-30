@@ -75,6 +75,21 @@ describe("section selection", () => {
       5,
     );
   });
+  it("keeps a bounded excerpt when one selected section exceeds the context budget", () => {
+    const oversized = {
+      section: { heading: "Saved passage", text: "important context ".repeat(5000) },
+    };
+    const result = selectSections([oversized], "What does this passage say?", {
+      budgetChars: 1000,
+      maxSections: 5,
+    });
+    expect(result.partial).toBe(true);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].section.text.length).toBeGreaterThan(0);
+    expect(result.items[0].section.heading.length + result.items[0].section.text.length).toBeLessThanOrEqual(
+      1000,
+    );
+  });
   it("ignores filler words in questions", () => {
     expect(questionTerms("What does the document say about Photosynthesis?")).toEqual([
       "say",
