@@ -108,7 +108,10 @@ export function selectSections<T extends { section: AskSection }>(
   });
   const sizes = boundedItems.map((item) => item.section.heading.length + item.section.text.length);
   if (boundedItems.length <= maxSections && sizes.reduce((sum, size) => sum + size, 0) <= budgetChars)
-    return { items: boundedItems, partial: boundedItems.some((item, index) => item !== items[index]) };
+    return {
+      items: boundedItems,
+      partial: boundedItems.some((item, index) => item !== items[index]),
+    };
   const chosen = new Set<number>();
   let used = 0;
   function add(index: number) {
@@ -140,9 +143,7 @@ export function selectSections<T extends { section: AskSection }>(
   const spread = Math.min(maxSections - chosen.size, Math.floor((budgetChars - used) / averageSize));
   for (let k = 0; k < spread; k += 1) add(Math.floor(((k + 0.5) * boundedItems.length) / spread));
   return {
-    items: [...chosen]
-      .sort((a, b) => a - b)
-      .map((index) => boundedItems[index]),
+    items: [...chosen].sort((a, b) => a - b).map((index) => boundedItems[index]),
     partial: true,
   };
 }
