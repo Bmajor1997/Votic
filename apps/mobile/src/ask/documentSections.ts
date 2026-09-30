@@ -92,9 +92,23 @@ export function selectSections<T extends { section: AskSection }>(
     maxSections = ASK_CONTEXT_MAX_SECTIONS,
   }: { anchorIndex?: number; budgetChars?: number; maxSections?: number } = {},
 ): { items: T[]; partial: boolean } {
-  const sizes = items.map((item) => item.section.heading.length + item.section.text.length);
-  if (items.length <= maxSections && sizes.reduce((sum, size) => sum + size, 0) <= budgetChars)
-    return { items, partial: false };
+  // A selected note can itself be larger than the whole context budget. Keep a bounded
+  // excerpt instead of dropping that note entirely and potentially sending zero sections.
+  const boundedItems = items.map((item) => {
+    const headingChars = item.section.heading.length;
+    const maxTextChars = Math.max(0, budgetChars - headingChars);
+    if (item.section.text.length <= maxTextChars) return item;
+    return {
+      ...item,
+      section: {
+        ...item.section,
+        text: item.section.text.slice(0, maxTextChars),
+      },
+    };
+  });
+  const sizes = boundedItems.map((item) => item.section.heading.length + item.section.text.length);
+  if (boundedItems.length <= maxSections && sizes.reduce((sum, size) => sum + size, 0) <= budgetChars)
+    return { items: boundedItems, partial: boundedItems.some((item, index) => item !== items[index]) };
   const chosen = new Set<number>();
   let used = 0;
   function add(index: number) {
@@ -105,10 +119,10 @@ export function selectSections<T extends { section: AskSection }>(
   if (anchorIndex !== undefined && anchorIndex >= 0 && anchorIndex < items.length) add(anchorIndex);
   const terms = questionTerms(question);
   if (terms.length) {
-    const lowered = items.map((item) => item.section.text.toLocaleLowerCase());
+    const lowered = boundedItems.map((item) => item.section.text.toLocaleLowerCase());
     const weights = terms.map((term) => {
       const found = lowered.filter((text) => text.includes(term)).length;
-      return found ? Math.log(1 + items.length / found) : 0;
+      return found ? Math.log(1 + boundedItems.length / found) : 0;
     });
     const scores = lowered.map((text) =>
       terms.reduce((score, term, t) => {
@@ -122,8 +136,12 @@ export function selectSections<T extends { section: AskSection }>(
       .sort((a, b) => b.score - a.score || a.index - b.index)
       .forEach((item) => add(item.index));
   }
-  const averageSize = Math.max(1, sizes.reduce((sum, size) => sum + size, 0) / items.length);
+  const averageSize = Math.max(1, sizes.reduce((sum, size) => sum + size, 0) / boundedItems.length);
   const spread = Math.min(maxSections - chosen.size, Math.floor((budgetChars - used) / averageSize));
-  for (let k = 0; k < spread; k += 1) add(Math.floor(((k + 0.5) * items.length) / spread));
-  return { items: [...chosen].sort((a, b) => a - b).map((index) => items[index]), partial: true };
+  for (let k = 0; k < spread; k += 1)
+    add(Math.floor(((k + 0.5) * boundedItems.length) / spread));
+  return {
+    items: [...chosen].sort((a, b) => a - b).map((index) => boundedItems[index]),
+    partial: true,
+  };
 }
