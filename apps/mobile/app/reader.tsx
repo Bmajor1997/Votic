@@ -64,7 +64,9 @@ const PROGRESS_SYNC_INTERVAL_MS = 2000;
 // Ask Votic opens and closes along one curve. A little slower than the Reader's own open (240 ms) and
 // close (190 ms), so the document eases in and out of the way rather than snapping.
 const ASK_TRANSITION_MS = 320;
-const ASK_EASING = Easing.out(Easing.cubic);
+const ASK_OPEN_EASING = Easing.out(Easing.cubic);
+// The close is the time-reverse of opening: it eases away from Ask Votic, then finishes into Reader.
+const ASK_CLOSE_EASING = Easing.in(Easing.cubic);
 // How far the document recedes while Ask Votic is open: enough to read as a step back, not a new screen.
 const ASK_DOCUMENT_SCALE = 0.95;
 const READING_BOTTOM_PADDING = 190;
@@ -167,8 +169,16 @@ export default function Reader() {
     return true;
   });
   const onAskOpening = useEffectEvent(() => scrollToAskVotic());
-  const onAskClosing = useEffectEvent(() => followActiveWord(true, true, readerViewportHeight.current));
-  const onAskSettled = useEffectEvent((opened: boolean) => (opened ? setAskPhase("open") : finishAskClose()));
+  const onAskSettled = useEffectEvent((opened: boolean) => {
+    if (opened) {
+      setAskPhase("open");
+      return;
+    }
+    // Keep the conversation visually stable for the whole reverse transition. Restore the Reader's
+    // passage only after Ask Votic has finished sliding/fading away, so closing never looks like a snap.
+    finishAskClose();
+    requestAnimationFrame(() => followActiveWord(true, true, readerViewportHeight.current));
+  });
   const onAskClosed = useEffectEvent(() => finishAskClose());
   const onPositionChange = useEffectEvent(() => followActiveWord());
   const recordElapsed = useEffectEvent((documentId: string, seconds: number, listening: boolean) =>
@@ -249,18 +259,18 @@ export default function Reader() {
     if (askPhase !== "opening" && askPhase !== "closing") return;
     const opening = askPhase === "opening";
     // One frame lets Ask Votic lay out, so the scroll targets use the real viewport and panel.
-    const frame = requestAnimationFrame(() => (opening ? onAskOpening() : onAskClosing()));
+    const frame = opening ? requestAnimationFrame(() => onAskOpening()) : null;
     const animation = Animated.timing(askProgress, {
       toValue: opening ? 1 : 0,
       duration: ASK_TRANSITION_MS,
-      easing: ASK_EASING,
+      easing: opening ? ASK_OPEN_EASING : ASK_CLOSE_EASING,
       useNativeDriver: true,
     });
     animation.start(({ finished }) => {
       if (finished) onAskSettled(opening);
     });
     return () => {
-      cancelAnimationFrame(frame);
+      if (frame !== null) cancelAnimationFrame(frame);
       animation.stop();
     };
   }, [askPhase, askProgress]);
@@ -678,16 +688,27 @@ export default function Reader() {
           <SafeAreaView edges={["top", "bottom", "left", "right"]} style={s.safe}>
             <KeyboardAvoidingView style={s.content} behavior={Platform.OS === "ios" ? "padding" : "height"}>
               <View style={s.topBar}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Close reader"
-                  onPress={() => {
-                    void closeReader();
-                  }}
-                  style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
-                >
-                  <Ionicons name="chevron-down" size={27} color={theme.text} />
-                </Pressable>
+                {askOpen ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close Ask Votic"
+                    onPress={closeAskVotic}
+                    style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                  >
+                    <Ionicons name="close" size={24} color={theme.text} />
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close reader"
+                    onPress={() => {
+                      void closeReader();
+                    }}
+                    style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                  >
+                    <Ionicons name="chevron-down" size={27} color={theme.text} />
+                  </Pressable>
+                )}
                 <VoticLogo compact />
                 <View style={s.headerActions}>
                   <Pressable
@@ -842,15 +863,7 @@ export default function Reader() {
                             <VoticLogo compact markOnly />
                             <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
                           </View>
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Close Ask Votic"
-                            hitSlop={4}
-                            onPress={closeAskVotic}
-                            style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
-                          >
-                            <Ionicons name="close" size={24} color={theme.mutedText} />
-                          </Pressable>
+                          <View style={sheetStyles.iconButton} />
                         </View>
                         {askMessages.map((message, messageIndex) =>
                           message.role === "user" ? (
