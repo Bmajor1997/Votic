@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { radii, spacing, typography } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { PURPOSES, useVoticPurpose } from "../personalization/PurposeProvider";
 
 const TOUR_KEY = "votic.mobile.first-run-tour.v1";
 const EXISTING_KEYS = [
@@ -20,6 +21,12 @@ const steps = [
     icon: "home-outline",
     title: "Welcome to Votic",
     body: "Votic helps you read, listen, understand, ask questions, and capture what matters from your documents.",
+  },
+  {
+    icon: "sparkles-outline",
+    title: "What do you use Votic for?",
+    body: "Choose the best fit. Votic will personalize suggestions and tools around how you read.",
+    purposeQuestion: true,
   },
   {
     icon: "documents-outline",
@@ -54,6 +61,7 @@ const TourContext = createContext<TourContextValue | null>(null);
 export function FirstRunTourProvider({ children }: PropsWithChildren) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
+  const { purpose, setPurpose } = useVoticPurpose();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
   useEffect(() => {
@@ -99,6 +107,38 @@ export function FirstRunTourProvider({ children }: PropsWithChildren) {
               {current.title}
             </Text>
             <Text style={[s.body, { color: theme.mutedText }]}>{current.body}</Text>
+            {"purposeQuestion" in current ? (
+              <View accessibilityRole="radiogroup" style={s.purposeGrid}>
+                {PURPOSES.map((item) => {
+                  const selected = purpose === item.value;
+                  return (
+                    <Pressable
+                      key={item.value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => setPurpose(item.value)}
+                      style={[
+                        s.purposeCard,
+                        {
+                          borderColor: selected ? theme.accent : theme.border,
+                          backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
+                        },
+                      ]}
+                    >
+                      <Ionicons
+                        name={item.icon}
+                        size={21}
+                        color={selected ? theme.accent : theme.mutedText}
+                      />
+                      <Text style={[s.purposeText, { color: selected ? theme.accent : theme.text }]}>
+                        {item.label}
+                      </Text>
+                      {selected ? <Ionicons name="checkmark-circle" size={20} color={theme.accent} /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
             <View style={s.dots}>
               {steps.map((_, index) => (
                 <View
@@ -124,8 +164,16 @@ export function FirstRunTourProvider({ children }: PropsWithChildren) {
               ) : null}
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ disabled: "purposeQuestion" in current && !purpose }}
+                disabled={"purposeQuestion" in current && !purpose}
                 onPress={() => (step === steps.length - 1 ? void close() : setStep((value) => value + 1))}
-                style={[s.primary, { backgroundColor: theme.accent }]}
+                style={[
+                  s.primary,
+                  {
+                    backgroundColor: theme.accent,
+                    opacity: "purposeQuestion" in current && !purpose ? 0.45 : 1,
+                  },
+                ]}
               >
                 <Text style={s.primaryText}>{step === steps.length - 1 ? "Finish" : "Next"}</Text>
               </Pressable>
@@ -149,6 +197,17 @@ const s = StyleSheet.create({
   icon: { width: 64, height: 64, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   title: { ...typography.screenTitle, fontSize: 25 },
   body: { ...typography.body, lineHeight: 23 },
+  purposeGrid: { gap: spacing.sm },
+  purposeCard: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  purposeText: { flex: 1, fontSize: 14, fontWeight: "700" },
   dots: { flexDirection: "row", gap: 6, marginTop: spacing.sm },
   dot: { height: 5, flex: 1, borderRadius: 3 },
   actions: { flexDirection: "row", alignItems: "center", marginTop: spacing.md, gap: spacing.sm },

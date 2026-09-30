@@ -8,6 +8,9 @@
     "scheme": "votic",
     "plugins": ["expo-router"],
     "ios": { "supportsTablet": true },
-    "android": { "adaptiveIcon": { "backgroundColor": "#ffffff" } }
+    "android": {
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": { "backgroundColor": "#ffffff" }
+    }
   }
 }

@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   clockLabel,
   locationForProgress,
+  passageTokens,
   progressForLocation,
   readerType,
   speechSegment,
   timeSpentLabel,
+  wordAtSpeechOffset,
+  wordMatches,
 } from "./readerText";
 import { uniqueEnglishVoices, voticVoiceName, voticVoicePreview } from "./voices";
 
@@ -51,6 +54,68 @@ describe("speech segments", () => {
   });
   it("clamps a word index past the end", () => {
     expect(speechSegment("Four five.", 9).text).toBe("five.");
+  });
+});
+
+// Each word's offset in the spoken string, as iOS/Android report it at a word boundary.
+function boundaryOffsets(spoken: string) {
+  return wordMatches(spoken).map((match) => match.index ?? 0);
+}
+// The word the Reader highlights for a word index (what the listener sees on screen).
+function highlightedText(passage: string, word: number) {
+  return passageTokens(passage).find((token) => token.word === word)?.text;
+}
+
+describe("speech and highlight stay on the same word", () => {
+  const cases = {
+    punctuation: `"Wait," she said — (quietly) — "it's 3:45 p.m., isn't it?!"`,
+    "multiple spaces": "One   two  three    four.",
+    "line breaks": "Chapter One\nThe   beginning\n\n  of the story.",
+    paragraphs: "Intro heading\n\nFirst paragraph line.\r\n\r\nSecond\tparagraph line.",
+    "long text": Array.from({ length: 400 }, (_, i) => `word${i},`).join(" \n "),
+  };
+  for (const [name, passage] of Object.entries(cases)) {
+    it(`highlights the spoken word with ${name}`, () => {
+      const words = wordMatches(passage);
+      const segment = speechSegment(passage, 0);
+      boundaryOffsets(segment.text).forEach((offset, word) => {
+        expect(wordAtSpeechOffset(segment, offset)).toBe(word);
+        expect(highlightedText(passage, word)).toBe(words[word][0]);
+      });
+    });
+    it(`keeps the mapping after resuming mid-passage with ${name}`, () => {
+      const words = wordMatches(passage);
+      const resumeAt = Math.floor(words.length / 2);
+      const segment = speechSegment(passage, resumeAt);
+      expect(segment.text.startsWith(words[resumeAt][0])).toBe(true);
+      boundaryOffsets(segment.text).forEach((offset, spoken) => {
+        const word = wordAtSpeechOffset(segment, offset);
+        expect(word).toBe(resumeAt + spoken);
+        expect(highlightedText(passage, word!)).toBe(words[resumeAt + spoken][0]);
+      });
+    });
+  }
+  it("numbers displayed words exactly like spoken words", () => {
+    for (const passage of Object.values(cases)) {
+      const tokens = passageTokens(passage);
+      expect(tokens.map((token) => token.text).join("")).toBe(passage);
+      expect(tokens.filter((token) => token.word !== null).map((token) => token.text)).toEqual(
+        wordMatches(passage).map((match) => match[0]),
+      );
+    }
+  });
+  it("maps boundaries inside a word, on whitespace, or past the end to the right word", () => {
+    const segment = speechSegment("Alpha  beta,gamma delta", 0);
+    expect(wordAtSpeechOffset(segment, 2)).toBe(0); // inside "Alpha"
+    expect(wordAtSpeechOffset(segment, 6)).toBe(0); // in the double space after it
+    expect(wordAtSpeechOffset(segment, 12)).toBe(1); // engine splits "beta,gamma" at "gamma"
+    expect(wordAtSpeechOffset(segment, 999)).toBe(2);
+    expect(wordAtSpeechOffset(segment, Number.NaN)).toBeNull();
+  });
+  it("never maps a resumed segment's boundary before where it resumed", () => {
+    const segment = speechSegment("One two three four.", 2);
+    expect(wordAtSpeechOffset(segment, 0)).toBe(2);
+    expect(wordAtSpeechOffset(segment, -5)).toBe(2);
   });
 });
 

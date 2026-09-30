@@ -139,6 +139,7 @@ export default function Documents() {
       <Text style={s.headerUploadText}>Upload</Text>
     </Pressable>
   );
+
   return (
     <Screen title="Documents" titleAction={uploadButton}>
       <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>

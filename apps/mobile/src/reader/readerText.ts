@@ -40,6 +40,30 @@ export function speechSegment(text: string, startWord: number) {
   return { text: text.slice(start), startChar: start, startWord: safe, words };
 }
 
+/**
+ * The passage word being spoken at a TTS word boundary. `charIndex` is relative to `segment.text`
+ * (iOS and Android both report offsets into the exact string that was spoken).
+ */
+export function wordAtSpeechOffset(segment: ReturnType<typeof speechSegment>, charIndex: number) {
+  if (!Number.isFinite(charIndex)) return null;
+  const sourceOffset = segment.startChar + Math.max(0, charIndex);
+  let word = segment.startWord;
+  for (let i = segment.startWord; i < segment.words.length; i += 1) {
+    if ((segment.words[i].index ?? 0) > sourceOffset) break;
+    word = i;
+  }
+  return word;
+}
+
+/** A passage split for display. Words are numbered exactly like `wordMatches`; whitespace has `word: null`. */
+export function passageTokens(text: string) {
+  let word = -1;
+  return text
+    .split(/(\s+)/)
+    .filter(Boolean)
+    .map((token) => ({ text: token, word: /^\s+$/.test(token) ? null : (word += 1) }));
+}
+
 export function timeSpentLabel(seconds: number) {
   if (seconds < 30) return "<1 min";
   const minutes = Math.round(seconds / 60);

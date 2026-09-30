@@ -9,7 +9,6 @@ import {
 } from "../../src/accessibility/AccessibilityProvider";
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useFirstRunTour } from "../../src/onboarding/FirstRunTourProvider";
-import { PURPOSES, useVoticPurpose } from "../../src/personalization/PurposeProvider";
 const colors: AccentName[] = [
   "orange",
   "blue",
@@ -28,7 +27,6 @@ export default function Settings() {
   const { accentName, setAccentName, appearanceMode, setAppearanceMode, theme } = useVoticTheme();
   const a = useAccessibilityPreferences();
   const tour = useFirstRunTour();
-  const { purpose, setPurpose } = useVoticPurpose();
   const segmented = (
     values: string[],
     selected: string,
@@ -53,39 +51,6 @@ export default function Settings() {
   );
   return (
     <Screen title="Settings">
-      <View style={s.section}>
-        <Text style={[s.h, { color: theme.text }]}>What do you use Votic for?</Text>
-        <Text style={[s.body, { color: theme.mutedText }]}>
-          This changes which tools Votic emphasizes. Every feature stays available.
-        </Text>
-        <View style={s.purposeGrid}>
-          {PURPOSES.map((item) => (
-            <Pressable
-              key={item.value}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: purpose === item.value }}
-              onPress={() => setPurpose(item.value)}
-              style={[
-                s.purposeCard,
-                {
-                  borderColor: purpose === item.value ? theme.accent : theme.border,
-                  backgroundColor: purpose === item.value ? theme.sentenceHighlight : theme.surface,
-                },
-              ]}
-            >
-              <Ionicons
-                name={item.icon}
-                size={22}
-                color={purpose === item.value ? theme.accent : theme.mutedText}
-              />
-              <Text style={[s.purposeText, { color: purpose === item.value ? theme.accent : theme.text }]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-      <View style={[s.divider, { backgroundColor: theme.border }]} />
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Appearance</Text>
         <Text style={[s.label, { color: theme.mutedText }]}>MODE</Text>
@@ -175,17 +140,6 @@ export default function Settings() {
   );
 }
 const s = StyleSheet.create({
-  purposeGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  purposeCard: {
-    minHeight: 54,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  purposeText: { fontSize: 14, fontWeight: "700" },
   section: { gap: spacing.md },
   h: { ...typography.sectionTitle },
   body: { ...typography.body },

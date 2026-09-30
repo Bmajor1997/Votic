@@ -3,52 +3,24 @@ import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { Screen, ScrollFadeItem } from "../../src/components/Screen";
-import { radii, spacing, typography } from "../../src/design/tokens";
+import { radii, typography } from "../../src/design/tokens";
 import { mostRecentIncomplete } from "../../src/documents/insights";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
-import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
-import { useVoticPurpose } from "../../src/personalization/PurposeProvider";
 
 export default function Home() {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
   const { documents, collections, openDocument, setDocumentCollection, removeDocument } =
     useDocumentLibrary();
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const [menuId, setMenuId] = useState<string | null>(null);
   const recent = mostRecentIncomplete(documents);
-  const visible = documents.slice(0, 3);
-  const purposeCopy =
-    purpose === "learning"
-      ? {
-          title: "Ready to learn?",
-          body: "Read, listen, ask questions, and turn important ideas into notes.",
-        }
-      : purpose === "work"
-        ? {
-            title: "Ready to get through it?",
-            body: "Read, listen, summarize, and capture the details that matter.",
-          }
-        : purpose === "research"
-          ? {
-              title: "Ready to dig in?",
-              body: "Read closely, ask questions, compare ideas, and capture findings.",
-            }
-          : purpose === "accessibility"
-            ? {
-                title: "Read your way",
-                body: "Choose reading, listening, highlighting, and controls that work for you.",
-              }
-            : purpose === "personal"
-              ? {
-                  title: "Ready to read?",
-                  body: "Read or listen at your pace, ask questions, and save what stands out.",
-                }
-              : { title: "Ready to dive in?", body: "Read, listen, ask questions, or capture what matters." };
+  const visible = [...documents]
+    .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
+    .slice(0, 3);
   const menuDocument = documents.find((document) => document.id === menuId);
   function open(id: string, sourceKey = id) {
     if (transition.transitioning) return;
@@ -75,73 +47,46 @@ export default function Home() {
   }
   return (
     <Screen title="Home" hideTitle>
-      <ScrollFadeItem>
-        <View style={[s.hero, { backgroundColor: theme.surfaceMuted }]}>
-          <View style={s.heroCopy}>
-            <Text style={[s.welcome, { color: theme.mutedText }]}>Welcome back</Text>
-            <Text style={[s.heroTitle, { color: theme.text }]}>{purposeCopy.title}</Text>
-            <Text style={[s.heroBody, { color: theme.mutedText }]}>{purposeCopy.body}</Text>
-          </View>
-          <View style={[s.heroArt, { backgroundColor: theme.sentenceHighlight }]}>
-            <Ionicons name="document-text" size={44} color={theme.accent} />
-          </View>
-          <Pressable
-            onPress={() => router.push("/documents")}
-            style={[s.upload, { backgroundColor: theme.accent }]}
-          >
-            <Ionicons name="add" size={22} color="#FFF" />
-            <Text style={s.uploadText}>Upload Document</Text>
-          </Pressable>
-        </View>
-      </ScrollFadeItem>
-      <SectionHeader title="Continue Reading" onPress={() => router.push("/documents")} />
       {recent ? (
-        <ScrollFadeItem>
-          <Pressable
-            ref={(node) => {
-              cardRefs.current["recent:" + recent.id] = node;
-            }}
-            collapsable={false}
-            onPress={() => open(recent.id, "recent:" + recent.id)}
-            style={({ pressed }) => [
-              s.continueCard,
-              { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.82 : 1 },
-            ]}
-          >
-            <DocumentTypeIcon sourceName={recent.sourceName} />
-            <View style={s.flex}>
-              <Text numberOfLines={1} style={[s.docTitle, { color: theme.text }]}>
-                {recent.title}
-              </Text>
-              <Text style={[s.meta, { color: theme.mutedText }]}>
-                Passage {recent.sentenceIndex + 1} · {Math.round(recent.progress * 100)}% read
-              </Text>
-              <View style={[s.track, { backgroundColor: theme.border }]}>
-                <View
-                  style={[
-                    s.progress,
-                    { backgroundColor: theme.accent, width: `${recent.progress * 100}%` as `${number}%` },
-                  ]}
-                />
+        <>
+          <SectionHeader title="Continue Reading" />
+          <ScrollFadeItem>
+            <Pressable
+              ref={(node) => {
+                cardRefs.current["recent:" + recent.id] = node;
+              }}
+              collapsable={false}
+              onPress={() => open(recent.id, "recent:" + recent.id)}
+              style={({ pressed }) => [
+                s.continueCard,
+                { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.82 : 1 },
+              ]}
+            >
+              <DocumentTypeIcon sourceName={recent.sourceName} />
+              <View style={s.flex}>
+                <Text numberOfLines={1} style={[s.docTitle, { color: theme.text }]}>
+                  {recent.title}
+                </Text>
+                <Text style={[s.meta, { color: theme.mutedText }]}>
+                  Passage {recent.sentenceIndex + 1} · {Math.round(recent.progress * 100)}% read
+                </Text>
+                <View style={[s.track, { backgroundColor: theme.border }]}>
+                  <View
+                    style={[
+                      s.progress,
+                      { backgroundColor: theme.accent, width: `${recent.progress * 100}%` as `${number}%` },
+                    ]}
+                  />
+                </View>
               </View>
-            </View>
-            <View style={[s.play, { backgroundColor: theme.accent }]}>
-              <Ionicons name="play" size={20} color="#FFF" />
-            </View>
-          </Pressable>
-        </ScrollFadeItem>
-      ) : (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Choose your first document"
-          onPress={() => router.push("/documents")}
-          style={[s.homeEmpty, { borderColor: theme.border }]}
-        >
-          <HomeEmptyAnimation />
-          <Text style={[s.emptyText, { color: theme.text }]}>Choose your first document</Text>
-        </Pressable>
-      )}
-      <SectionHeader title="My Documents" onPress={() => router.push("/documents")} />
+              <View style={[s.play, { backgroundColor: theme.accent }]}>
+                <Ionicons name="play" size={20} color="#FFF" />
+              </View>
+            </Pressable>
+          </ScrollFadeItem>
+        </>
+      ) : null}
+      <SectionHeader title="Recent Documents" onPress={() => router.push("/documents")} />
       <View style={[s.documentList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         {visible.length ? (
           visible.map((doc, i) => (
@@ -192,30 +137,6 @@ export default function Home() {
         ) : (
           <Text style={[s.noDocs, { color: theme.mutedText }]}>Your recent documents will appear here.</Text>
         )}
-      </View>
-      <Text style={[s.sectionTitle, { color: theme.text }]}>Quick Actions</Text>
-      <View style={s.quickRow}>
-        <QuickAction
-          icon="book-outline"
-          label="Open Document"
-          caption="Read or listen"
-          color="#4F46E5"
-          onPress={() => (recent ? open(recent.id, "recent:" + recent.id) : router.push("/documents"))}
-        />
-        <QuickAction
-          icon="chatbubble-ellipses-outline"
-          label="Ask Votic"
-          caption="Get answers"
-          color="#2563EB"
-          onPress={() => router.push("/ask")}
-        />
-        <QuickAction
-          icon="document-text-outline"
-          label="Notes"
-          caption="View your notes"
-          color="#D97706"
-          onPress={() => router.push("/notes")}
-        />
       </View>
       <Modal
         visible={menuId !== null}
@@ -276,37 +197,17 @@ export default function Home() {
     </Screen>
   );
 }
-function SectionHeader({ title, onPress }: { title: string; onPress: () => void }) {
+function SectionHeader({ title, onPress }: { title: string; onPress?: () => void }) {
   const { theme } = useVoticTheme();
   return (
     <View style={s.sectionHeader}>
       <Text style={[s.sectionTitle, { color: theme.text }]}>{title}</Text>
-      <Pressable onPress={onPress}>
-        <Text style={[s.action, { color: theme.accent }]}>See All</Text>
-      </Pressable>
+      {onPress ? (
+        <Pressable onPress={onPress}>
+          <Text style={[s.action, { color: theme.accent }]}>See All</Text>
+        </Pressable>
+      ) : null}
     </View>
-  );
-}
-function QuickAction({
-  icon,
-  label,
-  caption,
-  color,
-  onPress,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  caption: string;
-  color: string;
-  onPress: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <Pressable onPress={onPress} style={[s.quick, { backgroundColor: color + (theme.isDark ? "24" : "10") }]}>
-      <Ionicons name={icon} size={30} color={color} />
-      <Text style={[s.quickLabel, { color: theme.isDark ? "#FFF" : theme.text }]}>{label}</Text>
-      <Text style={[s.quickCaption, { color: theme.mutedText }]}>{caption}</Text>
-    </Pressable>
   );
 }
 function MenuAction({
@@ -339,43 +240,6 @@ function MenuAction({
   );
 }
 const s = StyleSheet.create({
-  homeEmpty: {
-    minHeight: 260,
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingBottom: spacing.md,
-  },
-  hero: {
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.md,
-  },
-  heroCopy: { flex: 1, minWidth: 190 },
-  welcome: { fontSize: 13 },
-  heroTitle: { fontSize: 25, fontWeight: "900", letterSpacing: -0.6, marginTop: 2 },
-  heroBody: { fontSize: 14, lineHeight: 20, marginTop: 4 },
-  heroArt: {
-    width: 64,
-    height: 72,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    transform: [{ rotate: "-4deg" }],
-  },
-  upload: {
-    width: "100%",
-    minHeight: 48,
-    borderRadius: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  uploadText: { color: "#FFF", fontSize: 16, fontWeight: "800" },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -393,16 +257,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  emptyCard: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-  },
-  emptyText: { fontWeight: "700" },
   docIcon: { width: 46, height: 46, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   flex: { flex: 1 },
   docTitle: { fontSize: 14, fontWeight: "800" },
@@ -415,17 +269,6 @@ const s = StyleSheet.create({
   documentMain: { flex: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 12 },
   moreButton: { width: 52, alignItems: "center", justifyContent: "center" },
   noDocs: { padding: 20, textAlign: "center", fontSize: 14 },
-  quickRow: { flexDirection: "row", gap: 8 },
-  quick: {
-    flex: 1,
-    minHeight: 112,
-    borderRadius: 14,
-    padding: 10,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  quickLabel: { fontSize: 13, fontWeight: "800", color: "#111827", marginTop: 7, textAlign: "center" },
-  quickCaption: { fontSize: 10, color: "#6B7280", marginTop: 2, textAlign: "center" },
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,.38)", justifyContent: "center", padding: 24 },
   menu: { borderRadius: 20, padding: 16, gap: 2 },
   menuHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
