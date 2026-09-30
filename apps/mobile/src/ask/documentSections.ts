@@ -138,10 +138,11 @@ export function selectSections<T extends { section: AskSection }>(
   }
   const averageSize = Math.max(1, sizes.reduce((sum, size) => sum + size, 0) / boundedItems.length);
   const spread = Math.min(maxSections - chosen.size, Math.floor((budgetChars - used) / averageSize));
-  for (let k = 0; k < spread; k += 1)
-    add(Math.floor(((k + 0.5) * boundedItems.length) / spread));
+  for (let k = 0; k < spread; k += 1) add(Math.floor(((k + 0.5) * boundedItems.length) / spread));
   return {
-    items: [...chosen].sort((a, b) => a - b).map((index) => boundedItems[index]),
+    items: [...chosen]
+      .sort((a, b) => a - b)
+      .map((index) => boundedItems[index]),
     partial: true,
   };
 }
