@@ -64,12 +64,13 @@ import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/read
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 const PROGRESS_SYNC_INTERVAL_MS = 2000;
-// Ask Votic slides up as a panel over the lower part of the Reader and back down along the same curve.
+// Ask Votic replaces the Reader dock with a compact composer and closes along the same curve.
 const ASK_TRANSITION_MS = 320;
 const ASK_OPEN_EASING = Easing.out(Easing.cubic);
 const ASK_CLOSE_EASING = Easing.in(Easing.cubic);
-// The share of the screen Ask Votic covers; the Reader's header and current passage stay visible above it.
-const ASK_PANEL_SHARE = 0.55;
+const ASK_COMPOSER_HEIGHT = 72;
+const ASK_CONVERSATION_MAX_HEIGHT = 320;
+const ASK_CONVERSATION_MAX_SHARE = 0.4;
 const READING_BOTTOM_PADDING = 190;
 
 /** closed → opening → open → closing → closed; askProgress runs 0 (panel hidden) → 1 (panel up) and back. */
@@ -119,7 +120,7 @@ export default function Reader() {
   const [askPhase, setAskPhase] = useState<AskPhase>("closed");
   const askOpen = askPhase !== "closed";
   const askClosing = askPhase === "closing";
-  // The panel covers the listening dock while it is (or is becoming) open; the dock returns as it closes.
+  // Ask Votic replaces the listening dock while it is (or is becoming) open.
   const dockCovered = askPhase === "opening" || askPhase === "open";
   // 0 is the Reader alone, 1 is the panel fully up; opening and closing are the same animation reversed.
   const [askProgress] = useState(() => new Animated.Value(0));
@@ -144,9 +145,12 @@ export default function Reader() {
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
-  // Height of the area below the document (the listening dock), which the Ask Votic panel covers first.
-  const dockAreaHeight = useRef(0);
-  const askPanelHeight = Math.round(window.height * ASK_PANEL_SHARE);
+  const hasAskConversation =
+    askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
+  // The empty state is dock-sized. Only a real conversation gets a bounded, scrollable tray.
+  const askPanelHeight = hasAskConversation
+    ? Math.min(ASK_CONVERSATION_MAX_HEIGHT, Math.round(window.height * ASK_CONVERSATION_MAX_SHARE))
+    : ASK_COMPOSER_HEIGHT;
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -273,15 +277,9 @@ export default function Reader() {
     return () => animation.stop();
   }, [askPhase, askProgress]);
 
-  /** How much of the document stays visible above the Ask Votic panel. */
-  function viewportAboveAskPanel() {
-    return Math.max(80, viewportHeight.current - Math.max(0, askPanelHeight - dockAreaHeight.current));
-  }
   function openAskVotic() {
     if (askPhase === "opening" || askPhase === "open") return;
     void stop();
-    // Keep the current passage in the part of the Reader that stays visible above the panel.
-    requestAnimationFrame(() => followActiveWord(true, !accessibility.reduceMotion, viewportAboveAskPanel()));
     if (accessibility.reduceMotion) {
       askProgress.stopAnimation();
       askProgress.setValue(1);
@@ -445,11 +443,11 @@ export default function Reader() {
       transition.beginReader();
     });
   }
-  /** `viewport` is how much of the document is visible: less while the Ask Votic panel covers part of it. */
+  /** Keeps narration focused without changing the Reader's layout when its dock changes mode. */
   function followActiveWord(
     force = false,
     animated = !accessibility.reduceMotion,
-    viewport = askOpen ? viewportAboveAskPanel() : viewportHeight.current,
+    viewport = viewportHeight.current,
   ) {
     if (manuallyScrolling.current && !force) return;
     const layout = sentenceLayout.current[index];
@@ -721,12 +719,9 @@ export default function Reader() {
               </View>
               <ScrollView
                 ref={scrollRef}
+                testID="reader-scroll"
                 style={s.textArea}
-                contentContainerStyle={[
-                  s.readingContent,
-                  // Room to scroll the end of the document above the Ask Votic panel.
-                  askOpen && { paddingBottom: Math.max(READING_BOTTOM_PADDING, askPanelHeight) },
-                ]}
+                contentContainerStyle={s.readingContent}
                 scrollEventThrottle={16}
                 onLayout={(event) => {
                   viewportHeight.current = event.nativeEvent.layout.height;
@@ -789,9 +784,6 @@ export default function Reader() {
                 </View>
               </ScrollView>
               <View
-                onLayout={(event) => {
-                  dockAreaHeight.current = event.nativeEvent.layout.height;
-                }}
                 pointerEvents={dockCovered ? "none" : "auto"}
                 accessibilityElementsHidden={dockCovered}
                 importantForAccessibility={dockCovered ? "no-hide-descendants" : "auto"}
@@ -968,157 +960,172 @@ export default function Reader() {
                     },
                   ]}
                 >
-                  <View style={s.askHeader}>
-                    <View style={s.askBrand}>
-                      <VoticLogo compact markOnly />
-                      <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
-                    </View>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="Close Ask Votic"
-                      onPress={closeAskVotic}
-                      style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
-                    >
-                      <Ionicons name="close" size={24} color={theme.text} />
-                    </Pressable>
-                  </View>
-                  <ScrollView
-                    ref={askScrollRef}
-                    style={s.askConversation}
-                    contentContainerStyle={s.askConversationContent}
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {askMessages.length === 0 && !askSending && !askError ? (
-                      <Text style={[s.askStatus, { color: theme.mutedText }]}>
-                        Ask a question about {activeDocument?.title || "this document"}.
-                      </Text>
-                    ) : null}
-                    {askMessages.map((message, messageIndex) =>
-                      message.role === "user" ? (
-                        <View key={messageIndex} style={s.askUserMessage}>
-                          <Text style={s.askUserText}>{message.text}</Text>
-                        </View>
-                      ) : (
-                        <View
-                          key={messageIndex}
-                          style={[s.askAnswer, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                        >
-                          <View style={s.askAnswerLabel}>
-                            <VoticLogo compact markOnly />
-                            <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
-                            {message.fallback ? null : (
-                              <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
-                                · From this document
-                              </Text>
-                            )}
-                          </View>
-                          <Text style={[s.askAnswerText, { color: theme.text }]}>{message.text}</Text>
-                          <View style={s.askAnswerActions}>
-                            {message.link ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`}
-                                onPress={() => openAskAnswerLink(message.link!)}
-                                style={[s.askSourcePill, { backgroundColor: `${theme.accent}1F` }]}
-                              >
-                                <Text style={[s.askSourceText, { color: theme.accent }]} numberOfLines={1}>
-                                  p. {message.link.sentenceIndex + 1} · {activeDocument?.title}
-                                </Text>
-                              </Pressable>
-                            ) : null}
-                            {message.source ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={message.saved ? "Saved to Notes" : "Save answer to Notes"}
-                                disabled={message.saved}
-                                onPress={() => saveAskAnswer(messageIndex)}
-                                style={[s.askSave, { borderColor: theme.text }]}
-                              >
-                                <Text style={[s.askSaveText, { color: theme.text }]}>
-                                  {message.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
-                                </Text>
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        </View>
-                      ),
-                    )}
-                    {askMessages.some((message) => message.role === "votic" && !message.fallback) &&
-                    !conversationSummary ? (
+                  {hasAskConversation ? (
+                    <View style={s.askHeader}>
+                      <View style={s.askBrand}>
+                        <VoticLogo compact markOnly />
+                        <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
+                      </View>
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel="Summarize conversation into notes"
-                        disabled={summarizing || askSending}
-                        onPress={() => void summarizeConversation()}
-                        style={({ pressed }) => [
-                          s.summarizeButton,
-                          {
-                            borderColor: theme.accent,
-                            opacity: summarizing || askSending ? 0.5 : pressed ? 0.7 : 1,
-                          },
-                        ]}
+                        accessibilityLabel="Close Ask Votic"
+                        onPress={closeAskVotic}
+                        style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                       >
-                        {summarizing ? (
-                          <ActivityIndicator size="small" color={theme.accent} />
-                        ) : (
-                          <Ionicons name="sparkles-outline" size={17} color={theme.accent} />
-                        )}
-                        <Text style={[s.summarizeButtonText, { color: theme.accent }]}>
-                          {summarizing ? "Creating notes…" : "Create notes from this conversation"}
-                        </Text>
+                        <Ionicons name="close" size={24} color={theme.text} />
                       </Pressable>
-                    ) : null}
-                    {conversationSummary ? (
-                      <View
-                        accessibilityLabel="Conversation notes preview"
-                        style={[s.summaryCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                      >
-                        <View style={s.summaryTitleRow}>
-                          <Ionicons name="sparkles" size={17} color={theme.accent} />
-                          <Text style={[s.summaryTitle, { color: theme.text }]}>Conversation takeaways</Text>
-                        </View>
-                        {conversationSummary.partial ? (
-                          <Text style={[s.askStatus, { color: theme.mutedText }]}>
-                            Covers the most recent part of this conversation.
-                          </Text>
-                        ) : null}
-                        <Text style={[s.askAnswerText, { color: theme.text }]}>
-                          {conversationSummary.text}
+                    </View>
+                  ) : null}
+                  {hasAskConversation ? (
+                    <ScrollView
+                      ref={askScrollRef}
+                      style={s.askConversation}
+                      contentContainerStyle={s.askConversationContent}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      {askMessages.length === 0 && !askSending && !askError ? (
+                        <Text style={[s.askStatus, { color: theme.mutedText }]}>
+                          Ask a question about {activeDocument?.title || "this document"}.
                         </Text>
-                        {conversationSummary.source ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={
-                              conversationSummary.saved
-                                ? "Conversation notes saved"
-                                : "Save conversation notes"
-                            }
-                            disabled={conversationSummary.saved}
-                            onPress={saveConversationSummary}
-                            style={[s.askSave, { borderColor: theme.text }]}
+                      ) : null}
+                      {askMessages.map((message, messageIndex) =>
+                        message.role === "user" ? (
+                          <View key={messageIndex} style={s.askUserMessage}>
+                            <Text style={s.askUserText}>{message.text}</Text>
+                          </View>
+                        ) : (
+                          <View
+                            key={messageIndex}
+                            style={[
+                              s.askAnswer,
+                              { borderColor: theme.border, backgroundColor: theme.surface },
+                            ]}
                           >
-                            <Text style={[s.askSaveText, { color: theme.text }]}>
-                              {conversationSummary.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
+                            <View style={s.askAnswerLabel}>
+                              <VoticLogo compact markOnly />
+                              <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
+                              {message.fallback ? null : (
+                                <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
+                                  · From this document
+                                </Text>
+                              )}
+                            </View>
+                            <Text style={[s.askAnswerText, { color: theme.text }]}>{message.text}</Text>
+                            <View style={s.askAnswerActions}>
+                              {message.link ? (
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={`Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`}
+                                  onPress={() => openAskAnswerLink(message.link!)}
+                                  style={[s.askSourcePill, { backgroundColor: `${theme.accent}1F` }]}
+                                >
+                                  <Text style={[s.askSourceText, { color: theme.accent }]} numberOfLines={1}>
+                                    p. {message.link.sentenceIndex + 1} · {activeDocument?.title}
+                                  </Text>
+                                </Pressable>
+                              ) : null}
+                              {message.source ? (
+                                <Pressable
+                                  accessibilityRole="button"
+                                  accessibilityLabel={
+                                    message.saved ? "Saved to Notes" : "Save answer to Notes"
+                                  }
+                                  disabled={message.saved}
+                                  onPress={() => saveAskAnswer(messageIndex)}
+                                  style={[s.askSave, { borderColor: theme.text }]}
+                                >
+                                  <Text style={[s.askSaveText, { color: theme.text }]}>
+                                    {message.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
+                                  </Text>
+                                </Pressable>
+                              ) : null}
+                            </View>
+                          </View>
+                        ),
+                      )}
+                      {askMessages.some((message) => message.role === "votic" && !message.fallback) &&
+                      !conversationSummary ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Summarize conversation into notes"
+                          disabled={summarizing || askSending}
+                          onPress={() => void summarizeConversation()}
+                          style={({ pressed }) => [
+                            s.summarizeButton,
+                            {
+                              borderColor: theme.accent,
+                              opacity: summarizing || askSending ? 0.5 : pressed ? 0.7 : 1,
+                            },
+                          ]}
+                        >
+                          {summarizing ? (
+                            <ActivityIndicator size="small" color={theme.accent} />
+                          ) : (
+                            <Ionicons name="sparkles-outline" size={17} color={theme.accent} />
+                          )}
+                          <Text style={[s.summarizeButtonText, { color: theme.accent }]}>
+                            {summarizing ? "Creating notes…" : "Create notes from this conversation"}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                      {conversationSummary ? (
+                        <View
+                          accessibilityLabel="Conversation notes preview"
+                          style={[
+                            s.summaryCard,
+                            { borderColor: theme.border, backgroundColor: theme.surface },
+                          ]}
+                        >
+                          <View style={s.summaryTitleRow}>
+                            <Ionicons name="sparkles" size={17} color={theme.accent} />
+                            <Text style={[s.summaryTitle, { color: theme.text }]}>
+                              Conversation takeaways
                             </Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    ) : null}
-                    {askSending ? (
-                      <View accessibilityLiveRegion="polite" style={s.askThinking}>
-                        <ActivityIndicator size="small" color={theme.accent} />
-                        <Text style={[s.askStatus, { color: theme.mutedText }]}>Votic is thinking…</Text>
-                      </View>
-                    ) : null}
-                    {askError ? (
-                      <Text accessibilityLiveRegion="polite" style={[s.askError, { color: theme.text }]}>
-                        {askError}
-                      </Text>
-                    ) : null}
-                  </ScrollView>
+                          </View>
+                          {conversationSummary.partial ? (
+                            <Text style={[s.askStatus, { color: theme.mutedText }]}>
+                              Covers the most recent part of this conversation.
+                            </Text>
+                          ) : null}
+                          <Text style={[s.askAnswerText, { color: theme.text }]}>
+                            {conversationSummary.text}
+                          </Text>
+                          {conversationSummary.source ? (
+                            <Pressable
+                              accessibilityRole="button"
+                              accessibilityLabel={
+                                conversationSummary.saved
+                                  ? "Conversation notes saved"
+                                  : "Save conversation notes"
+                              }
+                              disabled={conversationSummary.saved}
+                              onPress={saveConversationSummary}
+                              style={[s.askSave, { borderColor: theme.text }]}
+                            >
+                              <Text style={[s.askSaveText, { color: theme.text }]}>
+                                {conversationSummary.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
+                              </Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      ) : null}
+                      {askSending ? (
+                        <View accessibilityLiveRegion="polite" style={s.askThinking}>
+                          <ActivityIndicator size="small" color={theme.accent} />
+                          <Text style={[s.askStatus, { color: theme.mutedText }]}>Votic is thinking…</Text>
+                        </View>
+                      ) : null}
+                      {askError ? (
+                        <Text accessibilityLiveRegion="polite" style={[s.askError, { color: theme.text }]}>
+                          {askError}
+                        </Text>
+                      ) : null}
+                    </ScrollView>
+                  ) : null}
                   <View
                     style={[s.askComposer, { borderColor: theme.accent, backgroundColor: theme.surface }]}
                   >
+                    {!hasAskConversation ? <VoticLogo compact markOnly progress={progress} /> : null}
                     <TextInput
                       accessibilityLabel="Ask Votic a question"
                       value={askQuestion}
@@ -1149,6 +1156,16 @@ export default function Reader() {
                         <Ionicons name="arrow-up" size={21} color="#FFF" />
                       )}
                     </Pressable>
+                    {!hasAskConversation ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Close Ask Votic"
+                        onPress={closeAskVotic}
+                        style={({ pressed }) => [s.askComposerClose, { opacity: pressed ? 0.55 : 1 }]}
+                      >
+                        <Ionicons name="close" size={22} color={theme.text} />
+                      </Pressable>
+                    ) : null}
                   </View>
                 </Animated.View>
               ) : null}
@@ -1215,13 +1232,12 @@ const s = StyleSheet.create({
     gap: spacing.xs,
   },
   readingAskText: { ...typography.control, fontSize: 12 },
-  // A sheet over the lower part of the Reader. Capped so the Reader's header stays visible with the keyboard up.
+  // Occupies the dock's footprint until there is conversation content, then grows into a bounded tray.
   askPanel: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    maxHeight: "85%",
     borderWidth: 1,
     borderBottomWidth: 0,
     borderTopLeftRadius: radii.sheet,
@@ -1290,6 +1306,7 @@ const s = StyleSheet.create({
   },
   askInput: { flex: 1, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  askComposerClose: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
   dock: {
     borderWidth: 1,
     borderRadius: radii.lg,

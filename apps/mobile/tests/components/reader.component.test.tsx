@@ -342,19 +342,29 @@ describe("Reader", () => {
       documents: [{ ...book, sentenceIndex: 1 }],
       reduceMotion: true,
     });
+    const readerPaddingBefore = StyleSheet.flatten(
+      screen.getByTestId("reader-scroll").props.contentContainerStyle,
+    ).paddingBottom;
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
-    // Opens straight into place with no transition. It covers only part of the screen: the document's
-    // title, progress, and current passage stay visible above it, and only the listening dock is covered.
+    // Opens straight into a dock-sized composer: the document's title, progress, and current passage
+    // stay visible, and the listening dock is replaced rather than a large panel being added.
     expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
     expect(askPanelOffset()).toBe(0);
-    expect(askPanelHeight()).toBeLessThan(Dimensions.get("window").height * 0.6);
+    expect(askPanelHeight()).toBeLessThan(Dimensions.get("window").height * 0.2);
     expect(screen.getByText("Field Guide")).toBeTruthy();
     expect(screen.getByText("1 passages left")).toBeTruthy();
     expect(screen.getByText("Second passage there.")).toBeTruthy();
+    expect(
+      StyleSheet.flatten(screen.getByTestId("reader-scroll").props.contentContainerStyle).paddingBottom,
+    ).toBe(readerPaddingBefore);
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await screen.findByText("Focus improves when distractions are reduced.");
+    // A submitted conversation can grow, but remains a bounded tray with useful Reader context above it.
+    expect(askPanelHeight()).toBeLessThanOrEqual(320);
+    expect(askPanelHeight()).toBeLessThanOrEqual(Dimensions.get("window").height * 0.4);
+    expect(screen.getByText("Second passage there.")).toBeTruthy();
     speak.mockClear();
 
     await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
@@ -419,7 +429,7 @@ describe("Reader", () => {
       expect(router.back).not.toHaveBeenCalled();
     }
 
-    it("opens by sliding a panel up over the lower part of the Reader, which stays in view", async () => {
+    it("replaces the dock with a compact composer while the Reader stays in view", async () => {
       await renderWithProviders(<OpenedReader />, { documents: [{ ...book, sentenceIndex: 1 }] });
       await act(async () => jest.advanceTimersByTime(300)); // the Reader's own opening transition
       await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
@@ -432,6 +442,7 @@ describe("Reader", () => {
 
       await act(async () => jest.advanceTimersByTime(400));
       expect(askPanelOffset()).toBe(0);
+      expect(askPanelHeight()).toBeLessThan(Dimensions.get("window").height * 0.2);
       expect(screen.getByLabelText("Ask Votic a question")).toBeTruthy();
       // The Reader is still there above the panel; only the listening dock is covered.
       expect(screen.getByText("Field Guide")).toBeTruthy();
