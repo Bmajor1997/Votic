@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Animated, BackHandler, StyleSheet } from "react-native";
+import { Animated, BackHandler, Dimensions, StyleSheet } from "react-native";
 import Reader from "../../app/reader";
 import { askVotic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
@@ -34,11 +34,14 @@ function lastSpeech() {
   return { text: call[0], options: call[1] as Speech.SpeechOptions };
 }
 
-/** How far the document has receded for Ask Votic: 1 is the full Reader. */
-function documentScale() {
-  const style = StyleSheet.flatten(screen.getByTestId("reader-document").props.style);
-  const transform = (style.transform ?? []) as { scale?: number }[];
-  return transform.find((step) => step.scale !== undefined)?.scale ?? 1;
+/** How far the Ask Votic panel is below its open position: 0 is fully open. */
+function askPanelOffset() {
+  const style = StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style);
+  const transform = (style.transform ?? []) as { translateY?: number }[];
+  return transform.find((step) => step.translateY !== undefined)?.translateY ?? 0;
+}
+function askPanelHeight() {
+  return StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height as number;
 }
 
 async function expandListeningControls() {
@@ -340,17 +343,21 @@ describe("Reader", () => {
       reduceMotion: true,
     });
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
-    // Opens straight into Ask Votic: no transition, the Reader's header and dock already gone.
+    // Opens straight into place with no transition. It covers only part of the screen: the document's
+    // title, progress, and current passage stay visible above it, and only the listening dock is covered.
     expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
-    expect(screen.queryByText("Field Guide")).toBeNull();
-    expect(documentScale()).toBe(0.95);
+    expect(askPanelOffset()).toBe(0);
+    expect(askPanelHeight()).toBeLessThan(Dimensions.get("window").height * 0.6);
+    expect(screen.getByText("Field Guide")).toBeTruthy();
+    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("Second passage there.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await screen.findByText("Focus improves when distractions are reduced.");
     speak.mockClear();
 
     await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
-    expect(documentScale()).toBe(1);
     expect(screen.queryByLabelText("Ask Votic conversation")).toBeNull();
     expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
     // Reader controls and position are back, and closing does not start or change narration.
@@ -394,7 +401,7 @@ describe("Reader", () => {
       await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
       await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
       await screen.findByText(answer);
-      // The close control lives in the persistent Reader top bar, so it remains available after chat starts.
+      // The close control is in the panel's fixed header, so it stays available as the conversation grows.
       expect(screen.getByRole("button", { name: "Close Ask Votic" })).toBeTruthy();
       speak.mockClear();
       jest.mocked(Speech.stop).mockClear();
@@ -410,40 +417,37 @@ describe("Reader", () => {
       expect(speak).not.toHaveBeenCalled();
       expect(Speech.stop).not.toHaveBeenCalled();
       expect(router.back).not.toHaveBeenCalled();
-      expect(documentScale()).toBe(1);
     }
 
-    it("opens by easing the Reader back while Ask Votic rises in, then settles", async () => {
+    it("opens by sliding a panel up over the lower part of the Reader, which stays in view", async () => {
       await renderWithProviders(<OpenedReader />, { documents: [{ ...book, sentenceIndex: 1 }] });
       await act(async () => jest.advanceTimersByTime(300)); // the Reader's own opening transition
-      expect(documentScale()).toBe(1);
       await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
 
-      // Mid-transition: Ask Votic is already there, the header and dock are still fading, the document is receding.
+      // Mid-transition: the panel is on its way up.
       await act(async () => jest.advanceTimersByTime(150));
       expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
-      expect(screen.getByText("Field Guide")).toBeTruthy();
-      expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
-      expect(documentScale()).toBeLessThan(1);
-      expect(documentScale()).toBeGreaterThan(0.95);
+      expect(askPanelOffset()).toBeGreaterThan(0);
+      expect(askPanelOffset()).toBeLessThan(askPanelHeight());
 
       await act(async () => jest.advanceTimersByTime(400));
-      expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
+      expect(askPanelOffset()).toBe(0);
       expect(screen.getByLabelText("Ask Votic a question")).toBeTruthy();
-      expect(screen.queryByText("Field Guide")).toBeNull();
+      // The Reader is still there above the panel; only the listening dock is covered.
+      expect(screen.getByText("Field Guide")).toBeTruthy();
+      expect(screen.getByText("Second passage there.")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
-      expect(documentScale()).toBe(0.95);
       expect(router.back).not.toHaveBeenCalled();
     });
 
-    it("scales the document back up as Ask Votic closes, the reverse of opening", async () => {
+    it("slides the panel back down as Ask Votic closes, the reverse of opening", async () => {
       await openAskWithAnswer();
       await act(async () => jest.advanceTimersByTime(400)); // opening settles
-      expect(documentScale()).toBe(0.95);
+      expect(askPanelOffset()).toBe(0);
       await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
       await act(async () => jest.advanceTimersByTime(150));
-      expect(documentScale()).toBeGreaterThan(0.95);
-      expect(documentScale()).toBeLessThan(1);
+      expect(askPanelOffset()).toBeGreaterThan(0);
+      expect(askPanelOffset()).toBeLessThan(askPanelHeight());
       await act(async () => jest.advanceTimersByTime(400));
       expectReaderRestored();
     });
@@ -453,12 +457,12 @@ describe("Reader", () => {
       await act(async () => jest.advanceTimersByTime(300));
       await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
       await act(async () => jest.advanceTimersByTime(120));
-      const partway = documentScale();
+      const partway = askPanelOffset();
       await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
       await act(async () => jest.advanceTimersByTime(40));
-      // It continues from where it was, heading back to the Reader, rather than jumping to either end.
-      expect(documentScale()).toBeGreaterThan(partway);
-      expect(documentScale()).toBeLessThan(1);
+      // It continues from where it was, heading back down, rather than jumping to either end.
+      expect(askPanelOffset()).toBeGreaterThan(partway);
+      expect(askPanelOffset()).toBeLessThan(askPanelHeight());
       speak.mockClear();
       jest.mocked(Speech.stop).mockClear();
       await act(async () => jest.advanceTimersByTime(550));
@@ -468,7 +472,7 @@ describe("Reader", () => {
     it("animates closed from the X, keeping Ask Votic on screen until the transition ends", async () => {
       await openAskWithAnswer();
       await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
-      // Mid-transition: the conversation is still there (fading away) while the Reader's header and dock return.
+      // Mid-transition: the conversation is still there (sliding away) while the listening dock returns.
       await act(async () => jest.advanceTimersByTime(150));
       expect(screen.getByLabelText("Ask Votic conversation")).toBeTruthy();
       expect(screen.getByText("Field Guide")).toBeTruthy();
