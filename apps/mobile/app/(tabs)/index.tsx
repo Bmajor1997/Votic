@@ -189,7 +189,7 @@ function ContinueCard({
         </View>
       </View>
       <View style={s.featuredActions}>
-        <View ref={listenRef} collapsable={false} style={s.grow}>
+        <View ref={listenRef} collapsable={false} style={s.half}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${listenLabel} to ${title}`}
@@ -197,14 +197,22 @@ function ContinueCard({
             onPress={() => onOpen(listenRef, true)}
             style={({ pressed }) => [
               s.primary,
+              s.featuredButton,
               { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
             ]}
           >
             <Ionicons name="play" size={19} color="#FFF" />
-            <Text style={s.primaryText}>{listenLabel}</Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              style={[s.primaryText, s.shrink]}
+            >
+              {listenLabel}
+            </Text>
           </Pressable>
         </View>
-        <View ref={readRef} collapsable={false}>
+        <View ref={readRef} collapsable={false} style={s.half}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${readLabel} ${title}`}
@@ -212,11 +220,19 @@ function ContinueCard({
             onPress={() => onOpen(readRef, false)}
             style={({ pressed }) => [
               s.secondary,
+              s.featuredButton,
               { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
             ]}
           >
             <Ionicons name="book-outline" size={19} color={theme.text} />
-            <Text style={[s.secondaryText, { color: theme.text }]}>{readLabel}</Text>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.75}
+              style={[s.secondaryText, s.shrink, { color: theme.text }]}
+            >
+              {readLabel}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -320,7 +336,11 @@ const s = StyleSheet.create({
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 5, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
-  featuredActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  // Listen and Read share one row in equal halves.
+  featuredActions: { flexDirection: "row", gap: spacing.sm },
+  half: { flex: 1, minWidth: 0 },
+  shrink: { flexShrink: 1 },
+  featuredButton: { paddingHorizontal: spacing.sm, gap: 6 },
   grow: { flex: 1, minWidth: 0 },
   primary: {
     minHeight: 50,
