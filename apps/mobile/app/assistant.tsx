@@ -35,6 +35,8 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
+import { useActivity } from "../src/activity/ActivityProvider";
+import { askEventFor } from "../src/activity/askCategories";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 
@@ -57,6 +59,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { theme } = useVoticTheme();
   const { purpose, explanationStyle } = useVoticPurpose();
   const onboarding = useOnboarding();
+  const { recordAsk } = useActivity();
   const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolveAskVoticContext(documents, activeDocument, params);
@@ -252,6 +255,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       setQuestion("");
       setMessages((v) => [...v, { role: "user", text: clean }]);
       lastQuestion.current = clean;
+      // Retries resend the same question, so only first attempts are counted.
+      recordAsk(
+        askEventFor(clean, {
+          newConversation: messages.length === 0,
+          builtInPrompts: [...suggestedPrompts, initialQuestion].filter(Boolean),
+        }),
+      );
     }
     if (askContext.kind === "notes-missing") {
       setRetrying(false);

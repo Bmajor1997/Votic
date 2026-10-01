@@ -26,10 +26,11 @@ describe("document import", () => {
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     await renderWithProviders(<Documents />);
     await fireEvent.press(screen.getByRole("button", { name: "Upload document" }));
-    expect(alert).toHaveBeenCalledWith(
-      "Could not import document",
-      "Document is too large. The current limit is 25 MB.",
-    );
+    // The Documents page explains the failure in place, with a way to try again.
+    expect(await screen.findByText("Couldn't add big.pdf")).toBeTruthy();
+    expect(screen.getByText("Document is too large. The current limit is 25 MB.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Choose another file" })).toBeTruthy();
+    expect(alert).not.toHaveBeenCalled();
     expect(extractDocument).not.toHaveBeenCalled();
   });
 });

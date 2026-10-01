@@ -49,6 +49,10 @@ export default function Notes() {
     () => noteGroups(documents, { query, filter, dateFilter, tagFilter, notebookId }),
     [documents, query, filter, notebookId, dateFilter, tagFilter],
   );
+  const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
+  const itemCount = groups.reduce((total, group) => total + group.passages.length, 0);
+  // While browsing everything, each document shows its newest notes; searching or filtering shows all matches.
+  const browsing = !notebook && !query.trim() && filter === "all" && dateFilter === "all" && !tagFilter;
 
   async function shareItems(items: NoteItem[], title: string) {
     if (!items.length) return;
@@ -137,112 +141,150 @@ export default function Notes() {
           }
         />
       ) : null}
-      <View style={s.selectionHeader}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={selecting ? "Cancel note selection" : "Select notes"}
-          onPress={() => {
-            setSelecting((value) => !value);
-            setSelectedIds([]);
-          }}
-          style={[s.pillButton, { borderColor: theme.border }]}
-        >
-          <Ionicons name={selecting ? "close" : "checkmark-circle-outline"} size={18} color={theme.accent} />
-          <Text style={[s.pillButtonText, { color: theme.accent }]}>{selecting ? "Cancel" : "Select"}</Text>
-        </Pressable>
-        {selecting ? (
-          <Text style={[s.selectedCount, { color: theme.mutedText }]}>{selectedIds.length} selected</Text>
-        ) : null}
-        {selecting && selectedIds.length ? (
-          <>
+      {hasNotes ? (
+        <>
+          <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
+            <Ionicons name="search" size={19} color={theme.mutedText} />
+            <TextInput
+              accessibilityLabel="Search notes"
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search notes, titles, tags"
+              placeholderTextColor={theme.mutedText}
+              style={[s.input, { color: theme.text }]}
+            />
+            {query ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+                onPress={() => setQuery("")}
+                style={s.clear}
+              >
+                <Ionicons name="close-circle" size={20} color={theme.mutedText} />
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Share ${selectedIds.length} selected notes`}
-              onPress={() => shareItems(selectedItems(), `${selectedIds.length} selected Votic notes`)}
-              style={[s.pillButton, { borderColor: theme.border }]}
+              accessibilityLabel={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Filters"}
+              accessibilityState={{ expanded: filterOpen }}
+              onPress={() => setFilterOpen(true)}
+              style={[
+                s.filterTrigger,
+                {
+                  borderColor: activeFilterCount ? theme.accent : theme.border,
+                  backgroundColor: activeFilterCount ? theme.sentenceHighlight : theme.surface,
+                },
+              ]}
             >
-              <Ionicons name="share-outline" size={17} color={theme.accent} />
-              <Text style={[s.pillButtonText, { color: theme.accent }]}>Share</Text>
+              <Ionicons
+                name="options-outline"
+                size={19}
+                color={activeFilterCount ? theme.accent : theme.text}
+              />
+              {activeFilterCount ? (
+                <View style={[s.filterCount, { backgroundColor: theme.accent }]}>
+                  <Text style={s.filterCountText}>{activeFilterCount}</Text>
+                </View>
+              ) : null}
             </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Ask Votic about ${selectedIds.length} selected notes`}
-              onPress={askSelected}
-              style={[s.askSelected, { backgroundColor: theme.accent }]}
-            >
-              <Ionicons name="chatbubble-ellipses-outline" size={17} color="#FFF" />
-              <Text style={s.askSelectedText}>Ask Votic</Text>
-            </Pressable>
-          </>
-        ) : null}
-      </View>
-      <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
-        <Ionicons name="search" size={19} color={theme.mutedText} />
-        <TextInput
-          accessibilityLabel="Search notes"
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search notes, titles, tags..."
-          placeholderTextColor={theme.mutedText}
-          style={[s.input, { color: theme.text }]}
-        />
-        {query ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear search"
-            onPress={() => setQuery("")}
-            style={s.clear}
-          >
-            <Ionicons name="close-circle" size={20} color={theme.mutedText} />
-          </Pressable>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={activeFilterCount ? `Filters, ${activeFilterCount} active` : "Filters"}
-          accessibilityState={{ expanded: filterOpen }}
-          onPress={() => setFilterOpen(true)}
-          style={[
-            s.filterTrigger,
-            {
-              borderColor: activeFilterCount ? theme.accent : theme.border,
-              backgroundColor: activeFilterCount ? theme.sentenceHighlight : theme.surface,
-            },
-          ]}
-        >
-          <Ionicons name="options-outline" size={19} color={activeFilterCount ? theme.accent : theme.text} />
+          </View>
           {activeFilterCount ? (
-            <View style={[s.filterCount, { backgroundColor: theme.accent }]}>
-              <Text style={s.filterCountText}>{activeFilterCount}</Text>
+            <View style={s.activeFilters}>
+              {isAdvancedFilter(filter) ? (
+                <ActiveFilter label={filterLabel(filter)} onPress={() => setFilter("all")} />
+              ) : null}
+              {dateFilter !== "all" ? (
+                <ActiveFilter label={dateFilterLabel(dateFilter)} onPress={() => setDateFilter("all")} />
+              ) : null}
+              {tagFilter ? <ActiveFilter label={`#${tagFilter}`} onPress={() => setTagFilter(null)} /> : null}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear all filters"
+                onPress={clearFilters}
+                style={s.clearFilters}
+              >
+                <Text style={[s.clearFiltersText, { color: theme.accent }]}>Clear</Text>
+              </Pressable>
             </View>
           ) : null}
-        </Pressable>
-      </View>
-      <View style={s.primaryFilters}>
-        <FilterButton label="All Notes" value="all" current={filter} onPress={setFilter} />
-        <FilterButton label="Notes" value="notes" current={filter} onPress={setFilter} />
-        <FilterButton label="Saved Passages" value="saved" current={filter} onPress={setFilter} />
-      </View>
-      {activeFilterCount ? (
-        <View style={s.activeFilters}>
-          {isAdvancedFilter(filter) ? (
-            <ActiveFilter
-              label={filter === "pinned" ? "Pinned" : noteTypeLabel(filter as NoteType)}
-              onPress={() => setFilter("all")}
-            />
-          ) : null}
-          {dateFilter !== "all" ? (
-            <ActiveFilter label={dateFilterLabel(dateFilter)} onPress={() => setDateFilter("all")} />
-          ) : null}
-          {tagFilter ? <ActiveFilter label={`#${tagFilter}`} onPress={() => setTagFilter(null)} /> : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Clear all filters"
-            onPress={clearFilters}
-            style={s.clearFilters}
-          >
-            <Text style={[s.clearFiltersText, { color: theme.accent }]}>Clear</Text>
-          </Pressable>
-        </View>
+          {selecting ? (
+            <View style={[s.selectionBar, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Text accessibilityLiveRegion="polite" style={[s.selectedCount, { color: theme.text }]}>
+                {selectedIds.length ? `${selectedIds.length} selected` : "Choose notes to ask about or share"}
+              </Text>
+              <View style={s.selectionActions}>
+                {selectedIds.length ? (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Share ${selectedIds.length} selected notes`}
+                      onPress={() =>
+                        shareItems(selectedItems(), `${selectedIds.length} selected Votic notes`)
+                      }
+                      style={[s.pillButton, { borderColor: theme.border }]}
+                    >
+                      <Ionicons name="share-outline" size={17} color={theme.text} />
+                      <Text style={[s.pillButtonText, { color: theme.text }]}>Share</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Ask Votic about ${selectedIds.length} selected notes`}
+                      onPress={askSelected}
+                      style={[s.askSelected, { backgroundColor: theme.accent }]}
+                    >
+                      <Ionicons name="sparkles-outline" size={16} color="#FFF" />
+                      <Text style={s.askSelectedText}>Ask Votic</Text>
+                    </Pressable>
+                  </>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel note selection"
+                  onPress={() => {
+                    setSelecting(false);
+                    setSelectedIds([]);
+                  }}
+                  style={[s.pillButton, { borderColor: theme.border }]}
+                >
+                  <Text style={[s.pillButtonText, { color: theme.mutedText }]}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={s.summaryRow}>
+              <Text style={[s.summary, { color: theme.mutedText }]}>
+                {itemCount} {itemCount === 1 ? "item" : "items"} from {groups.length}{" "}
+                {groups.length === 1 ? "document" : "documents"}
+              </Text>
+              {groups.length && !notebook ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Ask Votic about notes"
+                  accessibilityHint="Choose which notes to ask about"
+                  onPress={() => setSelecting(true)}
+                  style={[s.pillButton, { borderColor: theme.border }]}
+                >
+                  <Ionicons name="sparkles-outline" size={16} color={theme.accent} />
+                  <Text style={[s.pillButtonText, { color: theme.accent }]}>Ask</Text>
+                </Pressable>
+              ) : null}
+              {groups.length ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Select notes"
+                  onPress={() => {
+                    setSelecting(true);
+                    setSelectedIds([]);
+                  }}
+                  style={[s.pillButton, { borderColor: theme.border }]}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={17} color={theme.accent} />
+                  <Text style={[s.pillButtonText, { color: theme.accent }]}>Select</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
+        </>
       ) : null}
       {groups.length ? (
         <View style={s.list}>
@@ -254,6 +296,7 @@ export default function Notes() {
                 inNotebook={Boolean(notebook)}
                 selecting={selecting}
                 selectedIds={selectedIds}
+                previewLimit={browsing && !selecting ? 2 : undefined}
                 onOpenNotebook={() => setNotebookId(document.id)}
                 onToggleSelected={toggleSelected}
                 onView={setViewing}
@@ -262,22 +305,35 @@ export default function Notes() {
             </ScrollFadeItem>
           ))}
         </View>
+      ) : hasNotes ? (
+        <View style={s.empty}>
+          <Ionicons name="search-outline" size={32} color={theme.mutedText} />
+          <Text style={[s.emptyTitle, { color: theme.text }]}>No matches</Text>
+          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>Try another search or filter.</Text>
+        </View>
       ) : (
         <View style={s.empty}>
-          {!query ? (
-            <NotesEmptyAnimation />
-          ) : (
-            <Ionicons name="search-outline" size={34} color={theme.mutedText} />
-          )}
-          <Text style={[s.emptyTitle, { color: theme.text }]}>{query ? "No matches" : "No notes yet"}</Text>
-          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            {query
-              ? "Try another search or filter."
-              : "Save a passage in the Reader and add a note. It will be organized here by document."}
+          <NotesEmptyAnimation />
+          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
+            Keep what matters.
           </Text>
+          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
+            Save a passage or add a thought. Find it here, linked to your document.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open a document"
+            onPress={() => router.push("/documents")}
+            style={({ pressed }) => [
+              s.emptyAction,
+              { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
+            ]}
+          >
+            <Ionicons name="book-outline" size={19} color="#FFF" />
+            <Text style={s.emptyActionText}>Open a document</Text>
+          </Pressable>
         </View>
       )}
-
       <NoteViewer
         item={viewing}
         onClose={() => setViewing(null)}
@@ -313,6 +369,13 @@ export default function Notes() {
   );
 }
 
+function filterLabel(filter: NotesFilter) {
+  if (filter === "notes") return "Notes";
+  if (filter === "saved") return "Saved passages";
+  if (filter === "pinned") return "Pinned";
+  return noteTypeLabel(filter as NoteType);
+}
+
 function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }) {
   const { theme } = useVoticTheme();
   return (
@@ -330,41 +393,29 @@ function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }
   );
 }
 
-function FilterButton({
-  label,
-  value,
-  current,
-  onPress,
-}: {
-  label: string;
-  value: NotesFilter;
-  current: NotesFilter;
-  onPress: (value: NotesFilter) => void;
-}) {
-  const { theme } = useVoticTheme();
-  const active = value === current;
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: active }}
-      onPress={() => onPress(value)}
-      style={[
-        s.filter,
-        {
-          borderColor: active ? theme.accent : theme.border,
-          backgroundColor: active ? theme.sentenceHighlight : theme.surface,
-        },
-      ]}
-    >
-      <Text style={[s.filterText, { color: active ? theme.accent : theme.text }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const s = StyleSheet.create({
-  selectionHeader: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  summaryRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  summary: { flex: 1, fontSize: 14 },
+  selectionBar: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.sm,
+    gap: spacing.sm,
+  },
+  selectionActions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
+  emptyAction: {
+    minHeight: 52,
+    alignSelf: "stretch",
+    borderRadius: radii.md,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  emptyActionText: { color: "#FFF", fontSize: 16, fontWeight: "800" },
   pillButton: {
-    minHeight: 38,
+    minHeight: 44,
     borderWidth: 1,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.sm,
@@ -373,9 +424,9 @@ const s = StyleSheet.create({
     gap: 5,
   },
   pillButtonText: { fontSize: 13, fontWeight: "800" },
-  selectedCount: { flex: 1, fontSize: 13, fontWeight: "700" },
+  selectedCount: { fontSize: 14, fontWeight: "700" },
   askSelected: {
-    minHeight: 38,
+    minHeight: 44,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.md,
     flexDirection: "row",
@@ -419,17 +470,6 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   filterCountText: { color: "#FFF", fontSize: 9, fontWeight: "900" },
-  primaryFilters: { flexDirection: "row", gap: spacing.xs },
-  filter: {
-    flex: 1,
-    minHeight: 38,
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  filterText: { fontSize: 12, fontWeight: "700" },
   activeFilters: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
   activeFilter: {
     maxWidth: 180,

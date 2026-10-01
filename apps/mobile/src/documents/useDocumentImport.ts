@@ -13,15 +13,25 @@ import {
   validateLoadedBytes,
 } from "./importDocument";
 
-/** Picks a file, reads it, adds it to the library, and opens it in the Reader from `sourceRef`. */
-export function useDocumentImport(sourceRef: RefObject<View | null>) {
+export type ImportFailure = { name: string | null; message: string };
+
+/**
+ * Picks a file, reads it, adds it to the library, and opens it in the Reader from `sourceRef`.
+ * By default a failure shows an alert; screens that show failures inline pass `inlineErrors`.
+ */
+export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErrors = false } = {}) {
   const { addTextDocument } = useDocumentLibrary();
   const { defaultPlaybackRate } = useVoticPurpose();
   const transition = useDocumentTransition();
   const [importing, setImporting] = useState(false);
+  /** The file being read, shown while Votic extracts its text. */
+  const [processingName, setProcessingName] = useState<string | null>(null);
+  const [failure, setFailure] = useState<ImportFailure | null>(null);
 
   async function importDocument() {
     setImporting(true);
+    setFailure(null);
+    let name: string | null = null;
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: [
@@ -38,6 +48,8 @@ export function useDocumentImport(sourceRef: RefObject<View | null>) {
       });
       if (result.canceled) return;
       const asset = result.assets[0];
+      name = asset.name;
+      setProcessingName(asset.name);
       validateImport({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
       const response = await fetch(asset.uri);
       if (!response.ok)
@@ -51,29 +63,31 @@ export function useDocumentImport(sourceRef: RefObject<View | null>) {
       addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
       openFrom(sourceRef, transition);
     } catch (error) {
-      Alert.alert(
-        "Could not import document",
-        error instanceof Error ? error.message : "Votic could not read this document.",
-      );
+      const message = error instanceof Error ? error.message : "Votic could not read this document.";
+      if (inlineErrors) setFailure({ name, message });
+      else Alert.alert("Could not import document", message);
     } finally {
       setImporting(false);
+      setProcessingName(null);
     }
   }
 
-  return { importing, importDocument };
+  return { importing, processingName, failure, dismissFailure: () => setFailure(null), importDocument };
 }
 
 /** Grows the Reader out of `sourceRef`, or opens it directly when there is nothing on screen to grow from. */
 export function openFrom(
   sourceRef: RefObject<View | null>,
   transition: ReturnType<typeof useDocumentTransition>,
+  params?: Record<string, string>,
 ) {
+  const target = params ? { pathname: "/reader" as const, params } : "/reader";
   const source = sourceRef.current;
   if (!source) {
-    router.push("/reader");
+    router.push(target);
     return;
   }
   source.measureInWindow((x, y, width, height) =>
-    transition.openReader({ x, y, width, height }, () => router.push("/reader")),
+    transition.openReader({ x, y, width, height }, () => router.push(target)),
   );
 }

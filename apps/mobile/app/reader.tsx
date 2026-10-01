@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
@@ -23,6 +23,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
+import { useActivity } from "../src/activity/ActivityProvider";
+import { askEventFor } from "../src/activity/askCategories";
+import { useReaderActivity } from "../src/activity/useReaderActivity";
 import { askVotic } from "../src/api/voticApi";
 import {
   answeredFromContext,
@@ -108,7 +111,6 @@ export default function Reader() {
     savePassage,
     removePassage,
     updateProgress,
-    recordActivity,
     completeDocument,
     updatePlaybackRate,
   } = useDocumentLibrary();
@@ -154,6 +156,10 @@ export default function Reader() {
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
+  const params = useLocalSearchParams<{ autoplay?: string }>();
+  // Reading counts only while someone is engaged with the page; listening counts while narration plays.
+  const engaged = useReaderActivity(activeId, playing);
+  const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
   // The empty state is dock-sized. Only a real conversation gets a bounded, scrollable tray.
@@ -190,9 +196,6 @@ export default function Reader() {
   });
   const onAskClosed = useEffectEvent(() => finishAskClose());
   const onPositionChange = useEffectEvent(() => followActiveWord());
-  const recordElapsed = useEffectEvent((documentId: string, seconds: number, listening: boolean) =>
-    recordActivity(documentId, seconds, listening ? seconds : 0),
-  );
 
   useEffect(() => {
     void Speech.getAvailableVoicesAsync()
@@ -223,23 +226,14 @@ export default function Reader() {
   useEffect(() => {
     onPositionChange();
   }, [index, wordIndex, accessibility.reduceMotion]);
-  // Restarts when playback starts or stops, so time before the change is counted with the right mode.
+  // "Resume listening" from Home opens the Reader and starts narration once it is ready.
+  const autoplayed = useRef(false);
+  const onReadyToAutoplay = useEffectEvent(() => speak());
   useEffect(() => {
-    if (!activeId) return;
-    let lastSavedAt = Date.now();
-    function saveElapsed() {
-      if (!activeId) return;
-      const seconds = Math.floor((Date.now() - lastSavedAt) / 1000);
-      if (seconds < 1) return;
-      lastSavedAt += seconds * 1000;
-      recordElapsed(activeId, seconds, playing);
-    }
-    const interval = setInterval(saveElapsed, 10000);
-    return () => {
-      clearInterval(interval);
-      saveElapsed();
-    };
-  }, [activeId, playing]);
+    if (!readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
+    autoplayed.current = true;
+    onReadyToAutoplay();
+  }, [readerReady, params.autoplay, passages.length]);
   useEffect(() => {
     askGeneration.current += 1;
     const frame = requestAnimationFrame(() => {
@@ -321,6 +315,7 @@ export default function Reader() {
     const generation = askGeneration.current;
     const context = resolveAskVoticContext(documents, activeDocument, {});
     const history = askMessages;
+    recordAsk(askEventFor(clean, { newConversation: history.length === 0 }));
     setAskQuestion("");
     setAskError("");
     setAskMessages((current) => [...current, { role: "user", text: clean }]);
@@ -505,6 +500,7 @@ export default function Reader() {
     if (sentenceIndex === index) prepareReader();
   }
   function trackScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    engaged();
     scrollOffset.current = event.nativeEvent.contentOffset.y;
   }
   async function stop() {
@@ -577,6 +573,7 @@ export default function Reader() {
     setIndex((current) => Math.max(0, Math.min(passages.length - 1, current + delta)));
   }
   function beginSeek() {
+    engaged();
     seekWasPlaying.current = playing;
     speechSession.current += 1;
     setPlaying(false);
@@ -721,7 +718,7 @@ export default function Reader() {
           },
         ]}
       >
-        <Animated.View style={[s.safe, { opacity: readerOpacity }]}>
+        <Animated.View onTouchStart={engaged} style={[s.safe, { opacity: readerOpacity }]}>
           <SafeAreaView edges={["top", "bottom", "left", "right"]} style={s.safe}>
             <KeyboardAvoidingView style={s.content} behavior={Platform.OS === "ios" ? "padding" : "height"}>
               <View style={s.topBar}>

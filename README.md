@@ -55,6 +55,21 @@ Not yet implemented: syncing preferences and the library across devices (both st
 
 From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
 
+### Statistics: what Votic measures
+
+Statistics (from Home's weekly summary or Settings) uses measurements recorded on the device in `src/activity/`. Nothing is sent to a server or an analytics service, and older activity is not reconstructed: the page says when measurement began on the device.
+
+- **Listening time** is elapsed time while narration is playing and Votic is in the foreground, so it reflects the chosen speed and excludes pauses.
+- **Reading time** counts while the Reader is open and the person is engaged (scrolling, touching the page, or using a control), and stops two minutes after the last interaction. It is an estimate: Votic cannot tell whether someone is looking at a still page.
+- **No double counting:** while narration plays, the time is listening only.
+- **Background and interruptions:** time with the app in the background is excluded. The Reader checks in every 10 seconds; a longer gap (for example a locked phone without a background event) is treated as a suspension and not counted. At most about 10 seconds can be lost if the app is closed abruptly.
+- **Days and time zone:** time is stored per local hour in the device's time zone, so a session crossing midnight is split between the two days.
+- **Active day:** at least one minute of reading or listening. A **streak** is consecutive active days ending today, or yesterday if today has no activity yet.
+- **Ask Votic:** a *question* is each message sent (a retry of a failed message is not counted again); a *conversation* starts with the first question after Ask Votic opens with no messages. Question types (summaries, explanations, comparisons, definitions, other) come from simple word rules on the device. Only the type, the time, and the label of a built-in suggestion are kept; typed question text is never stored for Statistics.
+- **Documents:** *Most read* ranks by reading plus listening time in the period. Completion is the existing reading position; re-reading does not count as finishing again.
+- **Insights** need at least 30 minutes on 3 different days in the period; *most active day of the week* also needs a month or longer, and comparisons need 10 minutes in both periods. "Most active" describes usage, not productivity.
+- **Not yet covered:** background playback (Votic does not play narration in the background yet) and syncing statistics across devices.
+- Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
 ### Accounts
 
 Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".

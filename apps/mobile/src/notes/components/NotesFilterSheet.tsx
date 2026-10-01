@@ -6,6 +6,11 @@ import { useVoticTheme } from "../../theme/ThemeProvider";
 import { DateFilter, NotesFilter } from "../notesList";
 import { notesSheetStyles as sheet } from "./notesSheetStyles";
 
+const SHOW_CHOICES: { label: string; value: NotesFilter }[] = [
+  { label: "All notes", value: "all" },
+  { label: "Notes", value: "notes" },
+  { label: "Saved passages", value: "saved" },
+];
 const TYPE_CHOICES: { label: string; value: NotesFilter }[] = [
   { label: "Pinned", value: "pinned" },
   { label: "Key Points", value: "key-point" },
@@ -19,7 +24,7 @@ const DATE_CHOICES: { label: string; value: DateFilter }[] = [
   { label: "30 days", value: "month" },
 ];
 
-/** Type, date, and tag filters, kept in a sheet so the Notes list stays uncluttered. */
+/** What to show, type, date, and tag filters, kept in a sheet so the Notes list stays uncluttered. */
 export function NotesFilterSheet({
   visible,
   onClose,
@@ -74,6 +79,17 @@ export function NotesFilterSheet({
             </Pressable>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.content}>
+            <FilterSection title="Show">
+              {SHOW_CHOICES.map((choice) => (
+                <Chip
+                  key={choice.value}
+                  role="radio"
+                  label={choice.label}
+                  selected={filter === choice.value}
+                  onPress={() => onFilterChange(choice.value)}
+                />
+              ))}
+            </FilterSection>
             <FilterSection title="Type">
               {TYPE_CHOICES.map((choice) => (
                 <Chip

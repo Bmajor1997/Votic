@@ -6,6 +6,7 @@ import {
   AccessibilityProvider,
   useAccessibilityPreferences,
 } from "../src/accessibility/AccessibilityProvider";
+import { ActivityProvider } from "../src/activity/ActivityProvider";
 import { AuthProvider, useAuth } from "../src/auth/AuthProvider";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
@@ -60,6 +61,10 @@ function ThemedStack() {
             <Stack.Screen name="assistant" />
             <Stack.Screen name="review" />
             <Stack.Screen name="recap" />
+            <Stack.Screen
+              name="statistics"
+              options={{ animation: reduceMotion ? "none" : "slide_from_right" }}
+            />
           </Stack.Protected>
         </Stack>
       </DocumentTransitionProvider>
@@ -74,7 +79,9 @@ export default function RootLayout() {
         <AccessibilityProvider>
           <PurposeProvider>
             <AuthProvider>
-              <ThemedStack />
+              <ActivityProvider>
+                <ThemedStack />
+              </ActivityProvider>
             </AuthProvider>
           </PurposeProvider>
         </AccessibilityProvider>

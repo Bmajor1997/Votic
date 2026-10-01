@@ -82,8 +82,10 @@ describe("note groups", () => {
 });
 
 describe("filter helpers", () => {
-  it("counts only the filters from the filter sheet", () => {
-    expect(advancedFilterCount({ filter: "notes", dateFilter: "all", tagFilter: null })).toBe(0);
+  it("counts every filter that differs from the default of all notes", () => {
+    expect(advancedFilterCount({ filter: "all", dateFilter: "all", tagFilter: null })).toBe(0);
+    // Notes or Saved passages now live in the filter sheet too.
+    expect(advancedFilterCount({ filter: "notes", dateFilter: "all", tagFilter: null })).toBe(1);
     expect(advancedFilterCount({ filter: "pinned", dateFilter: "week", tagFilter: "memory" })).toBe(3);
   });
   it("lists each tag once, sorted", () => {

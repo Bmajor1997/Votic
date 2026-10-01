@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { DocumentTypeIcon, documentTypeColor } from "../../components/DocumentTypeIcon";
+import { DocumentCover } from "../../components/DocumentCover";
+import { documentTypeColor } from "../../components/DocumentTypeIcon";
+import { readableTitle } from "../../documents/documentDisplay";
 import { controlSizes, radii, spacing } from "../../design/tokens";
 import { SavedPassage, VoticDocument } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
@@ -19,6 +21,7 @@ export function NoteGroupCard({
   onToggleSelected,
   onView,
   onMore,
+  previewLimit,
 }: {
   document: VoticDocument;
   passages: SavedPassage[];
@@ -30,23 +33,29 @@ export function NoteGroupCard({
   onToggleSelected: (selectionId: string) => void;
   onView: (item: NoteItem) => void;
   onMore: (item: NoteItem) => void;
+  /** Shows only the newest few, with a link to the full notebook. */
+  previewLimit?: number;
 }) {
   const { theme } = useVoticTheme();
   const color = documentTypeColor(document.sourceName);
   const noteCount = passages.filter((passage) => passage.note.trim()).length;
   const savedCount = passages.length - noteCount;
+  const title = readableTitle(document.title);
+  const shown = previewLimit ? passages.slice(0, previewLimit) : passages;
+  const hidden = passages.length - shown.length;
   return (
     <View style={[s.group, { borderColor: theme.border, backgroundColor: theme.surface }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${document.title} notebook`}
+        accessibilityHint={`${noteCount} ${noteCount === 1 ? "note" : "notes"}, ${savedCount} saved ${savedCount === 1 ? "passage" : "passages"}`}
         onPress={onOpenNotebook}
         style={({ pressed }) => [s.header, { backgroundColor: pressed ? theme.surfaceMuted : "transparent" }]}
       >
-        <DocumentTypeIcon sourceName={document.sourceName} size={40} />
+        <DocumentCover document={document} size="sm" />
         <View style={s.headerCopy}>
-          <Text numberOfLines={1} style={[s.documentTitle, { color: theme.text }]}>
-            {document.title}
+          <Text numberOfLines={2} style={[s.documentTitle, { color: theme.text }]}>
+            {title}
           </Text>
           <Text style={[s.counts, { color: theme.mutedText }]}>
             {noteCount} {noteCount === 1 ? "note" : "notes"} · {savedCount}{" "}
@@ -59,7 +68,7 @@ export function NoteGroupCard({
           <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
         )}
       </Pressable>
-      {passages.map((passage) => {
+      {shown.map((passage) => {
         const selectionId = noteSelectionId(document.id, passage.id);
         const selected = selectedIds.includes(selectionId);
         const hasNote = Boolean(passage.note.trim());
@@ -124,6 +133,20 @@ export function NoteGroupCard({
           </View>
         );
       })}
+      {hidden > 0 ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Show all ${passages.length} from ${title}`}
+          onPress={onOpenNotebook}
+          style={({ pressed }) => [
+            s.showAll,
+            { borderTopColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : "transparent" },
+          ]}
+        >
+          <Text style={[s.showAllText, { color: theme.accent }]}>Show all {passages.length}</Text>
+          <Ionicons name="chevron-forward" size={16} color={theme.accent} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -138,7 +161,16 @@ const s = StyleSheet.create({
     gap: spacing.sm,
   },
   headerCopy: { flex: 1 },
-  documentTitle: { fontSize: 15, fontWeight: "800" },
+  showAll: {
+    minHeight: 48,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  showAllText: { fontSize: 14, fontWeight: "800" },
+  documentTitle: { fontSize: 15, lineHeight: 20, fontWeight: "800" },
   counts: { fontSize: 12, marginTop: 3 },
   row: {
     minHeight: 94,

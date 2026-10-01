@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react-native";
 import { PropsWithChildren, ReactElement } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccessibilityProvider } from "../src/accessibility/AccessibilityProvider";
+import { ActivityProvider } from "../src/activity/ActivityProvider";
 import { AuthProvider } from "../src/auth/AuthProvider";
 import { createDocumentStore } from "../src/documents/documentStorage";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
@@ -31,9 +32,11 @@ export function AppProviders({ children }: PropsWithChildren) {
           <AccessibilityProvider>
             <PurposeProvider>
               <AuthProvider>
-                <DocumentLibraryProvider>
-                  <DocumentTransitionProvider>{children}</DocumentTransitionProvider>
-                </DocumentLibraryProvider>
+                <ActivityProvider>
+                  <DocumentLibraryProvider>
+                    <DocumentTransitionProvider>{children}</DocumentTransitionProvider>
+                  </DocumentLibraryProvider>
+                </ActivityProvider>
               </AuthProvider>
             </PurposeProvider>
           </AccessibilityProvider>

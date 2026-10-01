@@ -1,290 +1,381 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { formatDuration, periodFor, spokenDuration, summarize } from "../../src/activity/activityModel";
+import { useActivity } from "../../src/activity/ActivityProvider";
+import { DocumentCover } from "../../src/components/DocumentCover";
+import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen, ScrollFadeItem } from "../../src/components/Screen";
-import { radii, typography } from "../../src/design/tokens";
-import { mostRecentIncomplete } from "../../src/documents/insights";
+import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
+import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
+import { positionLabel, progressLabel, readableTitle } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { mostRecentIncomplete } from "../../src/documents/insights";
+import { VoticDocument } from "../../src/documents/types";
+import { openFrom, useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
-import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
+import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
+import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Home() {
   const { theme } = useVoticTheme();
-  const { documents, collections, openDocument, setDocumentCollection, removeDocument } =
-    useDocumentLibrary();
+  const { documents, loaded, openDocument } = useDocumentLibrary();
+  const { checklistDismissed } = useOnboarding();
   const transition = useDocumentTransition();
-  const cardRefs = useRef<Record<string, View | null>>({});
-  const [menuId, setMenuId] = useState<string | null>(null);
-  const recent = mostRecentIncomplete(documents);
-  const visible = [...documents]
+  const addRef = useRef<View>(null);
+  const { importing, importDocument } = useDocumentImport(addRef);
+  const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
+  const featured = mostRecentIncomplete(documents);
+  const recent = [...documents]
+    .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
-    .slice(0, 3);
-  const menuDocument = documents.find((document) => document.id === menuId);
-  function open(id: string, sourceKey = id) {
-    if (transition.transitioning) return;
-    const source = cardRefs.current[sourceKey];
-    // Without a visible card to animate from, open the Reader directly rather than doing nothing.
-    if (!source) {
-      openDocument(id);
-      router.push("/reader");
-      return;
-    }
-    source.measureInWindow((x, y, width, height) => {
-      openDocument(id);
-      transition.openReader({ x, y, width, height }, () => router.push("/reader"));
-    });
-  }
-  function remove() {
-    if (!menuDocument) return;
-    const selected = menuDocument;
-    setMenuId(null);
-    Alert.alert("Delete document?", `Remove ${selected.title} from Votic? This cannot be undone.`, [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => removeDocument(selected.id) },
-    ]);
-  }
+    .slice(0, 4);
+
   return (
     <Screen title="Home" hideTitle>
       <GettingStartedCard />
-      {recent ? (
-        <>
-          <SectionHeader title="Continue Reading" />
-          <ScrollFadeItem>
+      {!loaded ? (
+        <View accessible accessibilityLabel="Loading your library" style={s.loading}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      ) : null}
+      {loaded && documents.length ? (
+        <View style={s.headerRow}>
+          <Text accessibilityRole="header" style={[s.pageTitle, { color: theme.text }]}>
+            {featured ? "Continue" : "Your library"}
+          </Text>
+          <View ref={addRef} collapsable={false}>
             <Pressable
-              ref={(node) => {
-                cardRefs.current["recent:" + recent.id] = node;
-              }}
-              collapsable={false}
-              onPress={() => open(recent.id, "recent:" + recent.id)}
+              accessibilityRole="button"
+              accessibilityLabel="Add document"
+              accessibilityState={{ busy: importing }}
+              disabled={importing}
+              onPress={() => void importDocument()}
               style={({ pressed }) => [
-                s.continueCard,
-                { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.82 : 1 },
+                s.addButton,
+                { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
               ]}
             >
-              <DocumentTypeIcon sourceName={recent.sourceName} />
-              <View style={s.flex}>
-                <Text numberOfLines={1} style={[s.docTitle, { color: theme.text }]}>
-                  {recent.title}
-                </Text>
-                <Text style={[s.meta, { color: theme.mutedText }]}>
-                  Passage {recent.sentenceIndex + 1} · {Math.round(recent.progress * 100)}% read
-                </Text>
-                <View style={[s.track, { backgroundColor: theme.border }]}>
-                  <View
-                    style={[
-                      s.progress,
-                      { backgroundColor: theme.accent, width: `${recent.progress * 100}%` as `${number}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-              <View style={[s.play, { backgroundColor: theme.accent }]}>
-                <Ionicons name="play" size={20} color="#FFF" />
-              </View>
+              {importing ? (
+                <ActivityIndicator size="small" color={theme.accent} />
+              ) : (
+                <Ionicons name="add" size={20} color={theme.accent} />
+              )}
+              <Text style={[s.addText, { color: theme.text }]}>Add</Text>
             </Pressable>
-          </ScrollFadeItem>
-        </>
+          </View>
+        </View>
       ) : null}
-      <SectionHeader title="Recent Documents" onPress={() => router.push("/documents")} />
-      <View style={[s.documentList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        {visible.length ? (
-          visible.map((doc, i) => (
-            <ScrollFadeItem key={doc.id}>
-              <View
-                ref={(node) => {
-                  cardRefs.current[doc.id] = node;
+      {featured ? (
+        <ContinueCard
+          document={featured}
+          onOpen={(source, listen) => {
+            if (transition.transitioning) return;
+            openDocument(featured.id);
+            openFrom(source, transition, listen ? { autoplay: "1" } : undefined);
+          }}
+        />
+      ) : null}
+      {loaded && documents.length ? <WeekSummary /> : null}
+      {recent.length ? (
+        <View style={s.section}>
+          <View style={s.sectionHeader}>
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+              Recent
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="See all documents"
+              onPress={() => router.push("/documents")}
+              hitSlop={8}
+              style={s.seeAll}
+            >
+              <Text style={[s.seeAllText, { color: theme.accent }]}>See all</Text>
+            </Pressable>
+          </View>
+          {recent.map((document) => (
+            <ScrollFadeItem key={document.id}>
+              <RecentRow
+                document={document}
+                onOpen={(source) => {
+                  if (transition.transitioning) return;
+                  openDocument(document.id);
+                  openFrom(source, transition);
                 }}
-                collapsable={false}
-                style={[
-                  s.documentRow,
-                  i < visible.length - 1 && { borderBottomColor: theme.border, borderBottomWidth: 1 },
-                ]}
-              >
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${doc.title}`}
-                  onPress={() => open(doc.id)}
-                  style={({ pressed }) => [
-                    s.documentMain,
-                    {
-                      opacity: pressed ? 0.82 : 1,
-                      backgroundColor: pressed ? theme.surfaceMuted : "transparent",
-                    },
-                  ]}
-                >
-                  <DocumentTypeIcon sourceName={doc.sourceName} />
-                  <View style={s.flex}>
-                    <Text numberOfLines={1} style={[s.docTitle, { color: theme.text }]}>
-                      {doc.title}
-                    </Text>
-                    <Text style={[s.meta, { color: theme.mutedText }]}>
-                      {doc.progress ? `${Math.round(doc.progress * 100)}% read` : "Ready to read"}
-                    </Text>
-                  </View>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`More options for ${doc.title}`}
-                  onPress={() => setMenuId(doc.id)}
-                  style={s.moreButton}
-                >
-                  <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
-                </Pressable>
-              </View>
-            </ScrollFadeItem>
-          ))
-        ) : (
-          <Text style={[s.noDocs, { color: theme.mutedText }]}>Your recent documents will appear here.</Text>
-        )}
-      </View>
-      <Modal
-        visible={menuId !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuId(null)}
-      >
-        <Pressable onPress={() => setMenuId(null)} style={s.backdrop}>
-          <Pressable
-            onPress={(event) => event.stopPropagation()}
-            style={[s.menu, { backgroundColor: theme.surface }]}
-          >
-            <View style={s.menuHeader}>
-              <View style={s.flex}>
-                <Text style={[s.menuTitle, { color: theme.text }]}>Document options</Text>
-                <Text numberOfLines={1} style={[s.menuSubtitle, { color: theme.mutedText }]}>
-                  {menuDocument?.title}
-                </Text>
-              </View>
-              <Pressable onPress={() => setMenuId(null)} style={s.close}>
-                <Ionicons name="close" size={22} color={theme.text} />
-              </Pressable>
-            </View>
-            <MenuAction
-              icon="book-outline"
-              label="Open in Reader"
-              onPress={() => {
-                if (menuId) open(menuId);
-                setMenuId(null);
-              }}
-            />
-            <Text style={[s.moveLabel, { color: theme.mutedText }]}>MOVE TO</Text>
-            <MenuAction
-              icon="folder-outline"
-              label="Unfiled"
-              selected={!menuDocument?.collection}
-              onPress={() => {
-                if (menuId) setDocumentCollection(menuId);
-                setMenuId(null);
-              }}
-            />
-            {collections.map((collection) => (
-              <MenuAction
-                key={collection}
-                icon="folder-outline"
-                label={collection}
-                selected={menuDocument?.collection === collection}
-                onPress={() => {
-                  if (menuId) setDocumentCollection(menuId, collection);
-                  setMenuId(null);
-                }}
+                onMore={() => setMenuDocument(document)}
               />
-            ))}
-            <MenuAction icon="trash-outline" label="Delete document" destructive onPress={remove} />
-          </Pressable>
-        </Pressable>
-      </Modal>
+            </ScrollFadeItem>
+          ))}
+        </View>
+      ) : null}
+      {loaded && !documents.length && checklistDismissed ? (
+        <View style={s.empty}>
+          <HomeEmptyAnimation />
+          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
+            Your reading starts here
+          </Text>
+          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
+            Add a PDF, Word, PowerPoint, EPUB, or text file to read and listen.
+          </Text>
+          <View ref={addRef} collapsable={false} style={s.emptyAction}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add document"
+              accessibilityState={{ busy: importing }}
+              disabled={importing}
+              onPress={() => void importDocument()}
+              style={[s.primary, { backgroundColor: theme.accent }]}
+            >
+              {importing ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <Ionicons name="add" size={20} color="#FFF" />
+              )}
+              <Text style={s.primaryText}>Add document</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+      <DocumentActionsSheet
+        document={menuDocument}
+        onClose={() => setMenuDocument(null)}
+        onOpen={(document) => {
+          openDocument(document.id);
+          router.push("/reader");
+        }}
+      />
     </Screen>
   );
 }
-function SectionHeader({ title, onPress }: { title: string; onPress?: () => void }) {
+
+/** The one thing Home is for: picking up where you left off. */
+function ContinueCard({
+  document,
+  onOpen,
+}: {
+  document: VoticDocument;
+  onOpen: (source: React.RefObject<View | null>, listen: boolean) => void;
+}) {
   const { theme } = useVoticTheme();
+  const listenRef = useRef<View>(null);
+  const readRef = useRef<View>(null);
+  const title = readableTitle(document.title);
+  const percent = Math.round(document.progress * 100);
   return (
-    <View style={s.sectionHeader}>
-      <Text style={[s.sectionTitle, { color: theme.text }]}>{title}</Text>
-      {onPress ? (
-        <Pressable onPress={onPress}>
-          <Text style={[s.action, { color: theme.accent }]}>See All</Text>
-        </Pressable>
-      ) : null}
+    <View style={[s.featured, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}>
+      <View style={s.featuredTop}>
+        <DocumentCover document={document} size="lg" />
+        <View style={s.featuredCopy}>
+          <Text numberOfLines={3} style={[s.featuredTitle, { color: theme.text }]}>
+            {title}
+          </Text>
+          <Text style={[s.featuredMeta, { color: theme.mutedText }]}>{positionLabel(document)}</Text>
+          <View
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel={`${title} progress`}
+            accessibilityValue={{ min: 0, max: 100, now: percent }}
+            style={[s.track, { backgroundColor: theme.border }]}
+          >
+            <View style={[s.fill, { backgroundColor: theme.accent, width: `${Math.max(2, percent)}%` }]} />
+          </View>
+          <Text style={[s.featuredMeta, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
+        </View>
+      </View>
+      <View style={s.featuredActions}>
+        <View ref={listenRef} collapsable={false} style={s.grow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Resume listening to ${title}`}
+            accessibilityHint="Opens the Reader and plays from where you left off"
+            onPress={() => onOpen(listenRef, true)}
+            style={({ pressed }) => [
+              s.primary,
+              { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
+            ]}
+          >
+            <Ionicons name="play" size={19} color="#FFF" />
+            <Text style={s.primaryText}>Resume listening</Text>
+          </Pressable>
+        </View>
+        <View ref={readRef} collapsable={false}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Read ${title}`}
+            accessibilityHint="Opens the Reader at your place without playing"
+            onPress={() => onOpen(readRef, false)}
+            style={({ pressed }) => [
+              s.secondary,
+              { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+            ]}
+          >
+            <Ionicons name="book-outline" size={19} color={theme.text} />
+            <Text style={[s.secondaryText, { color: theme.text }]}>Read</Text>
+          </Pressable>
+        </View>
+      </View>
     </View>
   );
 }
-function MenuAction({
-  icon,
-  label,
-  onPress,
-  selected = false,
-  destructive = false,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  onPress: () => void;
-  selected?: boolean;
-  destructive?: boolean;
-}) {
+
+/** A quiet weekly line that leads to Statistics. */
+function WeekSummary() {
   const { theme } = useVoticTheme();
-  const color = destructive ? "#DC2626" : theme.text;
+  const { log } = useActivity();
+  const week = periodFor("week");
+  const summary = summarize(log, week.start, week.end);
+  const visible = summary.total
+    ? `${formatDuration(summary.total)} · ${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"}`
+    : "Read or listen to see your week here";
+  const spoken = summary.total
+    ? `This week: ${spokenDuration(summary.total)}, ${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"}. Open Statistics.`
+    : "This week: no reading or listening yet. Open Statistics.";
   return (
     <Pressable
-      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={spoken}
+      onPress={() => router.push("/statistics")}
       style={({ pressed }) => [
-        s.menuAction,
-        { backgroundColor: pressed ? theme.surfaceMuted : "transparent" },
+        s.week,
+        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
       ]}
     >
-      <Ionicons name={icon} size={21} color={color} />
-      <Text style={[s.menuActionText, { color }]}>{label}</Text>
-      {selected ? <Ionicons name="checkmark" size={20} color={theme.accent} /> : null}
+      <View style={[s.weekIcon, { backgroundColor: theme.sentenceHighlight }]}>
+        <Ionicons name="stats-chart" size={18} color={theme.accent} />
+      </View>
+      <View style={s.grow}>
+        <Text style={[s.weekTitle, { color: theme.text }]}>This week</Text>
+        <Text style={[s.weekCopy, { color: theme.mutedText }]}>{visible}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
     </Pressable>
   );
 }
+
+function RecentRow({
+  document,
+  onOpen,
+  onMore,
+}: {
+  document: VoticDocument;
+  onOpen: (source: React.RefObject<View | null>) => void;
+  onMore: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const ref = useRef<View>(null);
+  const title = readableTitle(document.title);
+  return (
+    <View ref={ref} collapsable={false} style={[s.row, { borderBottomColor: theme.border }]}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${title}`}
+        accessibilityHint={progressLabel(document)}
+        onPress={() => onOpen(ref)}
+        style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
+      >
+        <DocumentCover document={document} size="sm" />
+        <View style={s.grow}>
+          <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
+            {title}
+          </Text>
+          <Text style={[s.rowMeta, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
+        </View>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`More options for ${title}`}
+        onPress={onMore}
+        style={s.more}
+      >
+        <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
+      </Pressable>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
-  sectionHeader: {
+  loading: { paddingVertical: spacing.xxl, alignItems: "center" },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
+  pageTitle: { ...typography.screenTitle, fontSize: 26, flexShrink: 1 },
+  addButton: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 4,
+    gap: 4,
   },
-  sectionTitle: { ...typography.sectionTitle, fontSize: 18 },
-  action: { fontSize: 13, fontWeight: "800" },
-  continueCard: {
-    minHeight: 82,
+  addText: { fontSize: 15, fontWeight: "700" },
+  featured: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.lg },
+  featuredTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
+  featuredCopy: { flex: 1, gap: spacing.xs },
+  featuredTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
+  featuredMeta: { fontSize: 14, lineHeight: 19 },
+  track: { height: 5, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
+  fill: { height: "100%", borderRadius: 3 },
+  featuredActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  grow: { flex: 1, minWidth: 0 },
+  primary: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  primaryText: { color: "#FFF", fontSize: 16, fontWeight: "800" },
+  secondary: {
+    minHeight: 50,
     borderWidth: 1,
     borderRadius: radii.md,
-    padding: 10,
+    paddingHorizontal: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "center",
+    gap: spacing.sm,
   },
-  docIcon: { width: 46, height: 46, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  flex: { flex: 1 },
-  docTitle: { fontSize: 14, fontWeight: "800" },
-  meta: { fontSize: 12, marginTop: 4 },
-  track: { height: 4, borderRadius: 2, overflow: "hidden", marginTop: 8 },
-  progress: { height: "100%" },
-  play: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
-  documentList: { borderWidth: 1, borderRadius: radii.md, overflow: "hidden" },
-  documentRow: { minHeight: 70, flexDirection: "row", alignItems: "stretch" },
-  documentMain: { flex: 1, padding: 10, flexDirection: "row", alignItems: "center", gap: 12 },
-  moreButton: { width: 52, alignItems: "center", justifyContent: "center" },
-  noDocs: { padding: 20, textAlign: "center", fontSize: 14 },
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,.38)", justifyContent: "center", padding: 24 },
-  menu: { borderRadius: 20, padding: 16, gap: 2 },
-  menuHeader: { flexDirection: "row", alignItems: "center", marginBottom: 8 },
-  menuTitle: { fontSize: 20, fontWeight: "800" },
-  menuSubtitle: { fontSize: 13, marginTop: 2 },
-  close: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  moveLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 0.7, marginTop: 10, marginBottom: 2 },
-  menuAction: {
-    minHeight: 50,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+  secondaryText: { fontSize: 16, fontWeight: "700" },
+  week: {
+    minHeight: 64,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: spacing.md,
   },
-  menuActionText: { fontSize: 15, fontWeight: "700", flex: 1 },
+  weekIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  weekTitle: { fontSize: 15, fontWeight: "800" },
+  weekCopy: { fontSize: 14, lineHeight: 19 },
+  section: { gap: spacing.xs },
+  sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  sectionTitle: { ...typography.sectionTitle, fontSize: 18 },
+  seeAll: { minHeight: controlSizes.minimumTouch, justifyContent: "center" },
+  seeAllText: { fontSize: 15, fontWeight: "800" },
+  row: { borderBottomWidth: 1, flexDirection: "row", alignItems: "center" },
+  rowMain: {
+    flex: 1,
+    minHeight: 72,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  rowTitle: { fontSize: 15, lineHeight: 20, fontWeight: "700" },
+  rowMeta: { fontSize: 13, marginTop: 2 },
+  more: {
+    width: controlSizes.minimumTouch,
+    height: controlSizes.minimumTouch,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
+  emptyTitle: { ...typography.sectionTitle, textAlign: "center" },
+  emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: "center" },
+  emptyAction: { alignSelf: "stretch", marginTop: spacing.sm },
 });

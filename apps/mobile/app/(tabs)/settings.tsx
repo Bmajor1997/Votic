@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { useAuth } from "../../src/auth/AuthProvider";
@@ -175,6 +176,22 @@ export default function Settings() {
       <View style={[s.divider, { backgroundColor: theme.border }]} />
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Help</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Statistics"
+          accessibilityHint="Reading and listening time, activity, and insights"
+          onPress={() => router.push("/statistics")}
+          style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="stats-chart-outline" size={22} color={theme.accent} />
+          <View style={s.settingCopy}>
+            <Text style={[s.settingTitle, { color: theme.text }]}>Statistics</Text>
+            <Text style={[s.settingDetail, { color: theme.mutedText }]}>
+              Reading and listening time, activity, and insights.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Show tips again"
