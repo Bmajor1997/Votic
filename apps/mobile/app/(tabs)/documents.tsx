@@ -1,10 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -13,16 +11,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { extractDocument } from "../../src/api/voticApi";
 import { Screen, ScrollFadeItem } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
-import {
-  canReadLocally,
-  cleanLocalDocumentText,
-  validateImport,
-  validateLoadedBytes,
-} from "../../src/documents/importDocument";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
@@ -33,9 +25,7 @@ export default function Documents() {
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const uploadRef = useRef<View>(null);
-  const { documents, collections, addTextDocument, openDocument, addCollection, setDocumentCollection } =
-    useDocumentLibrary();
-  const [importing, setImporting] = useState(false);
+  const { documents, collections, openDocument, addCollection, setDocumentCollection } = useDocumentLibrary();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
   const [assigningId, setAssigningId] = useState<string | null>(null);
@@ -59,47 +49,7 @@ export default function Documents() {
   );
   const assigningDocument = documents.find((document) => document.id === assigningId);
 
-  async function addDocument() {
-    setImporting(true);
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "text/plain",
-          "text/markdown",
-          "application/pdf",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          "application/vnd.ms-powerpoint",
-          "application/epub+zip",
-        ],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      validateImport({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
-      const response = await fetch(asset.uri);
-      if (!response.ok)
-        throw new Error("Votic could not access this file. Please choose it again from your device.");
-      const bytes = await response.arrayBuffer();
-      validateLoadedBytes(bytes.byteLength);
-      let text: string;
-      if (canReadLocally(asset.name)) text = cleanLocalDocumentText(new TextDecoder().decode(bytes));
-      else text = await extractDocument(asset.name, bytes);
-      if (!text.trim()) throw new Error("This document does not contain readable text.");
-      addTextDocument(asset.name, text);
-      uploadRef.current?.measureInWindow((x, y, width, height) =>
-        transition.openReader({ x, y, width, height }, () => router.push("/reader")),
-      );
-    } catch (error) {
-      Alert.alert(
-        "Could not import document",
-        error instanceof Error ? error.message : "Votic could not read this document.",
-      );
-    } finally {
-      setImporting(false);
-    }
-  }
+  const { importing, importDocument: addDocument } = useDocumentImport(uploadRef);
   function open(id: string, sentenceIndex?: number, sourceKey = id) {
     const source = cardRefs.current[sourceKey];
     if (!source || transition.transitioning) return;

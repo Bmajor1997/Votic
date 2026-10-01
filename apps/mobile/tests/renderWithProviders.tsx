@@ -3,11 +3,17 @@ import { act, render } from "@testing-library/react-native";
 import { PropsWithChildren, ReactElement } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccessibilityProvider } from "../src/accessibility/AccessibilityProvider";
+import { AuthProvider } from "../src/auth/AuthProvider";
 import { createDocumentStore } from "../src/documents/documentStorage";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { VoticDocument } from "../src/documents/types";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
-import { FirstRunTourProvider } from "../src/onboarding/FirstRunTourProvider";
+import {
+  ONBOARDING_KEY,
+  OnboardingProvider,
+  OnboardingState,
+  TIP_IDS,
+} from "../src/onboarding/OnboardingProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 
@@ -20,26 +26,40 @@ const metrics = {
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <SafeAreaProvider initialMetrics={metrics}>
-      <ThemeProvider>
-        <AccessibilityProvider>
-          <PurposeProvider>
-            <DocumentLibraryProvider>
-              <DocumentTransitionProvider>
-                <FirstRunTourProvider>{children}</FirstRunTourProvider>
-              </DocumentTransitionProvider>
-            </DocumentLibraryProvider>
-          </PurposeProvider>
-        </AccessibilityProvider>
-      </ThemeProvider>
+      <OnboardingProvider>
+        <ThemeProvider>
+          <AccessibilityProvider>
+            <PurposeProvider>
+              <AuthProvider>
+                <DocumentLibraryProvider>
+                  <DocumentTransitionProvider>{children}</DocumentTransitionProvider>
+                </DocumentLibraryProvider>
+              </AuthProvider>
+            </PurposeProvider>
+          </AccessibilityProvider>
+        </ThemeProvider>
+      </OnboardingProvider>
     </SafeAreaProvider>
   );
 }
 
-type Setup = { documents?: VoticDocument[]; reduceMotion?: boolean };
+type Setup = {
+  documents?: VoticDocument[];
+  reduceMotion?: boolean;
+  /** Defaults to someone who has finished onboarding and seen every tip. */
+  onboarding?: Partial<OnboardingState>;
+};
 
 /** Stores data the way the app does, so providers load it on mount. */
-export async function seedStorage({ documents, reduceMotion }: Setup) {
-  await AsyncStorage.setItem("votic.mobile.first-run-tour.v1", "complete");
+export async function seedStorage({ documents, reduceMotion, onboarding }: Setup) {
+  const state: OnboardingState = {
+    personalized: true,
+    tipsSeen: [...TIP_IDS],
+    checklistDismissed: true,
+    askedVotic: false,
+    ...onboarding,
+  };
+  await AsyncStorage.setItem(ONBOARDING_KEY, JSON.stringify(state));
   if (reduceMotion)
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion }));
   if (documents) await createDocumentStore().saveDocuments(documents);

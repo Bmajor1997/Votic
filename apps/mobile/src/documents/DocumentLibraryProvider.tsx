@@ -22,7 +22,7 @@ type Library = {
   collections: string[];
   activeDocument: VoticDocument | null;
   persistenceError: string | null;
-  addTextDocument: (sourceName: string, text: string) => VoticDocument;
+  addTextDocument: (sourceName: string, text: string, options?: { playbackRate?: number }) => VoticDocument;
   openDocument: (id: string, sentenceIndex?: number) => void;
   addCollection: (name: string) => void;
   setDocumentCollection: (id: string, collection?: string) => void;
@@ -119,7 +119,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     [documents, activeId],
   );
 
-  function addTextDocument(sourceName: string, text: string) {
+  function addTextDocument(sourceName: string, text: string, options: { playbackRate?: number } = {}) {
     const now = Date.now();
     const document: VoticDocument = {
       id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
@@ -132,7 +132,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       progress: 0,
       sentenceIndex: 0,
       wordIndex: 0,
-      playbackRate: 1,
+      playbackRate: options.playbackRate ?? 1,
       activity: {},
       savedPassages: [],
     };

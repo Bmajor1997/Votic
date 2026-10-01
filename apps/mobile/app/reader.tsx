@@ -42,6 +42,9 @@ import { documentTimeSpent } from "../src/documents/insights";
 import { splitPassages } from "../src/documents/passages";
 import { createThrottledSaver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
+import { CoachMark } from "../src/onboarding/components";
+import { TipId, nextTip, useOnboarding } from "../src/onboarding/OnboardingProvider";
+import { VoticPurpose, useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { readerSourceTransform } from "../src/navigation/readerTransform";
 import { cleanTags } from "../src/notes/noteMetadata";
 import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
@@ -95,6 +98,8 @@ export default function Reader() {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const transition = useDocumentTransition();
+  const onboarding = useOnboarding();
+  const { purpose, explanationStyle } = useVoticPurpose();
   const window = useWindowDimensions();
   const {
     activeDocument,
@@ -113,6 +118,8 @@ export default function Reader() {
   const [wordIndex, setWordIndex] = useState(activeDocument?.wordIndex || 0);
   const [rate, setRate] = useState(normalizePlaybackRate(activeDocument?.playbackRate || 1));
   const [playing, setPlaying] = useState(false);
+  // Tips after the first one wait until people have heard Votic read in this visit.
+  const [heardAudio, setHeardAudio] = useState(false);
   const [sheet, setSheet] = useState<ReaderSheet>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
   const [saveOpen, setSaveOpen] = useState(false);
@@ -282,6 +289,7 @@ export default function Reader() {
 
   function openAskVotic() {
     if (askPhase === "opening" || askPhase === "open") return;
+    onboarding.markTipSeen("reader-ask");
     void stop();
     if (accessibility.reduceMotion) {
       askProgress.stopAnimation();
@@ -319,7 +327,8 @@ export default function Reader() {
     setAskSending(true);
     try {
       const request = prepareAskRequest(context, clean, history);
-      const answer = await askVotic(clean, request.document, request.history);
+      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
+      onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;
       const grounded = answeredFromContext(request, answer);
       setAskMessages((current) => [
@@ -534,6 +543,8 @@ export default function Reader() {
     setIndex(at);
     setWordIndex(segment.startWord);
     setPlaying(true);
+    setHeardAudio(true);
+    onboarding.markTipSeen("reader-listen");
     Speech.speak(segment.text, {
       rate,
       voice: accessibility.voiceIdentifier || undefined,
@@ -616,9 +627,19 @@ export default function Reader() {
   const passageId = "passage-" + index;
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
   function openSavePassage() {
+    onboarding.markTipSeen("reader-bookmark");
     void stop();
     setSaveOpen(true);
   }
+  const tipsBlocked = !readerReady || playing || askOpen || sheet !== null || saveOpen || completionOpen;
+  const tip = nextTip(
+    [
+      { id: "reader-listen", ready: !tipsBlocked },
+      { id: "reader-bookmark", ready: !tipsBlocked && heardAudio },
+      { id: "reader-ask", ready: !tipsBlocked && (heardAudio || progress > 0.15) },
+    ],
+    onboarding.tipsSeen,
+  );
   function confirmSavePassage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
@@ -819,6 +840,14 @@ export default function Reader() {
                   })}
                 </View>
               </ScrollView>
+              {tip ? (
+                <ReaderTip
+                  tip={tip}
+                  purpose={purpose}
+                  dockHeight={dockHeight}
+                  onDismiss={() => onboarding.markTipSeen(tip)}
+                />
+              ) : null}
               <Animated.View
                 testID="reader-dock-container"
                 onLayout={(event) => {
@@ -1266,7 +1295,51 @@ export default function Reader() {
   );
 }
 
+const ASK_TIP_BODY: Record<VoticPurpose | "default", string> = {
+  learning: "Ask Votic to explain a passage or quiz you on it.",
+  work: "Ask Votic to pull out decisions and action items.",
+  research: "Ask Votic to compare findings or explain the evidence.",
+  accessibility: "Ask Votic to explain any passage in simpler words.",
+  personal: "Ask Votic about anything in this document.",
+  default: "Ask Votic about anything in this document.",
+};
+
+/** The Reader's one-time tips, each placed beside the control it explains. */
+function ReaderTip({
+  tip,
+  purpose,
+  dockHeight,
+  onDismiss,
+}: {
+  tip: TipId;
+  purpose: VoticPurpose | null;
+  dockHeight: number;
+  onDismiss: () => void;
+}) {
+  if (tip === "reader-bookmark")
+    return (
+      <CoachMark
+        title="Save what matters"
+        body="Tap the bookmark to keep this passage in Notes."
+        arrow={{ edge: "top", align: "right", inset: 10 }}
+        onDismiss={onDismiss}
+        style={[s.tip, { top: 50 }]}
+      />
+    );
+  const listen = tip === "reader-listen";
+  return (
+    <CoachMark
+      title={listen ? "Listen along" : "Ask about this document"}
+      body={listen ? "Tap play. Votic highlights each word as it reads." : ASK_TIP_BODY[purpose ?? "default"]}
+      arrow={{ edge: "bottom", align: listen ? "center" : "left" }}
+      onDismiss={onDismiss}
+      style={[s.tip, { bottom: dockHeight + spacing.sm + 2 }]}
+    />
+  );
+}
+
 const s = StyleSheet.create({
+  tip: { position: "absolute", left: spacing.lg, right: spacing.lg, zIndex: 5 },
   safe: { flex: 1 },
   content: { flex: 1, paddingHorizontal: spacing.lg },
   topBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },

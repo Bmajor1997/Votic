@@ -28,7 +28,7 @@ describe("Ask Votic retry", () => {
     // While the retry is in flight it says so, and can't be pressed again.
     expect(screen.getByText("Trying again…")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry question", disabled: true })).toBeTruthy();
-    expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, []);
+    expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, [], "adaptive");
 
     await act(async () =>
       answer({ answer: "ATP stores energy.", mode: "ai", sectionIndex: null, sectionTitle: null }),

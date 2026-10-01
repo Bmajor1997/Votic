@@ -35,6 +35,7 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
+import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 
 type Message = {
@@ -54,7 +55,8 @@ function answerNoteStamp() {
 }
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
+  const { purpose, explanationStyle } = useVoticPurpose();
+  const onboarding = useOnboarding();
   const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolveAskVoticContext(documents, activeDocument, params);
@@ -260,7 +262,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setSending(true);
     try {
       const request = prepareAskRequest(askContext, clean, messages);
-      const answer = await askVotic(clean, request.document, request.history);
+      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
+      onboarding.recordAskedVotic();
       if (!current()) return;
       setError("");
       const grounded = answeredFromContext(request, answer);

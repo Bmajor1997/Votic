@@ -33,7 +33,8 @@ A text-to-speech document reader prototype focused on making documents easier to
   - `src/reader/` contains the Reader's text, progress, and voice helpers, and its sheets and controls.
   - `src/notes/` contains note metadata, Notes filtering and grouping, the Notes context sent to Ask Votic, and the Notes sheets and cards.
   - `src/api/` talks to the Votic server.
-  - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, purpose personalization, and the first-run tour.
+  - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, personalization (purpose, explanation style, default listening speed), and onboarding: the Welcome and sign-in screens' building blocks, the personalization steps, the Getting Started card, the Votic guide document, and in-context Reader tips.
+  - `src/auth/` contains Firebase sign-in (email, Google, and Sign in with Apple) behind a small interface that tests replace with an in-memory fake.
   - `src/components/` contains reusable mobile UI components.
   - `tests/` contains component and integration tests (Jest with React Native Testing Library); pure-logic tests sit next to their code in `src/` and run in Vitest.
 - The existing root web files remain the working web prototype during the mobile transition. They will move into `apps/web/` only after the mobile foundation is stable, to avoid breaking working functionality during the restructure.
@@ -46,14 +47,32 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 ### Mobile-first implementation status
 
-Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; and the first-run tour. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and personalization; required accounts (email, Google, Sign in with Apple through Firebase); and onboarding: Welcome, sign-in, four skippable personalization steps, a Getting Started card on Home, the Votic guide document, and one-time tips beside the Reader's Listen, Bookmark, and Ask Votic controls. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
-Not yet implemented: user accounts, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+Not yet implemented: syncing preferences and the library across devices (both stay on the device), background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
 ### Run the mobile app
 
 From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
 
+### Accounts
+
+Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".
+
+1. In the Firebase console, create a project, add an iOS and an Android app, and turn on the **Email/Password**, **Google**, and **Apple** sign-in providers.
+2. Set these before `npm start` or an EAS build (they are read at build time):
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`, `EXPO_PUBLIC_FIREBASE_PROJECT_ID`, `EXPO_PUBLIC_FIREBASE_APP_ID` | The web app config from Firebase project settings. Email sign-in works with only these, including in Expo Go. |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | The Web client ID from Firebase's Google provider. Shows **Continue with Google**. |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | The iOS OAuth client ID. |
+| `GOOGLE_IOS_URL_SCHEME` | The reversed iOS client ID (`com.googleusercontent.apps.…`); `app.config.js` adds the Google Sign-In plugin when it is set. |
+
+3. Google and Apple sign-in use native modules, so they need a development or release build (`npx expo run:ios`, `npx expo run:android`, or EAS), not Expo Go. Sign in with Apple also needs the capability on the iOS bundle ID and the Apple provider's Services ID and key in Firebase.
+4. Set `FIREBASE_PROJECT_ID` on the Votic server so every `/api/*` request must carry a valid Firebase ID token. Each signed-in account then gets its own `VOTIC_AI_CLIENT_DAILY_LIMIT` allowance instead of sharing one per network address.
+
+Settings includes **Sign out** and **Delete account**. Documents and notes stay on the device either way.
 ## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:
@@ -86,13 +105,14 @@ The mobile app uses `votic_server.js` for document extraction and AI features. S
 | `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
 | `VOTIC_AI_DAILY_LIMIT` | `1000` | Server-wide cap on paid AI calls per UTC day. When reached, help falls back to built-in answers and reviews report the limit. |
 | `VOTIC_AI_CLIENT_DAILY_LIMIT` | `100` | Cap on paid AI calls per client address per UTC day, so one client cannot use up the server-wide cap for everyone. |
+| `FIREBASE_PROJECT_ID` | unset | Requires a signed-in Votic account (a Firebase ID token in `Authorization: Bearer`) on every `/api/*` request, and applies the per-client AI limit per account. See [Accounts](#accounts). |
 | `VOTIC_CLIENT_KEYS` | unset | Comma-separated keys (16+ characters). When set, every `/api/*` request must send one in `X-Votic-Client-Key`. List two keys while rotating. The web prototype does not send a key, so leave this unset if it must use the same server. |
 | `VOTIC_TRUST_PROXY` | off | The number of proxies in front of the server that append `X-Forwarded-For` (`true` means `1`), so rate limits apply per user instead of per proxy. Behind a CDN and a load balancer, use `2`. Set it only when every request passes through those proxies. |
 | `VOTIC_RATE_LIMIT`, `VOTIC_HELP_RATE_LIMIT`, `VOTIC_EXTRACT_RATE_LIMIT`, `VOTIC_REVIEW_RATE_LIMIT` | 120 / 20 / 10 / 10 | Requests per client per `VOTIC_RATE_WINDOW_MS` (60 s). |
 
 Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
 
-A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Per-user protection requires user accounts, which are not implemented yet.
+A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Set `FIREBASE_PROJECT_ID` to give each signed-in account its own allowance instead.
 
 ## Product Hypothesis
 

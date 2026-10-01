@@ -9,6 +9,7 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
+import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 
 export default function Home() {
   const { theme } = useVoticTheme();
@@ -47,6 +48,7 @@ export default function Home() {
   }
   return (
     <Screen title="Home" hideTitle>
+      <GettingStartedCard />
       {recent ? (
         <>
           <SectionHeader title="Continue Reading" />

@@ -268,6 +268,7 @@ describe("Reader", () => {
       "Why does focus help?",
       expect.objectContaining({ title: "Field Guide" }),
       [],
+      "adaptive",
     );
     expect(screen.getByRole("button", { name: "Save conversation to Notes" })).toBeTruthy();
     expect(screen.getByText("+ Save conversation to Notes")).toBeTruthy();
@@ -319,9 +320,12 @@ describe("Reader", () => {
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "And now?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await waitFor(() => expect(screen.getByText("Real answer.")).toBeTruthy());
-    expect(askVoticMock).toHaveBeenLastCalledWith("And now?", expect.anything(), [
-      { role: "user", text: "Why does focus help?" },
-    ]);
+    expect(askVoticMock).toHaveBeenLastCalledWith(
+      "And now?",
+      expect.anything(),
+      [{ role: "user", text: "Why does focus help?" }],
+      "adaptive",
+    );
   });
 
   it("summarizes the whole conversation, and shows a limit notice instead of a summary", async () => {

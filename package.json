@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "docx": "^9.7.1",
+    "jose": "^6.2.12",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.3",
     "office-oxide": "^0.1.8",
