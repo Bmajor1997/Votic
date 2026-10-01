@@ -102,6 +102,26 @@ test("falls back safely when AI help times out or fails", async () => {
   });
 });
 
+test("keeps blank document sections so returned section indexes match the client's list", async () => {
+  let apiBody;
+  const fetchImpl = async (_url, options) => { apiBody = JSON.parse(options.body); return { ok: true, async json() { return { output_text: JSON.stringify({ answer: "It covers the results.", sectionIndex: 1, sectionTitle: "Results" }) }; } }; };
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl }, async (base) => {
+    const document = { title: "Report", sections: [{ heading: "Cover", text: "   " }, { heading: "Results", text: "Scores improved." }, { heading: "Next steps", text: "Repeat the study." }] };
+    const response = await fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "What were the results?", document }) });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { answer: "It covers the results.", mode: "document-ai", sectionIndex: 1, sectionTitle: "Results" });
+    assert.deepEqual(JSON.parse(apiBody.input).document.sections.map((section) => section.heading), ["Cover", "Results", "Next steps"]);
+  });
+});
+
+test("rejects a question document whose sections are all blank", async () => {
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl: async () => assert.fail("AI should not be called") }, async (base) => {
+    const document = { title: "Empty", sections: [{ heading: "One", text: " " }, { heading: "Two", text: "" }] };
+    const response = await fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "Anything?", document }) });
+    assert.equal(response.status, 400);
+  });
+});
+
 test("answers from an explicitly supplied document and returns a safe section link", async () => {
   let apiBody;
   const fetchImpl = async (_url, options) => { apiBody = JSON.parse(options.body); return { ok: true, async json() { return { output_text: JSON.stringify({ answer: "The conclusion recommends testing.", sectionIndex: 1, sectionTitle: "Ignored model title" }) }; } }; };

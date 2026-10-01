@@ -145,7 +145,7 @@ export function create_votic_handler(options = {}) {
       const style = validate_explanation_style(explanationStyle);
       let answer = local_help_answer(question), mode = "built-in", sectionIndex = null, sectionTitle = null;
       if (document) {
-        const safe_document = validate_review_document(document, { too_long_message: HELP_DOCUMENT_TOO_LONG, reject_extra_sections: true });
+        const safe_document = validate_review_document(document, { too_long_message: HELP_DOCUMENT_TOO_LONG, preserve_section_indexes: true });
         const limit_message = env.OPENAI_API_KEY ? take_ai_call(ai_client) : null;
         if (!env.OPENAI_API_KEY) answer = "Questions about this document require the AI connection. I can still help you use Votic without sending the document.";
         else if (limit_message) answer = `${limit_message} Your document remains open, and I can still help with Votic’s controls.`;
@@ -257,14 +257,16 @@ async function answer_document_question(question, document, history, { env, fetc
     return { answer, sectionIndex, sectionTitle };
   } finally { clearTimeout(timer); }
 }
-function validate_review_document(payload, { too_long_message = "This document is too long for one AI review.", reject_extra_sections = false } = {}) {
+function validate_review_document(payload, { too_long_message = "This document is too long for one AI review.", preserve_section_indexes = false } = {}) {
   if (!payload || typeof payload !== "object" || typeof payload.title !== "string" || !Array.isArray(payload.sections)) throw new HttpError(400, "Votic received an invalid review request.");
-  // Section indexes are returned to the client, so questions must not silently lose sections.
-  if (reject_extra_sections && payload.sections.length > 200) throw new HttpError(413, too_long_message);
+  // Section indexes are returned to the client, so questions must not silently lose or shift sections.
+  if (preserve_section_indexes && payload.sections.length > 200) throw new HttpError(413, too_long_message);
   const title = payload.title.trim().slice(0, 300);
-  const sections = payload.sections.slice(0, 200).map((section) => ({ heading: String(section?.heading || "Section").trim().slice(0, 300), text: String(section?.text || "").trim() })).filter((section) => section.text);
+  const all_sections = payload.sections.slice(0, 200).map((section) => ({ heading: String(section?.heading || "Section").trim().slice(0, 300), text: String(section?.text || "").trim() }));
+  // Blank sections stay in place for questions so every later index still matches the client's list.
+  const sections = preserve_section_indexes ? all_sections : all_sections.filter((section) => section.text);
   const character_count = sections.reduce((total, section) => total + section.heading.length + section.text.length, 0);
-  if (!title || !sections.length) throw new HttpError(400, "This document does not contain enough text to review.");
+  if (!title || !sections.some((section) => section.text)) throw new HttpError(400, "This document does not contain enough text to review.");
   if (character_count > 400_000) throw new HttpError(413, too_long_message);
   return { title, sections };
 }
