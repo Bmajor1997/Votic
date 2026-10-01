@@ -62,6 +62,12 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
+import {
+  useWalkthrough,
+  useWalkthroughTarget,
+  useWalkthroughTrigger,
+} from "../src/walkthrough/WalkthroughProvider";
 
 const PROGRESS_SYNC_INTERVAL_MS = 2000;
 // Ask Votic replaces the Reader dock with a compact composer and closes along the same curve.
@@ -145,6 +151,16 @@ export default function Reader() {
   const closing = useRef(false);
   const readerPrepared = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
+  const walkthrough = useWalkthrough();
+  const documentTarget = useWalkthroughTarget("reader.document");
+  const progressTarget = useWalkthroughTarget("reader.progress");
+  const askTarget = useWalkthroughTarget("reader.ask");
+  const playTarget = useWalkthroughTarget("reader.play");
+  const moreTarget = useWalkthroughTarget("reader.more");
+  const toolsTarget = useWalkthroughTarget("reader.tools");
+  const closeTarget = useWalkthroughTarget("reader.close");
+  const bookmarkTarget = useWalkthroughTarget("reader.bookmark");
+  const askComposerTarget = useWalkthroughTarget("reader.askComposer");
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
   const hasAskConversation =
@@ -615,6 +631,12 @@ export default function Reader() {
   const wordHighlight = accessibility.highlightMode === "word" || accessibility.highlightMode === "both";
   const passageId = "passage-" + index;
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
+  // The Reader walkthrough waits until the document has finished opening.
+  useWalkthroughTrigger([{ id: "reader", when: readerReady && !transition.transitioning }]);
+  const { request: requestWalkthrough } = walkthrough;
+  useEffect(() => {
+    if (askPhase === "open") requestWalkthrough("reader.ask");
+  }, [askPhase, requestWalkthrough]);
   function openSavePassage() {
     void stop();
     setSaveOpen(true);
@@ -635,6 +657,8 @@ export default function Reader() {
       updatedAt: now,
     });
     setSaveOpen(false);
+    // After the save sheet has closed, the first time a passage is saved from the Reader.
+    if (!savedPassage) setTimeout(() => walkthrough.request("reader.saved"), 400);
   }
   function confirmRemovePassage() {
     if (!activeDocument || !savedPassage) return;
@@ -705,6 +729,7 @@ export default function Reader() {
             <KeyboardAvoidingView style={s.content} behavior={Platform.OS === "ios" ? "padding" : "height"}>
               <View style={s.topBar}>
                 <Pressable
+                  ref={closeTarget}
                   accessibilityRole="button"
                   accessibilityLabel="Close reader"
                   onPress={() => {
@@ -717,6 +742,7 @@ export default function Reader() {
                 <VoticLogo compact />
                 <View style={s.headerActions}>
                   <Pressable
+                    ref={bookmarkTarget}
                     accessibilityRole="button"
                     accessibilityLabel={savedPassage ? "Edit saved passage" : "Save current passage"}
                     accessibilityState={{ selected: Boolean(savedPassage) }}
@@ -731,7 +757,7 @@ export default function Reader() {
                   </Pressable>
                 </View>
               </View>
-              <View style={s.documentHeader}>
+              <View ref={progressTarget} collapsable={false} style={s.documentHeader}>
                 <Text
                   numberOfLines={1}
                   maxFontSizeMultiplier={1.2}
@@ -754,7 +780,10 @@ export default function Reader() {
                 />
               </View>
               <ScrollView
-                ref={scrollRef}
+                ref={(node) => {
+                  scrollRef.current = node;
+                  documentTarget(node);
+                }}
                 testID="reader-scroll"
                 style={s.textArea}
                 contentContainerStyle={s.readingContent}
@@ -833,6 +862,7 @@ export default function Reader() {
                 <View style={[s.dock, { borderColor: theme.border, backgroundColor: theme.surface }]}>
                   <View style={s.compactDockActions}>
                     <Pressable
+                      ref={askTarget}
                       accessibilityRole="button"
                       accessibilityLabel="Ask Votic about this page"
                       onPress={openAskVotic}
@@ -848,6 +878,7 @@ export default function Reader() {
                     </Pressable>
                     {!listenExpanded ? (
                       <Pressable
+                        ref={playTarget}
                         accessibilityRole="button"
                         accessibilityLabel={playing ? "Pause" : "Play"}
                         onPress={toggle}
@@ -861,12 +892,16 @@ export default function Reader() {
                       </Pressable>
                     ) : null}
                     <Pressable
+                      ref={moreTarget}
                       accessibilityRole="button"
                       accessibilityLabel={
                         listenExpanded ? "Collapse listening controls" : "Expand listening controls"
                       }
                       accessibilityState={{ expanded: listenExpanded }}
-                      onPress={() => setListenExpanded((expanded) => !expanded)}
+                      onPress={() => {
+                        if (!listenExpanded) walkthrough.pressed("reader.more");
+                        setListenExpanded((expanded) => !expanded);
+                      }}
                       style={({ pressed }) => [s.expandButton, { opacity: pressed ? 0.62 : 1 }]}
                     >
                       <Text style={[s.expandLabel, { color: theme.mutedText }]}>
@@ -952,7 +987,11 @@ export default function Reader() {
                     onSeek={(value) => void seekTo(value)}
                   />
                   {listenExpanded ? (
-                    <View style={[s.toolRow, { borderTopColor: theme.border }]}>
+                    <View
+                      ref={toolsTarget}
+                      collapsable={false}
+                      style={[s.toolRow, { borderTopColor: theme.border }]}
+                    >
                       <ToolButton
                         icon="text-outline"
                         label="Text"
@@ -1179,6 +1218,8 @@ export default function Reader() {
                     </ScrollView>
                   ) : null}
                   <View
+                    ref={askComposerTarget}
+                    collapsable={false}
                     style={[s.askComposer, { borderColor: theme.accent, backgroundColor: theme.surface }]}
                   >
                     {!hasAskConversation ? <VoticLogo compact markOnly progress={progress} /> : null}
@@ -1262,6 +1303,7 @@ export default function Reader() {
           </SafeAreaView>
         </Animated.View>
       </Animated.View>
+      <WalkthroughOverlay host="reader" />
     </View>
   );
 }

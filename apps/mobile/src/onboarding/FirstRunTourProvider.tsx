@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PropsWithChildren, createContext, useContext, useEffect, useState } from "react";
+import { PropsWithChildren, createContext, useContext, useState } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
@@ -9,13 +9,6 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { PURPOSES, useVoticPurpose } from "../personalization/PurposeProvider";
 
 const TOUR_KEY = "votic.mobile.first-run-tour.v1";
-const EXISTING_KEYS = [
-  "votic.mobile.documents.v1",
-  "votic.mobile.library.v2",
-  "votic.mobile.collections.v1",
-  "votic.mobile.theme.v1",
-  "votic.mobile.accessibility.v1",
-];
 const steps = [
   {
     icon: "home-outline",
@@ -64,18 +57,8 @@ export function FirstRunTourProvider({ children }: PropsWithChildren) {
   const { purpose, setPurpose } = useVoticPurpose();
   const [visible, setVisible] = useState(false);
   const [step, setStep] = useState(0);
-  useEffect(() => {
-    void (async () => {
-      const complete = await AsyncStorage.getItem(TOUR_KEY);
-      if (complete) return;
-      const existing = await AsyncStorage.multiGet(EXISTING_KEYS);
-      if (existing.some(([, value]) => value !== null)) {
-        await AsyncStorage.setItem(TOUR_KEY, "migrated");
-        return;
-      }
-      setVisible(true);
-    })();
-  }, []);
+  // New installs now start with account setup instead of this tour, and existing installs already saw it
+  // (or were migrated past it), so it only opens from Settings > Replay app tour.
   function replay() {
     setStep(0);
     setVisible(true);

@@ -27,6 +27,11 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
+import {
+  useWalkthrough,
+  useWalkthroughTarget,
+  useWalkthroughTrigger,
+} from "../../src/walkthrough/WalkthroughProvider";
 
 export default function Documents() {
   const { theme } = useVoticTheme();
@@ -58,8 +63,18 @@ export default function Documents() {
     [documents],
   );
   const assigningDocument = documents.find((document) => document.id === assigningId);
+  const walkthrough = useWalkthrough();
+  const uploadTarget = useWalkthroughTarget("documents.upload");
+  const searchTarget = useWalkthroughTarget("documents.search");
+  const newCollectionTarget = useWalkthroughTarget("documents.newCollection");
+  const folderTarget = useWalkthroughTarget("documents.folderButton");
+  const filtersTarget = useWalkthroughTarget("documents.filters");
+  useWalkthroughTrigger([{ id: "documents" }, { id: "documents.collections", when: documents.length > 0 }], {
+    hasDocuments: documents.length > 0,
+  });
 
   async function addDocument() {
+    walkthrough.pressed("documents.upload");
     setImporting(true);
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -124,7 +139,10 @@ export default function Documents() {
 
   const uploadButton = (
     <Pressable
-      ref={uploadRef}
+      ref={(node) => {
+        uploadRef.current = node;
+        uploadTarget(node);
+      }}
       collapsable={false}
       accessibilityRole="button"
       accessibilityLabel="Upload document"
@@ -142,7 +160,11 @@ export default function Documents() {
 
   return (
     <Screen title="Documents" titleAction={uploadButton}>
-      <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
+      <View
+        ref={searchTarget}
+        collapsable={false}
+        style={[s.search, { backgroundColor: theme.surfaceMuted }]}
+      >
         <Ionicons name="search" size={19} color={theme.mutedText} />
         <TextInput
           value={query}
@@ -163,6 +185,7 @@ export default function Documents() {
           <View style={s.sectionHeader}>
             <Text style={[s.sectionTitle, { color: theme.text }]}>Library</Text>
             <Pressable
+              ref={newCollectionTarget}
               accessibilityRole="button"
               accessibilityLabel="Create collection"
               onPress={() => setCreateOpen(true)}
@@ -172,7 +195,12 @@ export default function Documents() {
               <Text style={[s.headerButtonText, { color: theme.accent }]}>New collection</Text>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filters}>
+          <ScrollView
+            ref={filtersTarget}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.filters}
+          >
             <Filter label="All" value="all" current={filter} onPress={setFilter} />
             <Filter label="Unfiled" value="unfiled" current={filter} onPress={setFilter} />
             {collections.map((collection) => (
@@ -187,7 +215,7 @@ export default function Documents() {
           </ScrollView>
           {filtered.length ? (
             <View style={s.list}>
-              {filtered.map((doc) => (
+              {filtered.map((doc, docIndex) => (
                 <ScrollFadeItem key={doc.id}>
                   <View
                     ref={(node) => {
@@ -245,6 +273,7 @@ export default function Documents() {
                       <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
                     </Pressable>
                     <Pressable
+                      ref={docIndex === 0 ? folderTarget : undefined}
                       accessibilityRole="button"
                       accessibilityLabel={"Choose a collection for " + doc.title}
                       onPress={() => setAssigningId(doc.id)}

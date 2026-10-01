@@ -1,10 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, ColorValue, StyleSheet, View } from "react-native";
+import { Animated, ColorValue, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { WalkthroughOverlay } from "../../src/walkthrough/WalkthroughOverlay";
+import { useWalkthrough } from "../../src/walkthrough/WalkthroughProvider";
+
+const TAB_BAR_HEIGHT = 64;
+// Home, Documents, Notes, Settings (Ask is hidden from the bar).
+const VISIBLE_TABS = 4;
 
 function AnimatedTabIcon({
   focused,
@@ -50,6 +56,23 @@ export default function TabLayout() {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
+  const window = useWindowDimensions();
+  const { registerTarget, pressed } = useWalkthrough();
+  // Tab buttons are drawn by the navigator, so the walkthrough locates them from the bar's layout.
+  useEffect(() => {
+    const tabRect = (index: number) => async () => ({
+      x: (window.width / VISIBLE_TABS) * index,
+      y: window.height - (TAB_BAR_HEIGHT + insets.bottom),
+      width: window.width / VISIBLE_TABS,
+      height: TAB_BAR_HEIGHT,
+    });
+    registerTarget("tab.documents", tabRect(1));
+    registerTarget("tab.notes", tabRect(2));
+    return () => {
+      registerTarget("tab.documents", null);
+      registerTarget("tab.notes", null);
+    };
+  }, [registerTarget, window.width, window.height, insets.bottom]);
   return (
     <View style={[s.navigator, { backgroundColor: theme.background }]}>
       <Tabs
@@ -65,7 +88,7 @@ export default function TabLayout() {
             backgroundColor: theme.surface,
             borderTopColor: theme.border,
             borderTopWidth: 1,
-            height: 64 + insets.bottom,
+            height: TAB_BAR_HEIGHT + insets.bottom,
             paddingTop: 6,
             paddingBottom: Math.max(insets.bottom, 8),
           },
@@ -91,6 +114,7 @@ export default function TabLayout() {
         />
         <Tabs.Screen
           name="documents"
+          listeners={{ tabPress: () => pressed("tab.documents") }}
           options={{
             title: "Documents",
             tabBarAccessibilityLabel: "Documents",
@@ -139,6 +163,7 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
+      <WalkthroughOverlay host="tabs" />
     </View>
   );
 }

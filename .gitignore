@@ -5,3 +5,8 @@ playwright-report/
 apps/mobile/.expo/
 
 
+
+# Local build configuration (see apps/mobile/.env.example)
+apps/mobile/.env
+apps/mobile/.env.*
+!apps/mobile/.env.example

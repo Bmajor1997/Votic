@@ -27,6 +27,11 @@ import {
   shareText,
 } from "../../src/notes/notesList";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import {
+  useWalkthrough,
+  useWalkthroughTarget,
+  useWalkthroughTrigger,
+} from "../../src/walkthrough/WalkthroughProvider";
 
 export default function Notes() {
   const { theme } = useVoticTheme();
@@ -42,6 +47,14 @@ export default function Notes() {
   const [editing, setEditing] = useState<NoteItem | null>(null);
   const [viewing, setViewing] = useState<NoteItem | null>(null);
   const [menuItem, setMenuItem] = useState<NoteItem | null>(null);
+  const walkthrough = useWalkthrough();
+  const listTarget = useWalkthroughTarget("notes.list");
+  const emptyTarget = useWalkthroughTarget("notes.empty");
+  const searchTarget = useWalkthroughTarget("notes.search");
+  const kindsTarget = useWalkthroughTarget("notes.kinds");
+  const selectTarget = useWalkthroughTarget("notes.select");
+  const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
+  useWalkthroughTrigger([{ id: "notes" }], { hasNotes });
   const notebook = notebookId ? documents.find((document) => document.id === notebookId) : undefined;
   const activeFilterCount = advancedFilterCount({ filter, dateFilter, tagFilter });
   const tags = useMemo(() => availableTags(documents), [documents]);
@@ -109,6 +122,8 @@ export default function Notes() {
   }
   function togglePin({ document, passage }: NoteItem) {
     savePassage(document.id, { ...passage, pinned: !passage.pinned, updatedAt: Date.now() });
+    // Shown after the options menu has closed, the first time something is pinned.
+    if (!passage.pinned) setTimeout(() => walkthrough.request("notes.pinned"), 400);
   }
   function confirmRemove({ document, passage }: NoteItem) {
     Alert.alert("Remove from Notes?", "This note and its saved passage will be removed from Votic.", [
@@ -137,11 +152,12 @@ export default function Notes() {
           }
         />
       ) : null}
-      <View style={s.selectionHeader}>
+      <View ref={selectTarget} collapsable={false} style={s.selectionHeader}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={selecting ? "Cancel note selection" : "Select notes"}
           onPress={() => {
+            if (!selecting) walkthrough.request("notes.askSelected");
             setSelecting((value) => !value);
             setSelectedIds([]);
           }}
@@ -176,7 +192,11 @@ export default function Notes() {
           </>
         ) : null}
       </View>
-      <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
+      <View
+        ref={searchTarget}
+        collapsable={false}
+        style={[s.search, { backgroundColor: theme.surfaceMuted }]}
+      >
         <Ionicons name="search" size={19} color={theme.mutedText} />
         <TextInput
           accessibilityLabel="Search notes"
@@ -217,7 +237,7 @@ export default function Notes() {
           ) : null}
         </Pressable>
       </View>
-      <View style={s.primaryFilters}>
+      <View ref={kindsTarget} collapsable={false} style={s.primaryFilters}>
         <FilterButton label="All Notes" value="all" current={filter} onPress={setFilter} />
         <FilterButton label="Notes" value="notes" current={filter} onPress={setFilter} />
         <FilterButton label="Saved Passages" value="saved" current={filter} onPress={setFilter} />
@@ -245,7 +265,7 @@ export default function Notes() {
         </View>
       ) : null}
       {groups.length ? (
-        <View style={s.list}>
+        <View ref={listTarget} collapsable={false} style={s.list}>
           {groups.map(({ document, passages }) => (
             <ScrollFadeItem key={document.id}>
               <NoteGroupCard
@@ -263,7 +283,7 @@ export default function Notes() {
           ))}
         </View>
       ) : (
-        <View style={s.empty}>
+        <View ref={emptyTarget} collapsable={false} style={s.empty}>
           {!query ? (
             <NotesEmptyAnimation />
           ) : (

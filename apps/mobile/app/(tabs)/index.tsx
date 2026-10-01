@@ -9,6 +9,7 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
+import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
 export default function Home() {
   const { theme } = useVoticTheme();
@@ -22,6 +23,13 @@ export default function Home() {
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 3);
   const menuDocument = documents.find((document) => document.id === menuId);
+  const continueTarget = useWalkthroughTarget("home.continue");
+  const recentTarget = useWalkthroughTarget("home.recent");
+  const optionsTarget = useWalkthroughTarget("home.documentOptions");
+  useWalkthroughTrigger([{ id: "home" }, { id: "home.documentOptions", when: visible.length > 0 }], {
+    hasDocuments: documents.length > 0,
+    hasContinue: Boolean(recent),
+  });
   function open(id: string, sourceKey = id) {
     if (transition.transitioning) return;
     const source = cardRefs.current[sourceKey];
@@ -54,6 +62,7 @@ export default function Home() {
             <Pressable
               ref={(node) => {
                 cardRefs.current["recent:" + recent.id] = node;
+                continueTarget(node);
               }}
               collapsable={false}
               onPress={() => open(recent.id, "recent:" + recent.id)}
@@ -87,7 +96,11 @@ export default function Home() {
         </>
       ) : null}
       <SectionHeader title="Recent Documents" onPress={() => router.push("/documents")} />
-      <View style={[s.documentList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <View
+        ref={recentTarget}
+        collapsable={false}
+        style={[s.documentList, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      >
         {visible.length ? (
           visible.map((doc, i) => (
             <ScrollFadeItem key={doc.id}>
@@ -124,6 +137,7 @@ export default function Home() {
                   </View>
                 </Pressable>
                 <Pressable
+                  ref={i === 0 ? optionsTarget : undefined}
                   accessibilityRole="button"
                   accessibilityLabel={`More options for ${doc.title}`}
                   onPress={() => setMenuId(doc.id)}

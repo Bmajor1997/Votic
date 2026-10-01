@@ -46,9 +46,9 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 ### Mobile-first implementation status
 
-Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; and the first-run tour. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and purpose personalization; the first-run tour; and email/password accounts (Firebase Authentication) with personalization onboarding and a subscription paywall (RevenueCat), which waits on store configuration — see `apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md`. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
-Not yet implemented: user accounts, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+Not yet implemented: Google and Apple sign-in, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
 ### Run the mobile app
 

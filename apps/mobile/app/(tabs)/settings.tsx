@@ -9,6 +9,9 @@ import {
 } from "../../src/accessibility/AccessibilityProvider";
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useFirstRunTour } from "../../src/onboarding/FirstRunTourProvider";
+import { AccountSettings } from "../../src/onboarding/components/AccountSettings";
+import { useAccount } from "../../src/onboarding/AccountProvider";
+import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
 const colors: AccentName[] = [
   "orange",
   "blue",
@@ -27,6 +30,7 @@ export default function Settings() {
   const { accentName, setAccentName, appearanceMode, setAppearanceMode, theme } = useVoticTheme();
   const a = useAccessibilityPreferences();
   const tour = useFirstRunTour();
+  const { user } = useAccount();
   const segmented = (
     values: string[],
     selected: string,
@@ -51,6 +55,12 @@ export default function Settings() {
   );
   return (
     <Screen title="Settings">
+      {user ? (
+        <>
+          <AccountSettings />
+          <View style={[s.divider, { backgroundColor: theme.border }]} />
+        </>
+      ) : null}
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Appearance</Text>
         <Text style={[s.label, { color: theme.mutedText }]}>MODE</Text>
@@ -135,6 +145,7 @@ export default function Settings() {
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
         </Pressable>
+        <LearnVoticSettings />
       </View>
     </Screen>
   );
