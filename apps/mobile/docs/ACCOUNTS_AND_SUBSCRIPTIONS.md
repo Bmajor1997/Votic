@@ -40,25 +40,27 @@ Raising the version does not, by itself, send anyone through onboarding again.
 
 **Takes effect now**
 
-| Answer                                                                              | Effect                                                                 |
-| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| Listening: "Highlight the words as they're read" / "Highlight the current sentence" | Sets the Reader's existing highlight setting (word, sentence, or both) |
+| Answer                                                                                                          | Effect                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Listening: "Highlight the words as they're read" / "Highlight the current sentence"                             | Sets the Reader's existing highlight setting (word, sentence, or both)                                                            |
+| Answers with a direct match (summaries, explanations, simpler language, key points, finding information, notes) | Choose the Ask Votic suggestions and the Notes notebook's study action and Explain wording (`src/personalization/suggestions.ts`) |
+| Explanation style (Quickly / Simply / In detail)                                                                | Sent with Ask Votic questions; the server adds one sentence to the AI instructions. "Adapt to me" adds nothing                    |
 
 **Already how Votic works** (no setting to change): read aloud / listen instead of read, change reading speed,
 remember where I stopped / pick up where I left off, ask questions as I read, save important passages,
 quickly save something, create notes.
 
+People with no personalization answers keep the suggestions their legacy "purpose" (from the retired app tour)
+gave them; the stored purpose is read-only. Answers are edited in Settings → Account → Personalization.
+
 **Stored for future personalization**
 
-| Answer                                                                                         | Where it would plug in                                                                                                                                                                                           |
-| ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Explanation style (Quickly / Simply / In detail / Adapt to me)                                 | Send `explanationStyleFor(answers)` with `askVotic()` in `src/api/voticApi.ts`, validate it in `/api/help` in `votic_server.js`, and add one sentence to the AI instructions there. Needs a small server change. |
-| Goals (question 1)                                                                             | Ask Votic suggestions and Home, like the existing purpose setting; paywall value statements already use them                                                                                                     |
-| Reading help (question 2)                                                                      | Ask Votic suggestions                                                                                                                                                                                            |
-| "Make it easy to jump backward or forward"                                                     | Reader controls (sentence skip already exists)                                                                                                                                                                   |
-| "Stay focused while reading"                                                                   | Future Reader focus mode                                                                                                                                                                                         |
-| "Organize key points for me", "Keep my questions with my notes", "Help me find my notes later" | Future Notes work (Ask Votic answers can already be saved to notes)                                                                                                                                              |
-| "I'll decide as I go", "I'm mainly here to read", "I'll organize things myself"                | Recorded only; listening is never turned off                                                                                                                                                                     |
+| Answer                                                                                         | Where it would plug in                                                                              |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| "Make it easy to jump backward or forward"                                                     | Reader controls (sentence skip already exists)                                                      |
+| "Stay focused while reading"                                                                   | Future Reader focus mode                                                                            |
+| "Organize key points for me", "Keep my questions with my notes", "Help me find my notes later" | Future Notes work (no Ask Votic suggestion matches them directly, so they don't change suggestions) |
+| "I'll decide as I go", "I'm mainly here to read", "I'll organize things myself"                | Recorded only; listening is never turned off                                                        |
 
 ## Setting up Firebase Authentication (free for email/password)
 

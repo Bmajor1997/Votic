@@ -26,10 +26,13 @@ export default function Home() {
   const continueTarget = useWalkthroughTarget("home.continue");
   const recentTarget = useWalkthroughTarget("home.recent");
   const optionsTarget = useWalkthroughTarget("home.documentOptions");
-  useWalkthroughTrigger([{ id: "home" }, { id: "home.documentOptions", when: visible.length > 0 }], {
-    hasDocuments: documents.length > 0,
-    hasContinue: Boolean(recent),
-  });
+  useWalkthroughTrigger(
+    [{ id: "intro" }, { id: "home" }, { id: "home.documentOptions", when: visible.length > 0 }],
+    {
+      hasDocuments: documents.length > 0,
+      hasContinue: Boolean(recent),
+    },
+  );
   function open(id: string, sourceKey = id) {
     if (transition.transitioning) return;
     const source = cardRefs.current[sourceKey];

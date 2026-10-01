@@ -124,13 +124,20 @@ export function WalkthroughProvider({
     return -1;
   }, []);
 
+  // Sections replayed from Settings. They show even when automatic coaching was declined.
+  const replaying = useRef(new Set<FlowId>());
+  const requestRef = useRef<(id: FlowId) => boolean>(() => false);
   const finish = useCallback(
     (status: FlowStatus) => {
       const current = activeRef.current;
       if (!current) return;
       activeRef.current = null;
       setActive(null);
+      replaying.current.delete(current.id);
       record(current.id, status);
+      // A one-time "You're all set" after the Reader walkthrough is completed (not skipped).
+      if (current.id === "reader" && status === "completed")
+        setTimeout(() => requestRef.current("allSet"), ALL_SET_DELAY_MS);
     },
     [record],
   );
@@ -153,6 +160,9 @@ export function WalkthroughProvider({
   const request = useCallback(
     (id: FlowId, context: FlowContext = {}) => {
       if (!hydratedRef.current || activeRef.current || stateRef.current.flows[id]) return false;
+      // "I'll explore on my own" turns off automatic coaching; replays from Settings still show.
+      if (stateRef.current.flows.intro?.status === "skipped" && id !== "intro" && !replaying.current.has(id))
+        return false;
       const steps = applicableSteps(FLOWS[id], context);
       const index = firstShowable(steps, 0);
       if (index < 0) return false;
@@ -163,6 +173,9 @@ export function WalkthroughProvider({
     },
     [firstShowable],
   );
+  useEffect(() => {
+    requestRef.current = request;
+  }, [request]);
   const skip = useCallback(() => finish("skipped"), [finish]);
   const dismiss = useCallback((id: FlowId) => {
     if (activeRef.current?.id !== id) return;
@@ -181,6 +194,9 @@ export function WalkthroughProvider({
     [advance, finish],
   );
   const reset = useCallback((id: SectionId | "all") => {
+    // Replaying one section is a deliberate request; "show all again" starts over, welcome card included.
+    if (id === "all") replaying.current.clear();
+    else replaying.current.add(id);
     if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
       activeRef.current = null;
       setActive(null);
@@ -255,6 +271,8 @@ export function useWalkthroughTarget(id: TargetId) {
 
 /** Waits for layout and screen transitions to settle before pointing at anything. */
 export const TRIGGER_DELAY_MS = 450;
+/** A short pause between the Reader walkthrough's last card and "You're all set". */
+export const ALL_SET_DELAY_MS = 400;
 
 /**
  * Shows the first eligible flow when this screen is focused, and hides an unfinished one (without
@@ -266,26 +284,43 @@ export function useWalkthroughTrigger(
 ) {
   const { request, dismiss, hydrated, state } = useWalkthrough();
   // Read when the screen is focused, not tracked: a walkthrough finishing, or the screen's content changing,
-  // never starts another one during the same visit.
+  // never starts another one during the same visit. The one exception is "Show me around", below.
   const latest = useRef({ candidates, context, flows: state.flows });
   useEffect(() => {
     latest.current = { candidates, context, flows: state.flows };
   });
+  const focused = useRef(false);
+  const shown = useRef<FlowId | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showNext = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const { candidates: options, context: facts, flows } = latest.current;
+      const eligible = options.find((candidate) => candidate.when !== false && !flows[candidate.id]);
+      if (eligible && request(eligible.id, facts)) shown.current = eligible.id;
+    }, TRIGGER_DELAY_MS);
+  }, [request]);
   useFocusEffect(
     useCallback(() => {
       if (!hydrated) return;
-      let shown: FlowId | null = null;
-      const timer = setTimeout(() => {
-        const { candidates: options, context: facts, flows } = latest.current;
-        const eligible = options.find((candidate) => candidate.when !== false && !flows[candidate.id]);
-        if (eligible && request(eligible.id, facts)) shown = eligible.id;
-      }, TRIGGER_DELAY_MS);
+      focused.current = true;
+      showNext();
       return () => {
-        clearTimeout(timer);
-        if (shown) dismiss(shown);
+        focused.current = false;
+        if (timer.current) clearTimeout(timer.current);
+        if (shown.current) dismiss(shown.current);
+        shown.current = null;
       };
-    }, [hydrated, request, dismiss]),
+    }, [hydrated, showNext, dismiss]),
   );
+  // "Show me around" leads straight into the coaching for the screen the person is on (Home).
+  const introStatus = state.flows.intro?.status;
+  const previousIntro = useRef(introStatus);
+  useEffect(() => {
+    const before = previousIntro.current;
+    previousIntro.current = introStatus;
+    if (!before && introStatus === "completed" && focused.current) showNext();
+  }, [introStatus, showNext]);
 }
 
 export { SECTIONS };

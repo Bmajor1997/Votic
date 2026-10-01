@@ -54,6 +54,15 @@ describe("walkthrough steps", () => {
       "reader.close",
     ]);
   });
+  it("tells the two Reader 'More' controls apart", () => {
+    const [more, tools] = FLOWS.reader.steps.slice(4, 6).map((step) => copyFor(step, {}).message);
+    expect(more).toBe(
+      "Tap More to skip between passages, change the speed, and adjust how the Reader looks.",
+    );
+    // The second control is described by its icon and purpose, never just as "More".
+    expect(tools).not.toMatch(/\bMore\b/);
+    expect(tools).toMatch(/••• button .* word or sentence highlighting/);
+  });
   it("keeps every message short", () => {
     for (const flow of Object.values(FLOWS))
       for (const step of flow.steps) {
@@ -90,7 +99,14 @@ describe("existing Votic users", () => {
   });
   it("skip only what they've clearly used", () => {
     const reader = learned({ existingDevice: true, documents: [{ progress: 0.4 }], collections: [] });
-    expect([...reader].sort()).toEqual(["documents", "home", "home.documentOptions", "reader"]);
+    expect([...reader].sort()).toEqual([
+      "allSet",
+      "documents",
+      "home",
+      "home.documentOptions",
+      "intro",
+      "reader",
+    ]);
     const notes = learned({
       existingDevice: true,
       documents: [{ collection: "Work", savedPassages: [{ pinned: true }] }],
@@ -102,6 +118,10 @@ describe("existing Votic users", () => {
     expect(notes.has("reader")).toBe(false);
   });
   it("still teach Documents, Notes, and the Reader to an existing install with no documents", () => {
-    expect([...learned({ existingDevice: true, documents: [], collections: [] })]).toEqual(["home"]);
+    expect([...learned({ existingDevice: true, documents: [], collections: [] })]).toEqual([
+      "intro",
+      "allSet",
+      "home",
+    ]);
   });
 });

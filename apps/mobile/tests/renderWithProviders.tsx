@@ -7,7 +7,6 @@ import { createDocumentStore } from "../src/documents/documentStorage";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { VoticDocument } from "../src/documents/types";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
-import { FirstRunTourProvider } from "../src/onboarding/FirstRunTourProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { AppServices } from "../src/config/appServices";
@@ -37,9 +36,7 @@ export function AppProviders({
             <AccountProvider services={services ?? fakeServices()} isDevelopment={isDevelopment}>
               <DocumentLibraryProvider>
                 <DocumentTransitionProvider>
-                  <FirstRunTourProvider>
-                    <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
-                  </FirstRunTourProvider>
+                  <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
                 </DocumentTransitionProvider>
               </DocumentLibraryProvider>
             </AccountProvider>

@@ -62,6 +62,8 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { explanationStyleArgs } from "../src/personalization/suggestions";
+import { usePersonalization } from "../src/personalization/usePersonalization";
 import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
 import {
   useWalkthrough,
@@ -152,6 +154,7 @@ export default function Reader() {
   const readerPrepared = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
   const walkthrough = useWalkthrough();
+  const explanationStyle = explanationStyleArgs(usePersonalization().answers);
   const documentTarget = useWalkthroughTarget("reader.document");
   const progressTarget = useWalkthroughTarget("reader.progress");
   const askTarget = useWalkthroughTarget("reader.ask");
@@ -335,7 +338,7 @@ export default function Reader() {
     setAskSending(true);
     try {
       const request = prepareAskRequest(context, clean, history);
-      const answer = await askVotic(clean, request.document, request.history);
+      const answer = await askVotic(clean, request.document, request.history, ...explanationStyle);
       if (generation !== askGeneration.current) return;
       const grounded = answeredFromContext(request, answer);
       setAskMessages((current) => [
@@ -392,7 +395,12 @@ export default function Reader() {
     setAskError("");
     try {
       const request = prepareAskRequest(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
-      const answer = await askVotic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
+      const answer = await askVotic(
+        CONVERSATION_SUMMARY_PROMPT,
+        request.document,
+        request.history,
+        ...explanationStyle,
+      );
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
       if (!answeredFromContext(request, answer)) {

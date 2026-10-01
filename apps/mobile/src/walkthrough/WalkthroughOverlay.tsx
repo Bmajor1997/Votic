@@ -94,6 +94,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const spotlight = rect ? spotlightRect(rect, screen) : null;
   const placement = spotlight ? cardPlacement(spotlight, screen, GUTTER) : null;
   const last = flow.index === flow.steps.length - 1;
+  const primaryLabel = step.primaryLabel ?? (last ? "Got it" : "Next");
   const total = flow.steps.length;
   const dim = theme.isDark ? "rgba(0,0,0,0.55)" : "rgba(17,24,39,0.38)";
   const blocking = !screenReader;
@@ -101,10 +102,19 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     ? placement.side === "below"
       ? { top: placement.top }
       : { bottom: placement.bottom }
-    : { bottom: 110 };
+    : { bottom: host === "reader" ? 170 : 110 };
 
   return (
     <View ref={rootRef} collapsable={false} pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+      {blocking && !spotlight && step.secondaryLabel ? (
+        <View
+          testID="walkthrough-dim"
+          importantForAccessibility="no-hide-descendants"
+          accessibilityElementsHidden
+          onStartShouldSetResponder={() => true}
+          style={[StyleSheet.absoluteFill, { backgroundColor: dim }]}
+        />
+      ) : null}
       {blocking && spotlight
         ? dimRegions(spotlight, screen).map((region, index) => (
             <View
@@ -187,7 +197,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
             </Text>
           ) : null}
           <View style={s.spacer} />
-          {!last ? (
+          {!last && !step.secondaryLabel ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Skip walkthrough"
@@ -197,18 +207,43 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
               <Text style={[s.secondaryText, { color: theme.mutedText }]}>Skip</Text>
             </Pressable>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={last ? "Got it" : "Next"}
-            onPress={next}
-            style={({ pressed }) => [
-              s.primary,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-            ]}
-          >
-            <Text style={[s.primaryText, { color: theme.playIcon }]}>{last ? "Got it" : "Next"}</Text>
-          </Pressable>
+          {step.secondaryLabel ? null : (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={primaryLabel}
+              onPress={next}
+              style={({ pressed }) => [
+                s.primary,
+                { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={[s.primaryText, { color: theme.playIcon }]}>{primaryLabel}</Text>
+            </Pressable>
+          )}
         </View>
+        {step.secondaryLabel ? (
+          <View style={s.choices}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={primaryLabel}
+              onPress={next}
+              style={({ pressed }) => [
+                s.primary,
+                { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+              ]}
+            >
+              <Text style={[s.primaryText, { color: theme.playIcon }]}>{primaryLabel}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={step.secondaryLabel}
+              onPress={skip}
+              style={s.secondary}
+            >
+              <Text style={[s.secondaryText, { color: theme.mutedText }]}>{step.secondaryLabel}</Text>
+            </Pressable>
+          </View>
+        ) : null}
       </Animated.View>
     </View>
   );
@@ -241,6 +276,7 @@ const s = StyleSheet.create({
   footer: { flexDirection: "row", alignItems: "center", marginTop: spacing.sm, gap: spacing.sm },
   count: { fontSize: 13, fontWeight: "600" },
   spacer: { flex: 1 },
+  choices: { gap: spacing.xs, marginTop: spacing.xs },
   secondary: {
     minHeight: controlSizes.minimumTouch,
     minWidth: controlSizes.minimumTouch,

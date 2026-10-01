@@ -35,7 +35,8 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
-import { useVoticPurpose } from "../src/personalization/PurposeProvider";
+import { askSuggestions, explanationStyleArgs } from "../src/personalization/suggestions";
+import { usePersonalization } from "../src/personalization/usePersonalization";
 
 type Message = {
   role: "user" | "votic";
@@ -54,7 +55,7 @@ function answerNoteStamp() {
 }
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
+  const personalization = usePersonalization();
   const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolveAskVoticContext(documents, activeDocument, params);
@@ -62,51 +63,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const initialQuestion = initialQuestionFromParams(params);
   const notesScopeLabel = context.kind === "notes" || context.kind === "notes-missing" ? context.label : "";
   const { reduceMotion } = useAccessibilityPreferences();
-  const suggestedPrompts =
-    purpose === "learning"
-      ? [
-          "Summarize this document",
-          "Explain this section",
-          "Quiz me on this document",
-          "Help with my notes",
-          "Compare key ideas",
-          "Find information",
-        ]
-      : purpose === "work"
-        ? [
-            "Summarize this document",
-            "Find action items",
-            "Highlight key decisions",
-            "Explain this section",
-            "Compare key details",
-            "Find information",
-          ]
-        : purpose === "research"
-          ? [
-              "Summarize this document",
-              "Identify key findings",
-              "Compare key ideas",
-              "Explain the evidence",
-              "Find information",
-              "What should I investigate next?",
-            ]
-          : purpose === "accessibility"
-            ? [
-                "Summarize this document",
-                "Explain this section simply",
-                "Find key points",
-                "Help me understand this passage",
-                "Ask about my notes",
-                "Find information",
-              ]
-            : [
-                "Summarize this document",
-                "Explain this section",
-                "Find key points",
-                "Help with my notes",
-                "Compare key ideas",
-                "Find information",
-              ];
+  // Chosen from the person's personalization answers, or their legacy purpose if they have none.
+  const suggestedPrompts = askSuggestions(personalization.answers, personalization.purpose);
   const [question, setQuestion] = useState(initialQuestion);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
@@ -260,7 +218,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setSending(true);
     try {
       const request = prepareAskRequest(askContext, clean, messages);
-      const answer = await askVotic(clean, request.document, request.history);
+      const answer = await askVotic(
+        clean,
+        request.document,
+        request.history,
+        ...explanationStyleArgs(personalization.answers),
+      );
       if (!current()) return;
       setError("");
       const grounded = answeredFromContext(request, answer);

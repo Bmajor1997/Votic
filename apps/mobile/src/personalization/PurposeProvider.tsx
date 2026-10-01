@@ -9,8 +9,12 @@ export const PURPOSES = [
   { value: "accessibility" as const, label: "Accessibility", icon: "accessibility-outline" as const },
 ];
 const KEY = "votic.mobile.purpose.v1";
-type Value = { purpose: VoticPurpose | null; setPurpose: (value: VoticPurpose) => void; hydrated: boolean };
+type Value = { purpose: VoticPurpose | null; hydrated: boolean };
 const Context = createContext<Value | null>(null);
+/**
+ * The purpose chosen in the old app tour, kept read-only so people who chose one keep sensible suggestions
+ * until they answer the personalization questions (see suggestions.ts). Nothing sets it anymore.
+ */
 export function PurposeProvider({ children }: PropsWithChildren) {
   const [purpose, setPurposeState] = useState<VoticPurpose | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -20,11 +24,7 @@ export function PurposeProvider({ children }: PropsWithChildren) {
       setHydrated(true);
     });
   }, []);
-  function setPurpose(value: VoticPurpose) {
-    setPurposeState(value);
-    void AsyncStorage.setItem(KEY, value);
-  }
-  return <Context.Provider value={{ purpose, setPurpose, hydrated }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ purpose, hydrated }}>{children}</Context.Provider>;
 }
 export function useVoticPurpose() {
   const value = useContext(Context);

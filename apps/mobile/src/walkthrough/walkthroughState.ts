@@ -56,7 +56,8 @@ export function migratedFlows(input: {
   if (!input.existingDevice) return learned;
   const { documents } = input;
   const passages = documents.flatMap((document) => document.savedPassages || []);
-  learned.push("home");
+  // The welcome card and the completion card are for people starting fresh with this version.
+  learned.push("intro", "allSet", "home");
   if (documents.length) learned.push("documents", "home.documentOptions");
   if (input.collections.length || documents.some((document) => document.collection))
     learned.push("documents.collections");
@@ -78,7 +79,16 @@ function parseList(raw: string | null): unknown[] {
 /** Loads walkthrough progress; on the first launch with walkthroughs, decides what existing users already know. */
 export async function loadWalkthroughState(now = Date.now()): Promise<WalkthroughState> {
   const saved = parseWalkthroughState(await AsyncStorage.getItem(WALKTHROUGH_KEY));
-  if (saved) return saved;
+  if (saved) {
+    // Progress saved before the welcome card existed means this person is already past it.
+    if (saved.flows.intro || !Object.keys(saved.flows).length) return saved;
+    const upgraded: WalkthroughState = {
+      ...saved,
+      flows: { ...saved.flows, intro: { status: "migrated", at: now } },
+    };
+    await saveWalkthroughState(upgraded);
+    return upgraded;
+  }
   const [[, history], [, library], [, collections]] = await AsyncStorage.multiGet([
     DEVICE_HISTORY_KEY,
     LIBRARY_KEY,

@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentTypeIcon } from "../../components/DocumentTypeIcon";
 import { radii, spacing } from "../../design/tokens";
 import { VoticDocument } from "../../documents/types";
-import { useVoticPurpose } from "../../personalization/PurposeProvider";
+import { notebookActions } from "../../personalization/suggestions";
+import { usePersonalization } from "../../personalization/usePersonalization";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 
 /** A notebook's summary and study actions, shown above its notes. */
@@ -21,30 +22,12 @@ export function NotebookHeader({
   onShare: () => void;
 }) {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
+  const personalization = usePersonalization();
   const passages = notebook.savedPassages || [];
   const count = (predicate: (passage: (typeof passages)[number]) => boolean) =>
     passages.filter(predicate).length;
-  const studyAction =
-    purpose === "learning"
-      ? { icon: "school-outline" as const, label: "Quiz me", question: "Quiz me on these notes" }
-      : purpose === "work"
-        ? {
-            icon: "checkbox-outline" as const,
-            label: "Action items",
-            question: "Find the action items and decisions in my notes",
-          }
-        : purpose === "research"
-          ? {
-              icon: "flask-outline" as const,
-              label: "Key findings",
-              question: "Identify the key findings and evidence in my notes",
-            }
-          : {
-              icon: "key-outline" as const,
-              label: "Key points",
-              question: "Find the most important points in my notes",
-            };
+  // Chosen from the person's personalization answers, or their legacy purpose if they have none.
+  const { studyAction, explainLabel } = notebookActions(personalization.answers, personalization.purpose);
   return (
     <View style={[s.hero, { borderColor: theme.border, backgroundColor: theme.surface }]}>
       <Pressable
@@ -96,7 +79,7 @@ export function NotebookHeader({
         />
         <NotebookAction
           icon="bulb-outline"
-          label={purpose === "learning" ? "Explain key ideas" : "Explain"}
+          label={explainLabel}
           onPress={() => onAsk("Explain the key ideas in my notes")}
         />
       </View>

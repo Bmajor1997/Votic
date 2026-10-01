@@ -10,7 +10,12 @@ export type TipId =
   | "notes.askSelected"
   | "reader.saved"
   | "reader.ask";
-export type FlowId = SectionId | TipId;
+/**
+ * "intro" is the one-time "Let's show you around" card before Home coaching; "allSet" is the one-time card after
+ * the Reader walkthrough is completed. Each is tracked on its own, like every other flow.
+ */
+export type MomentId = "intro" | "allSet";
+export type FlowId = SectionId | TipId | MomentId;
 
 /** Where the overlay is drawn. The Reader is its own screen above the tabs, so it hosts its own overlay. */
 export type WalkthroughHost = "tabs" | "reader";
@@ -54,13 +59,16 @@ export type WalkthroughStep = {
   interactive?: boolean;
   /** Using the highlighted control finishes the whole flow (it leads somewhere else, like another tab). */
   completesOnPress?: boolean;
+  /** Button wording, when "Next" / "Got it" and "Skip" don't fit. The secondary button skips the flow. */
+  primaryLabel?: string;
+  secondaryLabel?: string;
   /** Only shown when this returns true. Steps whose control isn't on screen are skipped too. */
   when?: (context: FlowContext) => boolean;
 };
 
 export type WalkthroughFlow = {
   id: FlowId;
-  kind: "section" | "tip";
+  kind: "section" | "tip" | "moment";
   host: WalkthroughHost;
   steps: WalkthroughStep[];
 };
@@ -74,6 +82,31 @@ export const SECTION_LABELS: Record<SectionId, string> = {
 };
 
 export const FLOWS: Record<FlowId, WalkthroughFlow> = {
+  intro: {
+    id: "intro",
+    kind: "moment",
+    host: "tabs",
+    steps: [
+      {
+        title: "Let's show you around",
+        message: "We'll show you around as you explore, so you can learn Votic as you use it.",
+        primaryLabel: "Show me around",
+        secondaryLabel: "I'll explore on my own",
+      },
+    ],
+  },
+  allSet: {
+    id: "allSet",
+    kind: "moment",
+    host: "reader",
+    steps: [
+      {
+        title: "You're all set",
+        message:
+          "You know the essentials. Keep exploring Votic, and we'll show you helpful tips when you need them.",
+      },
+    ],
+  },
   home: {
     id: "home",
     kind: "section",
@@ -201,7 +234,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "reader.tools",
         title: "Make it yours",
         message:
-          "Text and Color change size, font, spacing, and light or dark theme. Listen sets the voice and speed. More sets word or sentence highlighting.",
+          "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting.",
       },
       {
         target: "reader.close",

@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { Screen } from "../../src/components/Screen";
 import { spacing, typography } from "../../src/design/tokens";
@@ -8,7 +7,6 @@ import {
   useAccessibilityPreferences,
 } from "../../src/accessibility/AccessibilityProvider";
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../../src/theme/ThemeProvider";
-import { useFirstRunTour } from "../../src/onboarding/FirstRunTourProvider";
 import { AccountSettings } from "../../src/onboarding/components/AccountSettings";
 import { useAccount } from "../../src/onboarding/AccountProvider";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
@@ -29,7 +27,6 @@ const spacings: ReadingSpacing[] = ["compact", "default", "extra"];
 export default function Settings() {
   const { accentName, setAccentName, appearanceMode, setAppearanceMode, theme } = useVoticTheme();
   const a = useAccessibilityPreferences();
-  const tour = useFirstRunTour();
   const { user } = useAccount();
   const segmented = (
     values: string[],
@@ -130,21 +127,6 @@ export default function Settings() {
       <View style={[s.divider, { backgroundColor: theme.border }]} />
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Help</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Replay app tour"
-          onPress={tour.replay}
-          style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-        >
-          <Ionicons name="map-outline" size={22} color={theme.accent} />
-          <View style={s.settingCopy}>
-            <Text style={[s.settingTitle, { color: theme.text }]}>Replay app tour</Text>
-            <Text style={[s.settingDetail, { color: theme.mutedText }]}>
-              Review Home, Documents, Reader, Notes, and personalization.
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
-        </Pressable>
         <LearnVoticSettings />
       </View>
     </Screen>
@@ -194,15 +176,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     paddingVertical: spacing.md,
-  },
-  tourButton: {
-    minHeight: 72,
-    borderWidth: 1,
-    borderRadius: 14,
-    padding: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
   },
   settingCopy: { flex: 1, gap: 3 },
   settingTitle: { fontSize: 16, fontWeight: "700" },

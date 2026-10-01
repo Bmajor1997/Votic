@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AccessibilityInfo } from "react-native";
 import Documents from "../../app/(tabs)/documents";
 import Home from "../../app/(tabs)/index";
@@ -13,7 +13,12 @@ import { DEVICE_HISTORY_KEY } from "../../src/onboarding/onboardingStorage";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
 import { FlowId } from "../../src/walkthrough/walkthroughFlows";
 import { WalkthroughOverlay } from "../../src/walkthrough/WalkthroughOverlay";
-import { MeasureNode, TRIGGER_DELAY_MS, useWalkthrough } from "../../src/walkthrough/WalkthroughProvider";
+import {
+  ALL_SET_DELAY_MS,
+  MeasureNode,
+  TRIGGER_DELAY_MS,
+  useWalkthrough,
+} from "../../src/walkthrough/WalkthroughProvider";
 import { WALKTHROUGH_KEY } from "../../src/walkthrough/walkthroughState";
 import { router } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
@@ -82,9 +87,100 @@ async function saved(): Promise<Partial<Record<FlowId, { status: string }>>> {
 }
 const card = () => screen.queryByTestId("walkthrough-card");
 
+/** A new person who chose "Show me around" on the welcome card. */
+const AFTER_INTRO = { version: 1, flows: { intro: { status: "completed", at: 1 } } };
+
 beforeEach(async () => {
   measured = [];
   await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "new");
+  await AsyncStorage.setItem(WALKTHROUGH_KEY, JSON.stringify(AFTER_INTRO));
+});
+
+describe("Let's show you around", () => {
+  async function brandNew() {
+    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
+    await renderTab(<Home />);
+  }
+
+  it("comes before any Home coaching for a brand-new person", async () => {
+    await brandNew();
+    expect(screen.getByText("Let's show you around")).toBeTruthy();
+    expect(
+      screen.getByText("We'll show you around as you explore, so you can learn Votic as you use it."),
+    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Show me around" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "I'll explore on my own" })).toBeTruthy();
+    expect(screen.queryByText("Welcome to Home")).toBeNull();
+  });
+
+  it("'Show me around' leads into the Home walkthrough, and the welcome shows only once", async () => {
+    await brandNew();
+    await press("Show me around");
+    expect(screen.queryByText("Let's show you around")).toBeNull();
+    await waitForWalkthrough();
+    expect(screen.getByText("Welcome to Home")).toBeTruthy();
+    expect((await saved()).intro?.status).toBe("completed");
+    // Documents, Notes, and the Reader still wait until they're reached.
+    expect((await saved()).documents).toBeUndefined();
+    screen.unmount();
+    await renderTab(<Home />);
+    expect(screen.queryByText("Let's show you around")).toBeNull();
+    expect(screen.getByText("Welcome to Home")).toBeTruthy();
+  });
+
+  it("'I'll explore on my own' turns off automatic coaching without marking anything learned", async () => {
+    await brandNew();
+    await press("I'll explore on my own");
+    await waitForWalkthrough();
+    expect(card()).toBeNull();
+    expect(await saved()).toEqual({ intro: expect.objectContaining({ status: "skipped" }) });
+    screen.unmount();
+    await renderTab(<Documents />);
+    expect(card()).toBeNull();
+    screen.unmount();
+    await renderTab(<Notes />);
+    await press("Select notes");
+    await waitForWalkthrough();
+    expect(card()).toBeNull();
+  });
+
+  it("Learn Votic still replays a walkthrough after declining", async () => {
+    await AsyncStorage.setItem(
+      WALKTHROUGH_KEY,
+      JSON.stringify({ version: 1, flows: { intro: { status: "skipped", at: 1 } } }),
+    );
+    function SettingsThenDocuments() {
+      const [onDocuments, setOnDocuments] = useState(false);
+      useEffect(() => {
+        router.push.mockImplementation(() => setOnDocuments(true));
+      }, []);
+      return onDocuments ? <Documents /> : <LearnVoticSettings />;
+    }
+    await renderTab(<SettingsThenDocuments />);
+    await press("Replay the Documents walkthrough");
+    await waitForWalkthrough();
+    expect(screen.getByText("Add your first document")).toBeTruthy();
+  });
+
+  it("isn't shown to people whose walkthrough progress was saved before it existed", async () => {
+    await AsyncStorage.setItem(
+      WALKTHROUGH_KEY,
+      JSON.stringify({ version: 1, flows: { home: { status: "completed", at: 1 } } }),
+    );
+    await renderTab(<Home />);
+    expect(card()).toBeNull();
+    expect((await saved()).intro?.status).toBe("migrated");
+  });
+
+  it("comes back with 'Show all walkthroughs and tips again'", async () => {
+    await renderWithProviders(<LearnVoticSettings />);
+    await settle();
+    await press("Show all walkthroughs and tips again");
+    expect(await saved()).toEqual({});
+    screen.unmount();
+    await renderTab(<Home />);
+    expect(screen.getByText("Let's show you around")).toBeTruthy();
+  });
 });
 
 describe("Home walkthrough", () => {
@@ -106,7 +202,10 @@ describe("Home walkthrough", () => {
     await press("Got it");
     expect(card()).toBeNull();
     // Only Home is finished; the other areas are taught when they're reached.
-    expect(await saved()).toEqual({ home: expect.objectContaining({ status: "completed" }) });
+    expect(await saved()).toEqual({
+      intro: expect.objectContaining({ status: "completed" }),
+      home: expect.objectContaining({ status: "completed" }),
+    });
 
     screen.unmount();
     await renderWithProviders(
@@ -133,7 +232,10 @@ describe("Home walkthrough", () => {
     await renderTab(<Home />);
     await press("Skip walkthrough");
     expect(card()).toBeNull();
-    expect(await saved()).toEqual({ home: expect.objectContaining({ status: "skipped" }) });
+    expect(await saved()).toEqual({
+      intro: expect.objectContaining({ status: "completed" }),
+      home: expect.objectContaining({ status: "skipped" }),
+    });
     screen.unmount();
     await renderTab(<Documents />);
     expect(screen.getByText("Add your first document")).toBeTruthy();
@@ -208,7 +310,7 @@ describe("Notes walkthrough", () => {
     await press("Next");
     expect(screen.getByText("Notes and saved passages")).toBeTruthy();
     await press("Got it");
-    expect(Object.keys(await saved())).toEqual(["notes"]);
+    expect(Object.keys(await saved()).sort()).toEqual(["intro", "notes"]);
   });
 
   it("explains source-linked notes when there are notes", async () => {
@@ -326,6 +428,38 @@ describe("Reader walkthrough", () => {
     expect((await saved()).reader?.status).toBe("completed");
   });
 
+  it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
+    await renderReader({ intro: { status: "completed", at: 1 } });
+    for (let i = 0; i < 5; i += 1) await press("Next");
+    expect(screen.getByText("Done reading?")).toBeTruthy();
+    await press("Got it");
+    expect(screen.queryByText("You're all set")).toBeNull();
+    await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
+    await waitForWalkthrough();
+    expect(screen.getByText("You're all set")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "You know the essentials. Keep exploring Votic, and we'll show you helpful tips when you need them.",
+      ),
+    ).toBeTruthy();
+    await press("Got it");
+    expect((await saved()).allSet?.status).toBe("completed");
+    // Contextual tips still appear later.
+    await press("Ask Votic about this page");
+    await act(async () => jest.advanceTimersByTime(1000));
+    await waitForWalkthrough();
+    expect(screen.getByText("Ask about this document")).toBeTruthy();
+  });
+
+  it("doesn't say 'You're all set' when the Reader walkthrough is skipped", async () => {
+    await renderReader({ intro: { status: "completed", at: 1 } });
+    await press("Skip walkthrough");
+    await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
+    await waitForWalkthrough();
+    expect(screen.queryByText("You're all set")).toBeNull();
+    expect((await saved()).allSet).toBeUndefined();
+  });
+
   it("skips the tools step when More wasn't opened", async () => {
     await renderReader();
     for (let i = 0; i < 5; i += 1) await press("Next");
@@ -365,7 +499,10 @@ describe("Replay and accessibility", () => {
     await settle();
     await press("Replay the Documents walkthrough");
     expect(router.push).toHaveBeenCalledWith("/documents");
-    expect(await saved()).toEqual({ home: expect.objectContaining({ status: "completed" }) });
+    expect(await saved()).toEqual({
+      intro: expect.objectContaining({ status: "migrated" }),
+      home: expect.objectContaining({ status: "completed" }),
+    });
   });
 
   it("keeps controls reachable for screen reader users", async () => {
@@ -384,12 +521,20 @@ describe("Replay and accessibility", () => {
 describe("Existing Votic users", () => {
   it("aren't shown walkthroughs for areas they already use", async () => {
     await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "existing");
+    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
     const documents = [testDocument("d1", "Biology", { progress: 0.5, lastOpenedAt: 3 })];
     await renderTab(<Home />, { documents });
     // renderTab starts "fresh", so this is the first launch with walkthroughs on an existing install.
     expect(card()).toBeNull();
     const flows = await saved();
-    expect(Object.keys(flows).sort()).toEqual(["documents", "home", "home.documentOptions", "reader"]);
+    expect(Object.keys(flows).sort()).toEqual([
+      "allSet",
+      "documents",
+      "home",
+      "home.documentOptions",
+      "intro",
+      "reader",
+    ]);
     expect(flows.notes).toBeUndefined();
     screen.unmount();
     await renderTab(<Notes />, { documents });

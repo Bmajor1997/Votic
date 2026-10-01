@@ -76,11 +76,18 @@ export async function askVotic(
   question: string,
   document?: { title: string; sections: { heading: string; text: string }[] },
   history: { role: "user" | "assistant"; text: string }[] = [],
+  /** From personalization question 3. Omitted for "Adapt to me", which leaves answers as they are. */
+  explanationStyle?: "quick" | "simple" | "detailed",
 ): Promise<VoticAnswer> {
   const response = await apiFetch("/api/help", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ question, document, ...(history.length ? { history } : {}) }),
+    body: JSON.stringify({
+      question,
+      document,
+      ...(history.length ? { history } : {}),
+      ...(explanationStyle ? { explanationStyle } : {}),
+    }),
   });
   const result = await responseJson(response);
   if (!response.ok) throw new Error(serverError(result, "Votic could not answer right now."));
