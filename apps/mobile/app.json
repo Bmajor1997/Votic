@@ -6,8 +6,8 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "votic",
-    "plugins": ["expo-router"],
-    "ios": { "supportsTablet": true },
+    "plugins": ["expo-router", "expo-splash-screen", "expo-apple-authentication"],
+    "ios": { "supportsTablet": true, "usesAppleSignIn": true },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": { "backgroundColor": "#ffffff" }

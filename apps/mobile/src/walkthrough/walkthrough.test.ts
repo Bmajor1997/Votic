@@ -32,11 +32,28 @@ describe("spotlight placement", () => {
 
 describe("walkthrough steps", () => {
   it("only shows steps that match the screen", () => {
-    const empty = applicableSteps(FLOWS.home, { hasContinue: false }).map((step) => step.target);
-    expect(empty).toEqual(["home.recent", "tab.documents", "tab.notes"]);
-    const reading = applicableSteps(FLOWS.home, { hasContinue: true }).map((step) => step.target);
-    expect(reading).toEqual(["home.continue", "tab.documents", "tab.notes"]);
-    expect(applicableSteps(FLOWS.notes, { hasNotes: false })[0].target).toBe("notes.empty");
+    const targets = (context: Parameters<typeof applicableSteps>[1]) =>
+      applicableSteps(FLOWS.home, context).map((step) => step.target);
+    // A brand-new library: Home's Getting Started card (or empty state), then the tabs.
+    expect(targets({ hasStart: true })).toEqual(["home.start", "tab.documents", "tab.notes"]);
+    // Something to pick up: the Continue card and this week's activity.
+    expect(targets({ hasContinue: true, hasDocuments: true })).toEqual([
+      "home.continue",
+      "home.week",
+      "tab.documents",
+      "tab.notes",
+    ]);
+    // Documents, all finished, with the checklist hidden: the recent list.
+    expect(targets({ hasDocuments: true })).toEqual([
+      "home.recent",
+      "home.week",
+      "tab.documents",
+      "tab.notes",
+    ]);
+    expect(applicableSteps(FLOWS.notes, { hasNotes: false }).map((step) => step.target)).toEqual([
+      "notes.empty",
+    ]);
+    expect(applicableSteps(FLOWS.documents, {}).map((step) => step.target)).toEqual(["documents.upload"]);
   });
   it("words the upload step for first-time and returning use", () => {
     const step = FLOWS.documents.steps[0];
@@ -55,20 +72,28 @@ describe("walkthrough steps", () => {
     ]);
   });
   it("tells the two Reader 'More' controls apart", () => {
-    const [more, tools] = FLOWS.reader.steps.slice(4, 6).map((step) => copyFor(step, {}).message);
-    expect(more).toBe(
+    const listening = FLOWS.reader.steps
+      .slice(4, 6)
+      .map((step) => copyFor(step, { listening: true }).message);
+    expect(listening[0]).toBe(
       "Tap More to skip between passages, change the speed, and adjust how the Reader looks.",
     );
     // The second control is described by its icon and purpose, never just as "More".
-    expect(tools).not.toMatch(/\bMore\b/);
-    expect(tools).toMatch(/••• button .* word or sentence highlighting/);
+    expect(listening[1]).not.toMatch(/\bMore\b/);
+    expect(listening[1]).toMatch(/••• button .* word or sentence highlighting/);
+    // Read mode has no audio controls, so its More opens the reading tools.
+    const reading = FLOWS.reader.steps.slice(4, 6).map((step) => copyFor(step, { listening: false }).message);
+    expect(reading[0]).toBe("Tap More for reading tools: text, color, listening, and bookmarks.");
+    expect(reading[1]).not.toMatch(/•••/);
   });
   it("keeps every message short", () => {
     for (const flow of Object.values(FLOWS))
       for (const step of flow.steps) {
-        const { title, message } = copyFor(step, {});
-        expect(title.length).toBeLessThanOrEqual(30);
-        expect(message.length).toBeLessThanOrEqual(160);
+        for (const context of [{}, { listening: true, hasDocuments: true, hasNotes: true }]) {
+          const { title, message } = copyFor(step, context);
+          expect(title.length).toBeLessThanOrEqual(30);
+          expect(message.length).toBeLessThanOrEqual(160);
+        }
       }
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clockLabel,
+  locationAtScroll,
   locationForProgress,
   passageTokens,
   progressForLocation,
@@ -14,6 +15,36 @@ import { uniqueEnglishVoices, voticVoiceName, voticVoicePreview } from "./voices
 
 // 3 + 2 + 5 = 10 words.
 const passages = ["One two three.", "Four five.", "Six seven eight nine ten."];
+
+describe("read mode position from scrolling", () => {
+  // Each passage is 100 points tall; the viewport is 200 and the content 300.
+  const layouts = { 0: { y: 0, height: 100 }, 1: { y: 100, height: 100 }, 2: { y: 200, height: 100 } };
+  const at = (offset: number) =>
+    locationAtScroll(passages, layouts, { offset, viewport: 200, contentHeight: 400 });
+
+  it("starts at the first word when scrolled to the top", () => {
+    expect(at(0)).toEqual({ sentenceIndex: 0, wordIndex: 0 });
+    expect(progressForLocation(passages, 0, 0)).toBe(0);
+  });
+
+  it("follows the reading line through the document", () => {
+    // Offset 120 puts the line at 120 + 90 = 210: just inside the third passage (5 words).
+    expect(at(120)).toEqual({ sentenceIndex: 2, wordIndex: 0 });
+    // Offset 60 puts the line at 120: 20% into the second passage (2 words).
+    expect(at(60)).toEqual({ sentenceIndex: 1, wordIndex: 0 });
+  });
+
+  it("reaches the last word, and 100%, at the end of the document", () => {
+    const end = at(200)!;
+    expect(end).toEqual({ sentenceIndex: 2, wordIndex: 4 });
+    expect(progressForLocation(passages, end.sentenceIndex, end.wordIndex)).toBe(1);
+  });
+
+  it("waits for layout before reporting a position", () => {
+    expect(locationAtScroll(passages, layouts, { offset: 0, viewport: 0, contentHeight: 0 })).toBeNull();
+    expect(locationAtScroll([], layouts, { offset: 0, viewport: 200, contentHeight: 300 })).toBeNull();
+  });
+});
 
 describe("reading position", () => {
   it("maps progress to a passage and word", () => {

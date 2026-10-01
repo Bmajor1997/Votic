@@ -1,10 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -13,410 +11,429 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { extractDocument } from "../../src/api/voticApi";
+import { DocumentCover } from "../../src/components/DocumentCover";
+import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen, ScrollFadeItem } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
+import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
-  canReadLocally,
-  cleanLocalDocumentText,
-  validateImport,
-  validateLoadedBytes,
-} from "../../src/documents/importDocument";
+  SORTS,
+  Sort,
+  fileTypeLabel,
+  progressLabel,
+  readableTitle,
+  sortDocuments,
+} from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { useVoticTheme } from "../../src/theme/ThemeProvider";
-import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
-import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
-import { DocumentTypeIcon } from "../../src/components/DocumentTypeIcon";
+import { VoticDocument } from "../../src/documents/types";
+import { useDocumentImport } from "../../src/documents/useDocumentImport";
 import {
   useWalkthrough,
   useWalkthroughTarget,
   useWalkthroughTrigger,
 } from "../../src/walkthrough/WalkthroughProvider";
+import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
+import { sheetStyles } from "../../src/reader/components/sheetStyles";
+import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Documents() {
   const { theme } = useVoticTheme();
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const uploadRef = useRef<View>(null);
-  const { documents, collections, addTextDocument, openDocument, addCollection, setDocumentCollection } =
-    useDocumentLibrary();
-  const [importing, setImporting] = useState(false);
+  const { documents, collections, loaded, openDocument, addCollection } = useDocumentLibrary();
+  const { importing, processingName, failure, dismissFailure, importDocument } = useDocumentImport(
+    uploadRef,
+    {
+      inlineErrors: true,
+    },
+  );
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("all");
-  const [assigningId, setAssigningId] = useState<string | null>(null);
+  const [collection, setCollection] = useState("all");
+  const [sort, setSort] = useState<Sort>("recent");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
-  const scoped =
-    filter === "all"
-      ? documents
-      : filter === "unfiled"
-        ? documents.filter((document) => !document.collection)
-        : documents.filter((document) => document.collection === filter);
-  const filtered = scoped.filter((document) =>
-    document.title.toLowerCase().includes(query.trim().toLowerCase()),
-  );
-  const saved = useMemo(
-    () =>
-      documents
-        .flatMap((document) => (document.savedPassages || []).map((passage) => ({ document, passage })))
-        .sort((a, b) => b.passage.updatedAt - a.passage.updatedAt),
-    [documents],
-  );
-  const assigningDocument = documents.find((document) => document.id === assigningId);
+  const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
   const walkthrough = useWalkthrough();
   const uploadTarget = useWalkthroughTarget("documents.upload");
   const searchTarget = useWalkthroughTarget("documents.search");
   const newCollectionTarget = useWalkthroughTarget("documents.newCollection");
-  const folderTarget = useWalkthroughTarget("documents.folderButton");
+  const optionsTarget = useWalkthroughTarget("documents.documentOptions");
   const filtersTarget = useWalkthroughTarget("documents.filters");
   useWalkthroughTrigger([{ id: "documents" }, { id: "documents.collections", when: documents.length > 0 }], {
     hasDocuments: documents.length > 0,
   });
 
-  async function addDocument() {
-    walkthrough.pressed("documents.upload");
-    setImporting(true);
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "text/plain",
-          "text/markdown",
-          "application/pdf",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          "application/vnd.ms-powerpoint",
-          "application/epub+zip",
-        ],
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
-      if (result.canceled) return;
-      const asset = result.assets[0];
-      validateImport({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
-      const response = await fetch(asset.uri);
-      if (!response.ok)
-        throw new Error("Votic could not access this file. Please choose it again from your device.");
-      const bytes = await response.arrayBuffer();
-      validateLoadedBytes(bytes.byteLength);
-      let text: string;
-      if (canReadLocally(asset.name)) text = cleanLocalDocumentText(new TextDecoder().decode(bytes));
-      else text = await extractDocument(asset.name, bytes);
-      if (!text.trim()) throw new Error("This document does not contain readable text.");
-      addTextDocument(asset.name, text);
-      uploadRef.current?.measureInWindow((x, y, width, height) =>
-        transition.openReader({ x, y, width, height }, () => router.push("/reader")),
-      );
-    } catch (error) {
-      Alert.alert(
-        "Could not import document",
-        error instanceof Error ? error.message : "Votic could not read this document.",
-      );
-    } finally {
-      setImporting(false);
+  const visible = useMemo(() => {
+    const scoped =
+      collection === "all"
+        ? documents
+        : collection === "unfiled"
+          ? documents.filter((document) => !document.collection)
+          : documents.filter((document) => document.collection === collection);
+    const search = query.trim().toLowerCase();
+    const matching = search
+      ? scoped.filter(
+          (document) =>
+            readableTitle(document.title).toLowerCase().includes(search) ||
+            document.sourceName.toLowerCase().includes(search),
+        )
+      : scoped;
+    return sortDocuments(matching, sort);
+  }, [documents, collection, query, sort]);
+  const filterCount = (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
+  const collectionLabel =
+    collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection;
+
+  function open(document: VoticDocument) {
+    const source = cardRefs.current[document.id];
+    if (transition.transitioning) return;
+    openDocument(document.id);
+    if (!source) {
+      router.push("/reader");
+      return;
     }
-  }
-  function open(id: string, sentenceIndex?: number, sourceKey = id) {
-    const source = cardRefs.current[sourceKey];
-    if (!source || transition.transitioning) return;
-    source.measureInWindow((x, y, width, height) => {
-      openDocument(id, sentenceIndex);
-      transition.openReader({ x, y, width, height }, () => router.push("/reader"));
-    });
+    source.measureInWindow((x, y, width, height) =>
+      transition.openReader({ x, y, width, height }, () => router.push("/reader")),
+    );
   }
   function createCollection() {
     const clean = collectionName.trim();
     if (!clean) return;
     addCollection(clean);
-    setFilter(clean);
+    setCollection(clean);
     setCollectionName("");
     setCreateOpen(false);
   }
-  function assign(collection?: string) {
-    if (!assigningId) return;
-    setDocumentCollection(assigningId, collection);
-    setAssigningId(null);
-  }
 
-  const uploadButton = (
-    <Pressable
-      ref={(node) => {
-        uploadRef.current = node;
-        uploadTarget(node);
-      }}
-      collapsable={false}
-      accessibilityRole="button"
-      accessibilityLabel="Upload document"
-      disabled={importing}
-      onPress={addDocument}
-      style={({ pressed }) => [
-        s.headerUpload,
-        { backgroundColor: theme.accent, opacity: importing ? 0.6 : pressed ? 0.78 : 1 },
-      ]}
-    >
-      {importing ? <ActivityIndicator color="#FFF" /> : <Ionicons name="add" size={20} color="#FFF" />}
-      <Text style={s.headerUploadText}>Upload</Text>
-    </Pressable>
+  const actions = (
+    <View style={s.titleActions}>
+      <Pressable
+        ref={newCollectionTarget}
+        accessibilityRole="button"
+        accessibilityLabel="New collection"
+        onPress={() => setCreateOpen(true)}
+        style={({ pressed }) => [s.iconButton, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Ionicons name="folder-open-outline" size={22} color={theme.text} />
+      </Pressable>
+      <View ref={uploadRef} collapsable={false}>
+        <Pressable
+          ref={uploadTarget}
+          accessibilityRole="button"
+          accessibilityLabel="Upload document"
+          accessibilityState={{ busy: importing }}
+          disabled={importing}
+          onPress={() => {
+            walkthrough.pressed("documents.upload");
+            void importDocument();
+          }}
+          style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
+        >
+          {importing ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Ionicons name="add" size={20} color="#FFF" />
+          )}
+          <Text style={s.uploadText}>Upload</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 
   return (
-    <Screen title="Documents" titleAction={uploadButton}>
-      <View
-        ref={searchTarget}
-        collapsable={false}
-        style={[s.search, { backgroundColor: theme.surfaceMuted }]}
-      >
-        <Ionicons name="search" size={19} color={theme.mutedText} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search documents..."
-          placeholderTextColor={theme.mutedText}
-          style={[s.searchInput, { color: theme.text }]}
-        />
-        {query ? (
-          <Pressable onPress={() => setQuery("")}>
-            <Ionicons name="close-circle" size={19} color={theme.mutedText} />
-          </Pressable>
-        ) : null}
-      </View>
-
+    <Screen title="Documents" titleAction={actions}>
       {documents.length ? (
-        <>
-          <View style={s.sectionHeader}>
-            <Text style={[s.sectionTitle, { color: theme.text }]}>Library</Text>
+        <View
+          ref={searchTarget}
+          collapsable={false}
+          style={[s.search, { backgroundColor: theme.surfaceMuted }]}
+        >
+          <Ionicons name="search" size={19} color={theme.mutedText} />
+          <TextInput
+            accessibilityLabel="Search documents"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search documents"
+            placeholderTextColor={theme.mutedText}
+            style={[s.searchInput, { color: theme.text }]}
+          />
+          {query ? (
             <Pressable
-              ref={newCollectionTarget}
               accessibilityRole="button"
-              accessibilityLabel="Create collection"
-              onPress={() => setCreateOpen(true)}
-              style={s.headerButton}
+              accessibilityLabel="Clear search"
+              onPress={() => setQuery("")}
+              style={s.iconButton}
             >
-              <Ionicons name="folder-open-outline" size={18} color={theme.accent} />
-              <Text style={[s.headerButtonText, { color: theme.accent }]}>New collection</Text>
+              <Ionicons name="close-circle" size={20} color={theme.mutedText} />
             </Pressable>
-          </View>
-          <ScrollView
+          ) : null}
+          <Pressable
             ref={filtersTarget}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={s.filters}
+            accessibilityRole="button"
+            accessibilityLabel={filterCount ? `Sort and filter, ${filterCount} active` : "Sort and filter"}
+            onPress={() => setFiltersOpen(true)}
+            style={[
+              s.filterButton,
+              {
+                borderColor: filterCount ? theme.accent : theme.border,
+                backgroundColor: filterCount ? theme.sentenceHighlight : theme.surface,
+              },
+            ]}
           >
-            <Filter label="All" value="all" current={filter} onPress={setFilter} />
-            <Filter label="Unfiled" value="unfiled" current={filter} onPress={setFilter} />
-            {collections.map((collection) => (
-              <Filter
-                key={collection}
-                label={collection}
-                value={collection}
-                current={filter}
-                onPress={setFilter}
-              />
-            ))}
-          </ScrollView>
-          {filtered.length ? (
-            <View style={s.list}>
-              {filtered.map((doc, docIndex) => (
-                <ScrollFadeItem key={doc.id}>
-                  <View
-                    ref={(node) => {
-                      cardRefs.current[doc.id] = node;
-                    }}
-                    collapsable={false}
-                    style={[s.documentRow, { borderBottomColor: theme.border }]}
-                  >
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={"Open " + doc.title}
-                      accessibilityHint={doc.progress ? "Resume reading" : "Open in Votic reader"}
-                      onPress={() => open(doc.id)}
-                      style={({ pressed }) => [
-                        s.documentMain,
-                        {
-                          backgroundColor: pressed ? theme.surfaceMuted : "transparent",
-                          opacity: pressed ? 0.82 : 1,
-                        },
-                      ]}
+            <Ionicons name="options-outline" size={20} color={filterCount ? theme.accent : theme.text} />
+          </Pressable>
+        </View>
+      ) : null}
+
+      {processingName ? (
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityLabel={`Processing ${processingName}`}
+          style={[s.status, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <ActivityIndicator color={theme.accent} />
+          <View style={s.grow}>
+            <Text numberOfLines={2} style={[s.statusTitle, { color: theme.text }]}>
+              Processing {processingName}
+            </Text>
+            <Text style={[s.statusCopy, { color: theme.mutedText }]}>
+              Getting the text ready. This can take a moment.
+            </Text>
+          </View>
+        </View>
+      ) : null}
+      {failure ? (
+        <View
+          accessibilityRole="alert"
+          style={[s.status, { borderColor: "#DC2626", backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="alert-circle" size={22} color="#DC2626" />
+          <View style={s.grow}>
+            <Text style={[s.statusTitle, { color: theme.text }]}>
+              {failure.name ? `Couldn't add ${failure.name}` : "Couldn't add that document"}
+            </Text>
+            <Text style={[s.statusCopy, { color: theme.text }]}>{failure.message}</Text>
+            <View style={s.statusActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose another file"
+                onPress={() => void importDocument()}
+                style={s.textButton}
+              >
+                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Choose another file</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={dismissFailure} style={s.textButton}>
+                <Text style={[s.textButtonLabel, { color: theme.mutedText }]}>Dismiss</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {!loaded ? (
+        <View accessible accessibilityLabel="Loading your documents" style={s.loading}>
+          <ActivityIndicator color={theme.accent} />
+        </View>
+      ) : documents.length ? (
+        <>
+          <View style={s.summaryRow}>
+            <Text style={[s.summary, { color: theme.mutedText }]}>
+              {visible.length} {visible.length === 1 ? "document" : "documents"}
+              {collection !== "all" ? ` in ${collectionLabel}` : ""} ·{" "}
+              {SORTS.find((item) => item.value === sort)?.label}
+            </Text>
+            {filterCount ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Reset sort and filter"
+                onPress={() => {
+                  setCollection("all");
+                  setSort("recent");
+                }}
+                style={s.textButton}
+              >
+                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Reset</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {visible.length ? (
+            <View>
+              {visible.map((document, position) => {
+                const title = readableTitle(document.title);
+                const percent = Math.round(document.progress * 100);
+                return (
+                  <ScrollFadeItem key={document.id}>
+                    <View
+                      ref={(node) => {
+                        cardRefs.current[document.id] = node;
+                      }}
+                      collapsable={false}
+                      style={[s.row, { borderBottomColor: theme.border }]}
                     >
-                      <DocumentTypeIcon sourceName={doc.sourceName} />
-                      <View style={s.documentText}>
-                        <Text
-                          numberOfLines={1}
-                          maxFontSizeMultiplier={1.25}
-                          style={[s.documentTitle, { color: theme.text }]}
-                        >
-                          {doc.title}
-                        </Text>
-                        <Text
-                          numberOfLines={1}
-                          maxFontSizeMultiplier={1.2}
-                          style={[s.meta, { color: theme.mutedText }]}
-                        >
-                          {doc.progress ? Math.round(doc.progress * 100) + "% complete" : "Ready to read"} ·{" "}
-                          {doc.collection || "Unfiled"}
-                        </Text>
-                        <View
-                          accessibilityRole="progressbar"
-                          accessibilityValue={{ min: 0, max: 100, now: Math.round(doc.progress * 100) }}
-                          style={[s.track, { backgroundColor: theme.border }]}
-                        >
-                          <View
-                            style={[
-                              s.fill,
-                              {
-                                backgroundColor: theme.accent,
-                                width: `${doc.progress * 100}%` as `${number}%`,
-                              },
-                            ]}
-                          />
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${title}`}
+                        accessibilityHint={`${fileTypeLabel(document.sourceName)}. ${progressLabel(document)}`}
+                        onPress={() => open(document)}
+                        style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
+                      >
+                        <DocumentCover document={document} size="md" />
+                        <View style={s.rowCopy}>
+                          <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
+                            {title}
+                          </Text>
+                          <Text style={[s.rowMeta, { color: theme.mutedText }]}>
+                            {fileTypeLabel(document.sourceName)}
+                            {document.collection ? ` · ${document.collection}` : ""}
+                          </Text>
+                          {document.progress >= 1 ? (
+                            <View style={s.finished}>
+                              <Ionicons name="checkmark-circle" size={15} color={theme.accent} />
+                              <Text style={[s.rowMeta, { color: theme.mutedText }]}>Finished</Text>
+                            </View>
+                          ) : document.progress > 0 ? (
+                            <View style={s.progressRow}>
+                              <View style={[s.track, { backgroundColor: theme.border }]}>
+                                <View
+                                  style={[
+                                    s.fill,
+                                    { backgroundColor: theme.accent, width: `${Math.max(3, percent)}%` },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={[s.percent, { color: theme.mutedText }]}>{percent}%</Text>
+                            </View>
+                          ) : (
+                            <Text style={[s.rowMeta, { color: theme.mutedText }]}>Not started</Text>
+                          )}
                         </View>
-                      </View>
-                      <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
-                    </Pressable>
-                    <Pressable
-                      ref={docIndex === 0 ? folderTarget : undefined}
-                      accessibilityRole="button"
-                      accessibilityLabel={"Choose a collection for " + doc.title}
-                      onPress={() => setAssigningId(doc.id)}
-                      style={({ pressed }) => [
-                        s.folderButton,
-                        { backgroundColor: pressed ? theme.surfaceMuted : "transparent" },
-                      ]}
-                    >
-                      <Ionicons
-                        name={doc.collection ? "folder" : "folder-outline"}
-                        size={21}
-                        color={doc.collection ? theme.accent : theme.mutedText}
-                      />
-                    </Pressable>
-                  </View>
-                </ScrollFadeItem>
-              ))}
+                      </Pressable>
+                      <Pressable
+                        ref={position === 0 ? optionsTarget : undefined}
+                        accessibilityRole="button"
+                        accessibilityLabel={`More options for ${title}`}
+                        onPress={() => setMenuDocument(document)}
+                        style={s.more}
+                      >
+                        <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
+                      </Pressable>
+                    </View>
+                  </ScrollFadeItem>
+                );
+              })}
             </View>
           ) : (
-            <View style={s.filteredEmpty}>
-              <Text style={[s.body, { color: theme.mutedText }]}>
-                No documents are in this collection yet.
+            <View style={s.noResults}>
+              <Ionicons name="search-outline" size={30} color={theme.mutedText} />
+              <Text style={[s.emptyTitle, { color: theme.text }]}>
+                {query ? `No documents match “${query.trim()}”` : `Nothing in ${collectionLabel} yet`}
               </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setQuery("");
+                  setCollection("all");
+                }}
+                style={s.textButton}
+              >
+                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Show all documents</Text>
+              </Pressable>
             </View>
           )}
         </>
       ) : (
         <View style={s.empty}>
           <DocumentsEmptyAnimation />
-          <Text style={[s.h, { color: theme.text }]}>No documents yet</Text>
-          <Text style={[s.body, { color: theme.mutedText }]}>
-            Add a PDF, Word, PowerPoint, EPUB, TXT, or Markdown document to begin reading and listening.
+          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
+            Add your first document
+          </Text>
+          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
+            Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen.
           </Text>
         </View>
       )}
 
-      {saved.length ? (
-        <View style={s.savedSection}>
-          <Text style={[s.sectionTitle, { color: theme.text }]}>Saved passages</Text>
-          <Text style={[s.sectionCopy, { color: theme.mutedText }]}>
-            Bookmarks and notes you want to revisit.
-          </Text>
-          {saved.map(({ document, passage }) => {
-            const sourceKey = "saved:" + document.id + passage.id;
-            return (
-              <ScrollFadeItem key={document.id + passage.id}>
-                <Pressable
-                  ref={(node) => {
-                    cardRefs.current[sourceKey] = node;
-                  }}
-                  collapsable={false}
-                  accessibilityRole="button"
-                  accessibilityLabel={"Open saved passage from " + document.title}
-                  onPress={() => open(document.id, passage.sentenceIndex, sourceKey)}
-                  style={({ pressed }) => [
-                    s.savedCard,
-                    {
-                      borderColor: theme.border,
-                      backgroundColor: pressed ? theme.surfaceMuted : theme.surface,
-                    },
-                  ]}
-                >
-                  <View style={s.savedTop}>
-                    <Ionicons name="bookmark" size={18} color={theme.accent} />
-                    <Text numberOfLines={1} style={[s.savedDocument, { color: theme.mutedText }]}>
-                      {document.title}
-                    </Text>
-                  </View>
-                  <Text numberOfLines={3} style={[s.savedText, { color: theme.text }]}>
-                    {passage.text}
-                  </Text>
-                  {passage.note ? (
-                    <Text numberOfLines={2} style={[s.savedNote, { color: theme.mutedText }]}>
-                      {passage.note}
-                    </Text>
-                  ) : null}
-                </Pressable>
-              </ScrollFadeItem>
-            );
-          })}
-        </View>
-      ) : null}
+      <DocumentActionsSheet document={menuDocument} onClose={() => setMenuDocument(null)} onOpen={open} />
 
       <Modal
-        visible={assigningId !== null}
+        visible={filtersOpen}
         transparent
-        animationType="fade"
-        onRequestClose={() => setAssigningId(null)}
+        animationType="slide"
+        onRequestClose={() => setFiltersOpen(false)}
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Close collection choices"
-          onPress={() => setAssigningId(null)}
-          style={s.backdrop}
+          accessibilityLabel="Close sort and filter"
+          onPress={() => setFiltersOpen(false)}
+          style={sheetStyles.modalBackdrop}
         >
           <Pressable
-            accessibilityRole="none"
+            accessibilityViewIsModal
             onPress={(event) => event.stopPropagation()}
-            style={[s.modalCard, { backgroundColor: theme.surface }]}
+            style={[sheetStyles.sheet, s.filterSheet, { backgroundColor: theme.surface }]}
           >
-            <View style={s.modalHeader}>
-              <View>
-                <Text accessibilityRole="header" style={[s.modalTitle, { color: theme.text }]}>
-                  Choose collection
-                </Text>
-                <Text numberOfLines={1} style={[s.modalSubtitle, { color: theme.mutedText }]}>
-                  {assigningDocument?.title}
-                </Text>
+            <View style={[sheetStyles.handle, { backgroundColor: theme.border }]} />
+            <ScrollView contentContainerStyle={s.sheetContent}>
+              <Text accessibilityRole="header" style={[sheetStyles.sheetTitle, { color: theme.text }]}>
+                Sort and filter
+              </Text>
+              <Text style={[s.groupLabel, { color: theme.mutedText }]}>SORT BY</Text>
+              <View accessibilityRole="radiogroup">
+                {SORTS.map((item) => (
+                  <Choice
+                    key={item.value}
+                    label={item.label}
+                    selected={sort === item.value}
+                    onPress={() => setSort(item.value)}
+                  />
+                ))}
+              </View>
+              <Text style={[s.groupLabel, { color: theme.mutedText }]}>COLLECTION</Text>
+              <View accessibilityRole="radiogroup">
+                <Choice
+                  label="All documents"
+                  selected={collection === "all"}
+                  onPress={() => setCollection("all")}
+                />
+                <Choice
+                  label="Unfiled"
+                  selected={collection === "unfiled"}
+                  onPress={() => setCollection("unfiled")}
+                />
+                {collections.map((name) => (
+                  <Choice
+                    key={name}
+                    label={name}
+                    selected={collection === name}
+                    onPress={() => setCollection(name)}
+                  />
+                ))}
               </View>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Close collection choices"
-                onPress={() => setAssigningId(null)}
-                style={s.modalClose}
+                accessibilityLabel="New collection"
+                onPress={() => {
+                  setFiltersOpen(false);
+                  setCreateOpen(true);
+                }}
+                style={[s.newCollection, { borderColor: theme.border }]}
               >
-                <Ionicons name="close" size={23} color={theme.text} />
+                <Ionicons name="add" size={20} color={theme.accent} />
+                <Text style={[s.textButtonLabel, { color: theme.accent }]}>New collection</Text>
               </Pressable>
-            </View>
-            <CollectionChoice
-              label="Unfiled"
-              selected={!assigningDocument?.collection}
-              onPress={() => assign()}
-            />
-            {collections.map((collection) => (
-              <CollectionChoice
-                key={collection}
-                label={collection}
-                selected={assigningDocument?.collection === collection}
-                onPress={() => assign(collection)}
-              />
-            ))}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Create new collection"
-              onPress={() => {
-                setAssigningId(null);
-                setCreateOpen(true);
-              }}
-              style={[s.newFromModal, { borderColor: theme.border }]}
-            >
-              <Ionicons name="add" size={20} color={theme.accent} />
-              <Text style={[s.headerButtonText, { color: theme.accent }]}>Create collection</Text>
-            </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setFiltersOpen(false)}
+                style={[s.done, { backgroundColor: theme.accent }]}
+              >
+                <Text style={s.uploadText}>
+                  Show {visible.length} {visible.length === 1 ? "document" : "documents"}
+                </Text>
+              </Pressable>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
@@ -439,14 +456,14 @@ export default function Documents() {
             style={[s.modalCard, { backgroundColor: theme.surface }]}
           >
             <View style={s.modalHeader}>
-              <Text accessibilityRole="header" style={[s.modalTitle, { color: theme.text }]}>
+              <Text accessibilityRole="header" style={[sheetStyles.sheetTitle, { color: theme.text }]}>
                 New collection
               </Text>
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close new collection"
                 onPress={() => setCreateOpen(false)}
-                style={s.modalClose}
+                style={s.iconButton}
               >
                 <Ionicons name="close" size={23} color={theme.text} />
               </Pressable>
@@ -469,14 +486,14 @@ export default function Documents() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Save collection"
+              accessibilityState={{ disabled: !collectionName.trim() }}
               disabled={!collectionName.trim()}
               onPress={createCollection}
-              style={[
-                s.modalSave,
-                { backgroundColor: theme.accent, opacity: collectionName.trim() ? 1 : 0.4 },
-              ]}
+              style={[s.done, { backgroundColor: collectionName.trim() ? theme.accent : theme.surfaceMuted }]}
             >
-              <Text style={s.addText}>Create collection</Text>
+              <Text style={[s.uploadText, { color: collectionName.trim() ? "#FFF" : theme.mutedText }]}>
+                Create collection
+              </Text>
             </Pressable>
           </Pressable>
         </Pressable>
@@ -485,178 +502,146 @@ export default function Documents() {
   );
 }
 
-function Filter({
-  label,
-  value,
-  current,
-  onPress,
-}: {
-  label: string;
-  value: string;
-  current: string;
-  onPress: (value: string) => void;
-}) {
-  const { theme } = useVoticTheme();
-  const active = value === current;
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: active }}
-      onPress={() => onPress(value)}
-      style={[
-        s.filter,
-        {
-          borderColor: active ? theme.accent : theme.border,
-          backgroundColor: active ? theme.sentenceHighlight : theme.surface,
-        },
-      ]}
-    >
-      <Text style={[s.filterText, { color: active ? theme.accent : theme.text }]}>{label}</Text>
-    </Pressable>
-  );
-}
-function CollectionChoice({
-  label,
-  selected,
-  onPress,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-}) {
+function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="radio"
+      accessibilityLabel={label}
       accessibilityState={{ checked: selected }}
       onPress={onPress}
-      style={[s.collectionChoice, { borderBottomColor: theme.border }]}
+      style={[s.choice, { borderBottomColor: theme.border }]}
     >
       <Ionicons
         name={selected ? "radio-button-on" : "radio-button-off"}
-        size={21}
+        size={22}
         color={selected ? theme.accent : theme.mutedText}
       />
-      <Text style={[s.choiceLabel, { color: theme.text }]}>{label}</Text>
+      <Text style={[s.choiceText, { color: theme.text }]}>{label}</Text>
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  addText: { color: "#FFF", ...typography.control },
-  headerUpload: {
-    minHeight: 42,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    justifyContent: "center",
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 5,
-  },
-  headerUploadText: { color: "#FFF", fontSize: 14, fontWeight: "800" },
-  search: {
-    minHeight: 48,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  searchInput: { flex: 1, minHeight: 46, fontSize: 14 },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: spacing.sm,
-  },
-  sectionTitle: { ...typography.sectionTitle },
-  sectionCopy: { fontSize: 14 },
-  headerButton: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  headerButtonText: { fontSize: 14, fontWeight: "700" },
-  filters: { gap: spacing.sm, paddingRight: spacing.lg },
-  filter: {
-    minHeight: 42,
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.lg,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  filterText: { fontSize: 14, fontWeight: "700" },
-  empty: { alignItems: "center", paddingVertical: spacing.lg, gap: spacing.sm },
-  emptyImage: { width: 220, height: 200 },
-  filteredEmpty: { paddingVertical: spacing.xl },
-  h: { ...typography.sectionTitle },
-  body: { ...typography.body, textAlign: "center" },
-  documentTitle: { fontSize: 14, fontWeight: "800" },
-  meta: { fontSize: 12 },
-  list: { marginTop: -spacing.xs },
-  documentRow: { borderBottomWidth: 1, flexDirection: "row", alignItems: "stretch" },
-  documentMain: {
-    minHeight: 72,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingLeft: spacing.xs,
-  },
-  documentText: { flex: 1, gap: spacing.xs },
-  folderButton: { width: controlSizes.minimumTouch, alignItems: "center", justifyContent: "center" },
-  track: { height: 3, borderRadius: 2, overflow: "hidden" },
-  fill: { height: "100%" },
-  savedSection: { gap: spacing.md, marginTop: spacing.lg },
-  savedCard: { borderWidth: 1, borderRadius: radii.md, padding: spacing.md, gap: spacing.sm },
-  savedTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  savedDocument: { flex: 1, fontSize: 13, fontWeight: "700" },
-  savedText: { fontSize: 16, lineHeight: 23 },
-  savedNote: { fontSize: 14, lineHeight: 20, fontStyle: "italic" },
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,.38)", justifyContent: "center", padding: spacing.xl },
-  modalCard: { borderRadius: radii.lg, padding: spacing.lg, gap: spacing.sm },
-  modalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: spacing.sm,
-  },
-  modalTitle: { ...typography.sheetTitle },
-  modalSubtitle: { fontSize: 13, maxWidth: 270, marginTop: 2 },
-  modalClose: {
+  titleActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
+  iconButton: {
     width: controlSizes.minimumTouch,
     height: controlSizes.minimumTouch,
     alignItems: "center",
     justifyContent: "center",
   },
-  collectionChoice: {
-    minHeight: 52,
+  upload: {
+    minHeight: 44,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  uploadText: { color: "#FFF", fontSize: 15, fontWeight: "800" },
+  search: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingLeft: spacing.md,
+    paddingRight: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  searchInput: { flex: 1, minHeight: 48, fontSize: 16 },
+  filterButton: {
+    width: 44,
+    height: 44,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  status: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+  },
+  grow: { flex: 1, minWidth: 0 },
+  statusTitle: { fontSize: 15, fontWeight: "800" },
+  statusCopy: { fontSize: 14, lineHeight: 20, marginTop: 2 },
+  statusActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  textButton: { minHeight: controlSizes.minimumTouch, justifyContent: "center" },
+  textButtonLabel: { fontSize: 15, fontWeight: "800" },
+  loading: { paddingVertical: spacing.xxl, alignItems: "center" },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  summary: { fontSize: 14, flexShrink: 1 },
+  row: { borderBottomWidth: 1, flexDirection: "row", alignItems: "center" },
+  rowMain: {
+    flex: 1,
+    minHeight: 88,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  rowCopy: { flex: 1, minWidth: 0, gap: 3 },
+  rowTitle: { fontSize: 16, lineHeight: 21, fontWeight: "700" },
+  rowMeta: { fontSize: 13 },
+  finished: { flexDirection: "row", alignItems: "center", gap: 4 },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 },
+  track: { flex: 1, maxWidth: 140, height: 4, borderRadius: 2, overflow: "hidden" },
+  fill: { height: "100%" },
+  percent: { fontSize: 12, fontWeight: "600" },
+  more: {
+    width: controlSizes.minimumTouch,
+    height: controlSizes.minimumTouch,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noResults: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl },
+  empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
+  emptyTitle: { ...typography.sectionTitle, textAlign: "center" },
+  emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: "center" },
+  filterSheet: { maxHeight: "80%" },
+  sheetContent: { gap: spacing.xs, paddingBottom: spacing.md },
+  groupLabel: { ...typography.eyebrow, marginTop: spacing.md },
+  choice: {
+    minHeight: 50,
     borderBottomWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
   },
-  choiceLabel: { fontSize: 16, fontWeight: "600" },
-  newFromModal: {
-    minHeight: 50,
+  choiceText: { fontSize: 16, flex: 1 },
+  newCollection: {
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: radii.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
     marginTop: spacing.md,
   },
+  done: {
+    minHeight: 52,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.sm,
+  },
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,.38)", justifyContent: "center", padding: spacing.xl },
+  modalCard: { borderRadius: radii.lg, padding: spacing.lg, gap: spacing.sm },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   collectionInput: {
     minHeight: 52,
     borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     fontSize: 16,
-  },
-  modalSave: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: spacing.sm,
   },
 });

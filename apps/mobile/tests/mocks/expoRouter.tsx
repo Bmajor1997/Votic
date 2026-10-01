@@ -26,6 +26,10 @@ export function Stack({ children }: { children?: ReactNode }) {
   return <>{children}</>;
 }
 Stack.Screen = StackScreen;
+/** Like expo-router, screens inside a group whose guard is false do not exist. */
+Stack.Protected = function StackProtected({ guard, children }: { guard: boolean; children?: ReactNode }) {
+  return guard ? <>{children}</> : null;
+};
 
 export function resetExpoRouterMock() {
   router.push.mockReset();

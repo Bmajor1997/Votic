@@ -3,6 +3,7 @@ import { FLOWS, FlowId } from "./walkthroughFlows";
 
 export const WALKTHROUGH_KEY = "votic.mobile.walkthrough.v1";
 const DEVICE_HISTORY_KEY = "votic.mobile.device-history.v1";
+const ONBOARDING_KEY = "votic.mobile.onboarding.v2";
 const LIBRARY_KEY = "votic.mobile.library.v2";
 const COLLECTIONS_KEY = "votic.mobile.collections.v1";
 
@@ -76,6 +77,15 @@ function parseList(raw: string | null): unknown[] {
   }
 }
 
+function parseObject(raw: string | null): Record<string, unknown> | null {
+  try {
+    const value = JSON.parse(raw || "null");
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Loads walkthrough progress; on the first launch with walkthroughs, decides what existing users already know. */
 export async function loadWalkthroughState(now = Date.now()): Promise<WalkthroughState> {
   const saved = parseWalkthroughState(await AsyncStorage.getItem(WALKTHROUGH_KEY));
@@ -89,13 +99,16 @@ export async function loadWalkthroughState(now = Date.now()): Promise<Walkthroug
     await saveWalkthroughState(upgraded);
     return upgraded;
   }
-  const [[, history], [, library], [, collections]] = await AsyncStorage.multiGet([
+  const [[, history], [, onboarding], [, library], [, collections]] = await AsyncStorage.multiGet([
     DEVICE_HISTORY_KEY,
+    ONBOARDING_KEY,
     LIBRARY_KEY,
     COLLECTIONS_KEY,
   ]);
+  // Devices that ran a build from before the device history was recorded had already finished setup.
+  const finishedSetupBefore = history === null && parseObject(onboarding)?.personalized === true;
   const learned = migratedFlows({
-    existingDevice: history === "existing",
+    existingDevice: history === "existing" || finishedSetupBefore,
     documents: parseList(library) as StoredDocumentLike[],
     collections: parseList(collections).filter((item): item is string => typeof item === "string"),
   });

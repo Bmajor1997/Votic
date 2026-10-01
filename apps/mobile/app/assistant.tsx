@@ -35,7 +35,11 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
-import { askSuggestions, explanationStyleArgs } from "../src/personalization/suggestions";
+import { useActivity } from "../src/activity/ActivityProvider";
+import { askEventFor } from "../src/activity/askCategories";
+import { useOnboarding } from "../src/onboarding/OnboardingProvider";
+import { useVoticPurpose } from "../src/personalization/PurposeProvider";
+import { askSuggestions } from "../src/personalization/suggestions";
 import { usePersonalization } from "../src/personalization/usePersonalization";
 
 type Message = {
@@ -55,7 +59,10 @@ function answerNoteStamp() {
 }
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { theme } = useVoticTheme();
+  const { explanationStyle } = useVoticPurpose();
   const personalization = usePersonalization();
+  const onboarding = useOnboarding();
+  const { recordAsk } = useActivity();
   const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolveAskVoticContext(documents, activeDocument, params);
@@ -63,7 +70,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const initialQuestion = initialQuestionFromParams(params);
   const notesScopeLabel = context.kind === "notes" || context.kind === "notes-missing" ? context.label : "";
   const { reduceMotion } = useAccessibilityPreferences();
-  // Chosen from the person's personalization answers, or their legacy purpose if they have none.
+  // Chosen from the person's personalization answers, or the purpose chosen in earlier versions.
   const suggestedPrompts = askSuggestions(personalization.answers, personalization.purpose);
   const [question, setQuestion] = useState(initialQuestion);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -208,6 +215,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       setQuestion("");
       setMessages((v) => [...v, { role: "user", text: clean }]);
       lastQuestion.current = clean;
+      // Retries resend the same question, so only first attempts are counted.
+      recordAsk(
+        askEventFor(clean, {
+          newConversation: messages.length === 0,
+          builtInPrompts: [...suggestedPrompts, initialQuestion].filter(Boolean),
+        }),
+      );
     }
     if (askContext.kind === "notes-missing") {
       setRetrying(false);
@@ -218,12 +232,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setSending(true);
     try {
       const request = prepareAskRequest(askContext, clean, messages);
-      const answer = await askVotic(
-        clean,
-        request.document,
-        request.history,
-        ...explanationStyleArgs(personalization.answers),
-      );
+      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
+      onboarding.recordAskedVotic();
       if (!current()) return;
       setError("");
       const grounded = answeredFromContext(request, answer);

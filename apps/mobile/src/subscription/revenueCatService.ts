@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import type { CustomerInfo, PurchasesPackage } from "react-native-purchases";
 import { entitlementFromCustomerInfo, planFromStoreProduct, purchaseOutcomeFromError } from "./entitlement";
 import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
@@ -61,12 +62,29 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       const sdk = await load();
       const offerings = await sdk.getOfferings();
       packages.clear();
-      return (offerings.current?.availablePackages || []).map((item) => {
+      const available = offerings.current?.availablePackages || [];
+      // Google Play only offers a free phase to people who are eligible for it. The App Store lists the
+      // trial for everyone, so on iOS the trial is shown only when StoreKit confirms this person can get it
+      // (RevenueCat's guidance is to show regular pricing when eligibility is unknown).
+      let eligibleOnIos: Set<string> | null = null;
+      if (Platform.OS === "ios" && available.length) {
+        const ELIGIBLE = sdk.INTRO_ELIGIBILITY_STATUS.INTRO_ELIGIBILITY_STATUS_ELIGIBLE;
+        const eligibility = await sdk
+          .checkTrialOrIntroductoryPriceEligibility(available.map((item) => item.product.identifier))
+          .catch(() => ({}) as Record<string, { status: number }>);
+        eligibleOnIos = new Set(
+          Object.entries(eligibility)
+            .filter(([, value]) => value?.status === ELIGIBLE)
+            .map(([id]) => id),
+        );
+      }
+      return available.map((item) => {
         packages.set(item.identifier, item);
-        return planFromStoreProduct(item.identifier, {
+        const plan = planFromStoreProduct(item.identifier, {
           ...item.product,
           freePhase: item.product.defaultOption?.freePhase ?? null,
         });
+        return eligibleOnIos && !eligibleOnIos.has(item.product.identifier) ? { ...plan, trial: null } : plan;
       });
     },
     async purchase(planId) {

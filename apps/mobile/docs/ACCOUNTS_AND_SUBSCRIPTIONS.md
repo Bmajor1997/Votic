@@ -1,159 +1,108 @@
-# Accounts, onboarding, and subscriptions
+# Accounts, onboarding, and Votic Premium
 
-How Votic's new-user flow works, what each service does, and what has to be configured outside the code.
+How a new person gets into Votic, what each service does, and what has to be set up outside the code.
 
 ## Flow
 
 ```
-Welcome ─┬─ Create Account ─ Verify email ─ Personalization (5 questions) ─ Paywall ─ Store purchase ─ "Votic is ready" ─ Votic
-         └─ Sign In ─────────────────────────────────────────────────────── (paywall only if no active entitlement) ─ Votic
+Welcome ─┬─ Get started ─ Create account (Apple · Google · email) ─┐
+         └─ Sign in (Apple · Google · email · Forgot password) ────┤
+                                                                   ▼
+        Personalization (5 questions, new accounts only) ─ Votic Premium ─ "Votic is ready for you" ─ Home
+                                                                                   │
+                                                  "Add your first document" opens the file picker on Home
 ```
 
-`src/onboarding/entryRoute.ts` decides the screen from three separate facts:
+`app/_layout.tsx` shows only the screens for the current stage (`Stack.Protected`). The stage comes from three
+separate facts, so finishing setup never grants access by itself:
 
-| Fact                       | Source                                   | Stored where                                                                 |
-| -------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------- |
-| Signed in, email verified  | Firebase Authentication                  | Firebase; session kept by the Firebase SDK in the app's private AsyncStorage |
-| Setup progress and answers | This device                              | AsyncStorage `votic.mobile.onboarding.v1:<firebase uid>`                     |
-| Trial / subscription       | App Store or Google Play, via RevenueCat | RevenueCat (keyed by Firebase uid); never a local "paid" flag                |
+| Fact                       | Source                                   | Stored where                                                                |
+| -------------------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
+| Signed in                  | Firebase Authentication                  | Firebase; the session is kept by the Firebase SDK in the app's AsyncStorage |
+| Setup progress and answers | This device                              | AsyncStorage `votic.mobile.onboarding.v1:<firebase uid>`                    |
+| Votic Premium              | App Store or Google Play, via RevenueCat | RevenueCat, keyed by the Firebase uid. Never a locally saved "paid" flag    |
 
-Finishing onboarding never implies a subscription.
+## Who sees setup
 
-## Existing Votic installs
+| Situation                                                              | What happens                                               |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
+| New account (email, or the first Apple/Google sign-in)                 | Personalization → Votic Premium → "Votic is ready for you" |
+| Leaves mid-setup and comes back                                        | Same question, same answers (saved as they change)         |
+| Existing account signs in on a new phone or after a reinstall          | Setup is skipped; answers can be set in Settings           |
+| Another account signs in on the same phone                             | That account has its own setup                             |
+| Signed in on a build from before per-account setup                     | Keeps whatever that build decided                          |
+| Any account without an active subscription or trial (including expiry) | Votic Premium screen                                       |
 
-On the first launch of this version, `loadDeviceHistory()` records whether the device already had Votic data
-(documents, collections, a chosen purpose, or a finished/migrated first-run tour; empty lists don't count).
-The answer is saved in `votic.mobile.device-history.v1` and never recomputed.
+"New account" comes from Firebase: a sign-in that created the account has the same creation and last-sign-in time.
 
-- **Existing devices:** must create an account or sign in (email verification included), then go straight into Votic.
-  They skip personalization and are **not** shown the paywall — grandfathered until a pricing decision is made.
-  To change that later, edit the `deviceHistory === "existing"` line in `entryRoute.ts`.
-- **All devices:** documents and notes are stored on the device and are not touched by signing in, signing out,
-  or deleting an account.
-- Signing in on a device with no saved setup (reinstall, new phone) skips personalization; answers can be
-  changed in Settings → Personalization.
+**Decision for you:** everyone needs Votic Premium, including people who used Votic before accounts. Earlier
+drafts let existing installs skip the paywall; that was removed because it would grant paid access from a local
+flag. If you want to give existing users free access, the right way is a RevenueCat promotional entitlement.
 
 ## Personalization answers
 
-Saved as `PersonalizationAnswers` (`src/onboarding/onboardingModel.ts`), versioned with `ONBOARDING_VERSION = 1`.
-Raising the version does not, by itself, send anyone through onboarding again.
+Five questions, one per screen, each optional (`src/onboarding/onboardingModel.ts`). What they change:
 
-**Takes effect now**
+| Answer                                                                   | Effect                                                                                        |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Explanation style (Quickly / Simply / In detail / Adapt to me)           | Sets Settings → Personalization → Explanations, which Ask Votic sends with every question     |
+| "Highlight the words as they're read" / "Highlight the current sentence" | Sets the Reader's highlight (word, sentence, or both)                                         |
+| Starting speed (on the listening question)                               | The speed new documents start at                                                              |
+| Answers with a direct match (summaries, explanations, key points, notes) | Ask Votic's suggestions and the Notes notebook actions (`src/personalization/suggestions.ts`) |
 
-| Answer                                                                                                          | Effect                                                                                                                            |
-| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Listening: "Highlight the words as they're read" / "Highlight the current sentence"                             | Sets the Reader's existing highlight setting (word, sentence, or both)                                                            |
-| Answers with a direct match (summaries, explanations, simpler language, key points, finding information, notes) | Choose the Ask Votic suggestions and the Notes notebook's study action and Explain wording (`src/personalization/suggestions.ts`) |
-| Explanation style (Quickly / Simply / In detail)                                                                | Sent with Ask Votic questions; the server adds one sentence to the AI instructions. "Adapt to me" adds nothing                    |
+Everything else is recorded for later use; nothing is turned off ("I'm mainly here to read" leaves listening on).
+Answers are edited in Settings → Personalization → Your answers. People with no answers keep the suggestions
+their earlier "purpose" choice gave them.
 
-**Already how Votic works** (no setting to change): read aloud / listen instead of read, change reading speed,
-remember where I stopped / pick up where I left off, ask questions as I read, save important passages,
-quickly save something, create notes.
+The server only accepts the four style names. Missing or unknown values get today's default answer, and request
+text is never added to the AI instructions.
 
-People with no personalization answers keep the suggestions their legacy "purpose" (from the retired app tour)
-gave them; the stored purpose is read-only. Answers are edited in Settings → Account → Personalization.
+## Votic Premium (RevenueCat)
 
-**Stored for future personalization**
+**What the screen does**
 
-| Answer                                                                                         | Where it would plug in                                                                              |
-| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| "Make it easy to jump backward or forward"                                                     | Reader controls (sentence skip already exists)                                                      |
-| "Stay focused while reading"                                                                   | Future Reader focus mode                                                                            |
-| "Organize key points for me", "Keep my questions with my notes", "Help me find my notes later" | Future Notes work (no Ask Votic suggestion matches them directly, so they don't change suggestions) |
-| "I'll decide as I go", "I'm mainly here to read", "I'll organize things myself"                | Recorded only; listening is never turned off                                                        |
+- Title, trial length, and price come from the store product, so changing them in App Store Connect or Play Console
+  changes the app text. With the planned setup it reads "Try Votic Premium free for 2 weeks" and
+  "2 weeks free, then $9.99/month. Cancel anytime."
+- Trial timeline (Today → the date billing starts) only when the store says this person can get the trial.
+- Trial eligibility: on iOS, StoreKit is asked through RevenueCat and the trial is shown only when the answer is
+  "eligible" (RevenueCat's guidance for "unknown"). Google Play only returns the free phase to eligible people.
+  Anyone whose subscription has ended is never promised a trial.
+- Button: "Start free trial" with a trial, "Subscribe for $9.99/month" without one.
+- Purchase results: success opens Votic once RevenueCat confirms the entitlement; closing the store sheet does
+  nothing; pending (Ask to Buy, slow payment) explains that Votic opens when approved; failures show a short,
+  plain message. Raw store or RevenueCat errors are never shown.
+- Restore Purchases, Terms, and Privacy stay pinned at the bottom. Sign out is at the end of the page.
+- The screen can't be dismissed: Votic requires Premium.
+- Access: trial, active, cancelled-but-paid-through, and billing grace period. "Unknown" never grants access.
+- Expo Go and builds without RevenueCat keys say purchases aren't available. Only development builds also offer
+  "Continue without a subscription (development build)".
 
-## Setting up Firebase Authentication (free for email/password)
+**What you need to set up**
 
-1. Create a project at <https://console.firebase.google.com>.
-2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable.**
-3. **Authentication → Settings → User actions → Email enumeration protection: on.**
-4. **Authentication → Templates:** set the sender name and app name used in verification and reset emails.
-5. **Project settings → Your apps → Add app → Web** (the JS SDK uses the web config, even on phones).
-   Copy `apiKey`, `authDomain`, `projectId`, `appId` into `apps/mobile/.env` (see `.env.example`).
-6. Restart Expo (`npm start -- --clear`) so the new values are included.
-
-The Firebase web config is a public identifier, not a secret. Security comes from Firebase's server-side rules.
-
-## Setting up subscriptions (RevenueCat)
-
-Nothing in Votic can sell a subscription until all of this exists. Until then the paywall says subscriptions
-aren't set up, and only development builds offer a "Continue without a subscription" button.
-
-**Accounts you need**
-
-- Apple Developer Program — $99/year (required for any iOS in-app purchase or TestFlight).
-- Google Play Console — $25 one-time.
-- RevenueCat — free until roughly $2,500/month in tracked revenue, then about 1% (check revenuecat.com/pricing).
-
-**App Store Connect**
-
-1. Register a bundle ID (e.g. `app.votic`) and add `ios.bundleIdentifier` to `app.json`.
-2. Sign the Paid Apps agreement and complete tax and banking.
-3. Create a subscription group and an auto-renewable subscription (e.g. `votic_monthly`), set the price,
-   and add an **Introductory Offer → Free → 1 week or 2 weeks**. The paywall reads this trial length from
-   the store, so the app text changes when you change it here.
-4. Optional: enrol in the App Store Small Business Program (15% instead of 30%).
-
-**Google Play Console**
-
-1. Add `android.package` to `app.json` and upload a build to an internal testing track.
-2. Create a subscription with a base plan (monthly) and an **offer → Free trial → 7 or 14 days**.
-
-**RevenueCat**
-
-1. Create a project and add the iOS and Android apps (App Store Connect shared secret / API key and a Google
-   service account go into RevenueCat's dashboard, never into this repository).
-2. Create the entitlement `pro` and attach both store products.
-3. Create an offering (mark it **Current**) with a `$rc_monthly` package (and `$rc_annual` if you add one).
-4. Copy the **public** SDK keys into `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
-
-**Build for testing purchases**
-
-Store purchases need native code, so they never work in Expo Go (Votic shows a message instead).
-Use an EAS development build: `npx eas build --profile development` (free Expo tier has a monthly build quota),
-then test with App Store sandbox accounts / Play license testers.
-
-**Store fees:** Apple and Google keep 15% of subscription revenue under their small-business programs
-(Apple's standard rate is 30%; Google's subscription rate is 15%).
+1. Apple Developer Program ($99/year) and Google Play Console ($25 once).
+2. App Store Connect: sign the Paid Apps agreement, add tax and banking, create a subscription group and an
+   auto-renewable monthly subscription at $9.99, then add an Introductory Offer → Free → 2 weeks.
+3. Play Console: create a subscription with a monthly base plan at $9.99 and an offer → Free trial → 14 days,
+   eligibility "new customers".
+4. RevenueCat (free until about $2,500/month in revenue): add both apps (the App Store key and Google service
+   account go into RevenueCat's dashboard, never this repository), create the entitlement `pro`, attach both
+   products, and make an offering marked Current with a `$rc_monthly` package.
+5. Put the **public** SDK keys in `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
+6. Purchases need native code: use a development build (`npx expo run:ios`, `npx expo run:android`, or EAS),
+   then test with App Store sandbox accounts and Play license testers.
 
 ## Terms of Service and Privacy Policy
 
-Not yet written. Both are required by Apple and Google for subscriptions and for apps with accounts.
-Host them on HTTPS and set `EXPO_PUBLIC_VOTIC_TERMS_URL` and `EXPO_PUBLIC_VOTIC_PRIVACY_URL`; the paywall shows
-the links only when they are set.
+Not written yet, and both stores require them for subscriptions and accounts. Host them on HTTPS and set
+`EXPO_PUBLIC_VOTIC_TERMS_URL` and `EXPO_PUBLIC_VOTIC_PRIVACY_URL`. Until then the screens show plain text, never a
+made-up link.
 
 ## Account deletion
 
-Settings → Delete Account confirms the password, then deletes the Firebase account (required by App Store
-guideline 5.1.1(v)). It does not cancel store subscriptions; the screen tells subscribers to cancel first.
-Documents and notes stay on the device.
+Settings → Delete account deletes the Firebase account and this device's setup for it. Documents and notes stay
+on the device. It does not cancel a store subscription. If Firebase asks for a recent sign-in, the person is told
+to sign out and back in first.
 
-## Adding Google and Apple sign-in later
-
-The code is structured so each provider is an addition, not a redesign:
-
-1. Add `"google"` / `"apple"` to `AuthMethod` in `src/auth/authTypes.ts` and a method to `AuthService`
-   (`signInWithGoogle()`, `signInWithApple()`).
-2. Implement them in `src/auth/firebaseAuthService.ts` with Firebase's `signInWithCredential` and
-   `GoogleAuthProvider.credential(idToken)` / `OAuthProvider("apple.com").credential({ idToken, rawNonce })`.
-3. Add "Continue with Google" / "Continue with Apple" buttons to `WelcomeScreen.tsx`, shown only when
-   `services.auth.methods` includes them. Google/Apple accounts arrive with a verified email, so they skip
-   the verification screen automatically. Everything after sign-in (personalization, paywall, RevenueCat
-   identity) is unchanged.
-
-**Continue with Google — you will need**
-
-- Firebase: enable the Google sign-in provider (creates the OAuth web client).
-- Google Cloud console (same project): OAuth consent screen (app name, support email, privacy policy URL,
-  and verification if you request more than basic scopes), plus iOS and Android OAuth client IDs
-  (Android needs the SHA-1 of the signing key, including Play App Signing's key).
-- A native Google sign-in library (e.g. `@react-native-google-signin/google-signin`) in an EAS build. Free.
-
-**Continue with Apple — you will need**
-
-- Apple Developer Program membership ($99/year).
-- The **Sign in with Apple** capability on the App ID, `expo-apple-authentication` (iOS), and an EAS build.
-- Firebase: enable the Apple provider. For Android or web support, also a Services ID, a return URL, and a
-  private key (.p8) — the key goes into Firebase's console, never into this repository.
-- App Store rule 4.8: once Google sign-in is offered on iOS, Sign in with Apple (or an equivalent
-  privacy-focused option) must be offered too. Email/password alone does not require it.
+Not yet done: revoking the Sign in with Apple token when an Apple account is deleted (Apple asks apps to do this).
+It needs a server endpoint with Apple's private key, so it belongs on the Votic server.

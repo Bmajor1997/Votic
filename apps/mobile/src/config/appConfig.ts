@@ -1,11 +1,10 @@
 /**
- * Build-time configuration for accounts, subscriptions, and legal links.
+ * Build-time configuration for subscriptions and legal links. (Firebase settings are read in auth/authBackend.ts.)
  *
- * Every value here is public: Firebase web config and RevenueCat public SDK keys are designed to ship
- * inside apps. Secrets (server keys, RevenueCat secret keys, Google/Apple private keys) never belong here.
- * Expo only inlines EXPO_PUBLIC_* variables that are read as literal `process.env.EXPO_PUBLIC_…` expressions.
+ * Every value here is public: RevenueCat public SDK keys are designed to ship inside apps. Secrets
+ * (RevenueCat secret keys, server keys) never belong here. Expo only inlines EXPO_PUBLIC_* variables that
+ * are read as literal `process.env.EXPO_PUBLIC_…` expressions.
  */
-export type FirebaseConfig = { apiKey: string; authDomain: string; projectId: string; appId: string };
 export type RevenueCatConfig = {
   iosApiKey: string | null;
   androidApiKey: string | null;
@@ -18,15 +17,6 @@ type Env = Record<string, string | undefined>;
 function clean(value: string | undefined) {
   const text = value?.trim();
   return text ? text : null;
-}
-
-/** Firebase needs all four values; a partial config is treated as "accounts not set up". */
-export function firebaseConfigFrom(env: Env): FirebaseConfig | null {
-  const apiKey = clean(env.EXPO_PUBLIC_FIREBASE_API_KEY);
-  const authDomain = clean(env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN);
-  const projectId = clean(env.EXPO_PUBLIC_FIREBASE_PROJECT_ID);
-  const appId = clean(env.EXPO_PUBLIC_FIREBASE_APP_ID);
-  return apiKey && authDomain && projectId && appId ? { apiKey, authDomain, projectId, appId } : null;
 }
 
 export function revenueCatConfigFrom(env: Env): RevenueCatConfig {
@@ -52,10 +42,6 @@ export function legalLinksFrom(env: Env): LegalLinks {
 /** The app's environment, read with literal expressions so Expo can inline them at build time. */
 export function appEnv(): Env {
   return {
-    EXPO_PUBLIC_FIREBASE_API_KEY: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    EXPO_PUBLIC_FIREBASE_PROJECT_ID: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    EXPO_PUBLIC_FIREBASE_APP_ID: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
     EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
     EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,
     EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID,

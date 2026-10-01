@@ -25,17 +25,19 @@ export type TargetId =
   | "tab.documents"
   | "tab.notes"
   | "home.continue"
+  | "home.start"
   | "home.recent"
+  | "home.week"
   | "home.documentOptions"
   | "documents.upload"
   | "documents.search"
   | "documents.newCollection"
-  | "documents.folderButton"
+  | "documents.documentOptions"
   | "documents.filters"
   | "notes.list"
   | "notes.empty"
   | "notes.search"
-  | "notes.kinds"
+  | "notes.ask"
   | "notes.select"
   | "reader.document"
   | "reader.progress"
@@ -48,7 +50,15 @@ export type TargetId =
   | "reader.askComposer";
 
 /** Facts about the screen when a flow starts, so steps can match what's actually on it. */
-export type FlowContext = { hasDocuments?: boolean; hasNotes?: boolean; hasContinue?: boolean };
+export type FlowContext = {
+  hasDocuments?: boolean;
+  hasNotes?: boolean;
+  hasContinue?: boolean;
+  /** Home shows its Getting Started checklist or its empty state. */
+  hasStart?: boolean;
+  /** The Reader was opened to listen (audio controls) rather than to read. */
+  listening?: boolean;
+};
 
 export type WalkthroughStep = {
   /** No target: the card sits near the bottom of the screen without a spotlight. */
@@ -116,14 +126,29 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "home.continue",
         when: (c) => Boolean(c.hasContinue),
         title: "Welcome to Home",
-        message: "Pick up right where you stopped. Tap here anytime to continue reading.",
+        message:
+          "Pick up where you left off. Listen plays from your spot, and Read opens it without audio controls.",
+      },
+      {
+        target: "home.start",
+        when: (c) => !c.hasContinue && Boolean(c.hasStart),
+        title: "Welcome to Home",
+        message: (c) =>
+          c.hasDocuments
+            ? "A few things to try are listed here. Each one checks off as you do it."
+            : "Start here. Add a document, and Votic opens it in the Reader.",
       },
       {
         target: "home.recent",
-        when: (c) => !c.hasContinue,
+        when: (c) => !c.hasContinue && !c.hasStart && Boolean(c.hasDocuments),
         title: "Welcome to Home",
-        message:
-          "Home is your starting point. Documents you've opened recently appear here, so you can jump back in.",
+        message: "Documents you've opened recently appear here, so you can jump back in.",
+      },
+      {
+        target: "home.week",
+        when: (c) => Boolean(c.hasDocuments),
+        title: "Your week",
+        message: "See how much you've read and listened this week. Tap it for your Statistics.",
       },
       {
         target: "tab.documents",
@@ -159,8 +184,15 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       },
       {
         target: "documents.search",
+        when: (c) => Boolean(c.hasDocuments),
         title: "Find documents",
         message: "Search finds any document by its title.",
+      },
+      {
+        target: "documents.filters",
+        when: (c) => Boolean(c.hasDocuments),
+        title: "Sort and filter",
+        message: "Sort your documents, or show just one collection at a time.",
       },
     ],
   },
@@ -181,18 +213,20 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         when: (c) => !c.hasNotes,
         title: "Notes start in the Reader",
         message:
-          "While reading, tap the bookmark to save a passage and add a note if you like. It appears here, grouped by document.",
+          "While reading, tap the bookmark to save a passage and add a note if you like. It appears here, linked to your document.",
       },
       {
         target: "notes.search",
+        when: (c) => Boolean(c.hasNotes),
         title: "Find a note",
         message:
           "Search by text, title, or tag. The filter button narrows to pinned notes, note types, or dates.",
       },
       {
-        target: "notes.kinds",
-        title: "Notes and saved passages",
-        message: "Saved passages are what you bookmark; notes are what you write. Switch between them here.",
+        target: "notes.ask",
+        when: (c) => Boolean(c.hasNotes),
+        title: "Ask about your notes",
+        message: "Tap Ask, choose the notes you want, and Votic answers from just those notes.",
       },
     ],
   },
@@ -220,6 +254,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       },
       {
         target: "reader.play",
+        when: (c) => Boolean(c.listening),
         title: "Listen",
         message:
           "Tap Play and Votic reads aloud from where you are, highlighting as it goes. Tap again to pause.",
@@ -228,13 +263,18 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "reader.more",
         interactive: true,
         title: "More controls",
-        message: "Tap More to skip between passages, change the speed, and adjust how the Reader looks.",
+        message: (c) =>
+          c.listening
+            ? "Tap More to skip between passages, change the speed, and adjust how the Reader looks."
+            : "Tap More for reading tools: text, color, listening, and bookmarks.",
       },
       {
         target: "reader.tools",
         title: "Make it yours",
-        message:
-          "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting.",
+        message: (c) =>
+          c.listening
+            ? "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting."
+            : "Text and Color adjust size, font, spacing, and theme. Listen switches to listening, and Bookmark saves this passage to Notes.",
       },
       {
         target: "reader.close",
@@ -251,7 +291,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "home.documentOptions",
         title: "Document options",
-        message: "Tap ••• to open a document, move it to a collection, or delete it.",
+        message: "Tap ••• to open, rename, move, or delete a document.",
       },
     ],
   },
@@ -263,17 +303,17 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "documents.newCollection",
         title: "Organize with collections",
-        message: "Collections work like folders. Tap New collection to create one.",
+        message: "Collections work like folders. Tap the folder button to create one.",
       },
       {
-        target: "documents.folderButton",
+        target: "documents.documentOptions",
         title: "Move a document",
-        message: "Tap the folder icon on any document to put it in a collection.",
+        message: "Tap ••• on any document, then Move to collection.",
       },
       {
         target: "documents.filters",
         title: "Browse by collection",
-        message: "Switch between All, Unfiled, and each of your collections here.",
+        message: "Open Sort and filter to show just one collection.",
       },
     ],
   },
@@ -297,7 +337,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "notes.select",
         title: "Ask about your notes",
-        message: "Choose notes, then tap Ask Votic to ask questions about just those notes.",
+        message: "Choose notes, then tap Ask Votic to ask about just those notes, or Share to send them.",
       },
     ],
   },

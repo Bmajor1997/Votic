@@ -36,17 +36,47 @@ export function trialEndDate(trial: Period, now: Date) {
   return end;
 }
 
-/** Short billing line under the button, e.g. "7 days free, then $4.99/month. Cancel anytime." */
-export function billingSummary(plan: SubscriptionPlan) {
+/** The store's localized price with its period, e.g. "$9.99/month". */
+export function priceLabel(plan: SubscriptionPlan) {
   const per = billingPeriodLabel(plan.billingPeriod);
-  const price = per ? `${plan.priceString}/${per}` : plan.priceString;
+  return per ? `${plan.priceString}/${per}` : plan.priceString;
+}
+
+/** Short billing line above the button, e.g. "2 weeks free, then $9.99/month. Cancel anytime." */
+export function billingSummary(plan: SubscriptionPlan) {
+  const price = priceLabel(plan);
   return plan.trial
     ? `${periodLength(plan.trial)} free, then ${price}. Cancel anytime.`
     : `${price}. Cancel anytime.`;
 }
 
+/**
+ * The purchase button. With a trial it says what tapping does today (start the trial; the line above
+ * gives the price after it). Without one, the price is on the button itself, so nobody pays by surprise.
+ */
 export function primaryActionLabel(plan: SubscriptionPlan | null) {
-  return plan?.trial ? "Start Free Trial" : "Subscribe";
+  if (!plan) return "Subscribe";
+  return plan.trial ? "Start free trial" : `Subscribe for ${priceLabel(plan)}`;
+}
+
+/** The paywall's heading, worded from the store's trial length: "Try Votic Premium free for 2 weeks". */
+export function offerTitle(plan: SubscriptionPlan | null) {
+  return plan?.trial ? `Try Votic Premium free for ${periodLength(plan.trial)}` : "Get Votic Premium";
+}
+
+/** "Today" and the day billing starts, for the trial timeline. Only shown when the plan has a trial. */
+export function trialTimeline(
+  plan: SubscriptionPlan,
+  { now, formatDate }: { now: Date; formatDate: (date: Date) => string },
+) {
+  if (!plan.trial) return [];
+  return [
+    { when: "Today", what: "Your free trial starts. Get everything in Votic Premium." },
+    {
+      when: formatDate(trialEndDate(plan.trial, now)),
+      what: `Your subscription starts at ${priceLabel(plan)}. Cancel at least a day before and you won't be charged.`,
+    },
+  ];
 }
 
 /**

@@ -5,28 +5,21 @@ import Notes from "../../app/(tabs)/notes";
 import Settings from "../../app/(tabs)/settings";
 import { AskVotic } from "../../app/assistant";
 import { askVotic } from "../../src/api/voticApi";
-import {
-  EMPTY_ANSWERS,
-  newOnboardingState,
-  PersonalizationAnswers,
-} from "../../src/onboarding/onboardingModel";
-import { loadOnboardingState, saveOnboardingState } from "../../src/onboarding/onboardingStorage";
+import { EMPTY_ANSWERS, PersonalizationAnswers } from "../../src/onboarding/onboardingModel";
+import { loadAccountSetup } from "../../src/onboarding/onboardingStorage";
+import { fakeAuth } from "../mocks/authBackend";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
 const askVoticMock = jest.mocked(askVotic);
 
-// renderWithProviders signs in this account by default.
-const UID = "user-1";
+// The account the fake sign-in starts with.
+const UID = fakeAuth.user!.uid;
 const PURPOSE_KEY = "votic.mobile.purpose.v1";
 
-async function personalize(change: Partial<PersonalizationAnswers>) {
-  await saveOnboardingState(UID, {
-    ...newOnboardingState(),
-    answers: { ...EMPTY_ANSWERS, ...change },
-    personalizationCompletedAt: 1,
-    completedAt: 1,
-  });
+/** Setup finished with these answers, for renderWithProviders. */
+function answered(change: Partial<PersonalizationAnswers>) {
+  return { accountSetup: { answers: { ...EMPTY_ANSWERS, ...change } } };
 }
 /** Every suggestion Ask Votic can show, to read the chips on screen in order. */
 const ALL_SUGGESTIONS = [
@@ -59,8 +52,7 @@ async function settle() {
 
 describe("Ask Votic suggestions", () => {
   it("come from the person's personalization answers", async () => {
-    await personalize({ goals: ["find-quickly", "understand-reading"] });
-    await renderWithProviders(<AskVotic />);
+    await renderWithProviders(<AskVotic />, answered({ goals: ["find-quickly", "understand-reading"] }));
     expect(suggestions()).toEqual([
       "Help me understand this passage",
       "Find information",
@@ -79,8 +71,7 @@ describe("Ask Votic suggestions", () => {
 
   it("prefer personalization answers over a legacy purpose", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "work");
-    await personalize({ readingHelp: ["simpler-language"] });
-    await renderWithProviders(<AskVotic />);
+    await renderWithProviders(<AskVotic />, answered({ readingHelp: ["simpler-language"] }));
     expect(suggestions()[0]).toBe("Explain this section simply");
     expect(suggestions()).not.toContain("Find action items");
   });
@@ -97,10 +88,19 @@ describe("Ask Votic suggestions", () => {
     ]);
   });
 
-  it("send the chosen explanation style with each question", async () => {
+  it("send the explanation style chosen in personalization with each question", async () => {
     askVoticMock.mockResolvedValue({ answer: "Short.", mode: "ai", sectionIndex: null, sectionTitle: null });
-    await personalize({ explanationStyle: "quick", goals: ["summarize"] });
-    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await renderWithProviders(<Settings />, { reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Personalization" }));
+    for (let step = 0; step < 2; step += 1)
+      await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await fireEvent.press(screen.getByLabelText("Quickly. Just give me the answer."));
+    for (let step = 2; step < 4; step += 1)
+      await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Save" }));
+    await settle();
+    screen.unmount();
+    await renderWithProviders(<AskVotic />, { reduceMotion: true, accountSetup: "none" });
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "What is ATP?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, [], "quick");
@@ -115,15 +115,14 @@ describe("Notes notebook actions", () => {
       ],
     }),
   ];
-  async function openNotebook() {
-    await renderWithProviders(<Notes />, { documents });
+  async function openNotebook(setup: Parameters<typeof renderWithProviders>[1] = {}) {
+    await renderWithProviders(<Notes />, { documents, ...setup });
     await fireEvent.press(screen.getByRole("button", { name: "Open Biology notebook" }));
   }
 
   it("follow the person's personalization answers", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "learning");
-    await personalize({ goals: ["explain-difficult"] });
-    await openNotebook();
+    await openNotebook(answered({ goals: ["explain-difficult"] }));
     // The answers replace the School purpose's "Quiz me".
     expect(screen.getByRole("button", { name: "Key points" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Explain key ideas" })).toBeTruthy();
@@ -143,17 +142,16 @@ describe("Notes notebook actions", () => {
 
 describe("Settings", () => {
   it("edits personalization, saves it, and updates Ask Votic's suggestions", async () => {
-    await personalize({ goals: ["summarize"] });
-    await renderWithProviders(<Settings />);
+    await renderWithProviders(<Settings />, answered({ goals: ["summarize"] }));
     await fireEvent.press(screen.getByRole("button", { name: "Personalization" }));
     await fireEvent.press(screen.getByLabelText("Find important information quickly"));
     for (let step = 0; step < 4; step += 1)
-      await fireEvent.press(screen.getByRole("button", { name: /Continue|Skip for now/ }));
+      await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
-    expect((await loadOnboardingState(UID))?.answers.goals).toEqual(["summarize", "find-quickly"]);
+    expect((await loadAccountSetup(UID))?.answers.goals).toEqual(["summarize", "find-quickly"]);
     screen.unmount();
-    await renderWithProviders(<AskVotic />);
+    await renderWithProviders(<AskVotic />, { accountSetup: "none" });
     expect(suggestions().slice(0, 2)).toEqual(["Summarize this document", "Find information"]);
   });
 

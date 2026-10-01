@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
@@ -23,6 +23,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
+import { useActivity } from "../src/activity/ActivityProvider";
+import { askEventFor } from "../src/activity/askCategories";
+import { useReaderActivity } from "../src/activity/useReaderActivity";
 import { askVotic } from "../src/api/voticApi";
 import {
   answeredFromContext,
@@ -42,6 +45,8 @@ import { documentTimeSpent } from "../src/documents/insights";
 import { splitPassages } from "../src/documents/passages";
 import { createThrottledSaver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
+import { useOnboarding } from "../src/onboarding/OnboardingProvider";
+import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { readerSourceTransform } from "../src/navigation/readerTransform";
 import { cleanTags } from "../src/notes/noteMetadata";
 import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
@@ -52,6 +57,7 @@ import { PassageDraft, SavePassageSheet } from "../src/reader/components/SavePas
 import { sheetStyles } from "../src/reader/components/sheetStyles";
 import {
   clockLabel,
+  locationAtScroll,
   locationForProgress,
   passageTokens,
   progressForLocation,
@@ -62,14 +68,15 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
-import { explanationStyleArgs } from "../src/personalization/suggestions";
-import { usePersonalization } from "../src/personalization/usePersonalization";
 import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
 import {
   useWalkthrough,
   useWalkthroughTarget,
   useWalkthroughTrigger,
 } from "../src/walkthrough/WalkthroughProvider";
+
+/** Read: the document without audio controls. Listen: the document with narration controls. */
+type ReaderMode = "read" | "listen";
 
 const PROGRESS_SYNC_INTERVAL_MS = 2000;
 // Ask Votic replaces the Reader dock with a compact composer and closes along the same curve.
@@ -103,6 +110,8 @@ export default function Reader() {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const transition = useDocumentTransition();
+  const onboarding = useOnboarding();
+  const { explanationStyle } = useVoticPurpose();
   const window = useWindowDimensions();
   const {
     activeDocument,
@@ -111,7 +120,6 @@ export default function Reader() {
     savePassage,
     removePassage,
     updateProgress,
-    recordActivity,
     completeDocument,
     updatePlaybackRate,
   } = useDocumentLibrary();
@@ -154,7 +162,6 @@ export default function Reader() {
   const readerPrepared = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
   const walkthrough = useWalkthrough();
-  const explanationStyle = explanationStyleArgs(usePersonalization().answers);
   const documentTarget = useWalkthroughTarget("reader.document");
   const progressTarget = useWalkthroughTarget("reader.progress");
   const askTarget = useWalkthroughTarget("reader.ask");
@@ -166,6 +173,19 @@ export default function Reader() {
   const askComposerTarget = useWalkthroughTarget("reader.askComposer");
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
+  const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
+  // How someone opened the document decides the controls: Read has no audio controls, Listen does.
+  // Opening without a mode (from Documents, Notes, or Statistics) reads; only Read → Listen switches it.
+  const [mode, setMode] = useState<ReaderMode>(
+    params.mode === "listen" || params.autoplay === "1" ? "listen" : "read",
+  );
+  const listening = mode === "listen";
+  const contentHeight = useRef(0);
+  // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
+  const scrollToPosition = useRef(false);
+  // Reading counts only while someone is engaged with the page; listening counts while narration plays.
+  const engaged = useReaderActivity(activeId, playing);
+  const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
   // The empty state is dock-sized. Only a real conversation gets a bounded, scrollable tray.
@@ -201,10 +221,15 @@ export default function Reader() {
     else finishAskClose();
   });
   const onAskClosed = useEffectEvent(() => finishAskClose());
-  const onPositionChange = useEffectEvent(() => followActiveWord());
-  const recordElapsed = useEffectEvent((documentId: string, seconds: number, listening: boolean) =>
-    recordActivity(documentId, seconds, listening ? seconds : 0),
-  );
+  // Listen mode keeps the spoken word in view. In Read mode the reader's own scrolling sets the
+  // position, so the page only moves for an explicit jump such as a seek.
+  const onPositionChange = useEffectEvent(() => {
+    if (listening) followActiveWord();
+    else if (scrollToPosition.current) {
+      scrollToPosition.current = false;
+      followActiveWord(true);
+    }
+  });
 
   useEffect(() => {
     void Speech.getAvailableVoicesAsync()
@@ -235,23 +260,14 @@ export default function Reader() {
   useEffect(() => {
     onPositionChange();
   }, [index, wordIndex, accessibility.reduceMotion]);
-  // Restarts when playback starts or stops, so time before the change is counted with the right mode.
+  // "Resume listening" from Home opens the Reader and starts narration once it is ready.
+  const autoplayed = useRef(false);
+  const onReadyToAutoplay = useEffectEvent(() => speak());
   useEffect(() => {
-    if (!activeId) return;
-    let lastSavedAt = Date.now();
-    function saveElapsed() {
-      if (!activeId) return;
-      const seconds = Math.floor((Date.now() - lastSavedAt) / 1000);
-      if (seconds < 1) return;
-      lastSavedAt += seconds * 1000;
-      recordElapsed(activeId, seconds, playing);
-    }
-    const interval = setInterval(saveElapsed, 10000);
-    return () => {
-      clearInterval(interval);
-      saveElapsed();
-    };
-  }, [activeId, playing]);
+    if (!readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
+    autoplayed.current = true;
+    onReadyToAutoplay();
+  }, [readerReady, params.autoplay, passages.length]);
   useEffect(() => {
     askGeneration.current += 1;
     const frame = requestAnimationFrame(() => {
@@ -301,6 +317,7 @@ export default function Reader() {
 
   function openAskVotic() {
     if (askPhase === "opening" || askPhase === "open") return;
+    onboarding.markTipSeen("reader-ask");
     void stop();
     if (accessibility.reduceMotion) {
       askProgress.stopAnimation();
@@ -332,13 +349,15 @@ export default function Reader() {
     const generation = askGeneration.current;
     const context = resolveAskVoticContext(documents, activeDocument, {});
     const history = askMessages;
+    recordAsk(askEventFor(clean, { newConversation: history.length === 0 }));
     setAskQuestion("");
     setAskError("");
     setAskMessages((current) => [...current, { role: "user", text: clean }]);
     setAskSending(true);
     try {
       const request = prepareAskRequest(context, clean, history);
-      const answer = await askVotic(clean, request.document, request.history, ...explanationStyle);
+      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
+      onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;
       const grounded = answeredFromContext(request, answer);
       setAskMessages((current) => [
@@ -395,12 +414,7 @@ export default function Reader() {
     setAskError("");
     try {
       const request = prepareAskRequest(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
-      const answer = await askVotic(
-        CONVERSATION_SUMMARY_PROMPT,
-        request.document,
-        request.history,
-        ...explanationStyle,
-      );
+      const answer = await askVotic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
       if (!answeredFromContext(request, answer)) {
@@ -520,7 +534,24 @@ export default function Reader() {
     if (sentenceIndex === index) prepareReader();
   }
   function trackScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    engaged();
     scrollOffset.current = event.nativeEvent.contentOffset.y;
+    if (event.nativeEvent.contentSize?.height) contentHeight.current = event.nativeEvent.contentSize.height;
+    // Only the reader's own scrolling moves the reading position, never the Reader's programmatic scrolls.
+    if (manuallyScrolling.current) syncReadingPosition();
+  }
+  /** Read mode: the document position follows the reading line as the person scrolls. */
+  function syncReadingPosition() {
+    if (listening || completedRef.current) return;
+    const location = locationAtScroll(passages, sentenceLayout.current, {
+      offset: scrollOffset.current,
+      viewport: viewportHeight.current,
+      contentHeight: contentHeight.current,
+    });
+    if (!location) return;
+    // React skips the render when the passage and word have not changed, so small scrolls stay quiet.
+    setIndex(location.sentenceIndex);
+    setWordIndex(location.wordIndex);
   }
   async function stop() {
     void progressSync.flush();
@@ -558,6 +589,7 @@ export default function Reader() {
     setIndex(at);
     setWordIndex(segment.startWord);
     setPlaying(true);
+    onboarding.markTipSeen("reader-listen");
     Speech.speak(segment.text, {
       rate,
       voice: accessibility.voiceIdentifier || undefined,
@@ -590,6 +622,7 @@ export default function Reader() {
     setIndex((current) => Math.max(0, Math.min(passages.length - 1, current + delta)));
   }
   function beginSeek() {
+    engaged();
     seekWasPlaying.current = playing;
     speechSession.current += 1;
     setPlaying(false);
@@ -602,6 +635,7 @@ export default function Reader() {
     const location = locationForProgress(passages, value);
     speechSession.current += 1;
     await Speech.stop();
+    scrollToPosition.current = true;
     setIndex(location.sentenceIndex);
     setWordIndex(location.wordIndex);
     completedRef.current = false;
@@ -639,16 +673,17 @@ export default function Reader() {
   const wordHighlight = accessibility.highlightMode === "word" || accessibility.highlightMode === "both";
   const passageId = "passage-" + index;
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
+  function openSavePassage() {
+    onboarding.markTipSeen("reader-bookmark");
+    void stop();
+    setSaveOpen(true);
+  }
   // The Reader walkthrough waits until the document has finished opening.
-  useWalkthroughTrigger([{ id: "reader", when: readerReady && !transition.transitioning }]);
+  useWalkthroughTrigger([{ id: "reader", when: readerReady && !transition.transitioning }], { listening });
   const { request: requestWalkthrough } = walkthrough;
   useEffect(() => {
     if (askPhase === "open") requestWalkthrough("reader.ask");
   }, [askPhase, requestWalkthrough]);
-  function openSavePassage() {
-    void stop();
-    setSaveOpen(true);
-  }
   function confirmSavePassage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
@@ -732,7 +767,7 @@ export default function Reader() {
           },
         ]}
       >
-        <Animated.View style={[s.safe, { opacity: readerOpacity }]}>
+        <Animated.View onTouchStart={engaged} style={[s.safe, { opacity: readerOpacity }]}>
           <SafeAreaView edges={["top", "bottom", "left", "right"]} style={s.safe}>
             <KeyboardAvoidingView style={s.content} behavior={Platform.OS === "ios" ? "padding" : "height"}>
               <View style={s.topBar}>
@@ -801,6 +836,9 @@ export default function Reader() {
                   prepareReader();
                 }}
                 onScroll={trackScroll}
+                onContentSizeChange={(_width, height) => {
+                  contentHeight.current = height;
+                }}
                 onScrollBeginDrag={() => {
                   manuallyScrolling.current = true;
                 }}
@@ -808,16 +846,18 @@ export default function Reader() {
                   manuallyScrolling.current = true;
                 }}
                 onScrollEndDrag={() => {
+                  syncReadingPosition();
                   manuallyScrolling.current = false;
                 }}
                 onMomentumScrollEnd={() => {
+                  syncReadingPosition();
                   manuallyScrolling.current = false;
                 }}
               >
                 <View testID="reader-document" style={s.passages}>
                   {passages.map((passage, passageIndex) => {
                     const current = passageIndex === index;
-                    const tokens = current ? passageTokens(passage) : [];
+                    const tokens = current && listening ? passageTokens(passage) : [];
                     return (
                       <Text
                         key={passageIndex}
@@ -826,10 +866,13 @@ export default function Reader() {
                           s.sentence,
                           readingType,
                           { color: theme.text },
-                          current && sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
+                          // Highlighting follows narration, so Read mode keeps the page plain.
+                          listening &&
+                            current &&
+                            sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
                         ]}
                       >
-                        {current
+                        {current && listening
                           ? tokens.map((token, tokenIndex) => {
                               if (token.word === null) return token.text;
                               const active = token.word === wordIndex;
@@ -884,7 +927,7 @@ export default function Reader() {
                         Ask Votic
                       </Text>
                     </Pressable>
-                    {!listenExpanded ? (
+                    {listening && !listenExpanded ? (
                       <Pressable
                         ref={playTarget}
                         accessibilityRole="button"
@@ -900,11 +943,17 @@ export default function Reader() {
                       </Pressable>
                     ) : null}
                     <Pressable
-                      ref={moreTarget}
                       accessibilityRole="button"
                       accessibilityLabel={
-                        listenExpanded ? "Collapse listening controls" : "Expand listening controls"
+                        listening
+                          ? listenExpanded
+                            ? "Collapse listening controls"
+                            : "Expand listening controls"
+                          : listenExpanded
+                            ? "Hide reading tools"
+                            : "Show reading tools"
                       }
+                      ref={moreTarget}
                       accessibilityState={{ expanded: listenExpanded }}
                       onPress={() => {
                         if (!listenExpanded) walkthrough.pressed("reader.more");
@@ -922,7 +971,7 @@ export default function Reader() {
                       />
                     </Pressable>
                   </View>
-                  {listenExpanded ? (
+                  {listening && listenExpanded ? (
                     <View style={[s.controls, s.compactControls]}>
                       <Pressable
                         disabled={index === 0}
@@ -970,7 +1019,7 @@ export default function Reader() {
                       </Pressable>
                     </View>
                   ) : null}
-                  {listenExpanded ? (
+                  {listening && listenExpanded ? (
                     <View style={s.playbackMeta}>
                       <Text maxFontSizeMultiplier={1.15} style={[s.timeText, { color: theme.mutedText }]}>
                         {clockLabel(elapsedSeconds)} / {clockLabel(totalSeconds)}
@@ -988,12 +1037,7 @@ export default function Reader() {
                       </Pressable>
                     </View>
                   ) : null}
-                  <SeekableProgress
-                    compact
-                    value={progress}
-                    onSeekStart={beginSeek}
-                    onSeek={(value) => void seekTo(value)}
-                  />
+                  {/* Progress lives once, under the document title. */}
                   {listenExpanded ? (
                     <View
                       ref={toolsTarget}
@@ -1012,24 +1056,41 @@ export default function Reader() {
                         active={sheet === "appearance"}
                         onPress={() => setSheet("appearance")}
                       />
-                      <ToolButton
-                        icon="headset-outline"
-                        label="Listen"
-                        active={sheet === "listen" || playing}
-                        onPress={() => setSheet("listen")}
-                      />
+                      {listening ? (
+                        <ToolButton
+                          icon="headset-outline"
+                          label="Listen"
+                          active={sheet === "listen" || playing}
+                          onPress={() => setSheet("listen")}
+                        />
+                      ) : (
+                        // Read mode has no audio controls until the person asks to listen.
+                        <ToolButton
+                          icon="headset-outline"
+                          label="Listen"
+                          accessibilityLabel="Switch to listening"
+                          active={false}
+                          onPress={() => {
+                            setMode("listen");
+                            setListenExpanded(false);
+                          }}
+                        />
+                      )}
                       <ToolButton
                         icon={savedPassage ? "bookmark" : "bookmark-outline"}
                         label="Bookmark"
                         active={saveOpen}
                         onPress={openSavePassage}
                       />
-                      <ToolButton
-                        icon="ellipsis-horizontal"
-                        label="More"
-                        active={sheet === "focus"}
-                        onPress={() => setSheet("focus")}
-                      />
+                      {listening ? (
+                        // Reading focus only adjusts the spoken-text highlight, so it belongs to Listen mode.
+                        <ToolButton
+                          icon="ellipsis-horizontal"
+                          label="More"
+                          active={sheet === "focus"}
+                          onPress={() => setSheet("focus")}
+                        />
+                      ) : null}
                     </View>
                   ) : null}
                 </View>

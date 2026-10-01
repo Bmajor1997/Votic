@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { useEffect, useState } from "react";
 import { AccessibilityInfo } from "react-native";
@@ -9,7 +9,7 @@ import Home from "../../app/(tabs)/index";
 import Notes from "../../app/(tabs)/notes";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { DEVICE_HISTORY_KEY } from "../../src/onboarding/onboardingStorage";
+import { DEVICE_HISTORY_KEY } from "../../src/onboarding/OnboardingProvider";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
 import { FlowId } from "../../src/walkthrough/walkthroughFlows";
 import { WalkthroughOverlay } from "../../src/walkthrough/WalkthroughOverlay";
@@ -20,7 +20,7 @@ import {
   useWalkthrough,
 } from "../../src/walkthrough/WalkthroughProvider";
 import { WALKTHROUGH_KEY } from "../../src/walkthrough/walkthroughState";
-import { router } from "../mocks/expoRouter";
+import { router, searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn(async () => ({ canceled: true })) }));
@@ -86,6 +86,15 @@ async function saved(): Promise<Partial<Record<FlowId, { status: string }>>> {
   return JSON.parse((await AsyncStorage.getItem(WALKTHROUGH_KEY)) || "{}").flows || {};
 }
 const card = () => screen.queryByTestId("walkthrough-card");
+/** Text inside the walkthrough card (the screen itself may say the same thing). */
+const inCard = (text: string) => within(screen.getByTestId("walkthrough-card")).getByText(text);
+const WITH_NOTES = [
+  testDocument("d1", "Biology", {
+    savedPassages: [
+      { id: "passage-0", sentenceIndex: 0, text: "Cells.", note: "Mitosis", createdAt: 1, updatedAt: 1 },
+    ],
+  }),
+];
 
 /** A new person who chose "Show me around" on the welcome card. */
 const AFTER_INTRO = { version: 1, flows: { intro: { status: "completed", at: 1 } } };
@@ -138,7 +147,7 @@ describe("Let's show you around", () => {
     await renderTab(<Documents />);
     expect(card()).toBeNull();
     screen.unmount();
-    await renderTab(<Notes />);
+    await renderTab(<Notes />, { documents: WITH_NOTES });
     await press("Select notes");
     await waitForWalkthrough();
     expect(card()).toBeNull();
@@ -159,7 +168,7 @@ describe("Let's show you around", () => {
     await renderTab(<SettingsThenDocuments />);
     await press("Replay the Documents walkthrough");
     await waitForWalkthrough();
-    expect(screen.getByText("Add your first document")).toBeTruthy();
+    expect(inCard("Add your first document")).toBeTruthy();
   });
 
   it("isn't shown to people whose walkthrough progress was saved before it existed", async () => {
@@ -187,11 +196,7 @@ describe("Home walkthrough", () => {
   it("orients a new person on their first visit, then stays finished", async () => {
     await renderTab(<Home />);
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
-    expect(
-      screen.getByText(
-        "Home is your starting point. Documents you've opened recently appear here, so you can jump back in.",
-      ),
-    ).toBeTruthy();
+    expect(screen.getByText("Start here. Add a document, and Votic opens it in the Reader.")).toBeTruthy();
     expect(screen.getByLabelText("Step 1 of 3")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Your documents")).toBeTruthy();
@@ -224,8 +229,13 @@ describe("Home walkthrough", () => {
       documents: [testDocument("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 })],
     });
     expect(
-      screen.getByText("Pick up right where you stopped. Tap here anytime to continue reading."),
+      screen.getByText(
+        "Pick up where you left off. Listen plays from your spot, and Read opens it without audio controls.",
+      ),
     ).toBeTruthy();
+    await press("Next");
+    // Home's weekly summary leads to Statistics.
+    expect(screen.getByText("Your week")).toBeTruthy();
   });
 
   it("skipping Home leaves Documents, Notes, and the Reader to be taught later", async () => {
@@ -238,7 +248,7 @@ describe("Home walkthrough", () => {
     });
     screen.unmount();
     await renderTab(<Documents />);
-    expect(screen.getByText("Add your first document")).toBeTruthy();
+    expect(inCard("Add your first document")).toBeTruthy();
   });
 });
 
@@ -248,18 +258,28 @@ describe("Documents walkthrough", () => {
     expect(screen.queryByText("Add your first document")).toBeNull();
     screen.unmount();
     await renderTab(<Documents />);
-    expect(screen.getByText("Add your first document")).toBeTruthy();
+    expect(inCard("Add your first document")).toBeTruthy();
     expect(measured).toContain("Upload document");
     // Upload can be used for real through the spotlight.
     expect(
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
     ).toBe("none");
+    await press("Got it");
+    expect((await saved()).documents?.status).toBe("completed");
+  });
+
+  it("shows search and sorting once there are documents", async () => {
+    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    expect(screen.getByText("Add documents")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Find documents")).toBeTruthy();
     // Other steps only explain; the control can't be pressed by accident.
     expect(
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
     ).toBe("auto");
+    await press("Next");
+    expect(screen.getByText("Sort and filter")).toBeTruthy();
+    expect(measured).toContain("Sort and filter");
     await press("Got it");
     expect((await saved()).documents?.status).toBe("completed");
   });
@@ -273,12 +293,12 @@ describe("Documents walkthrough", () => {
   });
 
   it("shows again from the start if the person leaves before finishing", async () => {
-    await renderTab(<Documents />);
+    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
     await press("Next");
     screen.unmount();
     expect((await saved()).documents).toBeUndefined();
-    await renderTab(<Documents />);
-    expect(screen.getByText("Add your first document")).toBeTruthy();
+    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    expect(screen.getByText("Add documents")).toBeTruthy();
   });
 
   it("teaches collections on a later visit, once there are documents", async () => {
@@ -288,11 +308,12 @@ describe("Documents walkthrough", () => {
     );
     await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
     expect(screen.getByText("Organize with collections")).toBeTruthy();
-    expect(measured).toContain("Create collection");
+    expect(measured).toContain("New collection");
     await press("Next");
     expect(screen.getByText("Move a document")).toBeTruthy();
-    expect(measured).toContain("Choose a collection for Biology");
+    expect(measured).toContain("More options for Biology");
     await press("Next");
+    expect(screen.getByText("Browse by collection")).toBeTruthy();
     await press("Got it");
     expect((await saved())["documents.collections"]?.status).toBe("completed");
   });
@@ -305,10 +326,6 @@ describe("Notes walkthrough", () => {
     screen.unmount();
     await renderTab(<Notes />);
     expect(screen.getByText("Notes start in the Reader")).toBeTruthy();
-    await press("Next");
-    expect(screen.getByText("Find a note")).toBeTruthy();
-    await press("Next");
-    expect(screen.getByText("Notes and saved passages")).toBeTruthy();
     await press("Got it");
     expect(Object.keys(await saved()).sort()).toEqual(["intro", "notes"]);
   });
@@ -323,6 +340,11 @@ describe("Notes walkthrough", () => {
     ];
     await renderTab(<Notes />, { documents });
     expect(screen.getByText("Notes stay with their source")).toBeTruthy();
+    await press("Next");
+    expect(screen.getByText("Find a note")).toBeTruthy();
+    await press("Next");
+    expect(screen.getByText("Ask about your notes")).toBeTruthy();
+    expect(measured).toContain("Ask Votic about notes");
   });
 
   it("explains pinning the first time a note is pinned", async () => {
@@ -352,10 +374,15 @@ describe("Notes walkthrough", () => {
       WALKTHROUGH_KEY,
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
     );
-    await renderTab(<Notes />);
+    await renderTab(<Notes />, { documents: WITH_NOTES });
     await press("Select notes");
     await waitForWalkthrough();
     expect(screen.getByText("Ask about your notes")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Choose notes, then tap Ask Votic to ask about just those notes, or Share to send them.",
+      ),
+    ).toBeTruthy();
     await press("Got it");
     await press("Cancel note selection");
     await press("Select notes");
@@ -369,7 +396,12 @@ function OpenedReader() {
   const { activeDocument } = useDocumentLibrary();
   return activeDocument ? <Reader /> : null;
 }
-async function renderReader(flows: Partial<Record<FlowId, { status: string; at: number }>> = {}) {
+async function renderReader(
+  flows: Partial<Record<FlowId, { status: string; at: number }>> = {},
+  mode: "read" | "listen" = "listen",
+) {
+  // How the document was opened decides the Reader's controls: Listen has audio controls, Read doesn't.
+  searchParams.current = { mode };
   await AsyncStorage.setItem(WALKTHROUGH_KEY, JSON.stringify({ version: 1, flows }));
   await renderWithProviders(<OpenedReader />, {
     walkthrough: "fresh",
@@ -426,6 +458,27 @@ describe("Reader walkthrough", () => {
     expect(measured).toContain("Close reader");
     await press("Got it");
     expect((await saved()).reader?.status).toBe("completed");
+  });
+
+  it("matches Read mode, which has no Play button until listening is chosen", async () => {
+    await renderReader({}, "read");
+    const titles: string[] = [screen.getByRole("header").props.children];
+    for (let step = 0; step < 3; step += 1) {
+      await press("Next");
+      titles.push(screen.getAllByRole("header").at(-1)!.props.children);
+    }
+    expect(titles).toEqual(["Your document", "Your progress", "Ask Votic", "More controls"]);
+    expect(
+      screen.getByText("Tap More for reading tools: text, color, listening, and bookmarks."),
+    ).toBeTruthy();
+    await press("Show reading tools");
+    await act(async () => jest.advanceTimersByTime(200));
+    await waitForWalkthrough();
+    expect(
+      screen.getByText(
+        "Text and Color adjust size, font, spacing, and theme. Listen switches to listening, and Bookmark saves this passage to Notes.",
+      ),
+    ).toBeTruthy();
   });
 
   it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
@@ -507,14 +560,15 @@ describe("Replay and accessibility", () => {
 
   it("keeps controls reachable for screen reader users", async () => {
     jest.spyOn(AccessibilityInfo, "isScreenReaderEnabled").mockResolvedValue(true);
-    await renderTab(<Documents />);
-    expect(screen.getByText("Add your first document")).toBeTruthy();
+    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    expect(screen.getByText("Add documents")).toBeTruthy();
     expect(screen.queryAllByTestId("walkthrough-dim", { includeHiddenElements: true })).toHaveLength(0);
     await press("Next");
     expect(
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
     ).toBe("none");
-    expect(screen.getByRole("button", { name: "Got it" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Next" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Skip walkthrough" })).toBeTruthy();
   });
 });
 

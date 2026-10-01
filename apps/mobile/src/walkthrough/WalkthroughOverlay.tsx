@@ -8,6 +8,7 @@ import {
   Text,
   View,
   findNodeHandle,
+  Platform,
   useWindowDimensions,
 } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
@@ -71,7 +72,8 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     if (!step || !flow) return;
     const copy = copyFor(step, flow.context);
     AccessibilityInfo.announceForAccessibility(`${copy.title}. ${copy.message}`);
-    const node = findNodeHandle(titleRef.current);
+    // Moves screen reader focus to the card. The web has no native view handles (and no setAccessibilityFocus).
+    const node = Platform.OS === "web" ? null : findNodeHandle(titleRef.current);
     if (node) AccessibilityInfo.setAccessibilityFocus(node);
     if (reduceMotion) return entrance.setValue(1);
     entrance.setValue(0);

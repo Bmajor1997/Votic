@@ -15,9 +15,9 @@ export type NotesView = {
 const TYPE_FILTERS: NotesFilter[] = ["key-point", "question", "definition"];
 const DATE_LIMITS_MS = { today: 86_400_000, week: 604_800_000, month: 2_592_000_000 } as const;
 
-/** Filters shown in the filter sheet (and as removable chips), as opposed to the All/Notes/Saved row. */
+/** Every filter except the default (all notes) lives in the filter sheet and shows as a removable chip. */
 export function isAdvancedFilter(filter: NotesFilter) {
-  return filter === "pinned" || TYPE_FILTERS.includes(filter);
+  return filter !== "all";
 }
 
 export function advancedFilterCount(view: Pick<NotesView, "filter" | "dateFilter" | "tagFilter">) {

@@ -132,8 +132,8 @@ export function ReaderSettingsSheet({
                     onChange={(value: AppearanceMode) => setAppearanceMode(value)}
                   />
                   <Choice
-                    label="Device"
-                    value="system"
+                    label="Sepia"
+                    value="sepia"
                     current={appearanceMode}
                     onChange={(value: AppearanceMode) => setAppearanceMode(value)}
                   />

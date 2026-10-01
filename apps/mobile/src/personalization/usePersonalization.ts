@@ -1,12 +1,12 @@
-import { useAccount } from "../onboarding/AccountProvider";
+import { useAccountSetup } from "../onboarding/AccountSetupProvider";
 import { useVoticPurpose } from "./PurposeProvider";
 
 /**
- * The personalization answers of the signed-in account, plus the legacy purpose from before accounts.
+ * The personalization answers of the signed-in account, plus the purpose chosen in earlier versions.
  * Suggestions use the answers first and fall back to the purpose (see suggestions.ts).
  */
 export function usePersonalization() {
-  const { onboarding } = useAccount();
+  const { setup } = useAccountSetup();
   const { purpose } = useVoticPurpose();
-  return { answers: onboarding?.answers ?? null, purpose };
+  return { answers: setup?.answers ?? null, purpose };
 }

@@ -22,7 +22,10 @@ type Library = {
   collections: string[];
   activeDocument: VoticDocument | null;
   persistenceError: string | null;
-  addTextDocument: (sourceName: string, text: string) => VoticDocument;
+  /** False until the saved library has been read (or failed to read), so screens can show loading. */
+  loaded: boolean;
+  renameDocument: (id: string, title: string) => void;
+  addTextDocument: (sourceName: string, text: string, options?: { playbackRate?: number }) => VoticDocument;
   openDocument: (id: string, sentenceIndex?: number) => void;
   addCollection: (name: string) => void;
   setDocumentCollection: (id: string, collection?: string) => void;
@@ -54,6 +57,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const [collections, setCollections] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [store] = useState(createDocumentStore);
   // A save error clears once a later save succeeds; other notices (such as unreadable documents) stay.
@@ -81,6 +85,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         const unavailable = store.unavailableDocuments();
         setPersistenceError(unavailable.length ? unavailableMessage(unavailable) : null);
         setHydrated(true);
+        setLoaded(true);
       })
       .catch(() => {
         if (!mounted) return;
@@ -88,6 +93,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
           "Votic could not read its saved library. Your stored data has not been overwritten. Restart Votic and try again before making library changes.",
         );
         setHydrated(false);
+        setLoaded(true);
       });
     return () => {
       mounted = false;
@@ -119,7 +125,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     [documents, activeId],
   );
 
-  function addTextDocument(sourceName: string, text: string) {
+  function addTextDocument(sourceName: string, text: string, options: { playbackRate?: number } = {}) {
     const now = Date.now();
     const document: VoticDocument = {
       id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
@@ -132,7 +138,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       progress: 0,
       sentenceIndex: 0,
       wordIndex: 0,
-      playbackRate: 1,
+      playbackRate: options.playbackRate ?? 1,
       activity: {},
       savedPassages: [],
     };
@@ -173,6 +179,17 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         document.id === id
           ? { ...document, collection: collection || undefined, updatedAt: Date.now() }
           : document,
+      ),
+    );
+  }
+
+  /** Changes the title Votic shows. The original filename stays in sourceName. */
+  function renameDocument(id: string, title: string) {
+    const clean = title.trim().slice(0, 200);
+    if (!clean) return;
+    setDocuments((current) =>
+      current.map((document) =>
+        document.id === id ? { ...document, title: clean, updatedAt: Date.now() } : document,
       ),
     );
   }
@@ -295,6 +312,8 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         collections,
         activeDocument,
         persistenceError,
+        loaded,
+        renameDocument,
         addTextDocument,
         openDocument,
         addCollection,

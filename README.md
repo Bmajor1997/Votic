@@ -33,7 +33,8 @@ A text-to-speech document reader prototype focused on making documents easier to
   - `src/reader/` contains the Reader's text, progress, and voice helpers, and its sheets and controls.
   - `src/notes/` contains note metadata, Notes filtering and grouping, the Notes context sent to Ask Votic, and the Notes sheets and cards.
   - `src/api/` talks to the Votic server.
-  - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, purpose personalization, and the first-run tour.
+  - `src/theme/`, `src/accessibility/`, `src/personalization/`, and `src/onboarding/` contain appearance, accessibility preferences, personalization (purpose, explanation style, default listening speed), and onboarding: the Welcome and sign-in screens' building blocks, the personalization steps, the Getting Started card, the Votic guide document, and in-context Reader tips.
+  - `src/auth/` contains Firebase sign-in (email, Google, and Sign in with Apple) behind a small interface that tests replace with an in-memory fake.
   - `src/components/` contains reusable mobile UI components.
   - `tests/` contains component and integration tests (Jest with React Native Testing Library); pure-logic tests sit next to their code in `src/` and run in Vitest.
 - The existing root web files remain the working web prototype during the mobile transition. They will move into `apps/web/` only after the mobile foundation is stable, to avoid breaking working functionality during the restructure.
@@ -46,14 +47,51 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 ### Mobile-first implementation status
 
-Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance and accessibility settings; personalization that shapes Ask Votic and Notes suggestions; the contextual Learn Votic walkthrough; and email/password accounts (Firebase Authentication) with personalization onboarding and a subscription paywall (RevenueCat), which waits on store configuration — see `apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md`. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and personalization; required accounts (email, Google, Sign in with Apple through Firebase); onboarding: Welcome, Create account and Sign in (email, Google, Sign in with Apple), five optional personalization questions saved per account, the Votic Premium subscription screen (RevenueCat), "Votic is ready for you", a Getting Started card on Home, the Votic guide document, and a contextual walkthrough for Home, Documents, Notes, and the Reader that can be replayed from Settings. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
-Not yet implemented: Google and Apple sign-in, background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+Not yet implemented: syncing preferences and the library across devices (both stay on the device), background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
 ### Run the mobile app
 
 From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
 
+### Statistics: what Votic measures
+
+Statistics (from Home's weekly summary or Settings) uses measurements recorded on the device in `src/activity/`. Nothing is sent to a server or an analytics service, and older activity is not reconstructed: the page says when measurement began on the device.
+
+- **Listening time** is elapsed time while narration is playing and Votic is in the foreground, so it reflects the chosen speed and excludes pauses.
+- **Reading time** counts while the Reader is open and the person is engaged (scrolling, touching the page, or using a control), and stops two minutes after the last interaction. It is an estimate: Votic cannot tell whether someone is looking at a still page.
+- **No double counting:** while narration plays, the time is listening only.
+- **Background and interruptions:** time with the app in the background is excluded. The Reader checks in every 10 seconds; a longer gap (for example a locked phone without a background event) is treated as a suspension and not counted. At most about 10 seconds can be lost if the app is closed abruptly.
+- **Days and time zone:** time is stored per local hour in the device's time zone, so a session crossing midnight is split between the two days.
+- **Active day:** at least one minute of reading or listening. A **streak** is consecutive active days ending today, or yesterday if today has no activity yet.
+- **Ask Votic:** a *question* is each message sent (a retry of a failed message is not counted again); a *conversation* starts with the first question after Ask Votic opens with no messages. Question types (summaries, explanations, comparisons, definitions, other) come from simple word rules on the device. Only the type, the time, and the label of a built-in suggestion are kept; typed question text is never stored for Statistics.
+- **Documents:** *Most read* ranks by reading plus listening time in the period. Completion is the existing reading position; re-reading does not count as finishing again.
+- **Insights** need at least 30 minutes on 3 different days in the period; *most active day of the week* also needs a month or longer, and comparisons need 10 minutes in both periods. "Most active" describes usage, not productivity.
+- **Not yet covered:** background playback (Votic does not play narration in the background yet) and syncing statistics across devices.
+- Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
+### Accounts
+
+Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".
+
+1. In the Firebase console, create a project, add an iOS and an Android app, and turn on the **Email/Password**, **Google**, and **Apple** sign-in providers.
+2. Set these before `npm start` or an EAS build (they are read at build time):
+
+| Variable | Purpose |
+|---|---|
+| `EXPO_PUBLIC_FIREBASE_API_KEY`, `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`, `EXPO_PUBLIC_FIREBASE_PROJECT_ID`, `EXPO_PUBLIC_FIREBASE_APP_ID` | The web app config from Firebase project settings. Email sign-in works with only these, including in Expo Go. |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | The Web client ID from Firebase's Google provider. Shows **Continue with Google**. |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | The iOS OAuth client ID. |
+| `GOOGLE_IOS_URL_SCHEME` | The reversed iOS client ID (`com.googleusercontent.apps.…`); `app.config.js` adds the Google Sign-In plugin when it is set. |
+
+3. Google and Apple sign-in use native modules, so they need a development or release build (`npx expo run:ios`, `npx expo run:android`, or EAS), not Expo Go. Sign in with Apple also needs the capability on the iOS bundle ID and the Apple provider's Services ID and key in Firebase.
+4. Set `FIREBASE_PROJECT_ID` on the Votic server so every `/api/*` request must carry a valid Firebase ID token. Each signed-in account then gets its own `VOTIC_AI_CLIENT_DAILY_LIMIT` allowance instead of sharing one per network address.
+
+Settings includes **Sign out** and **Delete account**. Documents and notes stay on the device either way.
+
+### Votic Premium
+
+Votic requires the Votic Premium subscription, sold through the App Store and Google Play with RevenueCat. Without RevenueCat keys (and always in Expo Go) the subscription screen says purchases aren't available, and only development builds can continue past it. Set `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and optionally `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` (default `pro`), `EXPO_PUBLIC_VOTIC_TERMS_URL`, and `EXPO_PUBLIC_VOTIC_PRIVACY_URL`. Store, RevenueCat, and trial setup are in [apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md](apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md).
 ## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:
@@ -86,13 +124,14 @@ The mobile app uses `votic_server.js` for document extraction and AI features. S
 | `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
 | `VOTIC_AI_DAILY_LIMIT` | `1000` | Server-wide cap on paid AI calls per UTC day. When reached, help falls back to built-in answers and reviews report the limit. |
 | `VOTIC_AI_CLIENT_DAILY_LIMIT` | `100` | Cap on paid AI calls per client address per UTC day, so one client cannot use up the server-wide cap for everyone. |
+| `FIREBASE_PROJECT_ID` | unset | Requires a signed-in Votic account (a Firebase ID token in `Authorization: Bearer`) on every `/api/*` request, and applies the per-client AI limit per account. See [Accounts](#accounts). |
 | `VOTIC_CLIENT_KEYS` | unset | Comma-separated keys (16+ characters). When set, every `/api/*` request must send one in `X-Votic-Client-Key`. List two keys while rotating. The web prototype does not send a key, so leave this unset if it must use the same server. |
 | `VOTIC_TRUST_PROXY` | off | The number of proxies in front of the server that append `X-Forwarded-For` (`true` means `1`), so rate limits apply per user instead of per proxy. Behind a CDN and a load balancer, use `2`. Set it only when every request passes through those proxies. |
 | `VOTIC_RATE_LIMIT`, `VOTIC_HELP_RATE_LIMIT`, `VOTIC_EXTRACT_RATE_LIMIT`, `VOTIC_REVIEW_RATE_LIMIT` | 120 / 20 / 10 / 10 | Requests per client per `VOTIC_RATE_WINDOW_MS` (60 s). |
 
 Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
 
-A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Per-user protection requires user accounts, which are not implemented yet.
+A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Set `FIREBASE_PROJECT_ID` to give each signed-in account its own allowance instead.
 
 ## Product Hypothesis
 

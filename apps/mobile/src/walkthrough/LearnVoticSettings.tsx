@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { ComponentProps, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
+import { useOnboarding } from "../onboarding/OnboardingProvider";
 import { spacing, typography } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { SECTION_LABELS, SECTIONS, SectionId } from "./walkthroughFlows";
@@ -24,6 +25,7 @@ const ICONS: Record<SectionId, ComponentProps<typeof Ionicons>["name"]> = {
 export function LearnVoticSettings() {
   const { theme } = useVoticTheme();
   const { reset } = useWalkthrough();
+  const { showTipsAgain } = useOnboarding();
   const { documents, openDocument } = useDocumentLibrary();
   const [message, setMessage] = useState("");
 
@@ -63,7 +65,11 @@ export function LearnVoticSettings() {
         accessibilityLabel="Show all walkthroughs and tips again"
         onPress={() => {
           reset("all");
-          setMessage("Walkthroughs and tips will appear again as you use Votic.");
+          // The Getting Started checklist on Home comes back too.
+          showTipsAgain();
+          setMessage(
+            "Walkthroughs, tips, and the Getting Started checklist will appear again as you use Votic.",
+          );
         }}
         style={s.resetAll}
       >

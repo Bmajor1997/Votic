@@ -5,7 +5,7 @@ import { Animated, BackHandler, Dimensions, StyleSheet } from "react-native";
 import Reader from "../../app/reader";
 import { askVotic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { router } from "../mocks/expoRouter";
+import { router, searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
@@ -63,6 +63,8 @@ async function expandListeningControls() {
 beforeEach(() => {
   speak.mockReset();
   askVoticMock.mockReset();
+  // These tests cover narration, so the Reader opens the way Listen does. Read mode has its own tests.
+  searchParams.current = { mode: "listen" };
 });
 
 describe("Reader", () => {
@@ -268,6 +270,7 @@ describe("Reader", () => {
       "Why does focus help?",
       expect.objectContaining({ title: "Field Guide" }),
       [],
+      "adaptive",
     );
     expect(screen.getByRole("button", { name: "Save conversation to Notes" })).toBeTruthy();
     expect(screen.getByText("+ Save conversation to Notes")).toBeTruthy();
@@ -319,9 +322,12 @@ describe("Reader", () => {
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "And now?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await waitFor(() => expect(screen.getByText("Real answer.")).toBeTruthy());
-    expect(askVoticMock).toHaveBeenLastCalledWith("And now?", expect.anything(), [
-      { role: "user", text: "Why does focus help?" },
-    ]);
+    expect(askVoticMock).toHaveBeenLastCalledWith(
+      "And now?",
+      expect.anything(),
+      [{ role: "user", text: "Why does focus help?" }],
+      "adaptive",
+    );
   });
 
   it("summarizes the whole conversation, and shows a limit notice instead of a summary", async () => {

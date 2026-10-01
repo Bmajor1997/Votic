@@ -46,7 +46,7 @@ export function DocumentsEmptyAnimation() {
 
 const s = StyleSheet.create({
   search: { width: 150, height: 126, marginBottom: 8 },
-  notes: { width: 210, height: 192 },
-  home: { width: 250, height: 210 },
-  documents: { width: 220, height: 200 },
+  notes: { width: 132, height: 120 },
+  home: { width: 150, height: 126 },
+  documents: { width: 140, height: 128 },
 });
