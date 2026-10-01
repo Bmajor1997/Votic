@@ -12,7 +12,7 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, nextTip, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
 import { fakeAuth } from "../mocks/authBackend";
-import { router } from "../mocks/expoRouter";
+import { router, searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
@@ -185,6 +185,7 @@ async function layOutReader() {
 
 describe("Reader tips", () => {
   it("shows one tip at a time and retires it once the control is used", async () => {
+    searchParams.current = { mode: "listen" };
     await renderWithProviders(<OpenedReader />, {
       documents: [book],
       reduceMotion: true,

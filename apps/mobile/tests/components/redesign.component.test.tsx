@@ -55,9 +55,12 @@ describe("Home", () => {
     expect(screen.getByText("q3 board report FINAL")).toBeTruthy();
     expect(screen.getByText("Passage 2 of 4")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Resume listening to q3 board report FINAL" }));
-    expect(router.push).toHaveBeenCalledWith({ pathname: "/reader", params: { autoplay: "1" } });
-    await fireEvent.press(screen.getByRole("button", { name: "Read q3 board report FINAL" }));
-    expect(router.push).toHaveBeenLastCalledWith("/reader");
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/reader",
+      params: { mode: "listen", autoplay: "1" },
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Resume reading q3 board report FINAL" }));
+    expect(router.push).toHaveBeenLastCalledWith({ pathname: "/reader", params: { mode: "read" } });
   });
 
   it("links a quiet weekly summary to Statistics, including when there's no activity yet", async () => {

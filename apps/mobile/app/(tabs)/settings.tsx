@@ -26,7 +26,7 @@ const colors: AccentName[] = [
   "rose",
   "amber",
 ];
-const appearances: AppearanceMode[] = ["light", "dark", "system"];
+const appearances: AppearanceMode[] = ["light", "dark", "sepia"];
 const textSizes: TextSize[] = ["default", "large", "extra-large"];
 const spacings: ReadingSpacing[] = ["compact", "default", "extra"];
 export default function Settings() {

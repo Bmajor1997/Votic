@@ -5,7 +5,7 @@ import { Animated, BackHandler, Dimensions, StyleSheet } from "react-native";
 import Reader from "../../app/reader";
 import { askVotic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { router } from "../mocks/expoRouter";
+import { router, searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
@@ -63,6 +63,8 @@ async function expandListeningControls() {
 beforeEach(() => {
   speak.mockReset();
   askVoticMock.mockReset();
+  // These tests cover narration, so the Reader opens the way Listen does. Read mode has its own tests.
+  searchParams.current = { mode: "listen" };
 });
 
 describe("Reader", () => {

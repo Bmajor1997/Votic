@@ -58,6 +58,7 @@ import { PassageDraft, SavePassageSheet } from "../src/reader/components/SavePas
 import { sheetStyles } from "../src/reader/components/sheetStyles";
 import {
   clockLabel,
+  locationAtScroll,
   locationForProgress,
   passageTokens,
   progressForLocation,
@@ -68,6 +69,9 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+
+/** Read: the document without audio controls. Listen: the document with narration controls. */
+type ReaderMode = "read" | "listen";
 
 const PROGRESS_SYNC_INTERVAL_MS = 2000;
 // Ask Votic replaces the Reader dock with a compact composer and closes along the same curve.
@@ -156,7 +160,16 @@ export default function Reader() {
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
-  const params = useLocalSearchParams<{ autoplay?: string }>();
+  const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
+  // How someone opened the document decides the controls: Read has no audio controls, Listen does.
+  // Opening without a mode (from Documents, Notes, or Statistics) reads; only Read → Listen switches it.
+  const [mode, setMode] = useState<ReaderMode>(
+    params.mode === "listen" || params.autoplay === "1" ? "listen" : "read",
+  );
+  const listening = mode === "listen";
+  const contentHeight = useRef(0);
+  // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
+  const scrollToPosition = useRef(false);
   // Reading counts only while someone is engaged with the page; listening counts while narration plays.
   const engaged = useReaderActivity(activeId, playing);
   const { recordAsk } = useActivity();
@@ -195,7 +208,15 @@ export default function Reader() {
     else finishAskClose();
   });
   const onAskClosed = useEffectEvent(() => finishAskClose());
-  const onPositionChange = useEffectEvent(() => followActiveWord());
+  // Listen mode keeps the spoken word in view. In Read mode the reader's own scrolling sets the
+  // position, so the page only moves for an explicit jump such as a seek.
+  const onPositionChange = useEffectEvent(() => {
+    if (listening) followActiveWord();
+    else if (scrollToPosition.current) {
+      scrollToPosition.current = false;
+      followActiveWord(true);
+    }
+  });
 
   useEffect(() => {
     void Speech.getAvailableVoicesAsync()
@@ -502,6 +523,22 @@ export default function Reader() {
   function trackScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     engaged();
     scrollOffset.current = event.nativeEvent.contentOffset.y;
+    if (event.nativeEvent.contentSize?.height) contentHeight.current = event.nativeEvent.contentSize.height;
+    // Only the reader's own scrolling moves the reading position, never the Reader's programmatic scrolls.
+    if (manuallyScrolling.current) syncReadingPosition();
+  }
+  /** Read mode: the document position follows the reading line as the person scrolls. */
+  function syncReadingPosition() {
+    if (listening || completedRef.current) return;
+    const location = locationAtScroll(passages, sentenceLayout.current, {
+      offset: scrollOffset.current,
+      viewport: viewportHeight.current,
+      contentHeight: contentHeight.current,
+    });
+    if (!location) return;
+    // React skips the render when the passage and word have not changed, so small scrolls stay quiet.
+    setIndex(location.sentenceIndex);
+    setWordIndex(location.wordIndex);
   }
   async function stop() {
     void progressSync.flush();
@@ -586,6 +623,7 @@ export default function Reader() {
     const location = locationForProgress(passages, value);
     speechSession.current += 1;
     await Speech.stop();
+    scrollToPosition.current = true;
     setIndex(location.sentenceIndex);
     setWordIndex(location.wordIndex);
     completedRef.current = false;
@@ -629,12 +667,18 @@ export default function Reader() {
     setSaveOpen(true);
   }
   const tipsBlocked = !readerReady || playing || askOpen || sheet !== null || saveOpen || completionOpen;
+  // The Listen tip points at Play, which only Listen mode has; Read mode starts with Bookmark.
   const tip = nextTip(
-    [
-      { id: "reader-listen", ready: !tipsBlocked },
-      { id: "reader-bookmark", ready: !tipsBlocked && heardAudio },
-      { id: "reader-ask", ready: !tipsBlocked && (heardAudio || progress > 0.15) },
-    ],
+    listening
+      ? [
+          { id: "reader-listen", ready: !tipsBlocked },
+          { id: "reader-bookmark", ready: !tipsBlocked && heardAudio },
+          { id: "reader-ask", ready: !tipsBlocked && (heardAudio || progress > 0.15) },
+        ]
+      : [
+          { id: "reader-bookmark", ready: !tipsBlocked },
+          { id: "reader-ask", ready: !tipsBlocked && progress > 0.15 },
+        ],
     onboarding.tipsSeen,
   );
   function confirmSavePassage(draft: PassageDraft) {
@@ -782,6 +826,9 @@ export default function Reader() {
                   prepareReader();
                 }}
                 onScroll={trackScroll}
+                onContentSizeChange={(_width, height) => {
+                  contentHeight.current = height;
+                }}
                 onScrollBeginDrag={() => {
                   manuallyScrolling.current = true;
                 }}
@@ -789,16 +836,18 @@ export default function Reader() {
                   manuallyScrolling.current = true;
                 }}
                 onScrollEndDrag={() => {
+                  syncReadingPosition();
                   manuallyScrolling.current = false;
                 }}
                 onMomentumScrollEnd={() => {
+                  syncReadingPosition();
                   manuallyScrolling.current = false;
                 }}
               >
                 <View testID="reader-document" style={s.passages}>
                   {passages.map((passage, passageIndex) => {
                     const current = passageIndex === index;
-                    const tokens = current ? passageTokens(passage) : [];
+                    const tokens = current && listening ? passageTokens(passage) : [];
                     return (
                       <Text
                         key={passageIndex}
@@ -807,10 +856,13 @@ export default function Reader() {
                           s.sentence,
                           readingType,
                           { color: theme.text },
-                          current && sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
+                          // Highlighting follows narration, so Read mode keeps the page plain.
+                          listening &&
+                            current &&
+                            sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
                         ]}
                       >
-                        {current
+                        {current && listening
                           ? tokens.map((token, tokenIndex) => {
                               if (token.word === null) return token.text;
                               const active = token.word === wordIndex;
@@ -872,7 +924,7 @@ export default function Reader() {
                         Ask Votic
                       </Text>
                     </Pressable>
-                    {!listenExpanded ? (
+                    {listening && !listenExpanded ? (
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={playing ? "Pause" : "Play"}
@@ -889,7 +941,13 @@ export default function Reader() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={
-                        listenExpanded ? "Collapse listening controls" : "Expand listening controls"
+                        listening
+                          ? listenExpanded
+                            ? "Collapse listening controls"
+                            : "Expand listening controls"
+                          : listenExpanded
+                            ? "Hide reading tools"
+                            : "Show reading tools"
                       }
                       accessibilityState={{ expanded: listenExpanded }}
                       onPress={() => setListenExpanded((expanded) => !expanded)}
@@ -905,7 +963,7 @@ export default function Reader() {
                       />
                     </Pressable>
                   </View>
-                  {listenExpanded ? (
+                  {listening && listenExpanded ? (
                     <View style={[s.controls, s.compactControls]}>
                       <Pressable
                         disabled={index === 0}
@@ -953,7 +1011,7 @@ export default function Reader() {
                       </Pressable>
                     </View>
                   ) : null}
-                  {listenExpanded ? (
+                  {listening && listenExpanded ? (
                     <View style={s.playbackMeta}>
                       <Text maxFontSizeMultiplier={1.15} style={[s.timeText, { color: theme.mutedText }]}>
                         {clockLabel(elapsedSeconds)} / {clockLabel(totalSeconds)}
@@ -971,12 +1029,7 @@ export default function Reader() {
                       </Pressable>
                     </View>
                   ) : null}
-                  <SeekableProgress
-                    compact
-                    value={progress}
-                    onSeekStart={beginSeek}
-                    onSeek={(value) => void seekTo(value)}
-                  />
+                  {/* Progress lives once, under the document title. */}
                   {listenExpanded ? (
                     <View style={[s.toolRow, { borderTopColor: theme.border }]}>
                       <ToolButton
@@ -991,24 +1044,41 @@ export default function Reader() {
                         active={sheet === "appearance"}
                         onPress={() => setSheet("appearance")}
                       />
-                      <ToolButton
-                        icon="headset-outline"
-                        label="Listen"
-                        active={sheet === "listen" || playing}
-                        onPress={() => setSheet("listen")}
-                      />
+                      {listening ? (
+                        <ToolButton
+                          icon="headset-outline"
+                          label="Listen"
+                          active={sheet === "listen" || playing}
+                          onPress={() => setSheet("listen")}
+                        />
+                      ) : (
+                        // Read mode has no audio controls until the person asks to listen.
+                        <ToolButton
+                          icon="headset-outline"
+                          label="Listen"
+                          accessibilityLabel="Switch to listening"
+                          active={false}
+                          onPress={() => {
+                            setMode("listen");
+                            setListenExpanded(false);
+                          }}
+                        />
+                      )}
                       <ToolButton
                         icon={savedPassage ? "bookmark" : "bookmark-outline"}
                         label="Bookmark"
                         active={saveOpen}
                         onPress={openSavePassage}
                       />
-                      <ToolButton
-                        icon="ellipsis-horizontal"
-                        label="More"
-                        active={sheet === "focus"}
-                        onPress={() => setSheet("focus")}
-                      />
+                      {listening ? (
+                        // Reading focus only adjusts the spoken-text highlight, so it belongs to Listen mode.
+                        <ToolButton
+                          icon="ellipsis-horizontal"
+                          label="More"
+                          active={sheet === "focus"}
+                          onPress={() => setSheet("focus")}
+                        />
+                      ) : null}
                     </View>
                   ) : null}
                 </View>

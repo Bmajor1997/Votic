@@ -178,11 +178,14 @@ export function VoiceChoice({
 export function ToolButton({
   icon,
   label,
+  accessibilityLabel,
   active,
   onPress,
 }: {
   icon: IconName;
   label: string;
+  /** Spoken name when it should differ from the visible label. */
+  accessibilityLabel?: string;
   active: boolean;
   onPress: () => void;
 }) {
@@ -190,6 +193,7 @@ export function ToolButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ expanded: active }}
       onPress={onPress}
       style={({ pressed }) => [

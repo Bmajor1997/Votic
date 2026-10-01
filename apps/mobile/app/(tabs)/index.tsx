@@ -74,7 +74,8 @@ export default function Home() {
           onOpen={(source, listen) => {
             if (transition.transitioning) return;
             openDocument(featured.id);
-            openFrom(source, transition, listen ? { autoplay: "1" } : undefined);
+            // Listen opens with narration controls and starts playing; Read opens without audio controls.
+            openFrom(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
           }}
         />
       ) : null}
@@ -163,6 +164,9 @@ function ContinueCard({
   const readRef = useRef<View>(null);
   const title = readableTitle(document.title);
   const percent = Math.round(document.progress * 100);
+  const started = document.progress > 0;
+  const listenLabel = started ? "Resume listening" : "Listen";
+  const readLabel = started ? "Resume reading" : "Read";
   return (
     <View style={[s.featured, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}>
       <View style={s.featuredTop}>
@@ -188,7 +192,7 @@ function ContinueCard({
         <View ref={listenRef} collapsable={false} style={s.grow}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Resume listening to ${title}`}
+            accessibilityLabel={`${listenLabel} to ${title}`}
             accessibilityHint="Opens the Reader and plays from where you left off"
             onPress={() => onOpen(listenRef, true)}
             style={({ pressed }) => [
@@ -197,14 +201,14 @@ function ContinueCard({
             ]}
           >
             <Ionicons name="play" size={19} color="#FFF" />
-            <Text style={s.primaryText}>Resume listening</Text>
+            <Text style={s.primaryText}>{listenLabel}</Text>
           </Pressable>
         </View>
         <View ref={readRef} collapsable={false}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Read ${title}`}
-            accessibilityHint="Opens the Reader at your place without playing"
+            accessibilityLabel={`${readLabel} ${title}`}
+            accessibilityHint="Opens the document for reading, without audio controls"
             onPress={() => onOpen(readRef, false)}
             style={({ pressed }) => [
               s.secondary,
@@ -212,7 +216,7 @@ function ContinueCard({
             ]}
           >
             <Ionicons name="book-outline" size={19} color={theme.text} />
-            <Text style={[s.secondaryText, { color: theme.text }]}>Read</Text>
+            <Text style={[s.secondaryText, { color: theme.text }]}>{readLabel}</Text>
           </Pressable>
         </View>
       </View>
