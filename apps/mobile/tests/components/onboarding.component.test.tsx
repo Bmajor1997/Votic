@@ -1,11 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import * as DocumentPicker from "expo-document-picker";
 import * as Speech from "expo-speech";
 import { Alert, Linking, Text } from "react-native";
 import Settings from "../../app/(tabs)/settings";
-import Home from "../../app/(tabs)/index";
 import CreateAccount from "../../app/create-account";
 import ForgotPassword from "../../app/forgot-password";
 import Paywall from "../../app/paywall";
@@ -29,7 +27,6 @@ jest.mock("expo-speech", () => ({
   stop: jest.fn(async () => {}),
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
-jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn(async () => ({ canceled: true })) }));
 
 async function savedOnboarding() {
   return parseOnboardingState(await AsyncStorage.getItem(ONBOARDING_KEY));
@@ -344,12 +341,12 @@ describe("Votic Premium", () => {
 });
 
 function HandoffProbe() {
-  const { handedOff, pendingAction } = useAccountSetup();
-  return <Text testID="handoff">{`${handedOff}:${pendingAction}`}</Text>;
+  const { handedOff } = useAccountSetup();
+  return <Text testID="handoff">{String(handedOff)}</Text>;
 }
 
 describe("Votic is ready for you", () => {
-  it("hands off to Home with a request to add the first document", async () => {
+  it("has one way forward, into Home", async () => {
     await renderWithProviders(
       <>
         <Ready />
@@ -358,32 +355,10 @@ describe("Votic is ready for you", () => {
       NOT_HANDED_OFF,
     );
     expect(screen.getByRole("header", { name: "Votic is ready for you" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Add your first document" }));
-    expect(screen.getByTestId("handoff").props.children).toBe("true:add-document");
-  });
-
-  it("lets people explore first", async () => {
-    await renderWithProviders(
-      <>
-        <Ready />
-        <HandoffProbe />
-      </>,
-      NOT_HANDED_OFF,
-    );
-    await fireEvent.press(screen.getByRole("button", { name: "Explore Votic first" }));
-    expect(screen.getByTestId("handoff").props.children).toBe("true:null");
+    expect(screen.queryByRole("button", { name: "Add your first document" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
+    expect(screen.getByTestId("handoff").props.children).toBe("true");
     await waitFor(async () => expect((await loadAccountSetup("test-user"))?.completedAt).toBeTruthy());
-  });
-
-  it("opens the file picker from Home when the first document was requested", async () => {
-    function RequestThenHome() {
-      const { completeHandoff, handedOff } = useAccountSetup();
-      return handedOff ? <Home /> : <Text onPress={() => completeHandoff("add-document")}>go</Text>;
-    }
-    await renderWithProviders(<RequestThenHome />, NOT_HANDED_OFF);
-    await fireEvent.press(screen.getByText("go"));
-    await act(async () => {});
-    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalledTimes(1);
   });
 });
 

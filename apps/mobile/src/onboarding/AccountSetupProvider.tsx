@@ -12,9 +12,6 @@ import {
 import { loadAccountSetup, saveAccountSetup } from "./onboardingStorage";
 import { useOnboarding } from "./OnboardingProvider";
 
-/** Something the person chose on "Votic is ready for you", carried out once Home is showing. */
-export type HandoffAction = "add-document";
-
 type AccountSetupValue = {
   /** This account's setup, or null while it loads (or when signed out). */
   setup: OnboardingState | null;
@@ -30,9 +27,8 @@ type AccountSetupValue = {
   finishPersonalization: (options: { skipped: boolean }) => void;
   /** Saves answers edited later from Settings and applies them. */
   savePersonalization: (answers: PersonalizationAnswers) => void;
-  completeHandoff: (action?: HandoffAction) => void;
-  pendingAction: HandoffAction | null;
-  clearPendingAction: () => void;
+  /** After "Start using Votic" on "Votic is ready for you": the app opens to Home from now on. */
+  completeHandoff: () => void;
 };
 
 const AccountSetupContext = createContext<AccountSetupValue | null>(null);
@@ -52,7 +48,6 @@ export function AccountSetupProvider({
   const uid = user?.uid ?? null;
   // Kept with the account it belongs to, so another account's setup never shows while this one loads.
   const [stored, setStored] = useState<{ uid: string; state: OnboardingState } | null>(null);
-  const [pendingAction, setPendingAction] = useState<HandoffAction | null>(null);
   const setup = uid && stored?.uid === uid ? stored.state : null;
 
   // Facts read once, when this account's setup is first created on this device.
@@ -131,12 +126,9 @@ export function AccountSetupProvider({
         personalizationSkipped: false,
       }));
     },
-    completeHandoff(action) {
-      setPendingAction(action ?? null);
+    completeHandoff() {
       update((state) => ({ ...state, completedAt: state.completedAt ?? now() }));
     },
-    pendingAction,
-    clearPendingAction: () => setPendingAction(null),
   };
   return <AccountSetupContext.Provider value={value}>{children}</AccountSetupContext.Provider>;
 }

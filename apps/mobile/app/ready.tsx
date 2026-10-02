@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { radii, spacing, typography } from "../src/design/tokens";
 import { useAccountSetup } from "../src/onboarding/AccountSetupProvider";
-import { PrimaryButton, TextButton } from "../src/onboarding/components";
+import { PrimaryButton } from "../src/onboarding/components";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 const STEPS: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; detail: string }[] = [
@@ -55,13 +55,7 @@ export default function Ready() {
         </View>
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton
-          label="Add your first document"
-          icon="add"
-          accessibilityHint="Opens Home and lets you choose a file"
-          onPress={() => completeHandoff("add-document")}
-        />
-        <TextButton label="Explore Votic first" onPress={() => completeHandoff()} />
+        <PrimaryButton label="Start using Votic" onPress={completeHandoff} />
       </View>
     </SafeAreaView>
   );

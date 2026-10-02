@@ -10,7 +10,7 @@ Welcome ─┬─ Get started ─ Create account (Apple · Google · email) ─�
                                                                    ▼
         Personalization (5 questions, new accounts only) ─ Votic Premium ─ "Votic is ready for you" ─ Home
                                                                                    │
-                                                  "Add your first document" opens the file picker on Home
+                                          "Start using Votic" opens Home, where the Home tour begins
 ```
 
 `app/_layout.tsx` shows only the screens for the current stage (`Stack.Protected`). The stage comes from three

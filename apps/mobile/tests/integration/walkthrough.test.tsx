@@ -9,7 +9,6 @@ import Home from "../../app/(tabs)/index";
 import Notes from "../../app/(tabs)/notes";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { DEVICE_HISTORY_KEY } from "../../src/onboarding/OnboardingProvider";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
 import { FlowId } from "../../src/walkthrough/walkthroughFlows";
@@ -180,28 +179,6 @@ describe("Let's show you around", () => {
     await renderTab(<Home />);
     expect(card()).toBeNull();
     expect((await saved()).intro?.status).toBe("migrated");
-  });
-
-  it("starts once the file picker from 'Add your first document' is closed", async () => {
-    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
-    let closePicker: () => void = () => {};
-    jest
-      .mocked(DocumentPicker.getDocumentAsync)
-      .mockImplementationOnce(
-        () => new Promise((resolve) => (closePicker = () => resolve({ canceled: true, assets: null }))),
-      );
-    function AfterAddFirstDocument() {
-      const { completeHandoff, handedOff } = useAccountSetup();
-      useEffect(() => completeHandoff("add-document"), []); // eslint-disable-line react-hooks/exhaustive-deps
-      return handedOff ? <Home /> : null;
-    }
-    await renderTab(<AfterAddFirstDocument />);
-    // Nothing covers the screen while the picker is open.
-    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalled();
-    expect(card()).toBeNull();
-    await act(async () => closePicker());
-    await waitForWalkthrough();
-    expect(screen.getByText("Let's show you around")).toBeTruthy();
   });
 
   it("comes back with 'Show all walkthroughs and tips again'", async () => {

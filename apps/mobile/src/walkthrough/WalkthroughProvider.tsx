@@ -314,15 +314,6 @@ export function useWalkthroughTrigger(
       };
     }, [hydrated, showNext, dismiss]),
   );
-  // A screen can hold its walkthroughs back for a moment (Home does while the file picker is open). When it
-  // lets them go again during the same visit, the next one shows then rather than on the next visit.
-  const ready = candidates.length > 0;
-  const wasReady = useRef(ready);
-  useEffect(() => {
-    const before = wasReady.current;
-    wasReady.current = ready;
-    if (!before && ready && focused.current && !shown.current) showNext();
-  }, [ready, showNext]);
   // "Show me around" leads straight into the coaching for the screen the person is on (Home).
   const introStatus = state.flows.intro?.status;
   const previousIntro = useRef(introStatus);

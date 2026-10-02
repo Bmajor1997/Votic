@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
@@ -12,7 +12,6 @@ import { VoticDocument } from "../../src/documents/types";
 import { openFrom, useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
-import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { homeNotes } from "../../src/home/homeModel";
 import { ContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
@@ -37,11 +36,8 @@ export default function Home() {
   const recentTarget = useWalkthroughTarget("home.recent");
   const startTarget = useWalkthroughTarget("home.start");
   const optionsTarget = useWalkthroughTarget("home.documentOptions");
-  // Nothing is pointed at while the file picker from "Add your first document" is open.
   useWalkthroughTrigger(
-    importing
-      ? []
-      : [{ id: "intro" }, { id: "home" }, { id: "home.documentOptions", when: recent.length > 0 }],
+    [{ id: "intro" }, { id: "home" }, { id: "home.documentOptions", when: recent.length > 0 }],
     {
       hasDocuments: documents.length > 0,
       hasContinue: Boolean(featured),
@@ -50,15 +46,6 @@ export default function Home() {
       hasNotes: notes.length > 0,
     },
   );
-  // "Add your first document" on "Votic is ready for you" opens the file picker once Home is showing.
-  const { pendingAction, clearPendingAction } = useAccountSetup();
-  useEffect(() => {
-    if (pendingAction !== "add-document") return;
-    clearPendingAction();
-    void importDocument();
-    // importDocument is recreated each render; this runs once per request.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingAction, clearPendingAction]);
 
   return (
     <Screen title="Home" hideTitle>
