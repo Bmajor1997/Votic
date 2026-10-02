@@ -46,6 +46,8 @@ export default function Home() {
       hasDocuments: documents.length > 0,
       hasContinue: Boolean(featured),
       hasStart: !checklistDismissed || !documents.length,
+      hasRecent: recent.length > 0,
+      hasNotes: notes.length > 0,
     },
   );
   // "Add your first document" on "Votic is ready for you" opens the file picker once Home is showing.

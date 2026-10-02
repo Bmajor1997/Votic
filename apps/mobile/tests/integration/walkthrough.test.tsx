@@ -238,6 +238,45 @@ describe("Home walkthrough", () => {
     expect(screen.getByText("Your week")).toBeTruthy();
   });
 
+  it("covers the Recent shelf and notes when Home has them", async () => {
+    await renderTab(<Home />, {
+      documents: [
+        testDocument("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 }),
+        testDocument("d2", "Field Guide", {
+          lastOpenedAt: 2,
+          savedPassages: [
+            {
+              id: "passage-0",
+              sentenceIndex: 0,
+              text: "Cells.",
+              note: "Mitosis",
+              createdAt: 1,
+              updatedAt: 1,
+            },
+          ],
+        }),
+      ],
+    });
+    const titles = [screen.getAllByRole("header").at(-1)!.props.children];
+    for (let step = 0; step < 4; step += 1) {
+      if (titles.at(-1) === "From your notes")
+        expect(
+          screen.getByText(
+            "Pinned and recent notes show up here. Tap one to go back to that spot in its document.",
+          ),
+        ).toBeTruthy();
+      await press("Next");
+      titles.push(screen.getAllByRole("header").at(-1)!.props.children);
+    }
+    expect(titles).toEqual([
+      "Welcome to Home",
+      "Your week",
+      "Recent documents",
+      "From your notes",
+      "Your documents",
+    ]);
+  });
+
   it("skipping Home leaves Documents, Notes, and the Reader to be taught later", async () => {
     await renderTab(<Home />);
     await press("Skip walkthrough");

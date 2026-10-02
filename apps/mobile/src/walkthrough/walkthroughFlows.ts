@@ -27,6 +27,7 @@ export type TargetId =
   | "home.continue"
   | "home.start"
   | "home.recent"
+  | "home.notes"
   | "home.week"
   | "home.documentOptions"
   | "documents.upload"
@@ -56,6 +57,8 @@ export type FlowContext = {
   hasContinue?: boolean;
   /** Home shows its Getting Started checklist or its empty state. */
   hasStart?: boolean;
+  /** Home shows the Recent shelf (documents other than the one in Continue). */
+  hasRecent?: boolean;
   /** The Reader was opened to listen (audio controls) rather than to read. */
   listening?: boolean;
 };
@@ -139,16 +142,23 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
             : "Start here. Add a document, and Votic opens it in the Reader.",
       },
       {
-        target: "home.recent",
-        when: (c) => !c.hasContinue && !c.hasStart && Boolean(c.hasDocuments),
-        title: "Welcome to Home",
-        message: "Documents you've opened recently appear here, so you can jump back in.",
-      },
-      {
         target: "home.week",
         when: (c) => Boolean(c.hasDocuments),
-        title: "Your week",
-        message: "See how much you've read and listened this week. Tap it for your Statistics.",
+        // First on Home when there's nothing to continue and no checklist.
+        title: (c) => (c.hasContinue || c.hasStart ? "Your week" : "Welcome to Home"),
+        message: "Your reading and listening time this week. Tap Statistics for the full picture.",
+      },
+      {
+        target: "home.recent",
+        when: (c) => Boolean(c.hasRecent),
+        title: "Recent documents",
+        message: "Documents you've opened recently are here. Swipe to see more, and tap one to jump back in.",
+      },
+      {
+        target: "home.notes",
+        when: (c) => Boolean(c.hasNotes),
+        title: "From your notes",
+        message: "Pinned and recent notes show up here. Tap one to go back to that spot in its document.",
       },
       {
         target: "tab.documents",

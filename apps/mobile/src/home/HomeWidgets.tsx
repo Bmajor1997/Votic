@@ -425,9 +425,10 @@ function RecentCard({
  */
 export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
+  const notesTarget = useWalkthroughTarget("home.notes");
   if (!notes.length) return null;
   return (
-    <View style={s.section}>
+    <View ref={notesTarget} collapsable={false} style={s.section}>
       <SectionHeader
         title="From your notes"
         actionLabel="See all notes"

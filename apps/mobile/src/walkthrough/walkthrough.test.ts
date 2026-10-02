@@ -36,17 +36,19 @@ describe("walkthrough steps", () => {
       applicableSteps(FLOWS.home, context).map((step) => step.target);
     // A brand-new library: Home's Getting Started card (or empty state), then the tabs.
     expect(targets({ hasStart: true })).toEqual(["home.start", "tab.documents", "tab.notes"]);
-    // Something to pick up: the Continue card and this week's activity.
-    expect(targets({ hasContinue: true, hasDocuments: true })).toEqual([
+    // Something to pick up: Continue, this week, the Recent shelf, and notes.
+    expect(targets({ hasContinue: true, hasDocuments: true, hasRecent: true, hasNotes: true })).toEqual([
       "home.continue",
       "home.week",
+      "home.recent",
+      "home.notes",
       "tab.documents",
       "tab.notes",
     ]);
-    // Documents, all finished, with the checklist hidden: the recent list.
-    expect(targets({ hasDocuments: true })).toEqual([
-      "home.recent",
+    // Everything finished and the checklist hidden: Recent leads.
+    expect(targets({ hasDocuments: true, hasRecent: true })).toEqual([
       "home.week",
+      "home.recent",
       "tab.documents",
       "tab.notes",
     ]);
