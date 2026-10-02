@@ -537,7 +537,7 @@ export function NotesShelf({
         <EmptyPanel
           icon="create-outline"
           title="No notes"
-          message="Notes you save while reading will show up here."
+          message="Save a passage while you read and it lands here, ready to revisit."
         />
       </View>
     ) : null;
