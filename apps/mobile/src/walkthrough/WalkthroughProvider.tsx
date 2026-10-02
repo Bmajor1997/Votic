@@ -135,8 +135,9 @@ export function WalkthroughProvider({
       setActive(null);
       replaying.current.delete(current.id);
       record(current.id, status);
-      // A one-time "You're all set" after the Reader walkthrough is completed (not skipped).
-      if (current.id === "reader" && status === "completed")
+      // A one-time "You're all set" after the Reader walkthrough is completed (not skipped), but only once
+      // Home has been covered too. Otherwise the Reader offers it on a later visit (see app/reader.tsx).
+      if (current.id === "reader" && status === "completed" && stateRef.current.flows.home)
         setTimeout(() => requestRef.current("allSet"), ALL_SET_DELAY_MS);
     },
     [record],
@@ -313,6 +314,15 @@ export function useWalkthroughTrigger(
       };
     }, [hydrated, showNext, dismiss]),
   );
+  // A screen can hold its walkthroughs back for a moment (Home does while the file picker is open). When it
+  // lets them go again during the same visit, the next one shows then rather than on the next visit.
+  const ready = candidates.length > 0;
+  const wasReady = useRef(ready);
+  useEffect(() => {
+    const before = wasReady.current;
+    wasReady.current = ready;
+    if (!before && ready && focused.current && !shown.current) showNext();
+  }, [ready, showNext]);
   // "Show me around" leads straight into the coaching for the screen the person is on (Home).
   const introStatus = state.flows.intro?.status;
   const previousIntro = useRef(introStatus);

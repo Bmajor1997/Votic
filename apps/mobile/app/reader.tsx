@@ -679,7 +679,16 @@ export default function Reader() {
     setSaveOpen(true);
   }
   // The Reader walkthrough waits until the document has finished opening.
-  useWalkthroughTrigger([{ id: "reader", when: readerReady && !transition.transitioning }], { listening });
+  const flows = walkthrough.state.flows;
+  const opened = readerReady && !transition.transitioning;
+  useWalkthroughTrigger(
+    [
+      { id: "reader", when: opened },
+      // "You're all set" waits until both Home and the Reader have been covered, whichever came first.
+      { id: "allSet", when: opened && flows.reader?.status === "completed" && Boolean(flows.home) },
+    ],
+    { listening },
+  );
   const { request: requestWalkthrough } = walkthrough;
   useEffect(() => {
     if (askPhase === "open") requestWalkthrough("reader.ask");

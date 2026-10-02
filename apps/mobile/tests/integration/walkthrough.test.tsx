@@ -9,6 +9,7 @@ import Home from "../../app/(tabs)/index";
 import Notes from "../../app/(tabs)/notes";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { DEVICE_HISTORY_KEY } from "../../src/onboarding/OnboardingProvider";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
 import { FlowId } from "../../src/walkthrough/walkthroughFlows";
@@ -179,6 +180,28 @@ describe("Let's show you around", () => {
     await renderTab(<Home />);
     expect(card()).toBeNull();
     expect((await saved()).intro?.status).toBe("migrated");
+  });
+
+  it("starts once the file picker from 'Add your first document' is closed", async () => {
+    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
+    let closePicker: () => void = () => {};
+    jest
+      .mocked(DocumentPicker.getDocumentAsync)
+      .mockImplementationOnce(
+        () => new Promise((resolve) => (closePicker = () => resolve({ canceled: true, assets: null }))),
+      );
+    function AfterAddFirstDocument() {
+      const { completeHandoff, handedOff } = useAccountSetup();
+      useEffect(() => completeHandoff("add-document"), []); // eslint-disable-line react-hooks/exhaustive-deps
+      return handedOff ? <Home /> : null;
+    }
+    await renderTab(<AfterAddFirstDocument />);
+    // Nothing covers the screen while the picker is open.
+    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalled();
+    expect(card()).toBeNull();
+    await act(async () => closePicker());
+    await waitForWalkthrough();
+    expect(screen.getByText("Let's show you around")).toBeTruthy();
   });
 
   it("comes back with 'Show all walkthroughs and tips again'", async () => {
@@ -521,7 +544,7 @@ describe("Reader walkthrough", () => {
   });
 
   it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
-    await renderReader({ intro: { status: "completed", at: 1 } });
+    await renderReader({ intro: { status: "completed", at: 1 }, home: { status: "completed", at: 1 } });
     for (let i = 0; i < 5; i += 1) await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
     await press("Got it");
@@ -541,6 +564,25 @@ describe("Reader walkthrough", () => {
     await act(async () => jest.advanceTimersByTime(1000));
     await waitForWalkthrough();
     expect(screen.getByText("Ask about this document")).toBeTruthy();
+  });
+
+  it("waits to say 'You're all set' until Home has been covered too", async () => {
+    // The first document was opened straight from "Votic is ready for you", before the Home tour.
+    await renderReader({});
+    for (let i = 0; i < 5; i += 1) await press("Next");
+    await press("Got it");
+    await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
+    await waitForWalkthrough();
+    expect(screen.queryByText("You're all set")).toBeNull();
+    expect((await saved()).allSet).toBeUndefined();
+    // After the Home tour, the next time a document opens.
+    screen.unmount();
+    await renderReader({
+      intro: { status: "completed", at: 1 },
+      home: { status: "completed", at: 1 },
+      reader: { status: "completed", at: 1 },
+    });
+    expect(screen.getByText("You're all set")).toBeTruthy();
   });
 
   it("doesn't say 'You're all set' when the Reader walkthrough is skipped", async () => {
