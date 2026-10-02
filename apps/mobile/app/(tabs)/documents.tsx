@@ -350,7 +350,7 @@ export default function Documents() {
         <View style={s.empty}>
           <DocumentsEmptyAnimation />
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            Add your first document
+            Your Documents page is empty
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
             Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen.

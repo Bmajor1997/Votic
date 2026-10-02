@@ -78,6 +78,14 @@ describe("Home", () => {
 });
 
 describe("Documents", () => {
+  it("says the page is empty when there are no documents", async () => {
+    await renderWithProviders(<Documents />);
+    expect(screen.getByRole("header", { name: "Your Documents page is empty" })).toBeTruthy();
+    expect(
+      screen.getByText("Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen."),
+    ).toBeTruthy();
+  });
+
   it("renames a document while keeping its original filename in Details", async () => {
     await renderWithProviders(<Documents />, { documents: [report] });
     await fireEvent.press(screen.getByRole("button", { name: "More options for q3 board report FINAL" }));
