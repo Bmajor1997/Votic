@@ -331,9 +331,17 @@ export function WeekWidget() {
         { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
       ]}
     >
+      {/* Says where the card leads, since Statistics no longer has its own row on Home. */}
+      <View style={s.weekHeader}>
+        <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
+        <View style={s.weekLink}>
+          <Ionicons name="stats-chart" size={14} color={theme.accentText} />
+          <Text style={[s.weekLinkText, { color: theme.accentText }]}>Statistics</Text>
+          <Ionicons name="chevron-forward" size={15} color={theme.accentText} />
+        </View>
+      </View>
       <View style={s.weekTop}>
         <View style={s.grow}>
-          <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
           {week.total ? (
             <>
               <Text style={[s.weekTotal, { color: theme.text }]}>{formatDuration(week.total)}</Text>
@@ -623,6 +631,14 @@ const s = StyleSheet.create({
   chipText: { fontSize: 14, fontWeight: "600" },
 
   week: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  weekHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
+  weekLinkText: { fontSize: 14, fontWeight: "800" },
   weekTop: { flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
   weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
