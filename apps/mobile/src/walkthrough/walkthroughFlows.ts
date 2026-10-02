@@ -31,6 +31,7 @@ export type TargetId =
   | "home.week"
   | "home.documentOptions"
   | "documents.upload"
+  | "documents.document"
   | "documents.search"
   | "documents.newCollection"
   | "documents.documentOptions"
@@ -182,6 +183,13 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     kind: "section",
     host: "tabs",
     steps: [
+      {
+        target: "documents.document",
+        when: (c) => Boolean(c.hasDocuments),
+        title: "Your library",
+        message:
+          "Each document shows how far you've read. Tap one to pick up where you left off, or ••• to rename, move, or delete it.",
+      },
       {
         target: "documents.upload",
         interactive: true,

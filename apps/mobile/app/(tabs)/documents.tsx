@@ -60,6 +60,7 @@ export default function Documents() {
   const searchTarget = useWalkthroughTarget("documents.search");
   const newCollectionTarget = useWalkthroughTarget("documents.newCollection");
   const optionsTarget = useWalkthroughTarget("documents.documentOptions");
+  const documentTarget = useWalkthroughTarget("documents.document");
   const filtersTarget = useWalkthroughTarget("documents.filters");
   useWalkthroughTrigger([{ id: "documents" }, { id: "documents.collections", when: documents.length > 0 }], {
     hasDocuments: documents.length > 0,
@@ -269,6 +270,7 @@ export default function Documents() {
                     <View
                       ref={(node) => {
                         cardRefs.current[document.id] = node;
+                        if (position === 0) documentTarget(node);
                       }}
                       collapsable={false}
                       style={[s.row, { borderBottomColor: theme.border }]}

@@ -332,6 +332,9 @@ describe("Documents walkthrough", () => {
 
   it("shows search and sorting once there are documents", async () => {
     await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    // It starts with the person's own document.
+    expect(screen.getByText("Your library")).toBeTruthy();
+    await press("Next");
     expect(screen.getByText("Add documents")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Find documents")).toBeTruthy();
@@ -360,7 +363,7 @@ describe("Documents walkthrough", () => {
     screen.unmount();
     expect((await saved()).documents).toBeUndefined();
     await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
-    expect(screen.getByText("Add documents")).toBeTruthy();
+    expect(screen.getByText("Your library")).toBeTruthy();
   });
 
   it("teaches collections on a later visit, once there are documents", async () => {
@@ -642,7 +645,7 @@ describe("Replay and accessibility", () => {
   it("keeps controls reachable for screen reader users", async () => {
     jest.spyOn(AccessibilityInfo, "isScreenReaderEnabled").mockResolvedValue(true);
     await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
-    expect(screen.getByText("Add documents")).toBeTruthy();
+    expect(screen.getByText("Your library")).toBeTruthy();
     expect(screen.queryAllByTestId("walkthrough-dim", { includeHiddenElements: true })).toHaveLength(0);
     await press("Next");
     expect(

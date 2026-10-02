@@ -151,6 +151,7 @@ describe("Personalization", () => {
     await renderWithProviders(<Personalize />, NOT_SET_UP);
     expect(screen.getByRole("progressbar", { name: "Step 1 of 5" })).toBeTruthy();
     expect(screen.getByRole("header", { name: "What would you like Votic to help you do?" })).toBeTruthy();
+    expect(screen.getByText("Choose anything that would be helpful. Select all that apply.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
     await fireEvent.press(screen.getByRole("checkbox", { name: "Summarize long documents" }));
     await fireEvent.press(screen.getByRole("checkbox", { name: "Find important information quickly" }));
@@ -162,6 +163,8 @@ describe("Personalization", () => {
     expect(screen.getByRole("checkbox", { name: "Give me the key points", checked: false })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
+    // The one pick-one question doesn't say "Select all that apply".
+    expect(screen.getByText("Choose one.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "Simply. Make it easy to understand." }));
     expect(screen.getByText(/It's the money a business really gets/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));

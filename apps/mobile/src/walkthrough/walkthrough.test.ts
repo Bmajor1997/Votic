@@ -58,7 +58,7 @@ describe("walkthrough steps", () => {
     expect(applicableSteps(FLOWS.documents, {}).map((step) => step.target)).toEqual(["documents.upload"]);
   });
   it("words the upload step for first-time and returning use", () => {
-    const step = FLOWS.documents.steps[0];
+    const step = FLOWS.documents.steps.find((item) => item.target === "documents.upload")!;
     expect(copyFor(step, { hasDocuments: false }).title).toBe("Add your first document");
     expect(copyFor(step, { hasDocuments: true }).title).toBe("Add documents");
   });

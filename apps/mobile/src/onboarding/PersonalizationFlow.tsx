@@ -99,7 +99,9 @@ export function PersonalizationFlow(props: Props) {
       onBack={back}
       onSkip={next}
       title={question.title}
-      subtitle={question.instruction}
+      subtitle={
+        question.kind === "multiple" ? `${question.instruction} Select all that apply.` : question.instruction
+      }
       footer={<PrimaryButton label={last && editing ? "Save" : "Continue"} onPress={next} />}
     >
       {question.key === "explanationStyle" ? <ExplanationExample style={answers.explanationStyle} /> : null}
