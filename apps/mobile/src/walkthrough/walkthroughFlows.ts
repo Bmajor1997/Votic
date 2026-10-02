@@ -144,10 +144,12 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       },
       {
         target: "home.week",
-        when: (c) => Boolean(c.hasDocuments),
         // First on Home when there's nothing to continue and no checklist.
         title: (c) => (c.hasContinue || c.hasStart ? "Your week" : "Welcome to Home"),
-        message: "Your reading and listening time this week. Tap Statistics for the full picture.",
+        message: (c) =>
+          c.hasDocuments
+            ? "Your reading and listening time this week. Tap Statistics for the full picture."
+            : "Your reading and listening time will show here once you start. Statistics has the full picture.",
       },
       {
         target: "home.recent",

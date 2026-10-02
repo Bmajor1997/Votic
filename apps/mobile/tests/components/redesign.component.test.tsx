@@ -70,10 +70,20 @@ describe("Home", () => {
     expect(router.push).toHaveBeenCalledWith("/statistics");
   });
 
-  it("offers one clear next action with an empty library", async () => {
+  it("keeps Home's sections with an empty library, each saying what will show up there", async () => {
     await renderWithProviders(<Home />);
-    expect(screen.getByRole("header", { name: "Your reading starts here" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Add document" })).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
+    expect(screen.getByRole("header", { name: "Continue" })).toBeTruthy();
+    expect(screen.getByText("Nothing to continue yet")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
+    expect(screen.getByText("No activity yet")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent" })).toBeTruthy();
+    expect(screen.getByText("No recent documents yet")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "From your notes" })).toBeTruthy();
+    expect(screen.getByText("No notes yet")).toBeTruthy();
+    // Nothing to see yet, so no "See all".
+    expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
   });
 });
 

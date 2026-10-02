@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { formatDuration, spokenDuration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { DocumentCover } from "../components/DocumentCover";
@@ -151,6 +151,82 @@ export function ContinueWidget({
   );
 }
 
+/**
+ * Continue before there's anything to continue: the same card, saying so, with the way to add a first
+ * document where Listen and Read will be.
+ */
+export function EmptyContinueWidget({
+  onAdd,
+  importing,
+  addRef,
+  targetRef,
+}: {
+  onAdd: () => void;
+  importing: boolean;
+  addRef: React.RefObject<View | null>;
+  targetRef?: Target;
+}) {
+  const { theme } = useVoticTheme();
+  return (
+    <View
+      ref={targetRef}
+      collapsable={false}
+      style={[s.continue, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}
+    >
+      <View style={s.continueTop}>
+        <View style={[s.emptyCover, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+          <Ionicons name="document-outline" size={30} color={theme.mutedText} />
+        </View>
+        <View style={s.grow}>
+          <Text style={[s.continueTitle, { color: theme.text }]}>Nothing to continue yet</Text>
+          <Text style={[s.emptyMessage, { color: theme.mutedText }]}>
+            Add a document and it will show up here, ready to listen to or read.
+          </Text>
+        </View>
+      </View>
+      <View ref={addRef} collapsable={false}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add document"
+          accessibilityState={{ busy: importing }}
+          disabled={importing}
+          onPress={onAdd}
+          style={({ pressed }) => [s.resume, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
+        >
+          {importing ? (
+            <ActivityIndicator color={theme.onAccent} />
+          ) : (
+            <Ionicons name="add" size={20} color={theme.onAccent} />
+          )}
+          <Text style={[s.resumeText, { color: theme.onAccent }]}>Add document</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** What a Home section says before it has anything to show. */
+function EmptyPanel({
+  icon,
+  title,
+  message,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  message: string;
+}) {
+  const { theme } = useVoticTheme();
+  return (
+    <View accessible style={[s.emptyPanel, { borderColor: theme.border }]}>
+      <Ionicons name={icon} size={22} color={theme.mutedText} />
+      <View style={s.grow}>
+        <Text style={[s.emptyTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[s.emptyMessage, { color: theme.mutedText }]}>{message}</Text>
+      </View>
+    </View>
+  );
+}
+
 /** "today", "yesterday", "3 days ago", or "on Sep 27". */
 function whenPhrase(time: number) {
   const day = relativeDay(time);
@@ -265,10 +341,16 @@ export function WeekWidget() {
               ) : null}
             </>
           ) : (
-            <Text style={[s.weekEmpty, { color: theme.text }]}>Read or listen to see your week here</Text>
+            <>
+              <Text style={[s.weekEmpty, { color: theme.text }]}>No activity yet</Text>
+              <Text style={[s.meta, { color: theme.mutedText }]}>
+                Your reading and listening time will show here once you start.
+              </Text>
+            </>
           )}
         </View>
-        {week.total ? (
+        {/* The day strip stays, empty, so the card looks the same before there's any activity. */}
+        {week.days.length ? (
           <View style={s.days} importantForAccessibility="no-hide-descendants">
             {week.days.map((day, index) => (
               <View key={index} style={s.day}>
@@ -324,7 +406,10 @@ export function WeekWidget() {
 
 // ---------- Recent documents ----------
 
-/** Recently opened documents as a short horizontal shelf. The Documents tab has the full library. */
+/**
+ * Recently opened documents as a short horizontal shelf. The Documents tab has the full library. With no
+ * documents at all, it says so.
+ */
 export function RecentShelf({
   documents,
   onOpen,
@@ -338,6 +423,17 @@ export function RecentShelf({
   targetRef?: Target;
   optionsTargetRef?: Target;
 }) {
+  if (!documents.length)
+    return (
+      <View style={s.section}>
+        <SectionHeader title="Recent" />
+        <EmptyPanel
+          icon="time-outline"
+          title="No recent documents yet"
+          message="Documents you open will show up here."
+        />
+      </View>
+    );
   return (
     <View ref={targetRef} collapsable={false} style={s.section}>
       <SectionHeader
@@ -421,12 +517,30 @@ function RecentCard({
 
 /**
  * Notes worth coming back to: pinned ones first, then the newest. Each opens its document at the exact spot.
- * Not shown until there's at least one note.
+ * Without notes it isn't shown, unless `showEmpty` (an empty library), where it says notes will come.
  */
-export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
+export function NotesShelf({
+  notes,
+  onOpen,
+  showEmpty = false,
+}: {
+  notes: NoteItem[];
+  onOpen: (item: NoteItem) => void;
+  showEmpty?: boolean;
+}) {
   const { theme } = useVoticTheme();
   const notesTarget = useWalkthroughTarget("home.notes");
-  if (!notes.length) return null;
+  if (!notes.length)
+    return showEmpty ? (
+      <View style={s.section}>
+        <SectionHeader title="From your notes" />
+        <EmptyPanel
+          icon="create-outline"
+          title="No notes yet"
+          message="Notes you save while reading will show up here."
+        />
+      </View>
+    ) : null;
   return (
     <View ref={notesTarget} collapsable={false} style={s.section}>
       <SectionHeader
@@ -584,4 +698,25 @@ const s = StyleSheet.create({
   noteHeading: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: "700" },
   noteBody: { fontSize: 14, lineHeight: 19 },
   noteSource: { fontSize: 12, marginTop: "auto", paddingTop: spacing.xs },
+
+  emptyCover: {
+    width: 76,
+    height: 100,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyPanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+  emptyTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  emptyMessage: { fontSize: 14, lineHeight: 20, marginTop: 2 },
 });

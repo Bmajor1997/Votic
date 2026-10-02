@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
 import { radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
@@ -14,7 +13,13 @@ import { useDocumentTransition } from "../../src/navigation/DocumentTransitionPr
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { homeNotes } from "../../src/home/homeModel";
-import { ContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
+import {
+  ContinueWidget,
+  EmptyContinueWidget,
+  NotesShelf,
+  RecentShelf,
+  WeekWidget,
+} from "../../src/home/HomeWidgets";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
@@ -32,6 +37,8 @@ export default function Home() {
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 8);
   const notes = homeNotes(documents);
+  // With nothing added yet, Home keeps its usual sections, each saying what will show up there.
+  const empty = loaded && !documents.length;
   const continueTarget = useWalkthroughTarget("home.continue");
   const recentTarget = useWalkthroughTarget("home.recent");
   const startTarget = useWalkthroughTarget("home.start");
@@ -54,6 +61,20 @@ export default function Home() {
         <View accessible accessibilityLabel="Loading your library" style={s.loading}>
           <ActivityIndicator color={theme.accent} />
         </View>
+      ) : null}
+      {empty ? (
+        <Text accessibilityRole="header" style={[s.pageTitle, { color: theme.text }]}>
+          Continue
+        </Text>
+      ) : null}
+      {empty ? (
+        <EmptyContinueWidget
+          onAdd={() => void importDocument()}
+          importing={importing}
+          addRef={addRef}
+          // While the getting-started checklist is up, that's where the Home walkthrough starts.
+          targetRef={checklistDismissed ? startTarget : undefined}
+        />
       ) : null}
       {loaded && documents.length ? (
         <View style={s.headerRow}>
@@ -98,8 +119,8 @@ export default function Home() {
           }}
         />
       ) : null}
-      {loaded && documents.length ? <WeekWidget /> : null}
-      {recent.length ? (
+      {loaded ? <WeekWidget /> : null}
+      {recent.length || empty ? (
         <RecentShelf
           documents={recent}
           targetRef={recentTarget}
@@ -114,6 +135,7 @@ export default function Home() {
       ) : null}
       <NotesShelf
         notes={notes}
+        showEmpty={empty}
         onOpen={({ document, passage }) => {
           if (transition.transitioning) return;
           // Opens the document at the saved passage.
@@ -121,34 +143,6 @@ export default function Home() {
           router.push("/reader");
         }}
       />
-      {loaded && !documents.length && checklistDismissed ? (
-        <View ref={startTarget} collapsable={false} style={s.empty}>
-          <HomeEmptyAnimation />
-          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            Your reading starts here
-          </Text>
-          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Add a PDF, Word, PowerPoint, EPUB, or text file to read and listen.
-          </Text>
-          <View ref={addRef} collapsable={false} style={s.emptyAction}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add document"
-              accessibilityState={{ busy: importing }}
-              disabled={importing}
-              onPress={() => void importDocument()}
-              style={[s.primary, { backgroundColor: theme.accent }]}
-            >
-              {importing ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Ionicons name="add" size={20} color="#FFF" />
-              )}
-              <Text style={s.primaryText}>Add document</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : null}
       <DocumentActionsSheet
         document={menuDocument}
         onClose={() => setMenuDocument(null)}
@@ -175,18 +169,4 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addText: { fontSize: 15, fontWeight: "700" },
-  primary: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  primaryText: { color: "#FFF", fontSize: 16, fontWeight: "800" },
-  empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
-  emptyTitle: { ...typography.sectionTitle, textAlign: "center" },
-  emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: "center" },
-  emptyAction: { alignSelf: "stretch", marginTop: spacing.sm },
 });

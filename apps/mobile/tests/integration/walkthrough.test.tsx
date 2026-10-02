@@ -203,7 +203,14 @@ describe("Home walkthrough", () => {
     await renderTab(<Home />);
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
     expect(screen.getByText("Start here. Add a document, and Votic opens it in the Reader.")).toBeTruthy();
-    expect(screen.getByLabelText("Step 1 of 3")).toBeTruthy();
+    expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
+    await press("Next");
+    expect(inCard("Your week")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Your reading and listening time will show here once you start. Statistics has the full picture.",
+      ),
+    ).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Your documents")).toBeTruthy();
     expect(measured).toContain("Documents tab");
