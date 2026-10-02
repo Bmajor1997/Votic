@@ -73,7 +73,7 @@ describe("Home", () => {
   it("keeps Home's sections with an empty library, each saying what will show up there", async () => {
     await renderWithProviders(<Home />);
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
-    expect(screen.getByRole("header", { name: "Continue" })).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
     expect(screen.getByText("Ready when you are")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
     expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();

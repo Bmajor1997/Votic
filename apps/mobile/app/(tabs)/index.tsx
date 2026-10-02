@@ -63,11 +63,6 @@ export default function Home() {
         </View>
       ) : null}
       {empty ? (
-        <Text accessibilityRole="header" style={[s.pageTitle, { color: theme.text }]}>
-          Continue
-        </Text>
-      ) : null}
-      {empty ? (
         <EmptyContinueWidget
           onAdd={() => void importDocument()}
           importing={importing}
