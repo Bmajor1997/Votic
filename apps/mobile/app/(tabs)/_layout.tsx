@@ -171,5 +171,6 @@ export default function TabLayout() {
 const s = StyleSheet.create({
   navigator: { flex: 1 },
   iconWrap: { alignItems: "center", justifyContent: "center", minWidth: 34 },
-  indicator: { position: "absolute", bottom: -5, width: 18, height: 2.5, borderRadius: 999 },
+  // Sits above the icon, so it never runs into the tab's name underneath.
+  indicator: { position: "absolute", top: -6, width: 18, height: 2.5, borderRadius: 999 },
 });
