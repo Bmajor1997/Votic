@@ -11,6 +11,7 @@ import Personalize from "../../app/personalize";
 import Ready from "../../app/ready";
 import SignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
+import { walkthroughKey } from "../../src/walkthrough/walkthroughState";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
@@ -439,7 +440,7 @@ describe("Settings personalization and account", () => {
     expect(fakeAuth.calls).toContain("signOut");
   });
 
-  it("forgets this account's setup when the account is deleted", async () => {
+  it("forgets this account's setup and walkthrough progress when the account is deleted", async () => {
     jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
       buttons?.find((button) => button.text === "Delete account")?.onPress?.();
     });
@@ -447,6 +448,7 @@ describe("Settings personalization and account", () => {
     expect(await loadAccountSetup("test-user")).not.toBeNull();
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete account" })));
     await waitFor(async () => expect(await loadAccountSetup("test-user")).toBeNull());
+    expect(await AsyncStorage.getItem(walkthroughKey("test-user"))).toBeNull();
     expect(fakeAuth.calls).toContain("deleteAccount");
   });
 });

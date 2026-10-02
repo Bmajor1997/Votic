@@ -5,6 +5,7 @@ import { Alert, Linking, Modal, Platform, Pressable, StyleSheet, Switch, Text, V
 import { useAuth } from "../../src/auth/AuthProvider";
 import { authErrorMessage } from "../../src/auth/authErrors";
 import { removeAccountSetup } from "../../src/onboarding/onboardingStorage";
+import { removeWalkthroughState } from "../../src/walkthrough/walkthroughState";
 import { PersonalizationFlow } from "../../src/onboarding/PersonalizationFlow";
 import { EXPLANATION_STYLES, useVoticPurpose } from "../../src/personalization/PurposeProvider";
 import { hasAccess } from "../../src/subscription/entitlement";
@@ -70,7 +71,9 @@ export default function Settings() {
             const uid = auth.user?.uid;
             void auth
               .deleteAccount()
-              .then(() => (uid ? removeAccountSetup(uid) : undefined))
+              .then(() =>
+                uid ? Promise.all([removeAccountSetup(uid), removeWalkthroughState(uid)]) : undefined,
+              )
               .catch((error) => Alert.alert("Couldn't delete account", authErrorMessage(error)));
           },
         },

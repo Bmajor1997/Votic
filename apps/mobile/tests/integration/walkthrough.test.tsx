@@ -11,7 +11,7 @@ import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { DEVICE_HISTORY_KEY } from "../../src/onboarding/OnboardingProvider";
 import { LearnVoticSettings } from "../../src/walkthrough/LearnVoticSettings";
-import { FlowId } from "../../src/walkthrough/walkthroughFlows";
+import { FLOWS, FlowId } from "../../src/walkthrough/walkthroughFlows";
 import { WalkthroughOverlay } from "../../src/walkthrough/WalkthroughOverlay";
 import {
   ALL_SET_DELAY_MS,
@@ -19,7 +19,8 @@ import {
   TRIGGER_DELAY_MS,
   useWalkthrough,
 } from "../../src/walkthrough/WalkthroughProvider";
-import { WALKTHROUGH_KEY } from "../../src/walkthrough/walkthroughState";
+import { WALKTHROUGH_KEY as DEVICE_KEY, walkthroughKey } from "../../src/walkthrough/walkthroughState";
+import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
@@ -29,6 +30,9 @@ jest.mock("expo-speech", () => ({
   stop: jest.fn(async () => {}),
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
+
+/** Walkthrough progress for the signed-in test account. */
+const ACCOUNT_KEY = walkthroughKey("test-user");
 
 /** Which real controls the walkthrough measured, by accessibility label. */
 let measured: string[] = [];
@@ -83,7 +87,7 @@ async function press(name: string) {
   await settle();
 }
 async function saved(): Promise<Partial<Record<FlowId, { status: string }>>> {
-  return JSON.parse((await AsyncStorage.getItem(WALKTHROUGH_KEY)) || "{}").flows || {};
+  return JSON.parse((await AsyncStorage.getItem(ACCOUNT_KEY)) || "{}").flows || {};
 }
 const card = () => screen.queryByTestId("walkthrough-card");
 /** Text inside the walkthrough card (the screen itself may say the same thing). */
@@ -102,12 +106,12 @@ const AFTER_INTRO = { version: 1, flows: { intro: { status: "completed", at: 1 }
 beforeEach(async () => {
   measured = [];
   await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "new");
-  await AsyncStorage.setItem(WALKTHROUGH_KEY, JSON.stringify(AFTER_INTRO));
+  await AsyncStorage.setItem(ACCOUNT_KEY, JSON.stringify(AFTER_INTRO));
 });
 
 describe("Let's show you around", () => {
   async function brandNew() {
-    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
+    await AsyncStorage.removeItem(ACCOUNT_KEY);
     await renderTab(<Home />);
   }
 
@@ -155,7 +159,7 @@ describe("Let's show you around", () => {
 
   it("Learn Votic still replays a walkthrough after declining", async () => {
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { intro: { status: "skipped", at: 1 } } }),
     );
     function SettingsThenDocuments() {
@@ -172,8 +176,10 @@ describe("Let's show you around", () => {
   });
 
   it("isn't shown to people whose walkthrough progress was saved before it existed", async () => {
+    // Progress this phone saved before it was kept per account.
+    await AsyncStorage.removeItem(ACCOUNT_KEY);
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      DEVICE_KEY,
       JSON.stringify({ version: 1, flows: { home: { status: "completed", at: 1 } } }),
     );
     await renderTab(<Home />);
@@ -345,7 +351,7 @@ describe("Documents walkthrough", () => {
 
   it("teaches collections on a later visit, once there are documents", async () => {
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { documents: { status: "completed", at: 1 } } }),
     );
     await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
@@ -391,7 +397,7 @@ describe("Notes walkthrough", () => {
 
   it("explains pinning the first time a note is pinned", async () => {
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
     );
     const documents = [
@@ -413,7 +419,7 @@ describe("Notes walkthrough", () => {
 
   it("offers the Ask Votic tip the first time notes are selected", async () => {
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
     );
     await renderTab(<Notes />, { documents: WITH_NOTES });
@@ -444,7 +450,7 @@ async function renderReader(
 ) {
   // How the document was opened decides the Reader's controls: Listen has audio controls, Read doesn't.
   searchParams.current = { mode };
-  await AsyncStorage.setItem(WALKTHROUGH_KEY, JSON.stringify({ version: 1, flows }));
+  await AsyncStorage.setItem(ACCOUNT_KEY, JSON.stringify({ version: 1, flows }));
   await renderWithProviders(<OpenedReader />, {
     walkthrough: "fresh",
     measureNode,
@@ -602,8 +608,10 @@ describe("Reader walkthrough", () => {
 
 describe("Replay and accessibility", () => {
   it("replays one walkthrough from Settings without resetting the others", async () => {
+    // Progress this phone saved before it was kept per account.
+    await AsyncStorage.removeItem(ACCOUNT_KEY);
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      DEVICE_KEY,
       JSON.stringify({
         version: 1,
         flows: { home: { status: "completed", at: 1 }, documents: { status: "skipped", at: 1 } },
@@ -636,7 +644,7 @@ describe("Replay and accessibility", () => {
 describe("Existing Votic users", () => {
   it("aren't shown walkthroughs for areas they already use", async () => {
     await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "existing");
-    await AsyncStorage.removeItem(WALKTHROUGH_KEY);
+    await AsyncStorage.removeItem(ACCOUNT_KEY);
     const documents = [testDocument("d1", "Biology", { progress: 0.5, lastOpenedAt: 3 })];
     await renderTab(<Home />, { documents });
     // renderTab starts "fresh", so this is the first launch with walkthroughs on an existing install.
@@ -654,5 +662,48 @@ describe("Existing Votic users", () => {
     screen.unmount();
     await renderTab(<Notes />, { documents });
     expect(screen.getByText("Notes start in the Reader")).toBeTruthy();
+  });
+});
+
+describe("Walkthrough progress belongs to the account", () => {
+  /** Another account signs in while Votic is open, as after signing out. */
+  async function signInAs(user: NonNullable<typeof fakeAuth.user>) {
+    await act(async () => fakeAuth.setUser(null));
+    await act(async () => fakeAuth.setUser(user));
+    await waitForWalkthrough();
+  }
+
+  it("is kept separately for each account on the device", async () => {
+    await renderTab(<Home />);
+    await press("Skip walkthrough");
+    expect((await saved()).home?.status).toBe("skipped");
+    // A brand-new account signs in on the same phone and gets its own walkthrough.
+    await signInAs({ uid: "second", email: "b@example.com", displayName: null, isNewAccount: true });
+    expect(inCard("Let's show you around")).toBeTruthy();
+    expect(JSON.parse((await AsyncStorage.getItem(walkthroughKey("second"))) || "{}").flows).toEqual({});
+    // The first account's progress is untouched.
+    expect((await saved()).home?.status).toBe("skipped");
+  });
+
+  it("isn't shown again to an existing account signing in on another phone", async () => {
+    await renderTab(<Home />);
+    expect(card()).not.toBeNull();
+    await signInAs({ uid: "returning", email: "r@example.com", displayName: null });
+    expect(card()).toBeNull();
+    const flows = JSON.parse((await AsyncStorage.getItem(walkthroughKey("returning"))) || "{}").flows;
+    expect(Object.keys(flows).sort()).toEqual(Object.keys(FLOWS).sort());
+  });
+
+  it("carries over what this phone recorded before progress was kept per account", async () => {
+    await AsyncStorage.removeItem(ACCOUNT_KEY);
+    await AsyncStorage.setItem(
+      DEVICE_KEY,
+      JSON.stringify({
+        version: 1,
+        flows: { intro: { status: "completed", at: 1 }, home: { status: "skipped", at: 1 } },
+      }),
+    );
+    await renderTab(<Home />);
+    expect(Object.keys(await saved()).sort()).toEqual(["home", "intro"]);
   });
 });

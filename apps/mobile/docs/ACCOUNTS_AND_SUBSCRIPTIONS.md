@@ -20,6 +20,7 @@ separate facts, so finishing setup never grants access by itself:
 | -------------------------- | ---------------------------------------- | --------------------------------------------------------------------------- |
 | Signed in                  | Firebase Authentication                  | Firebase; the session is kept by the Firebase SDK in the app's AsyncStorage |
 | Setup progress and answers | This device                              | AsyncStorage `votic.mobile.onboarding.v1:<firebase uid>`                    |
+| Walkthroughs seen          | This device                              | AsyncStorage `votic.mobile.walkthrough.v1:<firebase uid>`                   |
 | Votic Premium              | App Store or Google Play, via RevenueCat | RevenueCat, keyed by the Firebase uid. Never a locally saved "paid" flag    |
 
 ## Who sees setup
@@ -32,6 +33,11 @@ separate facts, so finishing setup never grants access by itself:
 | Another account signs in on the same phone                             | That account has its own setup                             |
 | Signed in on a build from before per-account setup                     | Keeps whatever that build decided                          |
 | Any account without an active subscription or trial (including expiry) | Votic Premium screen                                       |
+
+Walkthroughs follow the same rules: a new account gets them, an existing account signing in on a new phone or
+after a reinstall doesn't (each can be replayed from Settings → Learn Votic), another account on the same phone
+has its own, and a session from before per-account progress keeps what the phone had recorded. Which walkthroughs
+an account finished on another phone isn't known, because this is kept on the device, not on a server.
 
 "New account" comes from Firebase: a sign-in that created the account has the same creation and last-sign-in time.
 
@@ -100,7 +106,7 @@ made-up link.
 
 ## Account deletion
 
-Settings → Delete account deletes the Firebase account and this device's setup for it. Documents and notes stay
+Settings → Delete account deletes the Firebase account and this device's setup and walkthrough progress for it. Documents and notes stay
 on the device. It does not cancel a store subscription. If Firebase asks for a recent sign-in, the person is told
 to sign out and back in first.
 

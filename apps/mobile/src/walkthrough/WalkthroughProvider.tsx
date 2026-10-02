@@ -27,6 +27,7 @@ import {
   loadWalkthroughState,
   saveWalkthroughState,
 } from "./walkthroughState";
+import { useAuth } from "../auth/AuthProvider";
 
 type Measure = () => Promise<Rect | null>;
 export type MeasureNode = (node: unknown) => Promise<Rect | null>;
@@ -74,31 +75,59 @@ export function WalkthroughProvider({
   measureNode = measureInWindow,
   now = Date.now,
 }: PropsWithChildren<{ measureNode?: MeasureNode; now?: () => number }>) {
-  const [state, setState] = useState<WalkthroughState>(EMPTY_WALKTHROUGH);
-  const [hydrated, setHydrated] = useState(false);
-  const [active, setActive] = useState<ActiveFlow | null>(null);
+  // Progress belongs to the signed-in account. It's kept with the account it was loaded for, so another
+  // account's progress never shows, or is saved over, while this one loads.
+  const { user, sessionRestored } = useAuth();
+  const uid = user?.uid ?? null;
+  const [loaded, setLoaded] = useState<{ uid: string; state: WalkthroughState } | null>(null);
+  const [shown, setShown] = useState<{ uid: string; flow: ActiveFlow } | null>(null);
+  const hydrated = Boolean(uid && loaded?.uid === uid);
+  const state = hydrated && loaded ? loaded.state : EMPTY_WALKTHROUGH;
+  const active = shown && shown.uid === uid ? shown.flow : null;
   const targets = useRef(new Map<TargetId, Measure>());
   const activeRef = useRef<ActiveFlow | null>(null);
   const stateRef = useRef(state);
+  const uidRef = useRef(uid);
   useEffect(() => {
     activeRef.current = active;
     stateRef.current = state;
+    uidRef.current = uid;
   });
+  const setActive = useCallback((flow: ActiveFlow | null) => {
+    const owner = uidRef.current;
+    setShown(flow && owner ? { uid: owner, flow } : null);
+  }, []);
+  /** Changes and saves the signed-in account's progress. */
+  const setState = useCallback((change: (previous: WalkthroughState) => WalkthroughState) => {
+    setLoaded((previous) => {
+      if (!previous || previous.uid !== uidRef.current) return previous;
+      const next = change(previous.state);
+      void saveWalkthroughState(previous.uid, next).catch(() => {});
+      return { uid: previous.uid, state: next };
+    });
+  }, []);
 
+  // Sections replayed from Settings. They show even when automatic coaching was declined.
+  const replaying = useRef(new Set<FlowId>());
+  const isNewAccount = Boolean(user?.isNewAccount);
   useEffect(() => {
+    if (!uid) return;
     let current = true;
-    void loadWalkthroughState(now())
+    void loadWalkthroughState({ uid, isNewAccount, sessionRestored }, now())
       .catch(() => EMPTY_WALKTHROUGH)
-      .then((loaded) => {
+      .then((progress) => {
         if (!current) return;
-        stateRef.current = loaded;
-        setState(loaded);
-        setHydrated(true);
+        replaying.current.clear();
+        activeRef.current = null;
+        stateRef.current = progress;
+        setLoaded({ uid, state: progress });
       });
     return () => {
       current = false;
     };
-  }, [now]);
+    // Only a change of account reloads progress; the facts above are read as they were at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
 
   const record = useCallback(
     (id: FlowId, status: FlowStatus) => {
@@ -108,11 +137,10 @@ export function WalkthroughProvider({
           flows: { ...previous.flows, [id]: { status, at: now() } },
         };
         stateRef.current = next;
-        void saveWalkthroughState(next).catch(() => {});
         return next;
       });
     },
-    [now],
+    [now, setState],
   );
 
   /** The first step at or after `from` whose control is on screen (or that needs no control). */
@@ -124,8 +152,6 @@ export function WalkthroughProvider({
     return -1;
   }, []);
 
-  // Sections replayed from Settings. They show even when automatic coaching was declined.
-  const replaying = useRef(new Set<FlowId>());
   const requestRef = useRef<(id: FlowId) => boolean>(() => false);
   const finish = useCallback(
     (status: FlowStatus) => {
@@ -140,7 +166,7 @@ export function WalkthroughProvider({
       if (current.id === "reader" && status === "completed" && stateRef.current.flows.home)
         setTimeout(() => requestRef.current("allSet"), ALL_SET_DELAY_MS);
     },
-    [record],
+    [record, setActive],
   );
 
   const advance = useCallback(() => {
@@ -151,7 +177,7 @@ export function WalkthroughProvider({
     const next = { ...current, index };
     activeRef.current = next;
     setActive(next);
-  }, [finish, firstShowable]);
+  }, [finish, firstShowable, setActive]);
 
   // Stable actions (they only read refs), so screens can depend on them without re-running effects.
   const hydratedRef = useRef(hydrated);
@@ -172,17 +198,20 @@ export function WalkthroughProvider({
       setActive(flow);
       return true;
     },
-    [firstShowable],
+    [firstShowable, setActive],
   );
   useEffect(() => {
     requestRef.current = request;
   }, [request]);
   const skip = useCallback(() => finish("skipped"), [finish]);
-  const dismiss = useCallback((id: FlowId) => {
-    if (activeRef.current?.id !== id) return;
-    activeRef.current = null;
-    setActive(null);
-  }, []);
+  const dismiss = useCallback(
+    (id: FlowId) => {
+      if (activeRef.current?.id !== id) return;
+      activeRef.current = null;
+      setActive(null);
+    },
+    [setActive],
+  );
   const pressed = useCallback(
     (target: TargetId) => {
       const current = activeRef.current;
@@ -194,24 +223,26 @@ export function WalkthroughProvider({
     },
     [advance, finish],
   );
-  const reset = useCallback((id: SectionId | "all") => {
-    // Replaying one section is a deliberate request; "show all again" starts over, welcome card included.
-    if (id === "all") replaying.current.clear();
-    else replaying.current.add(id);
-    if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
-      activeRef.current = null;
-      setActive(null);
-    }
-    setState((previous) => {
-      const flows = { ...previous.flows };
-      if (id === "all") for (const key of Object.keys(flows)) delete flows[key as FlowId];
-      else delete flows[id];
-      const next = { ...previous, flows };
-      stateRef.current = next;
-      void saveWalkthroughState(next).catch(() => {});
-      return next;
-    });
-  }, []);
+  const reset = useCallback(
+    (id: SectionId | "all") => {
+      // Replaying one section is a deliberate request; "show all again" starts over, welcome card included.
+      if (id === "all") replaying.current.clear();
+      else replaying.current.add(id);
+      if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
+        activeRef.current = null;
+        setActive(null);
+      }
+      setState((previous) => {
+        const flows = { ...previous.flows };
+        if (id === "all") for (const key of Object.keys(flows)) delete flows[key as FlowId];
+        else delete flows[id];
+        const next = { ...previous, flows };
+        stateRef.current = next;
+        return next;
+      });
+    },
+    [setActive, setState],
+  );
   const registerTarget = useCallback((id: TargetId, measure: Measure | null) => {
     if (measure) targets.current.set(id, measure);
     else targets.current.delete(id);

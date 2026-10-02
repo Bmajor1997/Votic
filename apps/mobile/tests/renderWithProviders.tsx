@@ -24,7 +24,7 @@ import { SubscriptionProvider } from "../src/subscription/SubscriptionProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { FLOWS } from "../src/walkthrough/walkthroughFlows";
 import { MeasureNode, WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
-import { WALKTHROUGH_KEY } from "../src/walkthrough/walkthroughState";
+import { walkthroughKey } from "../src/walkthrough/walkthroughState";
 import { fakeAuth } from "./mocks/authBackend";
 
 const metrics = {
@@ -100,9 +100,9 @@ export async function seedStorage({
       completedAt: 1,
       ...accountSetup,
     });
-  if (walkthrough === "finished")
+  if (walkthrough === "finished" && uid)
     await AsyncStorage.setItem(
-      WALKTHROUGH_KEY,
+      walkthroughKey(uid),
       JSON.stringify({
         version: 1,
         flows: Object.fromEntries(Object.keys(FLOWS).map((id) => [id, { status: "completed", at: 1 }])),
