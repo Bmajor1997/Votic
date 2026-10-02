@@ -20,8 +20,8 @@ import {
 } from "../../src/accessibility/AccessibilityProvider";
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../../src/theme/ThemeProvider";
 const colors: AccentName[] = [
-  "orange",
   "blue",
+  "orange",
   "purple",
   "red",
   "teal",

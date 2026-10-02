@@ -57,21 +57,35 @@ const palettes = {
   },
 } as const;
 const C = createContext<any>(null);
+/** Votic's color unless the person picks another one in Settings. */
+export const DEFAULT_ACCENT: AccentName = "blue";
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [accentName, setAccentName] = useState<AccentName>("orange");
+  const [accentName, setAccentName] = useState<AccentName>(DEFAULT_ACCENT);
+  // Whether the accent was picked in Settings, as opposed to saved automatically as the default.
+  const [accentChosen, setAccentChosen] = useState(false);
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("light");
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     loadThemePreferences().then((saved) => {
-      if (saved?.accentName && saved.accentName in accentColors) setAccentName(saved.accentName);
+      // Earlier versions saved their orange default without anyone choosing it. Only a color that was
+      // actually picked in Settings (or any color other than that old default) is kept.
+      const chosen = saved?.accentChosen === true || (saved?.accentName && saved.accentName !== "orange");
+      if (chosen && saved.accentName in accentColors) {
+        setAccentName(saved.accentName);
+        setAccentChosen(true);
+      }
       // A saved "system" choice from before Sepia replaced it falls back to the Light default.
       if (["light", "dark", "sepia"].includes(saved?.appearanceMode)) setAppearanceMode(saved.appearanceMode);
       setHydrated(true);
     });
   }, []);
   useEffect(() => {
-    if (hydrated) saveThemePreferences({ accentName, appearanceMode }).catch(() => {});
-  }, [accentName, appearanceMode, hydrated]);
+    if (hydrated) saveThemePreferences({ accentName, accentChosen, appearanceMode }).catch(() => {});
+  }, [accentName, accentChosen, appearanceMode, hydrated]);
+  function chooseAccent(value: AccentName) {
+    setAccentName(value);
+    setAccentChosen(true);
+  }
   const resolvedMode: AppearanceMode = appearanceMode;
   const theme = useMemo(() => {
     const accent =
@@ -95,7 +109,16 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     };
   }, [accentName, resolvedMode]);
   return (
-    <C.Provider value={{ accentName, setAccentName, appearanceMode, setAppearanceMode, resolvedMode, theme }}>
+    <C.Provider
+      value={{
+        accentName,
+        setAccentName: chooseAccent,
+        appearanceMode,
+        setAppearanceMode,
+        resolvedMode,
+        theme,
+      }}
+    >
       {children}
     </C.Provider>
   );
