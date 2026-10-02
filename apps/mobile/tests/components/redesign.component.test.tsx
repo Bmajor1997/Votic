@@ -74,14 +74,14 @@ describe("Home", () => {
     await renderWithProviders(<Home />);
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
     expect(screen.getByRole("header", { name: "Continue" })).toBeTruthy();
-    expect(screen.getByText("Nothing to continue yet")).toBeTruthy();
+    expect(screen.getByText("Ready when you are")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
     expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
-    expect(screen.getByText("No activity yet")).toBeTruthy();
+    expect(screen.getByText("No activity")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Recent" })).toBeTruthy();
-    expect(screen.getByText("No recent documents yet")).toBeTruthy();
+    expect(screen.getByText("Your shelf starts here")).toBeTruthy();
     expect(screen.getByRole("header", { name: "From your notes" })).toBeTruthy();
-    expect(screen.getByText("No notes yet")).toBeTruthy();
+    expect(screen.getByText("No notes")).toBeTruthy();
     // Nothing to see yet, so no "See all".
     expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
   });

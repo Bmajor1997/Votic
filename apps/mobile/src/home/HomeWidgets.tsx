@@ -178,9 +178,9 @@ export function EmptyContinueWidget({
           <Ionicons name="document-outline" size={30} color={theme.mutedText} />
         </View>
         <View style={s.grow}>
-          <Text style={[s.continueTitle, { color: theme.text }]}>Nothing to continue yet</Text>
+          <Text style={[s.continueTitle, { color: theme.text }]}>Ready when you are</Text>
           <Text style={[s.emptyMessage, { color: theme.mutedText }]}>
-            Add a document and it will show up here, ready to listen to or read.
+            Add a PDF, Word, PowerPoint, EPUB, or text file, then listen or read along.
           </Text>
         </View>
       </View>
@@ -342,7 +342,7 @@ export function WeekWidget() {
             </>
           ) : (
             <>
-              <Text style={[s.weekEmpty, { color: theme.text }]}>No activity yet</Text>
+              <Text style={[s.weekEmpty, { color: theme.text }]}>No activity</Text>
               <Text style={[s.meta, { color: theme.mutedText }]}>
                 Your reading and listening time will show here once you start.
               </Text>
@@ -429,8 +429,8 @@ export function RecentShelf({
         <SectionHeader title="Recent" />
         <EmptyPanel
           icon="time-outline"
-          title="No recent documents yet"
-          message="Documents you open will show up here."
+          title="Your shelf starts here"
+          message="Everything you open lines up here, so you can jump back in anytime."
         />
       </View>
     );
@@ -536,7 +536,7 @@ export function NotesShelf({
         <SectionHeader title="From your notes" />
         <EmptyPanel
           icon="create-outline"
-          title="No notes yet"
+          title="No notes"
           message="Notes you save while reading will show up here."
         />
       </View>
