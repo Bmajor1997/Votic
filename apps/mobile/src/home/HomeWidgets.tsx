@@ -5,13 +5,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { formatDuration, spokenDuration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { DocumentCover } from "../components/DocumentCover";
-import { VoticLogo } from "../components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { positionLabel, progressLabel, readableTitle } from "../documents/documentDisplay";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { VoticDocument } from "../documents/types";
-import { askSuggestions } from "../personalization/suggestions";
-import { usePersonalization } from "../personalization/usePersonalization";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
 import {
@@ -211,87 +208,6 @@ function ResumeButton({
   );
 }
 
-// ---------- Ask Votic ----------
-
-const DOCUMENT_QUESTIONS = new Set([
-  "Summarize this document",
-  "Explain this section",
-  "Explain this section simply",
-  "Find key points",
-  "Help me understand this passage",
-  "Quiz me on this document",
-  "Find action items",
-  "Highlight key decisions",
-  "Identify key findings",
-  "Explain the evidence",
-  "Find information",
-]);
-
-/**
- * A compact way into Ask Votic about the document on Home. Two suggestions come from the person's
- * personalization answers; a suggestion fills in the question so it can be edited before sending.
- */
-export function AskWidget({ document }: { document: VoticDocument }) {
-  const { theme } = useVoticTheme();
-  const { openDocument } = useDocumentLibrary();
-  const { answers, purpose } = usePersonalization();
-  const title = readableTitle(document.title);
-  const suggestions = askSuggestions(answers, purpose)
-    .filter((item) => DOCUMENT_QUESTIONS.has(item))
-    .slice(0, 2);
-  function ask(question?: string) {
-    openDocument(document.id);
-    router.push(question ? { pathname: "/assistant", params: { initialQuestion: question } } : "/assistant");
-  }
-  return (
-    <View style={[s.ask, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Ask Votic about ${title}`}
-        onPress={() => ask()}
-        style={({ pressed }) => [s.askRow, { opacity: pressed ? 0.7 : 1 }]}
-      >
-        <VoticLogo compact markOnly />
-        <View style={s.grow}>
-          <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
-          <Text numberOfLines={1} style={[s.meta, { color: theme.mutedText }]}>
-            About {title}
-          </Text>
-        </View>
-        <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
-      </Pressable>
-      {suggestions.length ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={s.chipRow}
-          contentContainerStyle={s.chips}
-        >
-          {suggestions.map((question) => (
-            <Pressable
-              key={question}
-              accessibilityRole="button"
-              accessibilityLabel={`Ask Votic: ${question}`}
-              onPress={() => ask(question)}
-              style={({ pressed }) => [
-                s.chip,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: pressed ? theme.surfaceMuted : theme.background,
-                },
-              ]}
-            >
-              <Text numberOfLines={1} style={[s.chipText, { color: theme.text }]}>
-                {question}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
-    </View>
-  );
-}
-
 // ---------- This week ----------
 
 /**
@@ -335,7 +251,6 @@ export function WeekWidget() {
       <View style={s.weekHeader}>
         <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
         <View style={s.weekLink}>
-          <Ionicons name="stats-chart" size={14} color={theme.accentText} />
           <Text style={[s.weekLinkText, { color: theme.accentText }]}>Statistics</Text>
           <Ionicons name="chevron-forward" size={15} color={theme.accentText} />
         </View>
@@ -604,31 +519,6 @@ const s = StyleSheet.create({
     gap: 6,
   },
   resumeText: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
-
-  ask: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
-  askRow: {
-    minHeight: controlSizes.minimumTouch,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  askTitle: { fontSize: 16, fontWeight: "800" },
-  chipRow: { marginHorizontal: -spacing.lg },
-  chips: { flexDirection: "row", gap: spacing.sm, paddingHorizontal: spacing.lg },
-  chip: {
-    minHeight: 40,
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    justifyContent: "center",
-  },
-  chipText: { fontSize: 14, fontWeight: "600" },
 
   week: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   weekHeader: {

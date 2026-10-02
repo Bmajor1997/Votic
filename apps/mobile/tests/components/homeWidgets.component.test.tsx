@@ -99,20 +99,9 @@ describe("Continue", () => {
 });
 
 describe("Ask Votic", () => {
-  it("asks about the document in progress, with suggestions that fill in the question", async () => {
+  it("isn't on Home", async () => {
     await renderWithProviders(<Home />, { documents: [report, guide] });
-    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic: Summarize this document" }));
-    expect(router.push).toHaveBeenLastCalledWith({
-      pathname: "/assistant",
-      params: { initialQuestion: "Summarize this document" },
-    });
-    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about Quarterly report" }));
-    expect(router.push).toHaveBeenLastCalledWith("/assistant");
-  });
-
-  it("isn't shown with an empty library", async () => {
-    await renderWithProviders(<Home />);
-    expect(screen.queryByRole("button", { name: /^Ask Votic about/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Ask Votic/ })).toBeNull();
   });
 });
 
@@ -129,6 +118,7 @@ describe("This week", () => {
     expect(within(week).getByText("Reading 40 min", { includeHiddenElements: true })).toBeTruthy();
     expect(week.props.accessibilityLabel).toMatch(/reading 40 minutes, listening 20 minutes/);
     expect(within(week).getByText("Listening 20 min", { includeHiddenElements: true })).toBeTruthy();
+    expect(within(week).getByText("Statistics")).toBeTruthy();
     await fireEvent.press(week);
     expect(router.push).toHaveBeenLastCalledWith("/statistics");
   });

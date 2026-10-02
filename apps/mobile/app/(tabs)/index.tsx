@@ -15,7 +15,7 @@ import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { homeNotes } from "../../src/home/homeModel";
-import { AskWidget, ContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
+import { ContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
@@ -32,8 +32,6 @@ export default function Home() {
     .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 8);
-  // Ask Votic is about the document in progress, or the most recent one when everything is finished.
-  const askDocument = featured ?? recent[0];
   const notes = homeNotes(documents);
   const continueTarget = useWalkthroughTarget("home.continue");
   const recentTarget = useWalkthroughTarget("home.recent");
@@ -111,7 +109,6 @@ export default function Home() {
           }}
         />
       ) : null}
-      {askDocument ? <AskWidget document={askDocument} /> : null}
       {loaded && documents.length ? <WeekWidget /> : null}
       {recent.length ? (
         <RecentShelf
