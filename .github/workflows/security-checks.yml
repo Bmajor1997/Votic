@@ -89,7 +89,7 @@ jobs:
             npm-audit.json
             security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner
-        run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan -r /src
+        run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan --config=/src/osv-scanner.toml -r /src
 
       - name: Install Semgrep
         run: pip install semgrep
