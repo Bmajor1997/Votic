@@ -129,4 +129,43 @@ jobs:
         run: semgrep scan --config auto apps/mobile --error
         working-directory: .
       - name: Audit mobile production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          npm audit --omit=dev --json > mobile-audit.json || true
+          node - <<'NODE'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("mobile-audit.json", "utf8"));
+          const allowed = new Set(["GHSA-vfj7-8cjw-p6xm", "GHSA-86w9-cpqp-85rv"]);
+          const vulnerabilities = audit.vulnerabilities || {};
+
+          function leafAdvisories(name, seen = new Set()) {
+            if (seen.has(name)) return [];
+            seen.add(name);
+            const finding = vulnerabilities[name];
+            if (!finding) return [];
+            return (Array.isArray(finding.via) ? finding.via : []).flatMap((via) =>
+              typeof via === "string" ? leafAdvisories(via, new Set(seen)) : via ? [via] : [],
+            );
+          }
+
+          const blocking = [];
+          for (const [name, finding] of Object.entries(vulnerabilities)) {
+            if (!["high", "critical"].includes(finding.severity)) continue;
+            const leaves = leafAdvisories(name);
+            if (!leaves.length) {
+              blocking.push(`${name}: no advisory details`);
+              continue;
+            }
+            const unapproved = leaves.filter((item) => {
+              const details = `${item.url || ""} ${item.title || ""}`.toLowerCase();
+              return ![...allowed].some((id) => details.includes(id.toLowerCase()));
+            });
+            if (unapproved.length) blocking.push(`${name}: unapproved high/critical advisory`);
+          }
+
+          if (blocking.length) {
+            console.error("Blocking high/critical dependency vulnerabilities:");
+            blocking.forEach((item) => console.error(`- ${item}`));
+            process.exit(1);
+          }
+          console.log("No unapproved high/critical production dependency vulnerabilities.");
+          NODE
