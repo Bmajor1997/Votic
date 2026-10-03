@@ -194,6 +194,7 @@ test("production refuses to start without Firebase authentication configuration"
 
 test("validates environment-backed server limits", () => {
   assert.equal(load_server_config({ VOTIC_RATE_LIMIT: "7" }).general_rate_limit, 7);
+  assert.equal(load_server_config({ VOTIC_MAX_JSON_BYTES: "128" }).max_json_bytes, 128);
   assert.throws(() => load_server_config({ VOTIC_RATE_LIMIT: "zero" }), /integer/);
 });
 
