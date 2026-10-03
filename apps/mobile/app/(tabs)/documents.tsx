@@ -395,7 +395,7 @@ export default function Documents() {
               <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
                 <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
-                  Direct sharing from other apps, website import, and camera scanning can be added next.
+                  You can also share a supported document from another app directly to Votic. Website import and camera scanning can be added next.
                 </Text>
               </View>
             </View>
