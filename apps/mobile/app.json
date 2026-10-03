@@ -11,6 +11,13 @@
       "expo-splash-screen",
       "expo-apple-authentication",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Votic to scan documents with your camera.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-sharing",
         {
           "ios": {
