@@ -6,11 +6,45 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "votic",
-    "plugins": ["expo-router", "expo-splash-screen", "expo-apple-authentication"],
-    "ios": { "supportsTablet": true, "usesAppleSignIn": true },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen",
+      "expo-apple-authentication",
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsFileWithMaxCount": 1,
+              "supportsAttachmentsWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/pdf",
+              "text/plain",
+              "text/markdown",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/vnd.ms-powerpoint",
+              "application/epub+zip"
+            ],
+            "multipleShareMimeTypes": []
+          }
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "usesAppleSignIn": true
+    },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "adaptiveIcon": { "backgroundColor": "#ffffff" }
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
     }
   }
 }
