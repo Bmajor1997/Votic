@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
+import { VoticLogo } from "../src/components/VoticLogo";
 import { authErrorMessage, looksLikeEmail, passwordProblem } from "../src/auth/authErrors";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { PrimaryButton, TextButton } from "../src/onboarding/components";
@@ -81,6 +82,7 @@ export default function EmailSignIn() {
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
+      <View pointerEvents="none" style={[s.topGlow, { backgroundColor: theme.accent }]} />
       <View style={s.topBar}>
         <Pressable
           accessibilityRole="button"
@@ -93,14 +95,20 @@ export default function EmailSignIn() {
       </View>
       <KeyboardAvoidingView style={s.safe} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            {creating ? "Continue with email" : "Welcome back"}
-          </Text>
-          <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            {creating
-              ? "Create your Votic account to get started."
-              : "Sign in to pick up where you left off."}
-          </Text>
+          <View style={s.brand}>
+            <VoticLogo compact />
+          </View>
+          <View style={s.heading}>
+            <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+              {creating ? "Start understanding more" : "Welcome back"}
+            </Text>
+            <Text style={[s.subtitle, { color: theme.mutedText }]}>
+              {creating
+                ? "Create your Votic account and make every document easier to follow."
+                : "Sign in and pick up exactly where you left off."}
+            </Text>
+          </View>
+          <View style={[s.formCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={s.fields}>
             <Field label="Email" error={emailError}>
               <TextInput
@@ -185,6 +193,13 @@ export default function EmailSignIn() {
             label={creating ? "I already have an account" : "Create a new account"}
             onPress={switchMode}
           />
+          </View>
+          <View style={s.reassurance}>
+            <Ionicons name="shield-checkmark-outline" size={17} color={theme.accent} />
+            <Text style={[s.reassuranceText, { color: theme.mutedText }]}>
+              Your account keeps your Votic experience connected and secure.
+            </Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -230,6 +245,15 @@ function Message({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  topGlow: {
+    position: "absolute",
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    opacity: 0.1,
+    right: -120,
+    top: -130,
+  },
   topBar: { minHeight: 56, justifyContent: "center", paddingHorizontal: spacing.sm },
   iconButton: {
     width: controlSizes.minimumTouch,
@@ -238,9 +262,17 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.lg },
-  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34 },
-  subtitle: { fontSize: 16, lineHeight: 23, marginTop: -spacing.sm },
-  fields: { gap: spacing.lg, marginTop: spacing.sm },
+  brand: { alignSelf: "flex-start", marginBottom: spacing.xs },
+  heading: { gap: spacing.sm, maxWidth: 350 },
+  title: { ...typography.screenTitle, fontSize: 32, lineHeight: 38, letterSpacing: -0.7 },
+  subtitle: { fontSize: 16, lineHeight: 24 },
+  formCard: {
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  fields: { gap: spacing.lg },
   field: { gap: spacing.xs },
   label: { fontSize: 15, fontWeight: "700" },
   input: {
@@ -273,4 +305,6 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
   },
   messageText: { flex: 1, fontSize: 15, lineHeight: 21 },
+  reassurance: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  reassuranceText: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
 });
