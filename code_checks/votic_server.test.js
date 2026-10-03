@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
-import { create_votic_server, load_server_config } from "../votic_server.js";
+import { create_votic_server, load_server_config, validate_production_security } from "../votic_server.js";
 
 async function with_server(options, run) {
   const server = create_votic_server({ logger: { error() {}, warn() {} }, ...options });
