@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { Alert, AlertButton } from "react-native";
+import { createDocumentStore } from "../../src/documents/documentStorage";
 import Notes from "../../app/(tabs)/notes";
 import { router } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
@@ -162,5 +163,41 @@ describe("Notes search, filters, and notebooks", () => {
     await fireEvent.press(screen.getByText("Mitosis has phases."));
     await fireEvent.press(screen.getByRole("button", { name: "Open this passage in Reader" }));
     expect(router.push).toHaveBeenLastCalledWith("/reader");
+  });
+});
+
+describe("Quick Notes", () => {
+  it("creates standalone notes without a document and keeps them in one notebook", async () => {
+    await renderWithProviders(<Notes />, { documents: [] });
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    expect(screen.getByRole("button", { name: "Save note", disabled: true })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "Remember the meeting questions.");
+    await fireEvent.changeText(screen.getByLabelText("Note tags"), "work, meeting");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByRole("button", { name: "Open Quick Notes notebook" })).toBeTruthy();
+    expect(screen.getByText("Remember the meeting questions.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Open Quick Notes notebook" }));
+    expect(screen.getByRole("button", { name: "Ask Votic about Quick Notes notebook" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "A second independent thought.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByText("A second independent thought.")).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1200);
+    });
+    const saved = await createDocumentStore().loadDocuments();
+    const quick = saved.find((document) => document.notebookKind === "quick-notes");
+    expect(quick?.savedPassages).toHaveLength(2);
+    expect(quick?.plainText).toContain("A second independent thought.");
+    expect(screen.getByText("Remember the meeting questions.")).toBeTruthy();
+  });
+  it("opens an empty document notebook and adds a note without saving a passage", async () => {
+    await renderWithProviders(<Notes />, { documents: [testDocument("empty-doc", "My Document")] });
+    await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "My own observation.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByText("My own observation.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask Votic about My Document notebook" })).toBeTruthy();
   });
 });

@@ -30,7 +30,7 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Notes() {
   const { theme } = useVoticTheme();
-  const { documents, openDocument, savePassage, removePassage } = useDocumentLibrary();
+  const { documents, openDocument, savePassage, removePassage, addQuickNote } = useDocumentLibrary();
   const [query, setQuery] = useState("");
   const [notebookId, setNotebookId] = useState<string | null>(null);
   const [filter, setFilter] = useState<NotesFilter>("all");
@@ -100,7 +100,48 @@ export default function Notes() {
       },
     });
   }
+  function startQuickNote() {
+    const now = Date.now();
+    const document = notebook || {
+      id: "new-quick-note",
+      title: "Quick Notes",
+      sourceName: "Quick Notes.txt",
+      plainText: "",
+      importedAt: now,
+      updatedAt: now,
+      progress: 0,
+      sentenceIndex: 0,
+      wordIndex: 0,
+      playbackRate: 1,
+    };
+    setEditing({
+      document,
+      passage: {
+        id: "quick-" + now + "-" + Math.random().toString(36).slice(2, 8),
+        sentenceIndex: 0,
+        text: "",
+        note: "",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  }
   function saveNote({ document, passage }: NoteItem, draft: NoteDraft) {
+    if (!passage.text && !draft.note.trim()) return;
+    if (document.id === "new-quick-note") {
+      addQuickNote({
+        ...passage,
+        note: draft.note.trim(),
+        title: draft.title.trim() || undefined,
+        noteType: draft.noteType,
+        tags: cleanTags(draft.tags),
+        updatedAt: Date.now(),
+      });
+      setEditing(null);
+      setQuery("");
+      clearFilters();
+      return;
+    }
     savePassage(document.id, {
       ...passage,
       note: draft.note.trim(),
@@ -128,6 +169,43 @@ export default function Notes() {
 
   return (
     <Screen title={notebook ? notebook.title + " Notebook" : "Notes"}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Quick Note"
+        onPress={startQuickNote}
+        style={[s.emptyAction, { backgroundColor: theme.accent }]}
+      >
+        <Ionicons name="add-outline" size={22} color="#FFF" />
+        <Text style={s.emptyActionText}>Quick Note</Text>
+      </Pressable>
+      {!notebook ? (
+        <View style={{ gap: spacing.sm }}>
+          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
+            Document Notebooks keep each document’s notes together. Choose a notebook below, or write a Quick
+            Note.
+          </Text>
+          {documents
+            .filter(
+              (document) => !(document.savedPassages || []).length && document.notebookKind !== "quick-notes",
+            )
+            .map((document) => (
+              <Pressable
+                key={document.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${document.title} notebook`}
+                onPress={() => {
+                  setNotebookId(document.id);
+                  setQuery("");
+                  clearFilters();
+                }}
+                style={[s.pillButton, { borderColor: theme.border }]}
+              >
+                <Ionicons name="book-outline" size={20} color={theme.accent} />
+                <Text style={[s.pillButtonText, { color: theme.text }]}>{document.title} · No notes yet</Text>
+              </Pressable>
+            ))}
+        </View>
+      ) : null}
       {notebook ? (
         <NotebookHeader
           notebook={notebook}

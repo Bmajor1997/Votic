@@ -73,7 +73,7 @@ function NoteEditorForm({
         <View style={sheet.editorHeader}>
           <View style={sheet.editorCopy}>
             <Text style={[sheet.editorTitle, { color: theme.text }]}>
-              {passage.note.trim() ? "Edit note" : "Add a note"}
+              {passage.note.trim() ? "Edit note" : passage.text ? "Add a note" : "Quick Note"}
             </Text>
             <Text numberOfLines={1} style={[sheet.editorDocument, { color: theme.mutedText }]}>
               {document.title}
@@ -150,6 +150,8 @@ function NoteEditorForm({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Save note"
+          disabled={!passage.text && !note.trim()}
+          accessibilityState={{ disabled: !passage.text && !note.trim() }}
           onPress={() => onSave(item, { note, title, noteType, tags })}
           style={({ pressed }) => [s.save, { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 }]}
         >

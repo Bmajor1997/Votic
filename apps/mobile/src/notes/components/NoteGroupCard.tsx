@@ -55,7 +55,7 @@ export function NoteGroupCard({
         <DocumentCover document={document} size="sm" />
         <View style={s.headerCopy}>
           <Text numberOfLines={2} style={[s.documentTitle, { color: theme.text }]}>
-            {title}
+            {title} Notebook
           </Text>
           <Text style={[s.counts, { color: theme.mutedText }]}>
             {noteCount} {noteCount === 1 ? "note" : "notes"} · {savedCount}{" "}
