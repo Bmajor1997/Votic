@@ -25,7 +25,8 @@ describe("document import", () => {
     })) as unknown as typeof fetch;
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     await renderWithProviders(<Documents />);
-    await fireEvent.press(screen.getByRole("button", { name: "Upload document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
     // The Documents page explains the failure in place, with a way to try again.
     expect(await screen.findByText("Couldn't add big.pdf")).toBeTruthy();
     expect(screen.getByText("Document is too large. The current limit is 25 MB.")).toBeTruthy();
