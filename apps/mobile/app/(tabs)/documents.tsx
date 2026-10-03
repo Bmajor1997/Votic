@@ -392,10 +392,39 @@ export default function Documents() {
                 <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
               </Pressable>
 
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Scan with camera"
+                accessibilityHint="Opens the camera to scan one or more document pages"
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  router.push("/scan");
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="scan-outline" size={22} color={theme.accent} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Scan with camera</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Capture one or more pages. Votic will read the text and turn the scan into a document.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
               <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
                 <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
-                  You can also share a supported document from another app directly to Votic. Website import and camera scanning can be added next.
+                  You can also share a supported document from another app directly to Votic. Website import can be added next.
                 </Text>
               </View>
             </View>
