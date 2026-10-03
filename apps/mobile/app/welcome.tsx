@@ -1,24 +1,47 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { useAuth } from "../src/auth/AuthProvider";
 import { SignInCancelled, authErrorMessage } from "../src/auth/authErrors";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { radii, spacing, typography } from "../src/design/tokens";
 import { SecondaryButton, TextButton } from "../src/onboarding/components";
-import { ReaderHero } from "../src/onboarding/ReaderHero";
+import { HeroStage, ReaderHero } from "../src/onboarding/ReaderHero";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 type Provider = "apple" | "google";
 
+const HERO_STAGES: Array<{ stage: HeroStage; phrase: string }> = [
+  { stage: "read", phrase: "read." },
+  { stage: "listen", phrase: "listen to." },
+  { stage: "understand", phrase: "understand." },
+  { stage: "remember", phrase: "remember." },
+];
+const HERO_STAGE_MS = 2500;
+
 export default function Welcome() {
   const { theme } = useVoticTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const auth = useAuth();
   const [busy, setBusy] = useState<Provider | null>(null);
   const [error, setError] = useState("");
+  const [heroIndex, setHeroIndex] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion) {
+      setHeroIndex(0);
+      return;
+    }
+    const timer = setInterval(
+      () => setHeroIndex((current) => (current + 1) % HERO_STAGES.length),
+      HERO_STAGE_MS,
+    );
+    return () => clearInterval(timer);
+  }, [reduceMotion]);
 
   async function continueWith(provider: Provider) {
     if (busy) return;
@@ -34,6 +57,8 @@ export default function Welcome() {
     }
   }
 
+  const hero = HERO_STAGES[heroIndex];
+
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -46,23 +71,21 @@ export default function Welcome() {
 
           <View style={s.copy}>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              Understand anything you read.
+              Your documents.
             </Text>
-            <Text style={[s.subtitle, { color: theme.mutedText }]}>Read it. Hear it. Ask about it.</Text>
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[s.dynamicTitle, { color: theme.text }]}
+            >
+              Easier to <Text style={{ color: theme.accent }}>{hero.phrase}</Text>
+            </Text>
+            <Text style={[s.subtitle, { color: theme.mutedText }]}>
+              Read, listen, ask questions, and keep what matters.
+            </Text>
           </View>
 
           <View style={s.hero}>
-            <ReaderHero />
-          </View>
-
-          <View
-            accessible
-            accessibilityLabel="Votic helps you read, listen, and ask questions"
-            style={s.benefits}
-          >
-            <Benefit icon="book-outline" label="Read" color={theme.accent} textColor={theme.text} />
-            <Benefit icon="headset-outline" label="Listen" color={theme.accent} textColor={theme.text} />
-            <Benefit icon="sparkles-outline" label="Ask Votic" color={theme.accent} textColor={theme.text} />
+            <ReaderHero stage={hero.stage} />
           </View>
         </View>
 
@@ -141,27 +164,6 @@ export default function Welcome() {
   );
 }
 
-function Benefit({
-  icon,
-  label,
-  color,
-  textColor,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  color: string;
-  textColor: string;
-}) {
-  return (
-    <View style={s.benefit}>
-      <View style={[s.benefitIcon, { backgroundColor: color }]}>
-        <Ionicons name={icon} size={16} color="#FFFFFF" />
-      </View>
-      <Text style={[s.benefitText, { color: textColor }]}>{label}</Text>
-    </View>
-  );
-}
-
 const s = StyleSheet.create({
   safe: { flex: 1 },
   content: { flexGrow: 1, paddingBottom: spacing.lg, gap: spacing.lg },
@@ -193,20 +195,17 @@ const s = StyleSheet.create({
     opacity: 0.55,
   },
   brand: { minHeight: 48, justifyContent: "center" },
-  copy: { gap: spacing.xs, maxWidth: 330 },
+  copy: { gap: spacing.xs, maxWidth: 350 },
   title: { ...typography.screenTitle, fontSize: 34, lineHeight: 39, letterSpacing: -0.8 },
-  subtitle: { fontSize: 18, lineHeight: 26, fontWeight: "600" },
-  hero: { marginTop: spacing.xs },
-  benefits: { flexDirection: "row", justifyContent: "space-between", gap: spacing.sm },
-  benefit: { flex: 1, flexDirection: "row", alignItems: "center", gap: 6 },
-  benefitIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
+  dynamicTitle: {
+    ...typography.screenTitle,
+    fontSize: 34,
+    lineHeight: 39,
+    letterSpacing: -0.8,
+    minHeight: 78,
   },
-  benefitText: { fontSize: 13, fontWeight: "800", flexShrink: 1 },
+  subtitle: { fontSize: 16, lineHeight: 23, fontWeight: "600", marginTop: spacing.xs },
+  hero: { marginTop: spacing.xs },
   actionCard: {
     marginHorizontal: spacing.md,
     borderWidth: 1,
