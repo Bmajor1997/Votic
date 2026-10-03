@@ -46,6 +46,7 @@ export function load_server_config(env = process.env) {
     help_rate_limit: positive_integer("VOTIC_HELP_RATE_LIMIT", 20, 1, env),
     review_rate_limit: positive_integer("VOTIC_REVIEW_RATE_LIMIT", 10, 1, env),
     max_document_bytes: positive_integer("VOTIC_MAX_DOCUMENT_BYTES", MAX_DOCUMENT_BYTES, 1, env),
+    max_json_bytes: positive_integer("VOTIC_MAX_JSON_BYTES", 500_000, 1, env),
     ai_daily_limit: positive_integer("VOTIC_AI_DAILY_LIMIT", 1_000, 1, env),
     ai_client_daily_limit: positive_integer("VOTIC_AI_CLIENT_DAILY_LIMIT", 100, 1, env),
     trust_proxy: trusted_proxy_hops(env),
@@ -139,7 +140,7 @@ export function create_votic_handler(options = {}) {
   }
    if (request.method === "POST" && path === "/api/help") {
       rate_limit(`${client}:help`, config.help_rate_limit);
-      const { question, document, history, explanationStyle } = await read_json_body(request, 500_000, config.body_timeout_ms);
+      const { question, document, history, explanationStyle } = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
       if (typeof question !== "string" || !question.trim() || question.length > 1000) throw new HttpError(400, "Type a shorter question about using Votic.");
       const safe_history = validate_help_history(history);
       const style = validate_explanation_style(explanationStyle);
@@ -158,7 +159,7 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && path === "/api/review") {
       rate_limit(`${client}:review`, config.review_rate_limit);
       if (!env.OPENAI_API_KEY) throw new HttpError(503, "AI review is not connected yet. The local review is still available.");
-      const payload = await read_json_body(request, 500_000, config.body_timeout_ms);
+      const payload = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
       const document = validate_review_document(payload);
       const limit_message = take_ai_call(ai_client);
       if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, `${limit_message} The local review is still available.`);
