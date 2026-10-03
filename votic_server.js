@@ -182,7 +182,12 @@ export function create_votic_handler(options = {}) {
  };
 }
 export function create_votic_server(options = {}) { return createServer(create_votic_handler(options)); }
+export function validate_production_security(env = process.env) {
+ if (env.NODE_ENV === "production" && !String(env.FIREBASE_PROJECT_ID || "").trim())
+   throw new Error("FIREBASE_PROJECT_ID is required when NODE_ENV=production so Votic API routes cannot start without authentication.");
+}
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+ validate_production_security();
  const port = positive_integer("PORT", 4173);
  const server_host = process.env.VOTIC_HOST || "0.0.0.0";
  if (process.env.NODE_ENV === "production" && process.env.OPENAI_API_KEY && !load_server_config().client_keys.length) console.warn("Votic AI is enabled without VOTIC_CLIENT_KEYS; any client can use it (up to VOTIC_AI_DAILY_LIMIT calls per day).");

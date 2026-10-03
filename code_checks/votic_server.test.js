@@ -186,6 +186,12 @@ test("provides an authentication seam without inventing accounts", async () => {
   });
 });
 
+test("production refuses to start without Firebase authentication configuration", () => {
+  assert.throws(() => validate_production_security({ NODE_ENV: "production" }), /FIREBASE_PROJECT_ID/);
+  assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "production", FIREBASE_PROJECT_ID: "votic-production" }));
+  assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "development" }));
+});
+
 test("validates environment-backed server limits", () => {
   assert.equal(load_server_config({ VOTIC_RATE_LIMIT: "7" }).general_rate_limit, 7);
   assert.throws(() => load_server_config({ VOTIC_RATE_LIMIT: "zero" }), /integer/);
