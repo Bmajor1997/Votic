@@ -112,30 +112,30 @@ export default function EmailSignIn() {
             <View style={s.fields}>
               <Field label="Email" error={emailError}>
                 <TextInput
-                value={email}
-                onChangeText={setEmail}
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
-                keyboardType="email-address"
-                returnKeyType="next"
-                onSubmitEditing={() => passwordRef.current?.focus()}
-                accessibilityLabel="Email"
-                accessibilityHint={emailError || undefined}
-                placeholder="you@example.com"
-                placeholderTextColor={theme.mutedText}
-                style={[
-                  s.input,
-                  {
-                    color: theme.text,
-                    borderColor: emailError ? theme.accent : theme.border,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
-              />
+                  value={email}
+                  onChangeText={setEmail}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  textContentType="emailAddress"
+                  keyboardType="email-address"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  accessibilityLabel="Email"
+                  accessibilityHint={emailError || undefined}
+                  placeholder="you@example.com"
+                  placeholderTextColor={theme.mutedText}
+                  style={[
+                    s.input,
+                    {
+                      color: theme.text,
+                      borderColor: emailError ? theme.accent : theme.border,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
+                />
               </Field>
-                <Field
+              <Field
                 label="Password"
                 error={passwordError}
                 hint={
@@ -144,43 +144,43 @@ export default function EmailSignIn() {
                     : undefined
                 }
               >
-              <View
-                style={[
-                  s.passwordRow,
-                  {
-                    borderColor: passwordError ? theme.accent : theme.border,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
-              >
-                <TextInput
-                  ref={passwordRef}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete={creating ? "new-password" : "current-password"}
-                  textContentType={creating ? "newPassword" : "password"}
-                  returnKeyType="go"
-                  onSubmitEditing={() => void submit()}
-                  accessibilityLabel="Password"
-                  accessibilityHint={passwordError || undefined}
-                  style={[s.passwordInput, { color: theme.text }]}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
-                  onPress={() => setShowPassword((value) => !value)}
-                  style={s.reveal}
+                <View
+                  style={[
+                    s.passwordRow,
+                    {
+                      borderColor: passwordError ? theme.accent : theme.border,
+                      backgroundColor: theme.surface,
+                    },
+                  ]}
                 >
-                  <Ionicons
-                    name={showPassword ? "eye-off-outline" : "eye-outline"}
-                    size={22}
-                    color={theme.mutedText}
+                  <TextInput
+                    ref={passwordRef}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoComplete={creating ? "new-password" : "current-password"}
+                    textContentType={creating ? "newPassword" : "password"}
+                    returnKeyType="go"
+                    onSubmitEditing={() => void submit()}
+                    accessibilityLabel="Password"
+                    accessibilityHint={passwordError || undefined}
+                    style={[s.passwordInput, { color: theme.text }]}
                   />
-                </Pressable>
-              </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                    onPress={() => setShowPassword((value) => !value)}
+                    style={s.reveal}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={22}
+                      color={theme.mutedText}
+                    />
+                  </Pressable>
+                </View>
               </Field>
             </View>
             {error ? <Message icon="alert-circle-outline" text={error} /> : null}
@@ -190,9 +190,7 @@ export default function EmailSignIn() {
               busy={busy}
               onPress={() => void submit()}
             />
-            {!creating ? (
-              <TextButton label="Forgot password?" onPress={() => void resetPassword()} />
-            ) : null}
+            {!creating ? <TextButton label="Forgot password?" onPress={() => void resetPassword()} /> : null}
             <TextButton
               label={creating ? "I already have an account" : "Create a new account"}
               onPress={switchMode}
@@ -237,13 +235,7 @@ function Field({
   );
 }
 
-function Message({
-  icon,
-  text,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  text: string;
-}) {
+function Message({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
   const { theme } = useVoticTheme();
   return (
     <View accessibilityRole="alert" style={[s.message, { backgroundColor: theme.surfaceMuted }]}>
