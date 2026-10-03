@@ -62,6 +62,43 @@ test("accepts binary documents and validates names, signatures, and content type
   });
 });
 
+test("scans JPEG pages through private OCR and rejects invalid images", async () => {
+  let apiBody;
+  const fetchImpl = async (_url, options) => {
+    apiBody = JSON.parse(options.body);
+    return { ok: true, async json() { return { output_text: "Heading\n\nReadable scanned text." }; } };
+  };
+  await with_server({ env: { OPENAI_API_KEY: "test-key", OPENAI_OCR_MODEL: "ocr-model" }, fetchImpl }, async (base) => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    const response = await fetch(base + "/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan-page-1.jpg" },
+      body: jpeg,
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { text: "Heading\n\nReadable scanned text." });
+    assert.equal(apiBody.model, "ocr-model");
+    assert.equal(apiBody.store, false);
+    assert.match(apiBody.input[0].content[1].image_url, /^data:image\/jpeg;base64,/);
+    assert.equal((await fetch(base + "/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan.jpg" },
+      body: Buffer.from("not an image"),
+    })).status, 415);
+  });
+});
+
+test("requires the AI connection for camera text recognition", async () => {
+  await with_server({ env: {} }, async (base) => {
+    const response = await fetch(base + "/api/scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan.jpg" },
+      body: Buffer.from([0xff, 0xd8, 0xff]),
+    });
+    assert.equal(response.status, 503);
+  });
+});
+
 test("enforces body limits before document parsing", async () => {
   await with_server({ config: { max_document_bytes: 6 }, extractDocument: async () => { throw new Error("must not parse"); } }, async (base) => {
     const response = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf" }, body: pdf });
