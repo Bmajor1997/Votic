@@ -29,7 +29,7 @@ describe("Welcome", () => {
   it("states what Votic does and offers each way to continue", async () => {
     fakeAuth.reset(null);
     await renderWithProviders(<Welcome />);
-    expect(screen.getByRole("header", { name: "Make any document easier to read" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Understand anything you read." })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
     expect(router.push).toHaveBeenCalledWith("/sign-in");
