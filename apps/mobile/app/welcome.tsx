@@ -15,7 +15,7 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 type Provider = "apple" | "google";
 
-const HERO_STAGES: Array<{ stage: HeroStage; phrase: string }> = [
+const HERO_STAGES: { stage: HeroStage; phrase: string }[] = [
   { stage: "read", phrase: "read." },
   { stage: "listen", phrase: "listen to." },
   { stage: "understand", phrase: "understand." },
@@ -32,10 +32,7 @@ export default function Welcome() {
   const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
-    if (reduceMotion) {
-      setHeroIndex(0);
-      return;
-    }
+    if (reduceMotion) return;
     const timer = setInterval(
       () => setHeroIndex((current) => (current + 1) % HERO_STAGES.length),
       HERO_STAGE_MS,
@@ -57,7 +54,7 @@ export default function Welcome() {
     }
   }
 
-  const hero = HERO_STAGES[heroIndex];
+  const hero = HERO_STAGES[reduceMotion ? 0 : heroIndex];
 
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
