@@ -71,6 +71,24 @@ export async function extractDocument(name: string, bytes: ArrayBuffer) {
   return result.text;
 }
 
+
+export async function scanDocumentImage(name: string, bytes: ArrayBuffer) {
+  const response = await apiFetch(
+    "/api/scan",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent(name) },
+      body: bytes,
+    },
+    45_000,
+  );
+  const result = await responseJson(response);
+  if (!response.ok) throw new Error(serverError(result, "Votic could not read this scanned page."));
+  if (typeof result.text !== "string" || !result.text.trim())
+    throw new Error("Votic could not find readable text in this scanned page.");
+  return result.text.trim();
+}
+
 export type VoticAnswer = {
   answer: string;
   mode: string;
