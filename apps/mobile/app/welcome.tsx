@@ -70,10 +70,7 @@ export default function Welcome() {
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
               Your documents.
             </Text>
-            <Text
-              accessibilityLiveRegion="polite"
-              style={[s.dynamicTitle, { color: theme.text }]}
-            >
+            <Text accessibilityLiveRegion="polite" style={[s.dynamicTitle, { color: theme.text }]}>
               Easier to <Text style={{ color: theme.accent }}>{hero.phrase}</Text>
             </Text>
             <Text style={[s.subtitle, { color: theme.mutedText }]}>

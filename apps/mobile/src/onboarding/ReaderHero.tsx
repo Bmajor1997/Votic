@@ -5,8 +5,7 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 
 export type HeroStage = "read" | "listen" | "understand" | "remember";
 
-const PASSAGE =
-  "Photosynthesis lets plants turn light energy into food they can use for growth.";
+const PASSAGE = "Photosynthesis lets plants turn light energy into food they can use for growth.";
 const WORDS = PASSAGE.split(" ");
 
 export function ReaderHero({ stage }: { stage: HeroStage }) {

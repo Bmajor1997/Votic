@@ -45,8 +45,7 @@ export default function HandleShare() {
 
     const importSharedDocument = async () => {
       try {
-        if (resolvedSharedPayloads.length !== 1)
-          throw new Error("Share one document at a time with Votic.");
+        if (resolvedSharedPayloads.length !== 1) throw new Error("Share one document at a time with Votic.");
 
         const payload = resolvedSharedPayloads[0];
         const uri = payload.contentUri;
@@ -81,9 +80,7 @@ export default function HandleShare() {
         router.replace("/reader");
       } catch (caught) {
         clearSharedPayloads();
-        setFailure(
-          caught instanceof Error ? caught.message : "Votic could not import this shared document.",
-        );
+        setFailure(caught instanceof Error ? caught.message : "Votic could not import this shared document.");
       }
     };
 

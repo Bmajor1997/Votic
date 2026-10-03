@@ -71,7 +71,6 @@ export async function extractDocument(name: string, bytes: ArrayBuffer) {
   return result.text;
 }
 
-
 export async function scanDocumentImage(name: string, bytes: ArrayBuffer) {
   const response = await apiFetch(
     "/api/scan",

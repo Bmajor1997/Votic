@@ -358,7 +358,8 @@ export default function Documents() {
                   Add a document
                 </Text>
                 <Text style={[s.addDocumentCopy, { color: theme.mutedText }]}>
-                  Choose a file on this device or browse a connected cloud provider. You do not need to download it first.
+                  Choose a file on this device or browse a connected cloud provider. You do not need to
+                  download it first.
                 </Text>
               </View>
 
@@ -424,7 +425,8 @@ export default function Documents() {
               <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
                 <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
-                  You can also share a supported document from another app directly to Votic. Website import can be added next.
+                  You can also share a supported document from another app directly to Votic. Website import
+                  can be added next.
                 </Text>
               </View>
             </View>
