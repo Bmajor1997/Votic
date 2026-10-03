@@ -24,13 +24,13 @@ export function voticVoicePreview(index: number) {
   );
 }
 
-/** Keep distinct English voice identifiers, including variants supplied by the same engine. */
+/** Keep one English voice per display name so platform variants do not create duplicate choices. */
 export function uniqueEnglishVoices<T extends DeviceVoice>(available: T[]) {
   const seen = new Set<string>();
   return available
     .filter((voice) => voice.language.toLowerCase().startsWith("en"))
     .filter((voice) => {
-      const key = voice.identifier;
+      const key = voice.name.trim().toLocaleLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
