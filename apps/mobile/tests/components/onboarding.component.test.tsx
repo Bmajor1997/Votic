@@ -96,9 +96,9 @@ describe("Personalization", () => {
 
     await fireEvent.press(screen.getByRole("radio", { name: "1.5× speed" }));
     await fireEvent.press(screen.getByRole("radio", { name: /^Sentences only\./ }));
-    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
-    expect(router.replace).toHaveBeenCalledWith("/");
+    expect(router.replace).toHaveBeenCalledWith("/paywall");
     await waitFor(async () => expect((await savedOnboarding())?.personalized).toBe(true));
     expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("research");
     expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("simple");

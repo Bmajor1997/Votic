@@ -219,6 +219,15 @@ export default function Settings() {
       <View style={[s.divider, { backgroundColor: theme.border }]} />
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Account</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Votic membership"
+          onPress={() => router.push("/paywall")}
+          style={[s.accountButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="sparkles-outline" size={22} color={theme.accent} />
+          <Text style={[s.settingTitle, { color: theme.text }]}>Votic membership</Text>
+        </Pressable>
         {auth.user?.email ? (
           <Text style={[s.body, { color: theme.mutedText }]}>Signed in as {auth.user.email}</Text>
         ) : null}
