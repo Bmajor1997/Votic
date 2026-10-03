@@ -48,6 +48,7 @@ export default function Documents() {
   const [sort, setSort] = useState<Sort>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [addDocumentOpen, setAddDocumentOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
 
@@ -106,10 +107,10 @@ export default function Documents() {
       <View ref={uploadRef} collapsable={false}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Upload document"
+          accessibilityLabel="Add document"
           accessibilityState={{ busy: importing }}
           disabled={importing}
-          onPress={() => void importDocument()}
+          onPress={() => setAddDocumentOpen(true)}
           style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
         >
           {importing ? (
@@ -117,7 +118,7 @@ export default function Documents() {
           ) : (
             <Ionicons name="add" size={20} color="#FFF" />
           )}
-          <Text style={s.uploadText}>Upload</Text>
+          <Text style={s.uploadText}>Add</Text>
         </Pressable>
       </View>
     </View>
@@ -326,12 +327,81 @@ export default function Documents() {
             Add your first document
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen.
+            Add a file from your device or a connected cloud storage provider to read and listen.
           </Text>
         </View>
       )}
 
       <DocumentActionsSheet document={menuDocument} onClose={() => setMenuDocument(null)} onOpen={open} />
+
+      <Modal
+        visible={addDocumentOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAddDocumentOpen(false)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close add document"
+          onPress={() => setAddDocumentOpen(false)}
+          style={sheetStyles.modalBackdrop}
+        >
+          <Pressable
+            accessibilityViewIsModal
+            onPress={(event) => event.stopPropagation()}
+            style={[sheetStyles.sheet, { backgroundColor: theme.surface }]}
+          >
+            <View style={[sheetStyles.handle, { backgroundColor: theme.border }]} />
+            <View style={s.addDocumentContent}>
+              <View style={s.addDocumentHeading}>
+                <Text accessibilityRole="header" style={[sheetStyles.sheetTitle, { color: theme.text }]}>
+                  Add a document
+                </Text>
+                <Text style={[s.addDocumentCopy, { color: theme.mutedText }]}>
+                  Choose a file on this device or browse a connected cloud provider. You do not need to download it first.
+                </Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose file or cloud storage"
+                accessibilityHint="Opens your phone's file browser, including available cloud storage providers"
+                disabled={importing}
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  void importDocument();
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="folder-open-outline" size={22} color={theme.accent} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Files or cloud storage</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Browse Files, Google Drive, OneDrive, Dropbox, or other providers available on your phone.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
+              <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
+                <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
+                <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
+                  Direct sharing from other apps, website import, and camera scanning can be added next.
+                </Text>
+              </View>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal
         visible={filtersOpen}
@@ -581,6 +651,35 @@ const s = StyleSheet.create({
   empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   emptyTitle: { ...typography.sectionTitle, textAlign: "center" },
   emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: "center" },
+  addDocumentContent: { gap: spacing.lg, paddingBottom: spacing.md },
+  addDocumentHeading: { gap: spacing.xs },
+  addDocumentCopy: { fontSize: 15, lineHeight: 21 },
+  importChoice: {
+    minHeight: 84,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  importChoiceIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  importChoiceTitle: { fontSize: 16, lineHeight: 21, fontWeight: "800" },
+  importChoiceCopy: { fontSize: 13, lineHeight: 18, marginTop: 2 },
+  comingSoon: {
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  comingSoonText: { flex: 1, fontSize: 13, lineHeight: 18 },
   filterSheet: { maxHeight: "80%" },
   sheetContent: { gap: spacing.xs, paddingBottom: spacing.md },
   groupLabel: { ...typography.eyebrow, marginTop: spacing.md },
