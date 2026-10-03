@@ -52,6 +52,7 @@ import { readerSourceTransform } from "../src/navigation/readerTransform";
 import { cleanTags } from "../src/notes/noteMetadata";
 import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
 import { CompletionModal } from "../src/reader/components/CompletionModal";
+import { ReadingPages } from "../src/reader/components/ReadingPages";
 import { SeekableProgress, ToolButton } from "../src/reader/components/ReaderControls";
 import { ReaderSettingsSheet, ReaderSheet } from "../src/reader/components/ReaderSettingsSheet";
 import { PassageDraft, SavePassageSheet } from "../src/reader/components/SavePassageSheet";
@@ -150,6 +151,7 @@ export default function Reader() {
   const scrollRef = useRef<ScrollView>(null);
   const askScrollRef = useRef<ScrollView>(null);
   const speechSession = useRef(0);
+  const speechUtterance = useRef(0);
   const seekWasPlaying = useRef(false);
   const sentenceLayout = useRef<Record<number, { y: number; height: number }>>({});
   const scrollOffset = useRef(0);
@@ -567,36 +569,51 @@ export default function Reader() {
     speechSession.current = session;
     void beginSpeech(at, startWord, session, true);
   }
-  async function beginSpeech(at: number, startWord: number, session: number, clearQueue: boolean) {
+  async function beginSpeech(
+    at: number,
+    startWord: number,
+    session: number,
+    clearQueue: boolean,
+    playbackRate = rate,
+  ) {
     if (!activeDocument || !passages[at] || session !== speechSession.current) return;
     if (clearQueue) await Speech.stop();
     if (session !== speechSession.current) return;
     const passage = passages[at];
     const segment = speechSegment(passage, startWord);
+    // Keep each passage continuous so the voice retains sentence rhythm and pronunciation.
+    // Each utterance has its own token: late callbacks from a finished passage are stale.
+    const utterance = ++speechUtterance.current;
+    const isCurrent = () => session === speechSession.current && utterance === speechUtterance.current;
     setIndex(at);
     setWordIndex(segment.startWord);
     setPlaying(true);
     setHeardAudio(true);
     onboarding.markTipSeen("reader-listen");
     Speech.speak(segment.text, {
-      rate,
+      rate: playbackRate,
       voice: accessibility.voiceIdentifier || undefined,
+      onStart: () => {
+        if (!isCurrent()) return;
+        setIndex(at);
+        setWordIndex(segment.startWord);
+      },
       onBoundary: (event: any) => {
-        if (session !== speechSession.current || (event?.name && event.name !== "word")) return;
+        if (!isCurrent() || (event?.name && event.name !== "word")) return;
         // Follow the native boundary directly: it fires as the word is spoken, so the highlight stays with the audio.
         const next = wordAtSpeechOffset(segment, Number(event?.charIndex));
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {
-        if (session !== speechSession.current) return;
-        if (at < passages.length - 1) void beginSpeech(at + 1, 0, session, false);
+        if (!isCurrent()) return;
+        if (at < passages.length - 1) void beginSpeech(at + 1, 0, session, false, playbackRate);
         else finishDocument(false);
       },
       onStopped: () => {
-        if (session === speechSession.current) setPlaying(false);
+        if (isCurrent()) setPlaying(false);
       },
       onError: () => {
-        if (session === speechSession.current) setPlaying(false);
+        if (isCurrent()) setPlaying(false);
       },
     });
   }
@@ -604,10 +621,13 @@ export default function Reader() {
     if (playing) void stop();
     else speak();
   }
-  function jump(delta: number) {
-    void stop();
+  async function jump(delta: number) {
+    const resume = playing;
+    const target = Math.max(0, Math.min(passages.length - 1, index + delta));
+    await stop();
     setWordIndex(0);
-    setIndex((current) => Math.max(0, Math.min(passages.length - 1, current + delta)));
+    setIndex(target);
+    if (resume && target !== index) speak(target, 0);
   }
   function beginSeek() {
     engaged();
@@ -634,9 +654,18 @@ export default function Reader() {
       void beginSpeech(location.sentenceIndex, location.wordIndex, session, false);
     }
   }
-  function changeRate(value: number) {
-    setRate(value);
-    if (activeDocument) updatePlaybackRate(activeDocument.id, value);
+  async function changeRate(value: number) {
+    const nextRate = normalizePlaybackRate(value);
+    const resume = playing;
+    const resumeAt = { index, wordIndex };
+    if (resume) await stop();
+    setRate(nextRate);
+    if (activeDocument) updatePlaybackRate(activeDocument.id, nextRate);
+    if (resume) {
+      const session = speechSession.current + 1;
+      speechSession.current = session;
+      void beginSpeech(resumeAt.index, resumeAt.wordIndex, session, false, nextRate);
+    }
   }
   function finishDocument(stopSpeech = true) {
     if (!activeDocument || !passages.length) return;
@@ -776,7 +805,11 @@ export default function Reader() {
                 >
                   <Ionicons name="chevron-down" size={27} color={theme.text} />
                 </Pressable>
-                <VoticLogo compact />
+                {listening ? (
+                  <VoticLogo compact />
+                ) : (
+                  <Text style={[s.progressText, { color: theme.mutedText, letterSpacing: 2 }]}>READING</Text>
+                )}
                 <View style={s.headerActions}>
                   <Pressable
                     accessibilityRole="button"
@@ -815,80 +848,102 @@ export default function Reader() {
                   onSeek={(value) => void seekTo(value)}
                 />
               </View>
-              <ScrollView
-                ref={scrollRef}
-                testID="reader-scroll"
-                style={s.textArea}
-                contentContainerStyle={s.readingContent}
-                scrollEventThrottle={16}
-                onLayout={(event) => {
-                  viewportHeight.current = event.nativeEvent.layout.height;
-                  prepareReader();
-                }}
-                onScroll={trackScroll}
-                onContentSizeChange={(_width, height) => {
-                  contentHeight.current = height;
-                }}
-                onScrollBeginDrag={() => {
-                  manuallyScrolling.current = true;
-                }}
-                onMomentumScrollBegin={() => {
-                  manuallyScrolling.current = true;
-                }}
-                onScrollEndDrag={() => {
-                  syncReadingPosition();
-                  manuallyScrolling.current = false;
-                }}
-                onMomentumScrollEnd={() => {
-                  syncReadingPosition();
-                  manuallyScrolling.current = false;
-                }}
-              >
-                <View testID="reader-document" style={s.passages}>
-                  {passages.map((passage, passageIndex) => {
-                    const current = passageIndex === index;
-                    const tokens = current && listening ? passageTokens(passage) : [];
-                    return (
-                      <Text
-                        key={passageIndex}
-                        onLayout={(event) => measureSentence(passageIndex, event)}
-                        style={[
-                          s.sentence,
-                          readingType,
-                          { color: theme.text },
-                          // Highlighting follows narration, so Read mode keeps the page plain.
-                          listening &&
-                            current &&
-                            sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
-                        ]}
-                      >
-                        {current && listening
-                          ? tokens.map((token, tokenIndex) => {
-                              if (token.word === null) return token.text;
-                              const active = token.word === wordIndex;
-                              return (
-                                <Text
-                                  key={tokenIndex}
-                                  style={
-                                    active && wordHighlight
-                                      ? {
-                                          color: theme.text,
-                                          fontWeight: "900",
-                                          fontSize: (readingType.fontSize as number) + 2,
-                                        }
-                                      : undefined
-                                  }
-                                >
-                                  {token.text}
-                                </Text>
-                              );
-                            })
-                          : passage}
-                      </Text>
-                    );
-                  })}
-                </View>
-              </ScrollView>
+              {!listening ? (
+                <ReadingPages
+                  passages={passages}
+                  index={index}
+                  wordIndex={wordIndex}
+                  textStyle={readingType}
+                  onReady={() => {
+                    if (!readerPrepared.current) {
+                      readerPrepared.current = true;
+                      setReaderReady(true);
+                      transition.beginReader();
+                    }
+                  }}
+                  onLocation={(at, word) => {
+                    engaged();
+                    setIndex(at);
+                    setWordIndex(word);
+                    if (activeId) updateProgress(activeId, progressForLocation(passages, at, word), at, word);
+                  }}
+                />
+              ) : (
+                <ScrollView
+                  ref={scrollRef}
+                  testID="reader-scroll"
+                  style={s.textArea}
+                  contentContainerStyle={s.readingContent}
+                  scrollEventThrottle={16}
+                  onLayout={(event) => {
+                    viewportHeight.current = event.nativeEvent.layout.height;
+                    prepareReader();
+                  }}
+                  onScroll={trackScroll}
+                  onContentSizeChange={(_width, height) => {
+                    contentHeight.current = height;
+                  }}
+                  onScrollBeginDrag={() => {
+                    manuallyScrolling.current = true;
+                  }}
+                  onMomentumScrollBegin={() => {
+                    manuallyScrolling.current = true;
+                  }}
+                  onScrollEndDrag={() => {
+                    syncReadingPosition();
+                    manuallyScrolling.current = false;
+                  }}
+                  onMomentumScrollEnd={() => {
+                    syncReadingPosition();
+                    manuallyScrolling.current = false;
+                  }}
+                >
+                  <View testID="reader-document" style={s.passages}>
+                    {passages.map((passage, passageIndex) => {
+                      const current = passageIndex === index;
+                      const tokens = current && listening ? passageTokens(passage) : [];
+                      return (
+                        <Text
+                          key={passageIndex}
+                          onLayout={(event) => measureSentence(passageIndex, event)}
+                          style={[
+                            s.sentence,
+                            readingType,
+                            { color: theme.text },
+                            // Highlighting follows narration, so Read mode keeps the page plain.
+                            listening &&
+                              current &&
+                              sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
+                          ]}
+                        >
+                          {current && listening
+                            ? tokens.map((token, tokenIndex) => {
+                                if (token.word === null) return token.text;
+                                const active = token.word === wordIndex;
+                                return (
+                                  <Text
+                                    key={tokenIndex}
+                                    style={
+                                      active && wordHighlight
+                                        ? {
+                                            color: theme.text,
+                                            fontWeight: "900",
+                                            fontSize: (readingType.fontSize as number) + 2,
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    {token.text}
+                                  </Text>
+                                );
+                              })
+                            : passage}
+                        </Text>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              )}
               {tip ? (
                 <ReaderTip
                   tip={tip}

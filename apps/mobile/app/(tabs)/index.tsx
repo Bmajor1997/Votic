@@ -2,11 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { formatDuration, periodFor, spokenDuration, summarize } from "../../src/activity/activityModel";
-import { useActivity } from "../../src/activity/ActivityProvider";
 import { DocumentCover } from "../../src/components/DocumentCover";
+import { NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
+import { homeNotes } from "../../src/home/homeModel";
 import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
-import { Screen, ScrollFadeItem } from "../../src/components/Screen";
+import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import { positionLabel, progressLabel, readableTitle } from "../../src/documents/documentDisplay";
@@ -31,7 +31,8 @@ export default function Home() {
   const recent = [...documents]
     .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
-    .slice(0, 4);
+    .slice(0, 8);
+  const notes = homeNotes(documents);
 
   return (
     <Screen title="Home" hideTitle>
@@ -79,37 +80,27 @@ export default function Home() {
           }}
         />
       ) : null}
-      {loaded && documents.length ? <WeekSummary /> : null}
+      {loaded ? <WeekWidget /> : null}
       {recent.length ? (
-        <View style={s.section}>
-          <View style={s.sectionHeader}>
-            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
-              Recent
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="See all documents"
-              onPress={() => router.push("/documents")}
-              hitSlop={8}
-              style={s.seeAll}
-            >
-              <Text style={[s.seeAllText, { color: theme.accent }]}>See all</Text>
-            </Pressable>
-          </View>
-          {recent.map((document) => (
-            <ScrollFadeItem key={document.id}>
-              <RecentRow
-                document={document}
-                onOpen={(source) => {
-                  if (transition.transitioning) return;
-                  openDocument(document.id);
-                  openFrom(source, transition);
-                }}
-                onMore={() => setMenuDocument(document)}
-              />
-            </ScrollFadeItem>
-          ))}
-        </View>
+        <RecentShelf
+          documents={recent}
+          onOpen={(document, source) => {
+            if (transition.transitioning) return;
+            openDocument(document.id);
+            openFrom(source, transition, { mode: "read" });
+          }}
+          onMore={setMenuDocument}
+        />
+      ) : null}
+      {loaded ? (
+        <NotesShelf
+          notes={notes}
+          onOpen={({ document, passage }) => {
+            if (transition.transitioning) return;
+            openDocument(document.id, passage.sentenceIndex);
+            router.push("/reader");
+          }}
+        />
       ) : null}
       {loaded && !documents.length && checklistDismissed ? (
         <View style={s.empty}>
@@ -236,81 +227,6 @@ function ContinueCard({
           </Pressable>
         </View>
       </View>
-    </View>
-  );
-}
-
-/** A quiet weekly line that leads to Statistics. */
-function WeekSummary() {
-  const { theme } = useVoticTheme();
-  const { log } = useActivity();
-  const week = periodFor("week");
-  const summary = summarize(log, week.start, week.end);
-  const visible = summary.total
-    ? `${formatDuration(summary.total)} · ${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"}`
-    : "Read or listen to see your week here";
-  const spoken = summary.total
-    ? `This week: ${spokenDuration(summary.total)}, ${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"}. Open Statistics.`
-    : "This week: no reading or listening yet. Open Statistics.";
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={spoken}
-      onPress={() => router.push("/statistics")}
-      style={({ pressed }) => [
-        s.week,
-        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
-      ]}
-    >
-      <View style={[s.weekIcon, { backgroundColor: theme.sentenceHighlight }]}>
-        <Ionicons name="stats-chart" size={18} color={theme.accent} />
-      </View>
-      <View style={s.grow}>
-        <Text style={[s.weekTitle, { color: theme.text }]}>This week</Text>
-        <Text style={[s.weekCopy, { color: theme.mutedText }]}>{visible}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
-    </Pressable>
-  );
-}
-
-function RecentRow({
-  document,
-  onOpen,
-  onMore,
-}: {
-  document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>) => void;
-  onMore: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  const ref = useRef<View>(null);
-  const title = readableTitle(document.title);
-  return (
-    <View ref={ref} collapsable={false} style={[s.row, { borderBottomColor: theme.border }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${title}`}
-        accessibilityHint={progressLabel(document)}
-        onPress={() => onOpen(ref)}
-        style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
-      >
-        <DocumentCover document={document} size="sm" />
-        <View style={s.grow}>
-          <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
-            {title}
-          </Text>
-          <Text style={[s.rowMeta, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
-        </View>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`More options for ${title}`}
-        onPress={onMore}
-        style={s.more}
-      >
-        <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
-      </Pressable>
     </View>
   );
 }

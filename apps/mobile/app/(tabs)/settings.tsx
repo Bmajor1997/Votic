@@ -74,7 +74,10 @@ export default function Settings() {
           onPress={() => onSelect(v)}
           style={[s.segment, selected === v && { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
-          <Text style={[s.segmentText, { color: selected === v ? theme.text : theme.mutedText }]}>
+          <Text
+            numberOfLines={1}
+            style={[s.segmentText, { color: selected === v ? theme.text : theme.mutedText }]}
+          >
             {label(v)}
           </Text>
         </Pressable>
@@ -249,9 +252,10 @@ const s = StyleSheet.create({
   body: { ...typography.body },
   label: { ...typography.eyebrow, marginTop: spacing.xs },
   divider: { height: 1, marginVertical: spacing.xs },
-  segmented: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
+  segmented: { flexDirection: "row", flexWrap: "wrap", padding: 3, borderRadius: 12, gap: 2 },
   segment: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "auto",
     minHeight: 44,
     borderRadius: 9,
     borderWidth: 1,

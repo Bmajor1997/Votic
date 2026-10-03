@@ -50,6 +50,37 @@ async function seedActivity(log: ActivityLog) {
 }
 
 describe("Home", () => {
+  it("restores the weekly statistics, horizontal files, and recent notes", async () => {
+    const now = new Date();
+    await seedActivity(addInterval(emptyLog(), report.id, "reading", now.getTime() - 5 * MIN, now.getTime()));
+    const withNote = {
+      ...report,
+      savedPassages: [
+        {
+          id: "home-note",
+          sentenceIndex: 1,
+          text: "Costs held steady.",
+          title: "Quarterly costs",
+          note: "Review this before the meeting.",
+          createdAt: now.getTime(),
+          updatedAt: now.getTime(),
+        },
+      ],
+    };
+    await renderWithProviders(<Home />, { documents: [withNote, guide] });
+    expect(screen.getByText("Statistics")).toBeTruthy();
+    expect(screen.getByText(/Reading 5 min/, { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText(/Listening 0 min/, { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent notes" })).toBeTruthy();
+    expect(screen.getByText("Quarterly costs")).toBeTruthy();
+    expect(screen.getAllByTestId("home-horizontal-shelf")).toHaveLength(2);
+    for (const shelf of screen.getAllByTestId("home-horizontal-shelf"))
+      expect(shelf.props.horizontal).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: /Quarterly costs\. From/ }));
+    expect(router.push).toHaveBeenCalledWith("/reader");
+  });
+
   it("features the document in progress with a readable title and resumes listening", async () => {
     await renderWithProviders(<Home />, { documents: [report, guide] });
     expect(screen.getByText("q3 board report FINAL")).toBeTruthy();

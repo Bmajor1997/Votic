@@ -34,6 +34,22 @@ async function layOut(passages = 12) {
   const layout = (y: number, height: number) => ({
     nativeEvent: { layout: { x: 0, y, width: 390, height } },
   });
+  if (screen.queryByTestId("reading-pages")) {
+    await fireEvent(screen.getByTestId("reading-pages"), "layout", layout(0, 300));
+    await fireEvent(
+      screen.getByTestId("reading-measurement", { includeHiddenElements: true }),
+      "textLayout",
+      {
+        nativeEvent: {
+          lines: Array.from({ length: passages }, (_, index) => ({
+            text: `Passage ${index + 1}.\n\n`,
+            height: 100,
+          })),
+        },
+      },
+    );
+    return;
+  }
   await fireEvent(screen.getByTestId("reader-scroll"), "layout", layout(0, 300));
   for (const [index, passage] of screen.getByTestId("reader-document").children.entries())
     if (typeof passage !== "string" && index < passages)
@@ -43,6 +59,12 @@ async function layOut(passages = 12) {
 
 /** A finger drag to `offset`, then release. */
 async function dragTo(offset: number) {
+  if (screen.queryByTestId("reading-pages")) {
+    const turns = offset === 900 ? 5 : 2;
+    for (let at = 0; at < turns; at += 1)
+      await fireEvent.press(screen.getByRole("button", { name: "Next page" }));
+    return;
+  }
   const scroll = screen.getByTestId("reader-scroll");
   const event = {
     nativeEvent: {
@@ -94,29 +116,30 @@ describe("Read mode", () => {
     expect(screen.getByRole("header", { name: "Appearance" })).toBeTruthy();
   });
 
-  it("moves the document position, and the progress bar, as the reader scrolls", async () => {
+  it("moves the saved text position when turning pages", async () => {
     await openIn("read");
     await layOut();
     expect(screen.getByText("0% read")).toBeTruthy();
     // Offset 400 puts the reading line at 400 + 135 = 535: 35% into passage 6, its first word → 10 of 23.
     await dragTo(400);
-    expect(screen.getByText("43% read")).toBeTruthy();
-    expect(screen.getByText("6 passages left")).toBeTruthy();
+    expect(screen.getByText("35% read")).toBeTruthy();
+    expect(screen.getByText("Page 3 of 6")).toBeTruthy();
     expect(speak).not.toHaveBeenCalled();
     // The end of the document reads as 100%.
     await dragTo(900);
-    expect(screen.getByText("100% read")).toBeTruthy();
+    expect(screen.getByText("87% read")).toBeTruthy();
+    expect(screen.getByText("Page 6 of 6")).toBeTruthy();
   });
 
-  it("saves the scrolled position through the existing document progress", async () => {
+  it("saves the page's first word through the existing document progress", async () => {
     await openIn("read");
     await layOut();
     await dragTo(400);
     await act(async () => jest.advanceTimersByTime(2500));
     await waitFor(async () => {
       const saved = JSON.parse((await AsyncStorage.getItem(LIBRARY_KEY)) || "[]");
-      expect(saved[0]).toMatchObject({ sentenceIndex: 5, wordIndex: 0 });
-      expect(saved[0].progress).toBeCloseTo(10 / 23, 2);
+      expect(saved[0]).toMatchObject({ sentenceIndex: 4, wordIndex: 0 });
+      expect(saved[0].progress).toBeCloseTo(8 / 23, 2);
     });
   });
 
@@ -124,13 +147,17 @@ describe("Read mode", () => {
     await openIn("read", { ...long, sentenceIndex: 5, wordIndex: 0, progress: 10 / 23 });
     expect(screen.getByText("43% read")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    await layOut();
+    expect(screen.getByText("Page 3 of 6")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Previous page" }));
+    expect(screen.getByText("Page 2 of 6")).toBeTruthy();
   });
 
   it("does not highlight passages, since nothing is being read aloud", async () => {
     await openIn("read");
     await layOut();
     // The current passage renders as plain text rather than word-by-word spans.
-    expect(screen.getByText("Passage 1.")).toBeTruthy();
+    expect(screen.getByText(/Passage 1\.\s+Passage 2\./)).toBeTruthy();
   });
 
   it("switches to listening when asked, then plays from the reading position", async () => {
@@ -141,7 +168,7 @@ describe("Read mode", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Switch to listening" }));
     await fireEvent.press(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(speak).toHaveBeenCalled());
-    expect(speak.mock.calls.at(-1)?.[0]).toBe("Passage 6.");
+    expect(speak.mock.calls.at(-1)?.[0]).toBe("Passage 5.");
   });
 
   it("opens Ask Votic without leaving Read mode", async () => {
