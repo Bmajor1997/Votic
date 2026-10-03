@@ -40,56 +40,55 @@ export default function HandleShare() {
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isResolving || started.current || error) return;
-    if (!resolvedSharedPayloads.length) {
-      setFailure("Votic did not receive a document to import.");
-      return;
-    }
+    if (isResolving || started.current || error || !resolvedSharedPayloads.length) return;
     started.current = true;
+
+    const importSharedDocument = async () => {
+      try {
+        if (resolvedSharedPayloads.length !== 1)
+          throw new Error("Share one document at a time with Votic.");
+
+        const payload = resolvedSharedPayloads[0];
+        const uri = payload.contentUri;
+        const name = payload.originalName || fallbackName(payload.contentMimeType);
+
+        if (!uri) throw new Error("Votic could not access the shared document.");
+        if (!supportedDocument(name))
+          throw new Error("Share a TXT, Markdown, PDF, Word, PowerPoint, or EPUB document.");
+
+        setStatus(`Importing ${name}…`);
+        validateImport({
+          name,
+          size: payload.contentSize,
+          uri,
+          mimeType: payload.contentMimeType,
+        });
+
+        const response = await fetch(uri);
+        if (!response.ok) throw new Error("Votic could not access the shared document.");
+        const bytes = await response.arrayBuffer();
+        validateLoadedBytes(bytes.byteLength);
+
+        setStatus(`Reading ${name}…`);
+        const text = canReadLocally(name)
+          ? cleanLocalDocumentText(new TextDecoder().decode(bytes))
+          : await extractDocument(name, bytes);
+
+        if (!text.trim()) throw new Error("This document does not contain readable text.");
+
+        addTextDocument(name, text, { playbackRate: defaultPlaybackRate });
+        clearSharedPayloads();
+        router.replace("/reader");
+      } catch (caught) {
+        clearSharedPayloads();
+        setFailure(
+          caught instanceof Error ? caught.message : "Votic could not import this shared document.",
+        );
+      }
+    };
+
     void importSharedDocument();
-  }, [error, isResolving, resolvedSharedPayloads]);
-
-  async function importSharedDocument() {
-    try {
-      if (resolvedSharedPayloads.length !== 1)
-        throw new Error("Share one document at a time with Votic.");
-
-      const payload = resolvedSharedPayloads[0];
-      const uri = payload.contentUri;
-      const name = payload.originalName || fallbackName(payload.contentMimeType);
-
-      if (!uri) throw new Error("Votic could not access the shared document.");
-      if (!supportedDocument(name))
-        throw new Error("Share a TXT, Markdown, PDF, Word, PowerPoint, or EPUB document.");
-
-      setStatus(`Importing ${name}…`);
-      validateImport({
-        name,
-        size: payload.contentSize,
-        uri,
-        mimeType: payload.contentMimeType,
-      });
-
-      const response = await fetch(uri);
-      if (!response.ok) throw new Error("Votic could not access the shared document.");
-      const bytes = await response.arrayBuffer();
-      validateLoadedBytes(bytes.byteLength);
-
-      setStatus(`Reading ${name}…`);
-      const text = canReadLocally(name)
-        ? cleanLocalDocumentText(new TextDecoder().decode(bytes))
-        : await extractDocument(name, bytes);
-
-      if (!text.trim()) throw new Error("This document does not contain readable text.");
-
-      addTextDocument(name, text, { playbackRate: defaultPlaybackRate });
-      clearSharedPayloads();
-      router.replace("/reader");
-    } catch (caught) {
-      clearSharedPayloads();
-      setFailure(caught instanceof Error ? caught.message : "Votic could not import this shared document.");
-    }
-  }
+  }, [addTextDocument, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads]);
 
   const problem = failure || error?.message || null;
 
