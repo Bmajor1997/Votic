@@ -29,15 +29,19 @@ export default function ScanDocumentScreen() {
   const [capturing, setCapturing] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [torch, setTorch] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
-  const current = pages.at(-1);
+  const current = reviewing ? pages.at(-1) : undefined;
 
   async function capture() {
     if (!cameraRef.current || capturing) return;
     setCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
-      if (photo?.uri) setPages((value) => [...value, photo]);
+      if (photo?.uri) {
+        setPages((value) => [...value, photo]);
+        setReviewing(true);
+      }
     } catch {
       Alert.alert("Camera unavailable", "Votic could not take that photo. Please try again.");
     } finally {
@@ -140,53 +144,33 @@ export default function ScanDocumentScreen() {
           <View style={s.reviewBar}>
             <Text style={s.reviewTitle}>Is this page clear?</Text>
             <View style={s.reviewActions}>
-              <Pressable accessibilityRole="button" onPress={() => setPages((value) => value.slice(0, -1))} style={s.secondaryAction}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retake page"
+                onPress={() => {
+                  setPages((value) => value.slice(0, -1));
+                  setReviewing(false);
+                }}
+                style={s.secondaryAction}
+              >
                 <Ionicons name="refresh" size={20} color="#FFF" />
                 <Text style={s.secondaryText}>Retake</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={() => setPages((value) => [...value]) || undefined} style={s.hidden} />
-              <Pressable accessibilityRole="button" onPress={() => setPages((value) => value)} style={s.hidden} />
-              <Pressable accessibilityRole="button" onPress={() => {
-                const saved = pages;
-                setPages(saved.slice(0, -1));
-                setTimeout(() => setPages(saved), 0);
-              }} style={s.hidden} />
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  const saved = [...pages];
-                  setPages([]);
-                  requestAnimationFrame(() => setPages(saved));
-                }}
-                style={s.hidden}
-              />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Add another page"
-                onPress={() => {
-                  const saved = [...pages];
-                  setPages(saved.slice(0, -1));
-                  setTimeout(() => setPages([...saved.slice(0, -1), saved.at(-1)!]), 0);
-                }}
-                style={s.hidden}
-              />
-            </View>
-            <View style={s.reviewActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Add another page"
-                onPress={() => {
-                  // Keep captured pages while returning to the live camera.
-                  const captured = [...pages];
-                  setPages(captured);
-                  (globalThis as typeof globalThis & { __voticScanReview?: boolean }).__voticScanReview = false;
-                }}
+                onPress={() => setReviewing(false)}
                 style={s.secondaryAction}
               >
                 <Ionicons name="add" size={21} color="#FFF" />
                 <Text style={s.secondaryText}>Add page</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" disabled={processing} onPress={() => void finishScan()} style={[s.useAction, { opacity: processing ? 0.7 : 1 }]}>
+              <Pressable
+                accessibilityRole="button"
+                disabled={processing}
+                onPress={() => void finishScan()}
+                style={[s.useAction, { opacity: processing ? 0.7 : 1 }]}
+              >
                 {processing ? <ActivityIndicator color="#111827" /> : <Ionicons name="checkmark" size={21} color="#111827" />}
                 <Text style={s.useText}>{processing ? "Reading…" : "Use scan"}</Text>
               </Pressable>
@@ -227,7 +211,6 @@ const s = StyleSheet.create({
   secondaryText: { color: "#FFF", fontSize: 15, fontWeight: "700" },
   useAction: { minHeight: 50, flex: 1, borderRadius: 14, backgroundColor: "#FFF", flexDirection: "row", gap: 7, alignItems: "center", justifyContent: "center" },
   useText: { color: "#111827", fontSize: 15, fontWeight: "800" },
-  hidden: { display: "none" },
   permission: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 30 },
   permissionIcon: { width: 72, height: 72, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 20 },
   permissionTitle: { fontSize: 25, fontWeight: "800", textAlign: "center", marginBottom: 10 },
