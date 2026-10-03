@@ -63,8 +63,18 @@ export default function Welcome() {
             style={s.benefits}
           >
             <Benefit icon="book-outline" label="Read" color={theme.accent} textColor={theme.text} />
-            <Benefit icon="headset-outline" label="Listen" color={theme.accent} textColor={theme.text} />
-            <Benefit icon="sparkles-outline" label="Ask Votic" color={theme.accent} textColor={theme.text} />
+            <Benefit
+              icon="headset-outline"
+              label="Listen"
+              color={theme.accent}
+              textColor={theme.text}
+            />
+            <Benefit
+              icon="sparkles-outline"
+              label="Ask Votic"
+              color={theme.accent}
+              textColor={theme.text}
+            />
           </View>
         </View>
 
@@ -121,8 +131,8 @@ export default function Welcome() {
             {!auth.configured ? (
               <View style={[s.notice, { backgroundColor: theme.surfaceMuted }]}>
                 <Text style={[s.noticeText, { color: theme.text }]}>
-                  Sign-in isn&apos;t set up in this build yet. Add the Firebase settings described in the
-                  README.
+                  Sign-in isn&apos;t set up in this build yet. Add the Firebase settings described in
+                  the README.
                 </Text>
                 {auth.canContinueWithoutAccount ? (
                   <TextButton

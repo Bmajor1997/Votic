@@ -109,9 +109,9 @@ export default function EmailSignIn() {
             </Text>
           </View>
           <View style={[s.formCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={s.fields}>
-            <Field label="Email" error={emailError}>
-              <TextInput
+            <View style={s.fields}>
+              <Field label="Email" error={emailError}>
+                <TextInput
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -134,14 +134,16 @@ export default function EmailSignIn() {
                   },
                 ]}
               />
-            </Field>
-            <Field
-              label="Password"
-              error={passwordError}
-              hint={
-                creating && !passwordError ? "At least 8 characters, with a letter and a number." : undefined
-              }
-            >
+              </Field>
+                <Field
+                label="Password"
+                error={passwordError}
+                hint={
+                  creating && !passwordError
+                    ? "At least 8 characters, with a letter and a number."
+                    : undefined
+                }
+              >
               <View
                 style={[
                   s.passwordRow,
@@ -179,20 +181,22 @@ export default function EmailSignIn() {
                   />
                 </Pressable>
               </View>
-            </Field>
-          </View>
-          {error ? <Message icon="alert-circle-outline" text={error} /> : null}
-          {notice ? <Message icon="mail-unread-outline" text={notice} /> : null}
-          <PrimaryButton
-            label={creating ? "Create account" : "Sign in"}
-            busy={busy}
-            onPress={() => void submit()}
-          />
-          {!creating ? <TextButton label="Forgot password?" onPress={() => void resetPassword()} /> : null}
-          <TextButton
-            label={creating ? "I already have an account" : "Create a new account"}
-            onPress={switchMode}
-          />
+              </Field>
+            </View>
+            {error ? <Message icon="alert-circle-outline" text={error} /> : null}
+            {notice ? <Message icon="mail-unread-outline" text={notice} /> : null}
+            <PrimaryButton
+              label={creating ? "Create account" : "Sign in"}
+              busy={busy}
+              onPress={() => void submit()}
+            />
+            {!creating ? (
+              <TextButton label="Forgot password?" onPress={() => void resetPassword()} />
+            ) : null}
+            <TextButton
+              label={creating ? "I already have an account" : "Create a new account"}
+              onPress={switchMode}
+            />
           </View>
           <View style={s.reassurance}>
             <Ionicons name="shield-checkmark-outline" size={17} color={theme.accent} />
@@ -233,7 +237,13 @@ function Field({
   );
 }
 
-function Message({ icon, text }: { icon: React.ComponentProps<typeof Ionicons>["name"]; text: string }) {
+function Message({
+  icon,
+  text,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  text: string;
+}) {
   const { theme } = useVoticTheme();
   return (
     <View accessibilityRole="alert" style={[s.message, { backgroundColor: theme.surfaceMuted }]}>
@@ -305,6 +315,11 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
   },
   messageText: { flex: 1, fontSize: 15, lineHeight: 21 },
-  reassurance: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
+  reassurance: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
   reassuranceText: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
 });
