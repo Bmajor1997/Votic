@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "re
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
-import { AppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
+import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
 import { DeviceVoice, voticVoiceName } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
@@ -37,7 +37,7 @@ export function ReaderSettingsSheet({
   onPreviewVoice: (voice: DeviceVoice, voiceIndex: number) => void;
   onSelectVoice: (voice: DeviceVoice) => void;
 }) {
-  const { theme, appearanceMode, setAppearanceMode } = useVoticTheme();
+  const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
@@ -123,19 +123,19 @@ export function ReaderSettingsSheet({
                     label="Light"
                     value="light"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Dark"
                     value="dark"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Sepia"
                     value="sepia"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                 </Setting>
                 <Setting label="Line spacing">

@@ -1,8 +1,10 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
+import { useColorScheme } from "react-native";
 import { loadThemePreferences, saveThemePreferences } from "../preferences/preferenceStorage";
 export type AccentName =
   "blue" | "purple" | "orange" | "red" | "teal" | "emerald" | "indigo" | "rose" | "amber";
-export type AppearanceMode = "light" | "dark" | "sepia";
+export type AppearanceMode = "light" | "dark" | "system";
+export type ReaderAppearanceMode = "light" | "dark" | "sepia";
 export const accentColors: Record<AccentName, string> = {
   orange: "#B45309",
   blue: "#2563EB",
@@ -56,42 +58,61 @@ const palettes = {
     border: "#DCCFB2",
   },
 } as const;
+function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode) {
+  const accent =
+    resolvedMode === "sepia" ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE) : accentColors[accentName];
+  return {
+    ...palettes[resolvedMode],
+    accent,
+    logoWing: accent,
+    playButton: accent,
+    playIcon: "#FFFFFF",
+    sentenceHighlight: withAlpha(accent, resolvedMode === "dark" ? "33" : "1F"),
+    wordHighlight: withAlpha(accent, resolvedMode === "dark" ? "80" : "55"),
+    mode: resolvedMode,
+    isDark: resolvedMode === "dark",
+  };
+}
 const C = createContext<any>(null);
 export function ThemeProvider({ children }: PropsWithChildren) {
   const [accentName, setAccentName] = useState<AccentName>("orange");
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("light");
+  const systemMode = useColorScheme();
+  const [readerAppearanceMode, setReaderAppearanceMode] = useState<ReaderAppearanceMode | null>(null);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     loadThemePreferences().then((saved) => {
       if (saved?.accentName && saved.accentName in accentColors) setAccentName(saved.accentName);
-      // A saved "system" choice from before Sepia replaced it falls back to the Light default.
-      if (["light", "dark", "sepia"].includes(saved?.appearanceMode)) setAppearanceMode(saved.appearanceMode);
+      if (["light", "dark", "system"].includes(saved?.appearanceMode))
+        setAppearanceMode(saved.appearanceMode);
+      // Move legacy app-wide Sepia into the Reader without losing the saved choice.
+      if (["light", "dark", "sepia"].includes(saved?.readerAppearanceMode)) {
+        setReaderAppearanceMode(saved.readerAppearanceMode);
+      } else if (saved?.appearanceMode === "sepia") {
+        setReaderAppearanceMode("sepia");
+      }
       setHydrated(true);
     });
   }, []);
   useEffect(() => {
-    if (hydrated) saveThemePreferences({ accentName, appearanceMode }).catch(() => {});
-  }, [accentName, appearanceMode, hydrated]);
-  const resolvedMode: AppearanceMode = appearanceMode;
-  const theme = useMemo(() => {
-    const accent =
-      resolvedMode === "sepia"
-        ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE)
-        : accentColors[accentName];
-    return {
-      ...palettes[resolvedMode],
-      accent,
-      logoWing: accent,
-      playButton: accent,
-      playIcon: "#FFFFFF",
-      sentenceHighlight: withAlpha(accent, resolvedMode === "dark" ? "33" : "1F"),
-      wordHighlight: withAlpha(accent, resolvedMode === "dark" ? "80" : "55"),
-      mode: resolvedMode,
-      isDark: resolvedMode === "dark",
-    };
-  }, [accentName, resolvedMode]);
+    if (hydrated) saveThemePreferences({ accentName, appearanceMode, readerAppearanceMode }).catch(() => {});
+  }, [accentName, appearanceMode, readerAppearanceMode, hydrated]);
+  const resolvedMode =
+    appearanceMode === "system" ? (systemMode === "dark" ? "dark" : "light") : appearanceMode;
+  const theme = useMemo(() => makeTheme(accentName, resolvedMode), [accentName, resolvedMode]);
   return (
-    <C.Provider value={{ accentName, setAccentName, appearanceMode, setAppearanceMode, resolvedMode, theme }}>
+    <C.Provider
+      value={{
+        accentName,
+        setAccentName,
+        appearanceMode,
+        setAppearanceMode,
+        resolvedMode,
+        theme,
+        readerAppearanceMode,
+        setReaderAppearanceMode,
+      }}
+    >
       {children}
     </C.Provider>
   );
@@ -100,4 +121,24 @@ export function useVoticTheme() {
   const c = useContext(C);
   if (!c) throw new Error("useVoticTheme must be used inside ThemeProvider");
   return c;
+}
+
+/** Scope the document palette and its controls to the Reader route. */
+export function ReaderThemeProvider({ children }: PropsWithChildren) {
+  const app = useVoticTheme();
+  const resolvedMode = app.readerAppearanceMode ?? app.resolvedMode;
+  const theme = useMemo(() => makeTheme(app.accentName, resolvedMode), [app.accentName, resolvedMode]);
+  return (
+    <C.Provider
+      value={{
+        ...app,
+        theme,
+        resolvedMode,
+        appearanceMode: resolvedMode,
+        setAppearanceMode: app.setReaderAppearanceMode,
+      }}
+    >
+      {children}
+    </C.Provider>
+  );
 }

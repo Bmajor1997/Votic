@@ -2,12 +2,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Text } from "react-native";
+import { Pressable, Text } from "react-native";
 import Settings from "../../app/(tabs)/settings";
 import Reader from "../../app/reader";
 import { LIBRARY_KEY } from "../../src/documents/documentStorage";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { ReaderThemeProvider, useVoticTheme } from "../../src/theme/ThemeProvider";
 import { searchParams } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
@@ -234,21 +234,40 @@ describe("One progress bar", () => {
   });
 });
 
-function ThemeProbe() {
-  const { theme } = useVoticTheme();
-  return <Text testID="theme">{JSON.stringify(theme)}</Text>;
+function ThemeProbe({ id = "theme" }: { id?: string }) {
+  const { theme, setAppearanceMode } = useVoticTheme();
+  return (
+    <>
+      <Text testID={id}>{JSON.stringify(theme)}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Sepia ${id}`}
+        onPress={() => setAppearanceMode("sepia")}
+      />
+    </>
+  );
+}
+
+function ThemeScopes() {
+  return (
+    <>
+      <ThemeProbe id="app-theme" />
+      <ReaderThemeProvider>
+        <ThemeProbe id="reader-theme" />
+      </ReaderThemeProvider>
+    </>
+  );
 }
 
 describe("Appearance", () => {
-  it("offers Light, Dark, and Sepia, and no longer System", async () => {
+  it("offers Light, Dark, and System for the app without Sepia", async () => {
     await renderWithProviders(<Settings />);
-    for (const name of ["Light", "Dark", "Sepia"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
-    expect(screen.queryByRole("radio", { name: "System" })).toBeNull();
-    await fireEvent.press(screen.getByRole("radio", { name: "Sepia" }));
-    expect(screen.getByRole("radio", { name: "Sepia", checked: true })).toBeTruthy();
+    for (const name of ["Light", "Dark", "System"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Sepia" })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: "System" }));
     await waitFor(async () =>
       expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.theme.v1")) || "{}")).toMatchObject({
-        appearanceMode: "sepia",
+        appearanceMode: "system",
       }),
     );
   });
@@ -257,24 +276,39 @@ describe("Appearance", () => {
     ["light", "#FFFFFF", "#292D32"],
     ["dark", "#292D32", "#FAFAF9"],
     ["sepia", "#F4ECD8", "#5B4636"],
-  ])("renders the %s palette", async (mode, background, text) => {
+  ])("renders the %s Reader palette independently of the app", async (mode, background, text) => {
     await AsyncStorage.setItem(
       "votic.mobile.theme.v1",
-      JSON.stringify({ accentName: "blue", appearanceMode: mode }),
+      JSON.stringify({ accentName: "blue", appearanceMode: "light", readerAppearanceMode: mode }),
     );
-    await renderWithProviders(<ThemeProbe />);
-    const theme = JSON.parse(screen.getByTestId("theme").props.children);
+    await renderWithProviders(<ThemeScopes />);
+    const theme = JSON.parse(screen.getByTestId("reader-theme").props.children);
     expect(theme).toMatchObject({ background, text, mode, isDark: mode === "dark" });
-    // Sepia deepens the accent slightly so small accent text stays readable on the paper color.
     expect(theme.accent.toUpperCase()).toBe(mode === "sepia" ? "#2157CF" : "#2563EB");
+    expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
+      mode: "light",
+      background: "#FFFFFF",
+    });
   });
 
-  it("falls back to Light for a saved System choice from earlier versions", async () => {
-    await AsyncStorage.setItem(
-      "votic.mobile.theme.v1",
-      JSON.stringify({ accentName: "blue", appearanceMode: "system" }),
+  it("saves Reader Sepia without changing app Dark", async () => {
+    await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: "dark" }));
+    await renderWithProviders(<ThemeScopes />);
+    await fireEvent.press(screen.getByRole("button", { name: "Sepia reader-theme" }));
+    expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({ mode: "dark" });
+    expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({ mode: "sepia" });
+    await waitFor(async () =>
+      expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.theme.v1")) || "{}")).toMatchObject({
+        appearanceMode: "dark",
+        readerAppearanceMode: "sepia",
+      }),
     );
-    await renderWithProviders(<ThemeProbe />);
-    expect(JSON.parse(screen.getByTestId("theme").props.children)).toMatchObject({ mode: "light" });
+  });
+
+  it("migrates legacy Sepia to Reader-only", async () => {
+    await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: "sepia" }));
+    await renderWithProviders(<ThemeScopes />);
+    expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({ mode: "light" });
+    expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({ mode: "sepia" });
   });
 });

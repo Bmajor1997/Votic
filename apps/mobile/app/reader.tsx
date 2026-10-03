@@ -69,7 +69,7 @@ import {
   wordMatches,
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
-import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 
 /** Read: the document without audio controls. Listen: the document with narration controls. */
 type ReaderMode = "read" | "listen";
@@ -103,6 +103,14 @@ const CONVERSATION_SUMMARY_PROMPT =
   "Create a quick summary of our conversation. Start with one short main-idea sentence, then list the essential answers and key takeaways as clear bullet points. Include important terms only when they help understanding. Keep it concise, accurate, and supported by the document.";
 
 export default function Reader() {
+  return (
+    <ReaderThemeProvider>
+      <ReaderContent />
+    </ReaderThemeProvider>
+  );
+}
+
+function ReaderContent() {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const transition = useDocumentTransition();
