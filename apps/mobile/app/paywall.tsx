@@ -12,7 +12,7 @@ const PLANS = {
     title: "Annual",
     price: "$99",
     period: "/ year",
-    detail: "$8.25/month, billed yearly",
+    detail: "$8.25/month, 36% discount",
     renewal: "$99 per year",
   },
   monthly: {
