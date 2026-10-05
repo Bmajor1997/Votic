@@ -289,7 +289,7 @@ describe("Statistics", () => {
         /Insights appear after at least 30 minutes of reading or listening on 3 different days/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/Votic started measuring on/)).toBeTruthy();
+    expect(screen.getByText(/So far: 5 min on 1 day\./)).toBeTruthy();
   });
 
   it("opens a ranked document from the Documents detail", async () => {
