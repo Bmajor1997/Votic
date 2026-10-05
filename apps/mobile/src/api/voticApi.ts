@@ -123,3 +123,21 @@ export async function askVotic(
     sectionTitle: typeof result.sectionTitle === "string" ? result.sectionTitle : null,
   };
 }
+
+
+export type ImportedWebPage = { title: string; text: string; url: string };
+export async function importWebPage(url: string): Promise<ImportedWebPage> {
+  const response = await apiFetch("/api/import-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: url.trim() }),
+  }, 30_000);
+  const result = await responseJson(response);
+  if (!response.ok) throw new Error(serverError(result, "Votic could not import that webpage."));
+  if (typeof result.text !== "string" || !result.text.trim()) throw new Error("Votic could not find readable text on that webpage.");
+  return {
+    title: typeof result.title === "string" && result.title.trim() ? result.title.trim() : "Web article",
+    text: result.text.trim(),
+    url: typeof result.url === "string" ? result.url : url.trim(),
+  };
+}
