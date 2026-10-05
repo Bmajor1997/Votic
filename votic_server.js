@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { extract_document } from "./app_parts/document_file_tools.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
+import { import_public_webpage } from "./app_parts/web_import.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
 const public_files = new Map([
@@ -136,6 +137,19 @@ export function create_votic_handler(options = {}) {
       send_json(response, 200, { text: result });
     } catch (error) { throw new HttpError(400, extraction_error_message(error)); }
     finally { active_extractions -= 1; }
+    return;
+  }
+   if (request.method === "POST" && path === "/api/import-url") {
+    rate_limit(`${client}:extract`, config.extract_rate_limit);
+    const payload = await read_json_body(request, Math.min(config.max_json_bytes, 20_000), config.body_timeout_ms);
+    if (typeof payload.url !== "string" || payload.url.length > 3000) throw new HttpError(400, "Enter a valid webpage address.");
+    try {
+      const page = await import_public_webpage(payload.url, { fetchImpl: fetch_impl, timeoutMs: config.body_timeout_ms });
+      send_json(response, 200, page);
+    } catch (error) {
+      logger.warn?.("Votic webpage import unavailable", { name: error?.name });
+      throw new HttpError(400, error instanceof Error ? error.message : "Votic could not import that webpage.");
+    }
     return;
   }
    if (request.method === "POST" && path === "/api/scan") {
