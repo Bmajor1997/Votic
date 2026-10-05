@@ -225,7 +225,7 @@ export function ReaderSettingsSheet({
                   <View style={s.toggleCopy}>
                     <Text style={[s.toggleTitle, { color: theme.text }]}>Offline listening ready</Text>
                     <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
-                      This document is saved on your device. Votic uses your device's text-to-speech voice, so Votic does not need a server connection while reading it aloud. Voice availability is controlled by your phone.
+                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so Votic does not need a server connection while reading it aloud. Voice availability is controlled by your phone.
                     </Text>
                   </View>
                 </View>
