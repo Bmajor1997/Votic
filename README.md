@@ -115,6 +115,8 @@ Follow-along highlighting can be personalized with Warm orange, Blue, Green, Pur
 
 The mobile app uses `votic_server.js` for document extraction and AI features. Serve it over HTTPS (for example behind a load balancer) and configure it with environment variables:
 
+Use Node 24+. See [OpenAI backend setup](docs/openai-backend.md) for secure key entry, persistent token/cost accounting, monthly allowances, and the voice-question foundation. `gpt-6-luna` is the initial Responses model. Production AI requires `FIREBASE_PROJECT_ID` and `VOTIC_AI_USAGE_DB` on a private persistent volume.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
@@ -127,7 +129,7 @@ The mobile app uses `votic_server.js` for document extraction and AI features. S
 
 Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
 
-A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Set `FIREBASE_PROJECT_ID` to give each signed-in account its own allowance instead.
+A client key ships inside the app, so it filters casual abuse but is not a secret. Daily attempt caps supplement durable per-account monthly token/cost allowances and the global monthly budget. Production requires Firebase authentication and a persistent ledger. See the linked setup guide for deployment limits and reconciliation of uncertain provider calls.
 
 ## Product Hypothesis
 

@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { create_votic_server, load_server_config, validate_production_security } from "../votic_server.js";
+const test_prices = JSON.stringify(Object.fromEntries(["ocr-model", "document-model", "review-model"].map((model) => [model, { input: 0.1, cached: 0.01, cache_write: 0.125, output: 0.5 }])));
 
 async function with_server(options, run) {
+  options = { ...options, env: { VOTIC_AI_PRICES_JSON: test_prices, ...options.env } };
   const server = create_votic_server({ logger: { error() {}, warn() {} }, ...options });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");

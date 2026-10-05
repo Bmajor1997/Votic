@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { setAuthTokenProvider } from "../../src/api/authToken";
-import { askVotic } from "../../src/api/voticApi";
+import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
 
 const realFetch = global.fetch;
 afterEach(() => {
@@ -8,6 +8,39 @@ afterEach(() => {
 });
 
 describe("Votic API requests", () => {
+  it("labels Catch Me Up on the existing authenticated Ask Votic route", async () => {
+    const fetchMock = jest.fn(
+      async (_url: unknown, _init?: RequestInit) =>
+        new Response(JSON.stringify({ answer: "Overview" }), { status: 200 }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    await askVotic("Catch me up", undefined, [], "adaptive", "catch-me-up");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({ feature: "catch-me-up" });
+  });
+
+  it("sends voice bytes only to the authenticated backend and reports allowance errors", async () => {
+    setAuthTokenProvider(async () => "id-token");
+    const fetchMock = jest.fn(
+      async (_url: unknown, _init?: RequestInit) =>
+        new Response(JSON.stringify({ text: "What does this mean?" }), { status: 200 }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+    const bytes = new ArrayBuffer(44);
+    try {
+      expect(await transcribeVoiceQuestion(bytes)).toBe("What does this mean?");
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(String(url)).toContain("/api/transcribe-question");
+      expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer id-token");
+      expect((init?.headers as Record<string, string>)["Content-Type"]).toBe("audio/wav");
+      expect(init?.body).toBe(bytes);
+      global.fetch = jest.fn(
+        async () => new Response(JSON.stringify({ error: "Monthly allowance reached" }), { status: 429 }),
+      ) as typeof fetch;
+      await expect(transcribeVoiceQuestion(bytes)).rejects.toThrow("Monthly allowance reached");
+    } finally {
+      setAuthTokenProvider(null);
+    }
+  });
   it("gives up with a clear message when the server never responds", async () => {
     let signal: AbortSignal | undefined;
     global.fetch = jest.fn((_url: unknown, init?: RequestInit) => {

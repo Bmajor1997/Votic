@@ -405,6 +405,7 @@ function ReaderContent() {
         },
         [],
         explanationStyle,
+        "catch-me-up",
       );
       setAskMessages((current) => [...current, { role: "votic", text: answer.answer }]);
     } catch (error) {

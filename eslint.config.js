@@ -4,6 +4,8 @@ const sharedGlobals = {
   Buffer: "readonly",
   URL: "readonly",
   Blob: "readonly",
+  FormData: "readonly",
+  Headers: "readonly",
   AbortController: "readonly",
   fetch: "readonly",
   document: "readonly",

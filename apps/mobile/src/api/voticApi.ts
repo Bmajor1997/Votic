@@ -100,12 +100,14 @@ export async function askVotic(
   document?: { title: string; sections: { heading: string; text: string }[] },
   history: { role: "user" | "assistant"; text: string }[] = [],
   explanationStyle: ExplanationStyle = "adaptive",
+  feature: "ask-votic" | "catch-me-up" = "ask-votic",
 ): Promise<VoticAnswer> {
   const response = await apiFetch("/api/help", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       question,
+      ...(feature !== "ask-votic" ? { feature } : {}),
       document,
       ...(history.length ? { history } : {}),
       // "adaptive" is the server's default, so it is left out to keep requests unchanged for most people.
@@ -125,6 +127,26 @@ export async function askVotic(
 }
 
 export type ImportedWebPage = { title: string; text: string; url: string };
+/** Foundation for a recorder: caller obtains consent and records <=60 s PCM WAV.
+ * The transcript can be edited before submitting it through askVotic. Spoken output stays on device TTS.
+ */
+export async function transcribeVoiceQuestion(bytes: ArrayBuffer): Promise<string> {
+  const response = await apiFetch(
+    "/api/transcribe-question",
+    {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: bytes,
+    },
+    45_000,
+  );
+  const result = await responseJson(response);
+  if (!response.ok) throw new Error(serverError(result, "Votic could not transcribe this voice question."));
+  if (typeof result.text !== "string" || !result.text.trim() || result.text.length > 1000)
+    throw new Error("Try a shorter voice question, or type it instead.");
+  return result.text.trim();
+}
+
 export async function importWebPage(url: string): Promise<ImportedWebPage> {
   const response = await apiFetch(
     "/api/import-url",
