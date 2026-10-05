@@ -22,12 +22,38 @@ export function normalizePronunciationEntry(term: string, pronunciation: string)
   if (!cleanTerm || !cleanPronunciation) throw new Error("Enter both a word and how Votic should say it.");
   return { id: cleanTerm.toLocaleLowerCase(), term: cleanTerm, pronunciation: cleanPronunciation };
 }
-function escapeRegExp(value: string) { return value.replace(/[.*+?^$()|[\]\\{}]/g, "\\$&"); }
+function isWordCharacter(value: string | undefined) {
+  return Boolean(value && /[\p{L}\p{N}]/u.test(value));
+}
+function replaceWholeTerm(text: string, term: string, pronunciation: string) {
+  if (!term) return text;
+  const lowerText = text.toLocaleLowerCase();
+  const lowerTerm = term.toLocaleLowerCase();
+  let cursor = 0;
+  let result = "";
+  while (cursor < text.length) {
+    const index = lowerText.indexOf(lowerTerm, cursor);
+    if (index < 0) {
+      result += text.slice(cursor);
+      break;
+    }
+    const end = index + term.length;
+    const hasBoundaryBefore = index === 0 || !isWordCharacter(text[index - 1]);
+    const hasBoundaryAfter = end === text.length || !isWordCharacter(text[end]);
+    if (hasBoundaryBefore && hasBoundaryAfter) {
+      result += text.slice(cursor, index) + pronunciation;
+      cursor = end;
+    } else {
+      result += text.slice(cursor, end);
+      cursor = end;
+    }
+  }
+  return result;
+}
 export function applyPronunciations(text: string, entries: PronunciationEntry[]) {
   let spoken = text;
   for (const entry of [...entries].sort((a, b) => b.term.length - a.term.length)) {
-    const pattern = new RegExp("(?<![\\p{L}\\p{N}])" + escapeRegExp(entry.term) + "(?![\\p{L}\\p{N}])", "giu");
-    spoken = spoken.replace(pattern, entry.pronunciation);
+    spoken = replaceWholeTerm(spoken, entry.term, entry.pronunciation);
   }
   return spoken;
 }
