@@ -1,3 +1,4 @@
+/* global Response */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { clean_webpage_html, import_public_webpage, validate_public_url } from "./web_import.js";
