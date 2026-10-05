@@ -147,6 +147,15 @@ export default function Review() {
         </View>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Check my understanding"
+          onPress={() => router.push("/check-understanding")}
+          style={({ pressed }) => [s.ask, { borderWidth: 1, borderColor: theme.accent, opacity: pressed ? 0.72 : 1 }]}
+        >
+          <Ionicons name="school-outline" size={20} color={theme.accent} />
+          <Text style={[s.askText, { color: theme.accent }]}>Check my understanding</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Ask Votic to help review this document"
           onPress={() => router.push("/assistant")}
           style={({ pressed }) => [s.ask, { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 }]}
