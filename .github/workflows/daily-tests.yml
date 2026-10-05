@@ -1,0 +1,68 @@
+name: Votic Daily Tests
+
+on:
+  schedule:
+    - cron: "0 8 * * *"
+      timezone: America/New_York
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/daily-tests.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: votic-daily-tests-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Backend tests
+            directory: .
+            command: npm test
+            lockfile: package-lock.json
+          - name: Mobile reliability tests
+            directory: apps/mobile
+            command: npm run test:reliability
+            lockfile: apps/mobile/package-lock.json
+          - name: Mobile component and integration tests
+            directory: apps/mobile
+            command: npm run test:components -- --ci --runInBand
+            lockfile: apps/mobile/package-lock.json
+          - name: Mobile type checks
+            directory: apps/mobile
+            command: npm run typecheck
+            lockfile: apps/mobile/package-lock.json
+    defaults:
+      run:
+        working-directory: ${{ matrix.directory }}
+    steps:
+      - name: Check out current Votic work
+        uses: actions/checkout@v4
+        with:
+          ref: feature/revenuecat-paywall
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.lockfile }}
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Run checks
+        run: ${{ matrix.command }}
+      - name: Record result
+        if: always()
+        env:
+          CHECK_NAME: ${{ matrix.name }}
+          CHECK_STATUS: ${{ job.status }}
+        run: |
+          printf '### %s\nBranch: feature/revenuecat-paywall\nResult: %s\n' "$CHECK_NAME" "$CHECK_STATUS" >> "$GITHUB_STEP_SUMMARY"
