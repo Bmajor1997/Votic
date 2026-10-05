@@ -181,6 +181,20 @@ export default function Settings() {
         <Text style={[s.h, { color: theme.text }]}>Help</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Pronunciation dictionary"
+          accessibilityHint="Teach Votic how to pronounce words and names"
+          onPress={() => router.push("/pronunciations")}
+          style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="language-outline" size={22} color={theme.accent} />
+          <View style={s.settingCopy}>
+            <Text style={[s.settingTitle, { color: theme.text }]}>Pronunciation dictionary</Text>
+            <Text style={[s.settingDetail, { color: theme.mutedText }]}>Teach Votic how to say names, acronyms, and technical terms.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Statistics"
           accessibilityHint="Reading and listening time, activity, and insights"
           onPress={() => router.push("/statistics")}
