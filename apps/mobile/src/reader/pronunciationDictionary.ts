@@ -31,3 +31,15 @@ export function applyPronunciations(text: string, entries: PronunciationEntry[])
   }
   return spoken;
 }
+
+export function sourceWordAtSpokenOffset(sourceText: string, spokenText: string, charIndex: number) {
+  const sourceWords = [...sourceText.matchAll(/\S+/g)];
+  const spokenWords = [...spokenText.matchAll(/\S+/g)];
+  if (!sourceWords.length || !spokenWords.length) return 0;
+  let spokenIndex = 0;
+  for (let i = 0; i < spokenWords.length; i += 1) {
+    if ((spokenWords[i].index ?? 0) > Math.max(0, charIndex)) break;
+    spokenIndex = i;
+  }
+  return Math.min(sourceWords.length - 1, Math.round((spokenIndex / Math.max(1, spokenWords.length - 1)) * Math.max(0, sourceWords.length - 1)));
+}
