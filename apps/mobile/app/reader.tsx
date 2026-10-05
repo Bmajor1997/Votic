@@ -69,6 +69,7 @@ import {
   wordMatches,
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
+import { applyPronunciations, loadPronunciations, PronunciationEntry, sourceWordAtSpokenOffset } from "../src/reader/pronunciationDictionary";
 import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 
 /** Read: the document without audio controls. Listen: the document with narration controls. */
@@ -155,6 +156,7 @@ function ReaderContent() {
   const [conversationSaved, setConversationSaved] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
+  const [pronunciations, setPronunciations] = useState<PronunciationEntry[]>([]);
   const [previewVoiceIdentifier, setPreviewVoiceIdentifier] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const askScrollRef = useRef<ScrollView>(null);
@@ -232,6 +234,7 @@ function ReaderContent() {
     void Speech.getAvailableVoicesAsync()
       .then((available) => setVoices(uniqueEnglishVoices(available)))
       .catch(() => setVoices([]));
+    void loadPronunciations().then(setPronunciations);
   }, []);
   useEffect(
     () => () => {
@@ -589,6 +592,7 @@ function ReaderContent() {
     if (session !== speechSession.current) return;
     const passage = passages[at];
     const segment = speechSegment(passage, startWord);
+    const spokenText = applyPronunciations(segment.text, pronunciations);
     // Keep each passage continuous so the voice retains sentence rhythm and pronunciation.
     // Each utterance has its own token: late callbacks from a finished passage are stale.
     const utterance = ++speechUtterance.current;
@@ -598,7 +602,7 @@ function ReaderContent() {
     setPlaying(true);
     setHeardAudio(true);
     onboarding.markTipSeen("reader-listen");
-    Speech.speak(segment.text, {
+    Speech.speak(spokenText, {
       rate: playbackRate,
       voice: accessibility.voiceIdentifier || undefined,
       onStart: () => {
@@ -609,7 +613,10 @@ function ReaderContent() {
       onBoundary: (event: any) => {
         if (!isCurrent() || (event?.name && event.name !== "word")) return;
         // Follow the native boundary directly: it fires as the word is spoken, so the highlight stays with the audio.
-        const next = wordAtSpeechOffset(segment, Number(event?.charIndex));
+        const boundary = Number(event?.charIndex);
+        const next = spokenText === segment.text
+          ? wordAtSpeechOffset(segment, boundary)
+          : segment.startWord + sourceWordAtSpokenOffset(segment.text, spokenText, boundary);
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {
