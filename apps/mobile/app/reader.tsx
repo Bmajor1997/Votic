@@ -43,6 +43,7 @@ import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { documentTimeSpent } from "../src/documents/insights";
 import { splitPassages } from "../src/documents/passages";
+import { catchUpContext, catchUpPrompt } from "../src/documents/catchUp";
 import { createThrottledSaver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 import { CoachMark } from "../src/onboarding/components";
@@ -379,6 +380,27 @@ function ReaderContent() {
         setAskError(error instanceof Error ? error.message : "Votic could not answer right now.");
     } finally {
       if (generation === askGeneration.current) setAskSending(false);
+    }
+  }
+
+  async function sendCatchUp() {
+    if (!activeDocument || askSending || activeDocument.progress <= 0) return;
+    const question = catchUpPrompt(activeDocument);
+    const covered = catchUpContext(activeDocument);
+    openAskVotic();
+    setAskError("");
+    setAskMessages((current) => [...current, { role: "user", text: "Catch me up" }]);
+    setAskSending(true);
+    try {
+      const answer = await askVotic(question, {
+        title: activeDocument.title,
+        sections: [{ heading: "What you have covered so far", text: covered }],
+      }, [], explanationStyle);
+      setAskMessages((current) => [...current, { role: "votic", text: answer.answer }]);
+    } catch (error) {
+      setAskError(error instanceof Error ? error.message : "Votic could not catch you up right now.");
+    } finally {
+      setAskSending(false);
     }
   }
 
@@ -1134,6 +1156,14 @@ function ReaderContent() {
                           }}
                         />
                       )}
+                      {activeDocument && activeDocument.progress > 0 ? (
+                        <ToolButton
+                          icon="sparkles-outline"
+                          label="Catch up"
+                          active={askOpen}
+                          onPress={() => void sendCatchUp()}
+                        />
+                      ) : null}
                       <ToolButton
                         icon={savedPassage ? "bookmark" : "bookmark-outline"}
                         label="Bookmark"
