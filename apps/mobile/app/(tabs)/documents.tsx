@@ -422,11 +422,33 @@ export default function Documents() {
                 <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
               </Pressable>
 
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Import webpage"
+                accessibilityHint="Paste a public webpage link and turn it into a clean Votic document"
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  router.push("/import-web");
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  { borderColor: theme.border, backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="link-outline" size={22} color={theme.accent} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Webpage link</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>Paste a public article or webpage. Votic cleans away navigation and common page clutter.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
               <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color={theme.accent} />
                 <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
-                  You can also share a supported document from another app directly to Votic. Website import
-                  can be added next.
+                  You can also share a supported document from another app directly to Votic.
                 </Text>
               </View>
             </View>
