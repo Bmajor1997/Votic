@@ -189,7 +189,9 @@ export default function Settings() {
           <Ionicons name="language-outline" size={22} color={theme.accent} />
           <View style={s.settingCopy}>
             <Text style={[s.settingTitle, { color: theme.text }]}>Pronunciation dictionary</Text>
-            <Text style={[s.settingDetail, { color: theme.mutedText }]}>Teach Votic how to say names, acronyms, and technical terms.</Text>
+            <Text style={[s.settingDetail, { color: theme.mutedText }]}>
+              Teach Votic how to say names, acronyms, and technical terms.
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
         </Pressable>

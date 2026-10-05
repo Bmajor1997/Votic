@@ -440,7 +440,9 @@ export default function Documents() {
                 </View>
                 <View style={s.grow}>
                   <Text style={[s.importChoiceTitle, { color: theme.text }]}>Webpage link</Text>
-                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>Paste a public article or webpage. Votic cleans away navigation and common page clutter.</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Paste a public article or webpage. Votic cleans away navigation and common page clutter.
+                  </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
               </Pressable>

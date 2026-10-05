@@ -70,7 +70,12 @@ import {
   wordMatches,
 } from "../src/reader/readerText";
 import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
-import { applyPronunciations, loadPronunciations, PronunciationEntry, sourceWordAtSpokenOffset } from "../src/reader/pronunciationDictionary";
+import {
+  applyPronunciations,
+  loadPronunciations,
+  PronunciationEntry,
+  sourceWordAtSpokenOffset,
+} from "../src/reader/pronunciationDictionary";
 import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 
 /** Read: the document without audio controls. Listen: the document with narration controls. */
@@ -392,10 +397,15 @@ function ReaderContent() {
     setAskMessages((current) => [...current, { role: "user", text: "Catch me up" }]);
     setAskSending(true);
     try {
-      const answer = await askVotic(question, {
-        title: activeDocument.title,
-        sections: [{ heading: "What you have covered so far", text: covered }],
-      }, [], explanationStyle);
+      const answer = await askVotic(
+        question,
+        {
+          title: activeDocument.title,
+          sections: [{ heading: "What you have covered so far", text: covered }],
+        },
+        [],
+        explanationStyle,
+      );
       setAskMessages((current) => [...current, { role: "votic", text: answer.answer }]);
     } catch (error) {
       setAskError(error instanceof Error ? error.message : "Votic could not catch you up right now.");
@@ -636,9 +646,10 @@ function ReaderContent() {
         if (!isCurrent() || (event?.name && event.name !== "word")) return;
         // Follow the native boundary directly: it fires as the word is spoken, so the highlight stays with the audio.
         const boundary = Number(event?.charIndex);
-        const next = spokenText === segment.text
-          ? wordAtSpeechOffset(segment, boundary)
-          : segment.startWord + sourceWordAtSpokenOffset(segment.text, spokenText, boundary);
+        const next =
+          spokenText === segment.text
+            ? wordAtSpeechOffset(segment, boundary)
+            : segment.startWord + sourceWordAtSpokenOffset(segment.text, spokenText, boundary);
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {

@@ -149,7 +149,10 @@ export default function Review() {
           accessibilityRole="button"
           accessibilityLabel="Check my understanding"
           onPress={() => router.push("/check-understanding")}
-          style={({ pressed }) => [s.ask, { borderWidth: 1, borderColor: theme.accent, opacity: pressed ? 0.72 : 1 }]}
+          style={({ pressed }) => [
+            s.ask,
+            { borderWidth: 1, borderColor: theme.accent, opacity: pressed ? 0.72 : 1 },
+          ]}
         >
           <Ionicons name="school-outline" size={20} color={theme.accent} />
           <Text style={[s.askText, { color: theme.accent }]}>Check my understanding</Text>

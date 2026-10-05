@@ -220,12 +220,18 @@ export function ReaderSettingsSheet({
             ) : null}
             {sheet === "listen" ? (
               <>
-                <View accessible accessibilityLabel="Offline listening ready" style={[s.offlineCard, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}>
+                <View
+                  accessible
+                  accessibilityLabel="Offline listening ready"
+                  style={[s.offlineCard, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
+                >
                   <Ionicons name="cloud-offline-outline" size={22} color={theme.accent} />
                   <View style={s.toggleCopy}>
                     <Text style={[s.toggleTitle, { color: theme.text }]}>Offline listening ready</Text>
                     <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
-                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so Votic does not need a server connection while reading it aloud. Voice availability is controlled by your phone.
+                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so
+                      Votic does not need a server connection while reading it aloud. Voice availability is
+                      controlled by your phone.
                     </Text>
                   </View>
                 </View>
@@ -259,7 +265,14 @@ export function ReaderSettingsSheet({
 
 const s = StyleSheet.create({
   sheetContent: { paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
-  offlineCard: { borderWidth: 1, borderRadius: radii.md, padding: spacing.md, flexDirection: "row", gap: spacing.md, alignItems: "flex-start" },
+  offlineCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "flex-start",
+  },
   toggleRow: {
     minHeight: 72,
     borderWidth: 1,

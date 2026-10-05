@@ -8,10 +8,18 @@ export async function loadPronunciations(): Promise<PronunciationEntry[]> {
     const raw = await AsyncStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((item): item is PronunciationEntry =>
-      item && typeof item.id === "string" && typeof item.term === "string" &&
-      typeof item.pronunciation === "string" && Boolean(item.term.trim()) && Boolean(item.pronunciation.trim()));
-  } catch { return []; }
+    return parsed.filter(
+      (item): item is PronunciationEntry =>
+        item &&
+        typeof item.id === "string" &&
+        typeof item.term === "string" &&
+        typeof item.pronunciation === "string" &&
+        Boolean(item.term.trim()) &&
+        Boolean(item.pronunciation.trim()),
+    );
+  } catch {
+    return [];
+  }
 }
 export async function savePronunciations(entries: PronunciationEntry[]) {
   await AsyncStorage.setItem(KEY, JSON.stringify(entries.slice(0, 250)));
@@ -67,5 +75,8 @@ export function sourceWordAtSpokenOffset(sourceText: string, spokenText: string,
     if ((spokenWords[i].index ?? 0) > Math.max(0, charIndex)) break;
     spokenIndex = i;
   }
-  return Math.min(sourceWords.length - 1, Math.round((spokenIndex / Math.max(1, spokenWords.length - 1)) * Math.max(0, sourceWords.length - 1)));
+  return Math.min(
+    sourceWords.length - 1,
+    Math.round((spokenIndex / Math.max(1, spokenWords.length - 1)) * Math.max(0, sourceWords.length - 1)),
+  );
 }
