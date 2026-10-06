@@ -75,7 +75,7 @@ function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode) {
 }
 const C = createContext<any>(null);
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [accentName, setAccentName] = useState<AccentName>("orange");
+  const [accentName, setAccentName] = useState<AccentName>("blue");
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("light");
   const systemMode = useColorScheme();
   const [readerAppearanceMode, setReaderAppearanceMode] = useState<ReaderAppearanceMode | null>(null);
