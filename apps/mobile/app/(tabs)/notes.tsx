@@ -115,6 +115,7 @@ export default function Notes() {
     });
   }
   function openInReader({ document, passage }: NoteItem) {
+    setViewing(null);
     openDocument(document.id, passage.sentenceIndex);
     router.push("/reader");
   }
@@ -444,9 +445,19 @@ export default function Notes() {
         </View>
       )}
       <NoteViewer
-        item={viewing}
+        item={
+          viewing && !editing && !menuItem
+            ? (() => {
+                const document = documents.find((document) => document.id === viewing.document.id);
+                const passage = document?.savedPassages?.find((passage) => passage.id === viewing.passage.id);
+                return document && passage ? { document, passage } : null;
+              })()
+            : null
+        }
         onClose={() => setViewing(null)}
-        onAsk={(item) => askAboutNotes(item.document.id, item.passage.id)}
+        onAsk={(item, question) => askAboutNotes(item.document.id, item.passage.id, question)}
+        onEdit={setEditing}
+        onMore={setMenuItem}
         onOpenInReader={(item) => {
           setViewing(null);
           openInReader(item);
