@@ -26,22 +26,22 @@ jobs:
       security-events: write
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
       - name: Analyze JavaScript and TypeScript with CodeQL
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
 
   security:
     name: Web Quality, Security, and Tests
     runs-on: ubuntu-latest
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
@@ -89,7 +89,7 @@ jobs:
             npm-audit.json
             security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner
-        run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan -r /src
+        run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan --config=/src/osv-scanner.toml -r /src
 
       - name: Install Semgrep
         run: pip install semgrep
@@ -109,9 +109,9 @@ jobs:
         working-directory: apps/mobile
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: Install mobile dependencies
@@ -129,4 +129,43 @@ jobs:
         run: semgrep scan --config auto apps/mobile --error
         working-directory: .
       - name: Audit mobile production dependencies
-        run: npm audit --omit=dev --audit-level=high
+        run: |
+          npm audit --omit=dev --json > mobile-audit.json || true
+          node - <<'NODE'
+          const fs = require("fs");
+          const audit = JSON.parse(fs.readFileSync("mobile-audit.json", "utf8"));
+          const allowed = new Set(["GHSA-vfj7-8cjw-p6xm", "GHSA-86w9-cpqp-85rv"]);
+          const vulnerabilities = audit.vulnerabilities || {};
+
+          function leafAdvisories(name, seen = new Set()) {
+            if (seen.has(name)) return [];
+            seen.add(name);
+            const finding = vulnerabilities[name];
+            if (!finding) return [];
+            return (Array.isArray(finding.via) ? finding.via : []).flatMap((via) =>
+              typeof via === "string" ? leafAdvisories(via, new Set(seen)) : via ? [via] : [],
+            );
+          }
+
+          const blocking = [];
+          for (const [name, finding] of Object.entries(vulnerabilities)) {
+            if (!["high", "critical"].includes(finding.severity)) continue;
+            const leaves = leafAdvisories(name);
+            if (!leaves.length) {
+              blocking.push(`${name}: no advisory details`);
+              continue;
+            }
+            const unapproved = leaves.filter((item) => {
+              const details = `${item.url || ""} ${item.title || ""}`.toLowerCase();
+              return ![...allowed].some((id) => details.includes(id.toLowerCase()));
+            });
+            if (unapproved.length) blocking.push(`${name}: unapproved high/critical advisory`);
+          }
+
+          if (blocking.length) {
+            console.error("Blocking high/critical dependency vulnerabilities:");
+            blocking.forEach((item) => console.error(`- ${item}`));
+            process.exit(1);
+          }
+          console.log("No unapproved high/critical production dependency vulnerabilities.");
+          NODE

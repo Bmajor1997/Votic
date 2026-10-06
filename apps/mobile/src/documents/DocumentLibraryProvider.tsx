@@ -30,6 +30,7 @@ type Library = {
   addCollection: (name: string) => void;
   setDocumentCollection: (id: string, collection?: string) => void;
   removeDocument: (id: string) => void;
+  addQuickNote: (passage: SavedPassage) => void;
   savePassage: (documentId: string, passage: SavedPassage) => void;
   removePassage: (documentId: string, passageId: string) => void;
   updateProgress: (id: string, progress: number, sentenceIndex?: number, wordIndex?: number) => void;
@@ -199,6 +200,41 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     setActiveId((current) => (current === id ? null : current));
   }
 
+  function addQuickNote(passage: SavedPassage) {
+    setDocuments((current) => {
+      const existing = current.find((document) => document.notebookKind === "quick-notes");
+      if (existing)
+        return current.map((document) => {
+          if (document.id !== existing.id) return document;
+          const savedPassages = [...(document.savedPassages || []), passage];
+          return {
+            ...document,
+            savedPassages,
+            plainText: savedPassages.map((saved) => saved.note).join("\n\n"),
+            updatedAt: Date.now(),
+          };
+        });
+      const now = Date.now();
+      return [
+        {
+          id: "quick-notes-" + now,
+          title: "Quick Notes",
+          sourceName: "Quick Notes.txt",
+          notebookKind: "quick-notes",
+          plainText: passage.note,
+          importedAt: now,
+          updatedAt: now,
+          progress: 0,
+          sentenceIndex: 0,
+          wordIndex: 0,
+          playbackRate: 1,
+          savedPassages: [passage],
+        },
+        ...current,
+      ];
+    });
+  }
+
   function savePassage(documentId: string, passage: SavedPassage) {
     setDocuments((current) =>
       current.map((document) =>
@@ -209,6 +245,16 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
                 ...(document.savedPassages || []).filter((saved) => saved.id !== passage.id),
                 passage,
               ],
+              ...(document.notebookKind === "quick-notes"
+                ? {
+                    plainText: [
+                      ...(document.savedPassages || []).filter((saved) => saved.id !== passage.id),
+                      passage,
+                    ]
+                      .map((saved) => saved.note)
+                      .join("\n\n"),
+                  }
+                : {}),
               updatedAt: Date.now(),
             }
           : document,
@@ -223,6 +269,14 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
           ? {
               ...document,
               savedPassages: (document.savedPassages || []).filter((saved) => saved.id !== passageId),
+              ...(document.notebookKind === "quick-notes"
+                ? {
+                    plainText: (document.savedPassages || [])
+                      .filter((saved) => saved.id !== passageId)
+                      .map((saved) => saved.note)
+                      .join("\n\n"),
+                  }
+                : {}),
               updatedAt: Date.now(),
             }
           : document,
@@ -319,6 +373,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         addCollection,
         setDocumentCollection,
         removeDocument,
+        addQuickNote,
         savePassage,
         removePassage,
         updateProgress,

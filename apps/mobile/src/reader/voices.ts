@@ -24,16 +24,15 @@ export function voticVoicePreview(index: number) {
   );
 }
 
-/** English device voices, one per name, up to the number of Votic voice names. */
+/** Keep one English voice per display name so platform variants do not create duplicate choices. */
 export function uniqueEnglishVoices<T extends DeviceVoice>(available: T[]) {
   const seen = new Set<string>();
   return available
     .filter((voice) => voice.language.toLowerCase().startsWith("en"))
     .filter((voice) => {
-      const key = (voice.name.trim() || voice.identifier).toLocaleLowerCase();
+      const key = voice.name.trim().toLocaleLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    })
-    .slice(0, VOTIC_VOICE_NAMES.length);
+    });
 }

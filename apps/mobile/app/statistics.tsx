@@ -580,7 +580,7 @@ function InsightsDetail({ period }: { period: Period }) {
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   const { theme } = useVoticTheme();
   return (
-    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       {title ? (
         <Text accessibilityRole="header" style={[s.cardTitle, { color: theme.text }]}>
           {title}
@@ -604,17 +604,17 @@ function PreviewCard({
 }) {
   const { theme } = useVoticTheme();
   return (
-    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${title} details`}
         onPress={onOpen}
         style={({ pressed }) => [s.previewHeader, { opacity: pressed ? 0.65 : 1 }]}
       >
-        <Ionicons name={icon} size={20} color={theme.accent} />
+        <Ionicons name={icon} size={20} color={theme.accentText} />
         <Text style={[s.cardTitle, s.grow, { color: theme.text }]}>{title}</Text>
-        <Text style={[s.details, { color: theme.accent }]}>Details</Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.accent} />
+        <Text style={[s.details, { color: theme.accentText }]}>Details</Text>
+        <Ionicons name="chevron-forward" size={16} color={theme.accentText} />
       </Pressable>
       {children}
     </View>

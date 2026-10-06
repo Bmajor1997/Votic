@@ -26,7 +26,9 @@ export function notesForAskVotic(documents: VoticDocument[], scope: NotesAskScop
 }
 
 function locationLabel({ document, passage }: NotesAskItem) {
-  return `Location: passage ${passage.sentenceIndex + 1} of ${document.title}`;
+  return passage.text.trim()
+    ? `Location: passage ${passage.sentenceIndex + 1} of ${document.title}`
+    : `Notebook: ${document.title}`;
 }
 
 /** Notes as Ask Votic sections, each linked to the Reader location it came from. */

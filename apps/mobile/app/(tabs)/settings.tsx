@@ -26,7 +26,7 @@ const colors: AccentName[] = [
   "rose",
   "amber",
 ];
-const appearances: AppearanceMode[] = ["light", "dark", "sepia"];
+const appearances: AppearanceMode[] = ["light", "dark", "system"];
 const textSizes: TextSize[] = ["default", "large", "extra-large"];
 const spacings: ReadingSpacing[] = ["compact", "default", "extra"];
 export default function Settings() {
@@ -74,7 +74,10 @@ export default function Settings() {
           onPress={() => onSelect(v)}
           style={[s.segment, selected === v && { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
-          <Text style={[s.segmentText, { color: selected === v ? theme.text : theme.mutedText }]}>
+          <Text
+            numberOfLines={1}
+            style={[s.segmentText, { color: selected === v ? theme.text : theme.mutedText }]}
+          >
             {label(v)}
           </Text>
         </Pressable>
@@ -178,12 +181,28 @@ export default function Settings() {
         <Text style={[s.h, { color: theme.text }]}>Help</Text>
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Pronunciation dictionary"
+          accessibilityHint="Teach Votic how to pronounce words and names"
+          onPress={() => router.push("/pronunciations")}
+          style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="language-outline" size={22} color={theme.accentText} />
+          <View style={s.settingCopy}>
+            <Text style={[s.settingTitle, { color: theme.text }]}>Pronunciation dictionary</Text>
+            <Text style={[s.settingDetail, { color: theme.mutedText }]}>
+              Teach Votic how to say names, acronyms, and technical terms.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel="Statistics"
           accessibilityHint="Reading and listening time, activity, and insights"
           onPress={() => router.push("/statistics")}
           style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
-          <Ionicons name="stats-chart-outline" size={22} color={theme.accent} />
+          <Ionicons name="stats-chart-outline" size={22} color={theme.accentText} />
           <View style={s.settingCopy}>
             <Text style={[s.settingTitle, { color: theme.text }]}>Statistics</Text>
             <Text style={[s.settingDetail, { color: theme.mutedText }]}>
@@ -202,7 +221,7 @@ export default function Settings() {
           }}
           style={[s.tourButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
-          <Ionicons name="bulb-outline" size={22} color={theme.accent} />
+          <Ionicons name="bulb-outline" size={22} color={theme.accentText} />
           <View style={s.settingCopy}>
             <Text style={[s.settingTitle, { color: theme.text }]}>Show tips again</Text>
             <Text accessibilityLiveRegion="polite" style={[s.settingDetail, { color: theme.mutedText }]}>
@@ -216,6 +235,15 @@ export default function Settings() {
       <View style={[s.divider, { backgroundColor: theme.border }]} />
       <View style={s.section}>
         <Text style={[s.h, { color: theme.text }]}>Account</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Votic membership"
+          onPress={() => router.push("/paywall")}
+          style={[s.accountButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <Ionicons name="sparkles-outline" size={22} color={theme.accentText} />
+          <Text style={[s.settingTitle, { color: theme.text }]}>Votic membership</Text>
+        </Pressable>
         {auth.user?.email ? (
           <Text style={[s.body, { color: theme.mutedText }]}>Signed in as {auth.user.email}</Text>
         ) : null}
@@ -249,9 +277,10 @@ const s = StyleSheet.create({
   body: { ...typography.body },
   label: { ...typography.eyebrow, marginTop: spacing.xs },
   divider: { height: 1, marginVertical: spacing.xs },
-  segmented: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
+  segmented: { flexDirection: "row", flexWrap: "wrap", padding: 3, borderRadius: 12, gap: 2 },
   segment: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "auto",
     minHeight: 44,
     borderRadius: 9,
     borderWidth: 1,

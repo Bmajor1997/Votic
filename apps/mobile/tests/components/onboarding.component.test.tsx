@@ -29,7 +29,8 @@ describe("Welcome", () => {
   it("states what Votic does and offers each way to continue", async () => {
     fakeAuth.reset(null);
     await renderWithProviders(<Welcome />);
-    expect(screen.getByRole("header", { name: "Make any document easier to read" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: /Make room for/ })).toBeTruthy();
+    expect(screen.queryByText(/Easier to/)).toBeNull();
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
     expect(router.push).toHaveBeenCalledWith("/sign-in");
@@ -45,6 +46,34 @@ describe("Welcome", () => {
 });
 
 describe("Email sign-in", () => {
+  it("returns to welcome when opened without navigation history", async () => {
+    fakeAuth.reset(null);
+    router.canGoBack.mockReturnValue(false);
+    await renderWithProviders(<EmailSignIn />);
+    await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+    expect(router.replace).toHaveBeenCalledWith("/welcome");
+  });
+  it("opens existing-account sign-in directly from the welcome link", async () => {
+    fakeAuth.reset(null);
+    await renderWithProviders(<Welcome />);
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
+    expect(router.push).toHaveBeenCalledWith({ pathname: "/sign-in", params: { mode: "sign-in" } });
+  });
+
+  it.each(["create", "sign-in"])(
+    "offers Google authentication in %s mode without requiring an email form",
+    async (mode) => {
+      fakeAuth.reset(null);
+      searchParams.current = { mode };
+      await renderWithProviders(<EmailSignIn />);
+      expect(
+        screen.getByRole("header", { name: mode === "create" ? "Create your account" : "Welcome back" }),
+      ).toBeTruthy();
+      await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+      expect(fakeAuth.calls).toEqual(["signInWithGoogle"]);
+      expect(fakeAuth.user?.uid).toBe("google");
+    },
+  );
   it("checks the email and password before creating an account", async () => {
     fakeAuth.reset(null);
     await renderWithProviders(<EmailSignIn />);
@@ -95,9 +124,9 @@ describe("Personalization", () => {
 
     await fireEvent.press(screen.getByRole("radio", { name: "1.5× speed" }));
     await fireEvent.press(screen.getByRole("radio", { name: /^Sentences only\./ }));
-    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
-    expect(router.replace).toHaveBeenCalledWith("/");
+    expect(router.replace).toHaveBeenCalledWith("/paywall");
     await waitFor(async () => expect((await savedOnboarding())?.personalized).toBe(true));
     expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("research");
     expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("simple");

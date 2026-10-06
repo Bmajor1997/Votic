@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Animated, BackHandler, Dimensions, StyleSheet } from "react-native";
+import { Animated, BackHandler, Dimensions, Platform, StyleSheet } from "react-native";
 import Reader from "../../app/reader";
 import { askVotic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
@@ -68,6 +68,33 @@ beforeEach(() => {
 });
 
 describe("Reader", () => {
+  it("speaks continuous passages on Android and ignores callbacks from completed utterances", async () => {
+    const platform = jest.replaceProperty(Platform, "OS", "android");
+    try {
+      await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+      await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+      await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
+      const first = lastSpeech();
+      await act(async () => first.options.onStart?.());
+      const boundary = first.options.onBoundary as (event: { charIndex: number }) => void;
+      await act(async () => boundary({ charIndex: 6 }));
+      expect(screen.getByText("passage").props.style.fontWeight).toBe("900");
+      expect(speak).toHaveBeenCalledTimes(1);
+      await act(async () => first.options.onDone?.());
+      expect(lastSpeech().text).toBe("Second passage there.");
+      await act(async () => boundary({ charIndex: 14 }));
+      expect(screen.getByText("Second").props.style.fontWeight).toBe("900");
+      await act(async () => first.options.onDone?.());
+      expect(speak).toHaveBeenCalledTimes(2);
+      await fireEvent.press(screen.getByRole("button", { name: "Pause" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+      await waitFor(() => expect(speak).toHaveBeenCalledTimes(3));
+      expect(lastSpeech().text).toBe("Second passage there.");
+    } finally {
+      platform.restore();
+    }
+  });
+
   it("shows the document's passages and reading progress", async () => {
     await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
     expect(screen.getByText("Field Guide")).toBeTruthy();
@@ -196,6 +223,39 @@ describe("Reader", () => {
     expect(screen.getByText("100% read")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Review" }));
     expect(router.push).toHaveBeenCalledWith("/review");
+  });
+
+  it("keeps speaking from the selected passage when skipping during playback", async () => {
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
+    await expandListeningControls();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
+    await waitFor(() => expect(lastSpeech().text).toBe("Second passage there."));
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+
+    await fireEvent.press(screen.getByRole("button", { name: "Previous passage" }));
+    await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
+  });
+
+  it("restarts the active spoken word at a newly selected playback speed", async () => {
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
+    const boundary = lastSpeech().options.onBoundary as (event: {
+      charIndex: number;
+      charLength: number;
+    }) => void;
+    await act(async () => boundary({ charIndex: 6, charLength: 7 }));
+
+    await expandListeningControls();
+    await fireEvent.press(screen.getByRole("button", { name: /^Playback speed/ }));
+    await fireEvent.press(screen.getByRole("radio", { name: "1.5×" }));
+
+    await waitFor(() => expect(lastSpeech().text).toBe("passage here."));
+    expect(lastSpeech().options.rate).toBe(1.5);
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
   });
 
   it("finishes the document when narration reaches the end", async () => {
@@ -390,9 +450,14 @@ describe("Reader", () => {
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await screen.findByText("Focus improves when distractions are reduced.");
-    // A submitted conversation can grow, but remains a bounded tray with useful Reader context above it.
-    expect(askPanelHeight()).toBeLessThanOrEqual(320);
-    expect(askPanelHeight()).toBeLessThanOrEqual(Dimensions.get("window").height * 0.4);
+    // Answers use most of the available screen, with a scrollable conversation.
+    expect(askPanelHeight()).toBeGreaterThan(Dimensions.get("window").height * 0.4);
+    expect(askPanelHeight()).toBeLessThanOrEqual(720);
+    expect(askPanelHeight()).toBeLessThanOrEqual(Dimensions.get("window").height * 0.85);
+    await fireEvent(screen.getByTestId("reader-available-space"), "layout", {
+      nativeEvent: { layout: { height: 340 } },
+    });
+    expect(askPanelHeight()).toBe(289);
     expect(screen.getByText("Second passage there.")).toBeTruthy();
     speak.mockClear();
 

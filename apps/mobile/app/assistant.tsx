@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +20,8 @@ import { askVotic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { KeyboardDictationButton } from "../src/components/KeyboardDictationButton";
+import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { AskVoticEmptyAnimation } from "../src/components/EmptyStateIllustrations";
@@ -119,6 +122,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
   const lastQuestion = useRef("");
   const [flight, setFlight] = useState<PromptFlight | null>(null);
   const rootRef = useRef<View>(null);
@@ -243,6 +247,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     const retry = typeof retryQuestion === "string";
     const clean = (retryQuestion ?? question).trim();
     if (!clean || sending || launching) return;
+    Keyboard.dismiss();
     const askContext = context;
     const askGeneration = generation.current;
     const current = () => askGeneration === generation.current;
@@ -334,7 +339,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       edges={embedded ? ["top", "left", "right"] : ["top", "bottom", "left", "right"]}
       style={[s.safe, { backgroundColor: theme.background }]}
     >
-      <KeyboardAvoidingView style={s.safe} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.safe} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View ref={rootRef} style={s.safe}>
           <View style={[s.header, { borderBottomColor: theme.border }]}>
             {embedded ? (
@@ -361,7 +366,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
             ref={scrollRef}
             contentContainerStyle={s.messages}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => scrollRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
           >
             {messages.length === 0 ? (
               <View style={s.welcome}>
@@ -413,7 +419,11 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                     m.role === "user" && { backgroundColor: theme.accent },
                   ]}
                 >
-                  <Text style={[s.body, { color: m.role === "user" ? "#FFF" : theme.text }]}>{m.text}</Text>
+                  {m.role === "votic" ? (
+                    <AIResponse text={m.text} animate={!m.fallback} style={[s.body, { color: theme.text }]} />
+                  ) : (
+                    <Text style={[s.body, { color: "#FFF" }]}>{m.text}</Text>
+                  )}
                   {m.role === "votic" && canSaveAnswer(m) ? (
                     <Pressable
                       accessibilityRole="button"
@@ -454,12 +464,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 </View>
               ))
             )}
-            {sending ? (
-              <View accessibilityLiveRegion="polite" style={s.thinking}>
-                <ActivityIndicator color={theme.accent} />
-                <Text style={[s.status, { color: theme.mutedText }]}>Thinking about your question…</Text>
-              </View>
-            ) : null}
+            {sending ? <AIThinking /> : null}
             {error || retrying ? (
               <View accessibilityLiveRegion="polite" style={[s.error, { borderColor: theme.border }]}>
                 {error ? <Text style={[s.body, { color: theme.text }]}>{error}</Text> : null}
@@ -498,6 +503,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 }}
               >
                 <TextInput
+                  ref={inputRef}
                   accessibilityLabel="Ask Votic a question"
                   value={question}
                   onChangeText={setQuestion}
@@ -516,6 +522,10 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 />
               </Animated.View>
             </View>
+            <KeyboardDictationButton
+              onFocus={() => inputRef.current?.focus()}
+              disabled={sending || launching}
+            />
             <Animated.View style={{ transform: [{ translateY: sendBounce }] }}>
               <Pressable
                 accessibilityRole="button"

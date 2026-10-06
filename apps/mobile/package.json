@@ -23,6 +23,7 @@
     "@react-native-google-signin/google-signin": "^16.1.5",
     "expo": "~57.0.26",
     "expo-apple-authentication": "~57.0.2",
+    "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.19",
     "expo-crypto": "~57.0.3",
     "expo-document-picker": "~57.0.3",
@@ -37,7 +38,8 @@
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0"
+    "react-native-web": "~0.21.0",
+    "expo-sharing": "~57.0.22"
   },
   "devDependencies": {
     "@testing-library/react-native": "^14.0.1",

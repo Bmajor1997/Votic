@@ -11,6 +11,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { documentTypeColor } from "../../src/components/DocumentTypeIcon";
+import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen, ScrollFadeItem } from "../../src/components/Screen";
@@ -33,6 +36,8 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Documents() {
   const { theme } = useVoticTheme();
+  const insets = useSafeAreaInsets();
+  const { reduceMotion } = useAccessibilityPreferences();
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const uploadRef = useRef<View>(null);
@@ -48,6 +53,7 @@ export default function Documents() {
   const [sort, setSort] = useState<Sort>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [addDocumentOpen, setAddDocumentOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
 
@@ -106,10 +112,10 @@ export default function Documents() {
       <View ref={uploadRef} collapsable={false}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Upload document"
+          accessibilityLabel="Add document"
           accessibilityState={{ busy: importing }}
           disabled={importing}
-          onPress={() => void importDocument()}
+          onPress={() => setAddDocumentOpen(true)}
           style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
         >
           {importing ? (
@@ -117,7 +123,7 @@ export default function Documents() {
           ) : (
             <Ionicons name="add" size={20} color="#FFF" />
           )}
-          <Text style={s.uploadText}>Upload</Text>
+          <Text style={s.uploadText}>Add</Text>
         </Pressable>
       </View>
     </View>
@@ -170,7 +176,7 @@ export default function Documents() {
           accessibilityLabel={`Processing ${processingName}`}
           style={[s.status, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
-          <ActivityIndicator color={theme.accent} />
+          <ActivityIndicator color={theme.accentText} />
           <View style={s.grow}>
             <Text numberOfLines={2} style={[s.statusTitle, { color: theme.text }]}>
               Processing {processingName}
@@ -199,7 +205,7 @@ export default function Documents() {
                 onPress={() => void importDocument()}
                 style={s.textButton}
               >
-                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Choose another file</Text>
+                <Text style={[s.textButtonLabel, { color: theme.accentText }]}>Choose another file</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={dismissFailure} style={s.textButton}>
                 <Text style={[s.textButtonLabel, { color: theme.mutedText }]}>Dismiss</Text>
@@ -211,7 +217,7 @@ export default function Documents() {
 
       {!loaded ? (
         <View accessible accessibilityLabel="Loading your documents" style={s.loading}>
-          <ActivityIndicator color={theme.accent} />
+          <ActivityIndicator color={theme.accentText} />
         </View>
       ) : documents.length ? (
         <>
@@ -231,13 +237,13 @@ export default function Documents() {
                 }}
                 style={s.textButton}
               >
-                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Reset</Text>
+                <Text style={[s.textButtonLabel, { color: theme.accentText }]}>Reset</Text>
               </Pressable>
             ) : null}
           </View>
           {visible.length ? (
-            <View>
-              {visible.map((document) => {
+            <View style={s.libraryCards}>
+              {visible.map((document, index) => {
                 const title = readableTitle(document.title);
                 const percent = Math.round(document.progress * 100);
                 return (
@@ -247,7 +253,11 @@ export default function Documents() {
                         cardRefs.current[document.id] = node;
                       }}
                       collapsable={false}
-                      style={[s.row, { borderBottomColor: theme.border }]}
+                      style={[
+                        s.row,
+                        theme.elevation,
+                        { borderColor: theme.border, backgroundColor: theme.surface },
+                      ]}
                     >
                       <Pressable
                         accessibilityRole="button"
@@ -256,8 +266,21 @@ export default function Documents() {
                         onPress={() => open(document)}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
-                        <DocumentCover document={document} size="md" />
+                        <View
+                          style={[
+                            s.coverWell,
+                            {
+                              backgroundColor:
+                                documentTypeColor(document.sourceName) + (theme.isDark ? "26" : "12"),
+                            },
+                          ]}
+                        >
+                          <DocumentCover document={document} size="md" />
+                        </View>
                         <View style={s.rowCopy}>
+                          {sort === "recent" && index === 0 && document.lastOpenedAt ? (
+                            <Text style={[s.recentLabel, { color: theme.accentText }]}>RECENTLY OPENED</Text>
+                          ) : null}
                           <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
                             {title}
                           </Text>
@@ -267,16 +290,25 @@ export default function Documents() {
                           </Text>
                           {document.progress >= 1 ? (
                             <View style={s.finished}>
-                              <Ionicons name="checkmark-circle" size={15} color={theme.accent} />
+                              <Ionicons name="checkmark-circle" size={15} color={theme.accentText} />
                               <Text style={[s.rowMeta, { color: theme.mutedText }]}>Finished</Text>
                             </View>
                           ) : document.progress > 0 ? (
                             <View style={s.progressRow}>
-                              <View style={[s.track, { backgroundColor: theme.border }]}>
+                              <View
+                                accessible
+                                accessibilityRole="progressbar"
+                                accessibilityLabel={`${title} progress`}
+                                accessibilityValue={{ min: 0, max: 100, now: percent }}
+                                style={[s.track, { backgroundColor: theme.border }]}
+                              >
                                 <View
                                   style={[
                                     s.fill,
-                                    { backgroundColor: theme.accent, width: `${Math.max(3, percent)}%` },
+                                    {
+                                      backgroundColor: theme.accent,
+                                      width: `${Math.max(0, Math.min(100, percent))}%`,
+                                    },
                                   ]}
                                 />
                               </View>
@@ -314,7 +346,7 @@ export default function Documents() {
                 }}
                 style={s.textButton}
               >
-                <Text style={[s.textButtonLabel, { color: theme.accent }]}>Show all documents</Text>
+                <Text style={[s.textButtonLabel, { color: theme.accentText }]}>Show all documents</Text>
               </Pressable>
             </View>
           )}
@@ -326,7 +358,7 @@ export default function Documents() {
             Add your first document
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen.
+            Add a file from your device or a connected cloud storage provider to read and listen.
           </Text>
         </View>
       )}
@@ -334,9 +366,145 @@ export default function Documents() {
       <DocumentActionsSheet document={menuDocument} onClose={() => setMenuDocument(null)} onOpen={open} />
 
       <Modal
+        visible={addDocumentOpen}
+        transparent
+        animationType={reduceMotion ? "none" : "slide"}
+        onRequestClose={() => setAddDocumentOpen(false)}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close add document"
+          onPress={() => setAddDocumentOpen(false)}
+          style={sheetStyles.modalBackdrop}
+        >
+          <Pressable
+            testID="document-import-sheet"
+            accessibilityViewIsModal
+            onPress={(event) => event.stopPropagation()}
+            style={[
+              sheetStyles.sheet,
+              {
+                maxHeight: "90%",
+                paddingBottom: Math.max(insets.bottom, spacing.md) + spacing.md,
+                backgroundColor: theme.surface,
+              },
+            ]}
+          >
+            <View style={[sheetStyles.handle, { backgroundColor: theme.border }]} />
+            <ScrollView
+              testID="document-import-options"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={s.addDocumentContent}
+            >
+              <View style={s.addDocumentHeading}>
+                <Text accessibilityRole="header" style={[sheetStyles.sheetTitle, { color: theme.text }]}>
+                  Add a document
+                </Text>
+                <Text style={[s.addDocumentCopy, { color: theme.mutedText }]}>
+                  Choose a file on this device or browse a connected cloud provider. You do not need to
+                  download it first.
+                </Text>
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Choose file or cloud storage"
+                accessibilityHint="Opens your phone's file browser, including available cloud storage providers"
+                disabled={importing}
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  void importDocument();
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="folder-open-outline" size={22} color={theme.accentText} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Files or cloud storage</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Browse Files, Google Drive, OneDrive, Dropbox, or other providers available on your phone.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Scan with camera"
+                accessibilityHint="Opens the camera to scan one or more document pages"
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  router.push("/scan");
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  {
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface,
+                    opacity: pressed ? 0.7 : 1,
+                  },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="scan-outline" size={22} color={theme.accentText} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Scan with camera</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Capture one or more pages. Votic will read the text and turn the scan into a document.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Import webpage"
+                accessibilityHint="Paste a public webpage link and turn it into a clean Votic document"
+                onPress={() => {
+                  setAddDocumentOpen(false);
+                  router.push("/import-web");
+                }}
+                style={({ pressed }) => [
+                  s.importChoice,
+                  { borderColor: theme.border, backgroundColor: theme.surface, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <View style={[s.importChoiceIcon, { backgroundColor: theme.surfaceMuted }]}>
+                  <Ionicons name="link-outline" size={22} color={theme.accentText} />
+                </View>
+                <View style={s.grow}>
+                  <Text style={[s.importChoiceTitle, { color: theme.text }]}>Webpage link</Text>
+                  <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
+                    Paste a public article or webpage. Votic cleans away navigation and common page clutter.
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+              </Pressable>
+
+              <View style={[s.comingSoon, { backgroundColor: theme.surfaceMuted }]}>
+                <Ionicons name="phone-portrait-outline" size={18} color={theme.accentText} />
+                <Text style={[s.comingSoonText, { color: theme.mutedText }]}>
+                  You can also share a supported document from another app directly to Votic.
+                </Text>
+              </View>
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal
         visible={filtersOpen}
         transparent
-        animationType="slide"
+        animationType={reduceMotion ? "none" : "slide"}
         onRequestClose={() => setFiltersOpen(false)}
       >
         <Pressable
@@ -396,8 +564,8 @@ export default function Documents() {
                 }}
                 style={[s.newCollection, { borderColor: theme.border }]}
               >
-                <Ionicons name="add" size={20} color={theme.accent} />
-                <Text style={[s.textButtonLabel, { color: theme.accent }]}>New collection</Text>
+                <Ionicons name="add" size={20} color={theme.accentText} />
+                <Text style={[s.textButtonLabel, { color: theme.accentText }]}>New collection</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -416,7 +584,7 @@ export default function Documents() {
       <Modal
         visible={createOpen}
         transparent
-        animationType="fade"
+        animationType={reduceMotion ? "none" : "fade"}
         onRequestClose={() => setCreateOpen(false)}
       >
         <Pressable
@@ -506,7 +674,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   upload: {
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     flexDirection: "row",
@@ -525,8 +693,8 @@ const s = StyleSheet.create({
   },
   searchInput: { flex: 1, minHeight: 48, fontSize: 16 },
   filterButton: {
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderWidth: 1,
     borderRadius: radii.md,
     alignItems: "center",
@@ -554,7 +722,16 @@ const s = StyleSheet.create({
     gap: spacing.sm,
   },
   summary: { fontSize: 14, flexShrink: 1 },
-  row: { borderBottomWidth: 1, flexDirection: "row", alignItems: "center" },
+  libraryCards: { gap: spacing.md },
+  recentLabel: { ...typography.eyebrow, fontSize: 10 },
+  coverWell: { padding: spacing.sm, borderRadius: radii.md },
+  row: {
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    paddingLeft: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+  },
   rowMain: {
     flex: 1,
     minHeight: 88,
@@ -564,11 +741,11 @@ const s = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   rowCopy: { flex: 1, minWidth: 0, gap: 3 },
-  rowTitle: { fontSize: 16, lineHeight: 21, fontWeight: "700" },
+  rowTitle: { fontSize: 17, lineHeight: 23, fontWeight: "700", letterSpacing: -0.2 },
   rowMeta: { fontSize: 13 },
   finished: { flexDirection: "row", alignItems: "center", gap: 4 },
   progressRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 },
-  track: { flex: 1, maxWidth: 140, height: 4, borderRadius: 2, overflow: "hidden" },
+  track: { flex: 1, maxWidth: 140, height: 6, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%" },
   percent: { fontSize: 12, fontWeight: "600" },
   more: {
@@ -581,6 +758,35 @@ const s = StyleSheet.create({
   empty: { alignItems: "center", gap: spacing.sm, paddingVertical: spacing.lg },
   emptyTitle: { ...typography.sectionTitle, textAlign: "center" },
   emptyCopy: { fontSize: 16, lineHeight: 23, textAlign: "center" },
+  addDocumentContent: { gap: spacing.lg, paddingBottom: spacing.md },
+  addDocumentHeading: { gap: spacing.xs },
+  addDocumentCopy: { fontSize: 15, lineHeight: 21 },
+  importChoice: {
+    minHeight: 84,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  importChoiceIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  importChoiceTitle: { fontSize: 16, lineHeight: 21, fontWeight: "800" },
+  importChoiceCopy: { fontSize: 13, lineHeight: 18, marginTop: 2 },
+  comingSoon: {
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  comingSoonText: { flex: 1, fontSize: 13, lineHeight: 18 },
   filterSheet: { maxHeight: "80%" },
   sheetContent: { gap: spacing.xs, paddingBottom: spacing.md },
   groupLabel: { ...typography.eyebrow, marginTop: spacing.md },

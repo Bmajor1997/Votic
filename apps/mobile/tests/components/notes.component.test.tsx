@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { Alert, AlertButton } from "react-native";
+import { createDocumentStore } from "../../src/documents/documentStorage";
 import Notes from "../../app/(tabs)/notes";
 import { router } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
@@ -46,6 +47,7 @@ describe("Notes", () => {
 
   it("shows a written note and a saved passage differently", async () => {
     await renderWithProviders(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByText("Chunking helps memory."));
     expect(screen.getByText("YOUR NOTE")).toBeTruthy();
     await fireEvent.press(screen.getAllByRole("button", { name: "Close note" })[0]);
@@ -55,6 +57,7 @@ describe("Notes", () => {
 
   it("adds a note to a saved passage", async () => {
     await renderWithProviders(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "More options for saved passage" }));
     expect(screen.getByText("Note options")).toBeTruthy();
     expect(screen.getByText("Open in Reader")).toBeTruthy();
@@ -62,18 +65,19 @@ describe("Notes", () => {
     await fireEvent.changeText(screen.getByLabelText("Note text"), "Quote from chapter two.");
     await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
     expect(screen.getByText("Quote from chapter two.")).toBeTruthy();
-    expect(screen.getByText("2 notes · 0 passages")).toBeTruthy();
+    expect(screen.getByText("2 notes · 0 saved passages")).toBeTruthy();
   });
 
   it("asks before removing a note, then removes it", async () => {
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     await renderWithProviders(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getAllByRole("button", { name: "More options for note" })[0]);
     await fireEvent.press(screen.getByText("Remove from Notes"));
     expect(alert).toHaveBeenCalledWith("Remove from Notes?", expect.any(String), expect.any(Array));
     const buttons = alert.mock.calls[0][2] as AlertButton[];
     await act(async () => buttons.find((button) => button.text === "Remove")?.onPress?.());
-    expect(await screen.findByText("0 notes · 1 passage")).toBeTruthy();
+    expect(await screen.findByText("0 notes · 1 saved passage")).toBeTruthy();
     expect(screen.queryByText("Chunking helps memory.")).toBeNull();
   });
 
@@ -120,13 +124,19 @@ describe("Notes search, filters, and notebooks", () => {
   it("opens a notebook with its counts and Ask Votic actions", async () => {
     await renderWithProviders(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
-    expect(screen.getByText("1 notes · 1 saved passages")).toBeTruthy();
+    expect(screen.getByText("1 note · 1 saved passage")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Biology notebook" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about Psychology notebook" }));
     expect(router.push).toHaveBeenLastCalledWith({
       pathname: "/assistant",
       params: { notesDocumentId: "doc-psy" },
     });
+    expect(screen.queryByRole("button", { name: "Share notebook" })).toBeNull();
+    expect(screen.queryByText("Definitions")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open Psychology notebook" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Notebook tools" }));
+    expect(screen.getByRole("button", { name: "Notebook tools", expanded: true })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Share notebook" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Summarize notes" }));
     expect(router.push).toHaveBeenLastCalledWith({
       pathname: "/assistant",
@@ -138,6 +148,7 @@ describe("Notes search, filters, and notebooks", () => {
 
   it("pins a note", async () => {
     await renderWithProviders(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "More options for saved passage" }));
     await fireEvent.press(screen.getByText("Pin note"));
     expect(screen.getByText(/· Pinned$/)).toBeTruthy();
@@ -159,8 +170,45 @@ describe("Notes search, filters, and notebooks", () => {
 
   it("opens a note's passage in the Reader", async () => {
     await renderWithProviders(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Biology notebook" }));
     await fireEvent.press(screen.getByText("Mitosis has phases."));
     await fireEvent.press(screen.getByRole("button", { name: "Open this passage in Reader" }));
     expect(router.push).toHaveBeenLastCalledWith("/reader");
+  });
+});
+
+describe("Quick Notes", () => {
+  it("creates standalone notes without a document and keeps them in one notebook", async () => {
+    await renderWithProviders(<Notes />, { documents: [] });
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    expect(screen.getByRole("button", { name: "Save note", disabled: true })).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "Remember the meeting questions.");
+    await fireEvent.changeText(screen.getByLabelText("Note tags"), "work, meeting");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByRole("button", { name: "Open Quick Notes notebook" })).toBeTruthy();
+    expect(screen.queryByText("Remember the meeting questions.")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Open Quick Notes notebook" }));
+    expect(screen.getByRole("button", { name: "Ask Votic about Quick Notes notebook" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "A second independent thought.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByText("A second independent thought.")).toBeTruthy();
+    await act(async () => {
+      jest.advanceTimersByTime(1200);
+    });
+    const saved = await createDocumentStore().loadDocuments();
+    const quick = saved.find((document) => document.notebookKind === "quick-notes");
+    expect(quick?.savedPassages).toHaveLength(2);
+    expect(quick?.plainText).toContain("A second independent thought.");
+    expect(screen.getByText("Remember the meeting questions.")).toBeTruthy();
+  });
+  it("opens an empty document notebook and adds a note without saving a passage", async () => {
+    await renderWithProviders(<Notes />, { documents: [testDocument("empty-doc", "My Document")] });
+    await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "My own observation.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByText("My own observation.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask Votic about My Document notebook" })).toBeTruthy();
   });
 });

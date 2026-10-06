@@ -1,3 +1,4 @@
+import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -19,9 +20,15 @@ export function NoteViewer({
   onOpenInReader: (item: NoteItem) => void;
 }) {
   const { theme } = useVoticTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   const hasNote = Boolean(item?.passage.note.trim());
   return (
-    <Modal visible={item !== null} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={item !== null}
+      transparent
+      animationType={reduceMotion ? "none" : "fade"}
+      onRequestClose={onClose}
+    >
       <View style={sheet.backdrop}>
         <Pressable
           accessibilityRole="button"

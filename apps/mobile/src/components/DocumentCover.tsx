@@ -58,7 +58,7 @@ export function DocumentCover({
           width: spec.width,
           height: spec.height,
           borderColor: theme.border,
-          backgroundColor: theme.isDark ? "#3B4047" : "#FFFFFF",
+          backgroundColor: theme.surface,
         },
       ]}
     >
@@ -72,11 +72,7 @@ export function DocumentCover({
         </Text>
       </View>
       {size === "lg" && excerpt ? (
-        <Text
-          numberOfLines={7}
-          allowFontScaling={false}
-          style={[s.excerpt, { color: theme.isDark ? "#D1D5DB" : "#4B5563" }]}
-        >
+        <Text numberOfLines={7} allowFontScaling={false} style={[s.excerpt, { color: theme.mutedText }]}>
           {excerpt}
         </Text>
       ) : (
@@ -100,7 +96,7 @@ export function DocumentCover({
 }
 
 const s = StyleSheet.create({
-  page: { borderWidth: 1, borderRadius: 6, overflow: "hidden", flexShrink: 0 },
+  page: { borderWidth: 1, borderRadius: 8, overflow: "hidden", flexShrink: 0 },
   band: { justifyContent: "center", paddingHorizontal: 4 },
   type: { color: "#FFFFFF", fontWeight: "900", letterSpacing: 0.4 },
   excerpt: { fontSize: 6.5, lineHeight: 9, paddingHorizontal: 5, paddingTop: 4 },

@@ -1,13 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, Share, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  Alert,
+  Pressable,
+  Share,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { NotesEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
-import { Screen, ScrollFadeItem } from "../../src/components/Screen";
+import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { NoteType } from "../../src/documents/types";
 import { noteSelectionId } from "../../src/notes/askVoticNotesContext";
+import { NotebookCard } from "../../src/notes/components/NotebookCard";
 import { NotebookHeader } from "../../src/notes/components/NotebookHeader";
 import { NoteDraft, NoteEditor } from "../../src/notes/components/NoteEditor";
 import { NoteGroupCard } from "../../src/notes/components/NoteGroupCard";
@@ -30,7 +40,8 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Notes() {
   const { theme } = useVoticTheme();
-  const { documents, openDocument, savePassage, removePassage } = useDocumentLibrary();
+  const { width, fontScale } = useWindowDimensions();
+  const { documents, openDocument, savePassage, removePassage, addQuickNote } = useDocumentLibrary();
   const [query, setQuery] = useState("");
   const [notebookId, setNotebookId] = useState<string | null>(null);
   const [filter, setFilter] = useState<NotesFilter>("all");
@@ -49,10 +60,29 @@ export default function Notes() {
     () => noteGroups(documents, { query, filter, dateFilter, tagFilter, notebookId }),
     [documents, query, filter, notebookId, dateFilter, tagFilter],
   );
-  const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
   const itemCount = groups.reduce((total, group) => total + group.passages.length, 0);
-  // While browsing everything, each document shows its newest notes; searching or filtering shows all matches.
+  // Search and filters narrow notebooks by their matching notes.
   const browsing = !notebook && !query.trim() && filter === "all" && dateFilter === "all" && !tagFilter;
+
+  const notebooks = useMemo(() => {
+    const matching = new Set(groups.map((group) => group.document.id));
+    return documents
+      .filter(
+        (document) =>
+          browsing ||
+          matching.has(document.id) ||
+          (filter === "all" &&
+            dateFilter === "all" &&
+            !tagFilter &&
+            !(document.savedPassages || []).length &&
+            document.title.toLowerCase().includes(query.trim().toLowerCase())),
+      )
+      .sort((a, b) => {
+        const latest = (document: typeof a) =>
+          Math.max(document.importedAt, ...(document.savedPassages || []).map((note) => note.updatedAt));
+        return latest(b) - latest(a);
+      });
+  }, [documents, groups, browsing, filter, dateFilter, tagFilter, query]);
 
   async function shareItems(items: NoteItem[], title: string) {
     if (!items.length) return;
@@ -100,7 +130,48 @@ export default function Notes() {
       },
     });
   }
+  function startQuickNote() {
+    const now = Date.now();
+    const document = notebook || {
+      id: "new-quick-note",
+      title: "Quick Notes",
+      sourceName: "Quick Notes.txt",
+      plainText: "",
+      importedAt: now,
+      updatedAt: now,
+      progress: 0,
+      sentenceIndex: 0,
+      wordIndex: 0,
+      playbackRate: 1,
+    };
+    setEditing({
+      document,
+      passage: {
+        id: "quick-" + now + "-" + Math.random().toString(36).slice(2, 8),
+        sentenceIndex: 0,
+        text: "",
+        note: "",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  }
   function saveNote({ document, passage }: NoteItem, draft: NoteDraft) {
+    if (!passage.text && !draft.note.trim()) return;
+    if (document.id === "new-quick-note") {
+      addQuickNote({
+        ...passage,
+        note: draft.note.trim(),
+        title: draft.title.trim() || undefined,
+        noteType: draft.noteType,
+        tags: cleanTags(draft.tags),
+        updatedAt: Date.now(),
+      });
+      setEditing(null);
+      setQuery("");
+      clearFilters();
+      return;
+    }
     savePassage(document.id, {
       ...passage,
       note: draft.note.trim(),
@@ -127,7 +198,33 @@ export default function Notes() {
   }
 
   return (
-    <Screen title={notebook ? notebook.title + " Notebook" : "Notes"}>
+    <Screen
+      title="Notes"
+      titleAction={
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Quick Note"
+          onPress={startQuickNote}
+          style={({ pressed }) => [
+            s.askSelected,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Ionicons name="add-outline" size={20} color="#FFF" />
+          <Text style={s.askSelectedText}>Quick Note</Text>
+        </Pressable>
+      }
+    >
+      {!notebook ? (
+        <View style={{ gap: 6 }}>
+          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
+            Your notebooks
+          </Text>
+          <Text style={{ color: theme.mutedText, fontSize: 15, lineHeight: 22 }}>
+            A place for every document’s ideas.
+          </Text>
+        </View>
+      ) : null}
       {notebook ? (
         <NotebookHeader
           notebook={notebook}
@@ -141,9 +238,9 @@ export default function Notes() {
           }
         />
       ) : null}
-      {hasNotes ? (
+      {documents.length ? (
         <>
-          <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
+          <View style={[s.search, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Ionicons name="search" size={19} color={theme.mutedText} />
             <TextInput
               accessibilityLabel="Search notes"
@@ -203,7 +300,7 @@ export default function Notes() {
                 onPress={clearFilters}
                 style={s.clearFilters}
               >
-                <Text style={[s.clearFiltersText, { color: theme.accent }]}>Clear</Text>
+                <Text style={[s.clearFiltersText, { color: theme.accentText }]}>Clear</Text>
               </Pressable>
             </View>
           ) : null}
@@ -221,7 +318,7 @@ export default function Notes() {
                       onPress={() =>
                         shareItems(selectedItems(), `${selectedIds.length} selected Votic notes`)
                       }
-                      style={[s.pillButton, { borderColor: theme.border }]}
+                      style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                     >
                       <Ionicons name="share-outline" size={17} color={theme.text} />
                       <Text style={[s.pillButtonText, { color: theme.text }]}>Share</Text>
@@ -244,7 +341,7 @@ export default function Notes() {
                     setSelecting(false);
                     setSelectedIds([]);
                   }}
-                  style={[s.pillButton, { borderColor: theme.border }]}
+                  style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
                   <Text style={[s.pillButtonText, { color: theme.mutedText }]}>Cancel</Text>
                 </Pressable>
@@ -262,10 +359,10 @@ export default function Notes() {
                   accessibilityLabel="Ask Votic about notes"
                   accessibilityHint="Choose which notes to ask about"
                   onPress={() => setSelecting(true)}
-                  style={[s.pillButton, { borderColor: theme.border }]}
+                  style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
-                  <Ionicons name="sparkles-outline" size={16} color={theme.accent} />
-                  <Text style={[s.pillButtonText, { color: theme.accent }]}>Ask</Text>
+                  <Ionicons name="sparkles-outline" size={16} color={theme.accentText} />
+                  <Text style={[s.pillButtonText, { color: theme.accentText }]}>Ask</Text>
                 </Pressable>
               ) : null}
               {groups.length ? (
@@ -276,36 +373,46 @@ export default function Notes() {
                     setSelecting(true);
                     setSelectedIds([]);
                   }}
-                  style={[s.pillButton, { borderColor: theme.border }]}
+                  style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
-                  <Ionicons name="checkmark-circle-outline" size={17} color={theme.accent} />
-                  <Text style={[s.pillButtonText, { color: theme.accent }]}>Select</Text>
+                  <Ionicons name="checkmark-circle-outline" size={17} color={theme.accentText} />
+                  <Text style={[s.pillButtonText, { color: theme.accentText }]}>Select</Text>
                 </Pressable>
               ) : null}
             </View>
           )}
         </>
       ) : null}
-      {groups.length ? (
+      {!notebook && !selecting && notebooks.length ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+          {notebooks.map((document) => (
+            <NotebookCard
+              key={document.id}
+              document={document}
+              fullWidth={width < 360 || fontScale > 1.3}
+              onPress={() => setNotebookId(document.id)}
+            />
+          ))}
+        </View>
+      ) : groups.length ? (
         <View style={s.list}>
           {groups.map(({ document, passages }) => (
-            <ScrollFadeItem key={document.id}>
+            <View key={document.id}>
               <NoteGroupCard
                 document={document}
                 passages={passages}
                 inNotebook={Boolean(notebook)}
                 selecting={selecting}
                 selectedIds={selectedIds}
-                previewLimit={browsing && !selecting ? 2 : undefined}
                 onOpenNotebook={() => setNotebookId(document.id)}
                 onToggleSelected={toggleSelected}
                 onView={setViewing}
                 onMore={setMenuItem}
               />
-            </ScrollFadeItem>
+            </View>
           ))}
         </View>
-      ) : hasNotes ? (
+      ) : query.trim() || activeFilterCount ? (
         <View style={s.empty}>
           <Ionicons name="search-outline" size={32} color={theme.mutedText} />
           <Text style={[s.emptyTitle, { color: theme.text }]}>No matches</Text>
@@ -315,10 +422,12 @@ export default function Notes() {
         <View style={s.empty}>
           <NotesEmptyAnimation />
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            Keep what matters.
+            {notebook ? "No notes yet" : "Keep what matters."}
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Save a passage or add a thought. Find it here, linked to your document.
+            {notebook
+              ? "Add a Quick Note, or save a passage while reading. Your ideas will live in this notebook."
+              : "Open a document to begin your notebook collection, or write a Quick Note."}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -385,10 +494,10 @@ function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }
       onPress={onPress}
       style={[s.activeFilter, { borderColor: theme.accent, backgroundColor: theme.sentenceHighlight }]}
     >
-      <Text numberOfLines={1} style={[s.activeFilterText, { color: theme.accent }]}>
+      <Text numberOfLines={1} style={[s.activeFilterText, { color: theme.accentText }]}>
         {label}
       </Text>
-      <Ionicons name="close" size={14} color={theme.accent} />
+      <Ionicons name="close" size={14} color={theme.accentText} />
     </Pressable>
   );
 }
@@ -435,6 +544,7 @@ const s = StyleSheet.create({
   },
   askSelectedText: { color: "#FFF", fontSize: 13, fontWeight: "800" },
   search: {
+    borderWidth: 1,
     minHeight: 46,
     borderRadius: radii.md,
     paddingLeft: spacing.md,

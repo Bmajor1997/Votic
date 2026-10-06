@@ -95,16 +95,28 @@ export function SecondaryButton({
   );
 }
 
-export function TextButton({ label, onPress }: { label: string; onPress: () => void }) {
+export function TextButton({
+  label,
+  onPress,
+  disabled = false,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="button"
+      disabled={disabled}
+      accessibilityState={{ disabled }}
       onPress={onPress}
       hitSlop={8}
       style={({ pressed }) => [s.textButton, { opacity: pressed ? 0.6 : 1 }]}
     >
-      <Text style={[s.textButtonLabel, { color: theme.accent }]}>{label}</Text>
+      <Text style={[s.textButtonLabel, { color: disabled ? theme.mutedText : theme.accentText }]}>
+        {label}
+      </Text>
     </Pressable>
   );
 }

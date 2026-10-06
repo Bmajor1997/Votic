@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ComponentProps } from "react";
+import { ComponentProps, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentTypeIcon } from "../../components/DocumentTypeIcon";
 import { radii, spacing } from "../../design/tokens";
+import { readableTitle } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
 import { useVoticPurpose } from "../../personalization/PurposeProvider";
 import { useVoticTheme } from "../../theme/ThemeProvider";
@@ -22,9 +23,10 @@ export function NotebookHeader({
 }) {
   const { theme } = useVoticTheme();
   const { purpose } = useVoticPurpose();
+  const [toolsOpen, setToolsOpen] = useState(false);
   const passages = notebook.savedPassages || [];
-  const count = (predicate: (passage: (typeof passages)[number]) => boolean) =>
-    passages.filter(predicate).length;
+  const notes = passages.filter((passage) => passage.note.trim()).length;
+  const saved = passages.length - notes;
   const studyAction =
     purpose === "learning"
       ? { icon: "school-outline" as const, label: "Quiz me", question: "Quiz me on these notes" }
@@ -46,70 +48,74 @@ export function NotebookHeader({
               question: "Find the most important points in my notes",
             };
   return (
-    <View style={[s.hero, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+    <View style={s.container}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back to all notes"
         onPress={onBack}
         style={s.back}
       >
-        <Ionicons name="chevron-back" size={20} color={theme.text} />
-        <Text style={[s.backText, { color: theme.text }]}>All Notes</Text>
+        <Ionicons name="chevron-back" size={20} color={theme.accentText} />
+        <Text style={[s.backText, { color: theme.accentText }]}>All notebooks</Text>
       </Pressable>
-      <View style={s.heading}>
-        <DocumentTypeIcon sourceName={notebook.sourceName} size={44} />
-        <View style={s.copy}>
-          <Text numberOfLines={2} style={[s.title, { color: theme.text }]}>
-            {notebook.title}
-          </Text>
-          <Text style={[s.counts, { color: theme.mutedText }]}>
-            {count((p) => Boolean(p.note.trim()))} notes · {count((p) => !p.note.trim())} saved passages
-          </Text>
+      <View style={[s.hero, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+        <View style={s.heading}>
+          <DocumentTypeIcon sourceName={notebook.sourceName} size={44} />
+          <View style={s.copy}>
+            <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+              {readableTitle(notebook.title)}
+            </Text>
+            <Text style={[s.counts, { color: theme.mutedText }]}>
+              {notes} {notes === 1 ? "note" : "notes"} · {saved} saved {saved === 1 ? "passage" : "passages"}
+            </Text>
+          </View>
         </View>
+        <View style={s.toolbar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Ask Votic about ${notebook.title} notebook`}
+            onPress={() => onAsk()}
+            style={[s.ask, { backgroundColor: theme.accent }]}
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={19} color="#FFF" />
+            <Text style={s.askText}>Ask Votic</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Notebook tools"
+            accessibilityState={{ expanded: toolsOpen }}
+            onPress={() => setToolsOpen((open) => !open)}
+            style={[
+              s.tools,
+              { borderColor: theme.border, backgroundColor: toolsOpen ? theme.brandTint : theme.surface },
+            ]}
+          >
+            <Text style={[s.actionText, { color: theme.text }]}>Notebook tools</Text>
+            <Ionicons name={toolsOpen ? "chevron-up" : "chevron-down"} size={16} color={theme.mutedText} />
+          </Pressable>
+        </View>
+        {toolsOpen ? (
+          <View style={[s.actions, { borderTopColor: theme.border }]}>
+            <Text style={[s.toolsCopy, { color: theme.mutedText }]}>Work with this notebook</Text>
+            <NotebookAction icon="share-outline" label="Share notebook" onPress={onShare} />
+            <NotebookAction
+              icon="sparkles-outline"
+              label="Summarize notes"
+              onPress={() => onAsk("Summarize my notes from this document")}
+            />
+            <NotebookAction
+              icon={studyAction.icon}
+              label={studyAction.label}
+              onPress={() => onAsk(studyAction.question)}
+            />
+            <NotebookAction
+              icon="bulb-outline"
+              label={purpose === "learning" ? "Explain key ideas" : "Explain"}
+              onPress={() => onAsk("Explain the key ideas in my notes")}
+            />
+          </View>
+        ) : null}
       </View>
-      <View style={s.stats}>
-        <NotebookStat label="Pinned" value={count((p) => Boolean(p.pinned))} />
-        <NotebookStat label="Key Points" value={count((p) => p.noteType === "key-point")} />
-        <NotebookStat label="Questions" value={count((p) => p.noteType === "question")} />
-        <NotebookStat label="Definitions" value={count((p) => p.noteType === "definition")} />
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Ask Votic about ${notebook.title} notebook`}
-        onPress={() => onAsk()}
-        style={[s.ask, { backgroundColor: theme.accent }]}
-      >
-        <Ionicons name="chatbubble-ellipses-outline" size={19} color="#FFF" />
-        <Text style={s.askText}>Ask Votic about this notebook</Text>
-      </Pressable>
-      <View style={s.actions}>
-        <NotebookAction icon="share-outline" label="Share notebook" onPress={onShare} />
-        <NotebookAction
-          icon="sparkles-outline"
-          label="Summarize notes"
-          onPress={() => onAsk("Summarize my notes from this document")}
-        />
-        <NotebookAction
-          icon={studyAction.icon}
-          label={studyAction.label}
-          onPress={() => onAsk(studyAction.question)}
-        />
-        <NotebookAction
-          icon="bulb-outline"
-          label={purpose === "learning" ? "Explain key ideas" : "Explain"}
-          onPress={() => onAsk("Explain the key ideas in my notes")}
-        />
-      </View>
-    </View>
-  );
-}
-
-function NotebookStat({ label, value }: { label: string; value: number }) {
-  const { theme } = useVoticTheme();
-  return (
-    <View style={[s.stat, { backgroundColor: theme.surfaceMuted }]}>
-      <Text style={[s.statValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[s.statLabel, { color: theme.mutedText }]}>{label}</Text>
     </View>
   );
 }
@@ -138,30 +144,41 @@ function NotebookAction({
 }
 
 const s = StyleSheet.create({
+  container: { gap: spacing.xs },
   hero: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.md, gap: spacing.md },
-  back: { minHeight: 40, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4 },
+  back: { minHeight: 48, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 4 },
   backText: { fontSize: 13, fontWeight: "800" },
   heading: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   copy: { flex: 1 },
-  title: { fontSize: 19, fontWeight: "800" },
-  counts: { fontSize: 12, marginTop: 3 },
+  title: { fontSize: 21, lineHeight: 28, fontWeight: "800" },
+  counts: { fontSize: 13, lineHeight: 20, marginTop: 4 },
   ask: {
     minHeight: 48,
     borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.sm,
   },
-  askText: { color: "#FFF", fontSize: 14, fontWeight: "800" },
-  stats: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
-  stat: { minWidth: 74, borderRadius: radii.md, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs },
-  statValue: { fontSize: 16, fontWeight: "800" },
-  statLabel: { fontSize: 10, fontWeight: "700", marginTop: 1 },
-  actions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs },
+  askText: { color: "#FFF", fontSize: 14, fontWeight: "800", flexShrink: 1 },
+  toolbar: { flexDirection: "row", gap: spacing.sm },
+  tools: {
+    minHeight: 48,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.sm,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+  },
+  toolsCopy: { fontSize: 12, fontWeight: "600", marginBottom: 4 },
+  actions: { gap: spacing.xs, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md },
   action: {
-    minHeight: 40,
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: radii.md,
     paddingHorizontal: spacing.sm,
@@ -169,5 +186,5 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  actionText: { fontSize: 12, fontWeight: "700" },
+  actionText: { fontSize: 12, fontWeight: "700", flexShrink: 1 },
 });

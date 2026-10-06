@@ -58,9 +58,14 @@ function ThemedStack() {
                 contentStyle: { backgroundColor: "transparent" },
               }}
             />
+            <Stack.Screen
+              name="paywall"
+              options={{ animation: reduceMotion ? "none" : "slide_from_right" }}
+            />
             <Stack.Screen name="assistant" />
             <Stack.Screen name="review" />
             <Stack.Screen name="recap" />
+            <Stack.Screen name="handle-share" options={{ animation: reduceMotion ? "none" : "fade" }} />
             <Stack.Screen
               name="statistics"
               options={{ animation: reduceMotion ? "none" : "slide_from_right" }}

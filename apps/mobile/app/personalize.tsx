@@ -26,7 +26,7 @@ export default function Personalize() {
   function finish() {
     void Speech.stop();
     onboarding.completePersonalization();
-    router.replace("/");
+    router.replace("/paywall");
   }
   const next = () => (step === STEPS - 1 ? finish() : setStep(step + 1));
   const back = step > 0 ? () => setStep(step - 1) : undefined;
@@ -279,7 +279,7 @@ function ListeningStep({ step, onBack, onNext }: StepProps) {
       subtitle="Tap play to hear a sample."
       footer={
         <PrimaryButton
-          label="Start using Votic"
+          label="Continue"
           onPress={() => {
             stop();
             onNext();

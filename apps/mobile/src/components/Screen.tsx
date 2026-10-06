@@ -60,7 +60,7 @@ export function Screen({
           })}
         >
           <ScrollFadeContext.Provider value={{ scrollY, enabled: !reduceMotion }}>
-            <View style={s.brandBar} accessibilityRole="header">
+            <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
               <VoticLogo />
               <View style={s.headerIcon} />
             </View>
@@ -92,8 +92,15 @@ export function Screen({
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 32, gap: 16 },
-  brandBar: { minHeight: 58, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  content: { paddingHorizontal: 20, paddingBottom: 36, gap: 20 },
+  brandBar: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingBottom: 4,
+    minHeight: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   headerIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   title: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },

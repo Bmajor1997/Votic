@@ -16,6 +16,7 @@ export type VoticDocument = {
   id: string;
   title: string;
   sourceName: string;
+  notebookKind?: "quick-notes";
   plainText: string;
   importedAt: number;
   updatedAt: number;

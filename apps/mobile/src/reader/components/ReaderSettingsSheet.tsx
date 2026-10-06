@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "re
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
-import { AppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
+import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
 import { DeviceVoice, voticVoiceName } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
@@ -37,7 +37,7 @@ export function ReaderSettingsSheet({
   onPreviewVoice: (voice: DeviceVoice, voiceIndex: number) => void;
   onSelectVoice: (voice: DeviceVoice) => void;
 }) {
-  const { theme, appearanceMode, setAppearanceMode } = useVoticTheme();
+  const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
@@ -123,19 +123,19 @@ export function ReaderSettingsSheet({
                     label="Light"
                     value="light"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Dark"
                     value="dark"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Sepia"
                     value="sepia"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                 </Setting>
                 <Setting label="Line spacing">
@@ -220,6 +220,21 @@ export function ReaderSettingsSheet({
             ) : null}
             {sheet === "listen" ? (
               <>
+                <View
+                  accessible
+                  accessibilityLabel="Offline listening ready"
+                  style={[s.offlineCard, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
+                >
+                  <Ionicons name="cloud-offline-outline" size={22} color={theme.accent} />
+                  <View style={s.toggleCopy}>
+                    <Text style={[s.toggleTitle, { color: theme.text }]}>Offline listening ready</Text>
+                    <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
+                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so
+                      Votic does not need a server connection while reading it aloud. Voice availability is
+                      controlled by your phone.
+                    </Text>
+                  </View>
+                </View>
                 <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
                 <Setting label="Voice">
                   {voices.length ? (
@@ -250,6 +265,14 @@ export function ReaderSettingsSheet({
 
 const s = StyleSheet.create({
   sheetContent: { paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
+  offlineCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "flex-start",
+  },
   toggleRow: {
     minHeight: 72,
     borderWidth: 1,

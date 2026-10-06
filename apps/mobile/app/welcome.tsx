@@ -1,96 +1,74 @@
 import { Ionicons } from "@expo/vector-icons";
-import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
-import { useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
-import { SignInCancelled, authErrorMessage } from "../src/auth/authErrors";
+import { SocialAuthButtons, useSocialAuth } from "../src/auth/SocialAuthButtons";
 import { VoticLogo } from "../src/components/VoticLogo";
-import { radii, spacing, typography } from "../src/design/tokens";
-import { SecondaryButton, TextButton } from "../src/onboarding/components";
-import { ReaderHero } from "../src/onboarding/ReaderHero";
+import { spacing } from "../src/design/tokens";
+import { TextButton } from "../src/onboarding/components";
+import { WelcomeArtwork } from "../src/onboarding/WelcomeArtwork";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
-
-type Provider = "apple" | "google";
 
 export default function Welcome() {
   const { theme } = useVoticTheme();
   const auth = useAuth();
-  const [busy, setBusy] = useState<Provider | null>(null);
-  const [error, setError] = useState("");
-
-  async function continueWith(provider: Provider) {
-    if (busy) return;
-    setError("");
-    setBusy(provider);
-    try {
-      if (provider === "apple") await auth.signInWithApple();
-      else await auth.signInWithGoogle();
-      // Signing in changes which screens exist, and the router moves on by itself.
-    } catch (failure) {
-      if (!(failure instanceof SignInCancelled)) setError(authErrorMessage(failure));
-    } finally {
-      setBusy(null);
-    }
-  }
-
+  const social = useSocialAuth();
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={s.brand}>
+        <View style={s.topBar}>
           <VoticLogo />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            disabled={social.busy !== null}
+            accessibilityState={{ disabled: social.busy !== null }}
+            onPress={() => router.push({ pathname: "/sign-in", params: { mode: "sign-in" } })}
+            style={({ pressed }) => [
+              s.login,
+              { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
+            ]}
+          >
+            <Text style={[s.loginText, { color: theme.accentText }]}>Sign in</Text>
+          </Pressable>
         </View>
-        <View style={s.hero}>
-          <ReaderHero />
+        <View style={s.art}>
+          <WelcomeArtwork />
         </View>
-        <View style={s.copy}>
-          <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            Make any document easier to read
-          </Text>
-          <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            Listen along, ask questions, and save what matters.
-          </Text>
-        </View>
-        <View style={s.actions}>
-          {auth.appleAvailable ? (
-            <AppleAuthentication.AppleAuthenticationButton
-              buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-              buttonStyle={
-                theme.isDark
-                  ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                  : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-              }
-              cornerRadius={radii.md}
-              style={s.appleButton}
-              onPress={() => void continueWith("apple")}
-            />
-          ) : null}
-          {auth.googleAvailable ? (
-            <SecondaryButton
-              label="Continue with Google"
-              busy={busy === "google"}
-              disabled={busy !== null}
-              icon={<Ionicons name="logo-google" size={19} color={theme.text} />}
-              onPress={() => void continueWith("google")}
-            />
-          ) : null}
-          <SecondaryButton
-            label="Continue with email"
-            disabled={busy !== null}
-            icon={<Ionicons name="mail-outline" size={20} color={theme.text} />}
-            onPress={() => router.push("/sign-in")}
+        <View style={s.bottom}>
+          <View style={s.copy}>
+            <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+              Make room for{"\n"}what matters.
+            </Text>
+            <Text style={[s.subtitle, { color: theme.mutedText }]}>
+              A place to read, listen, and keep your ideas.
+            </Text>
+          </View>
+          <SocialAuthButtons
+            busy={social.busy}
+            onContinue={(provider) => void social.continueWith(provider)}
           />
-          {error ? (
-            <Text accessibilityRole="alert" style={[s.error, { color: theme.text }]}>
-              {error}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Continue with email"
+            disabled={social.busy !== null}
+            accessibilityState={{ disabled: social.busy !== null }}
+            onPress={() => router.push("/sign-in")}
+            style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
+          >
+            <Ionicons name="mail-outline" size={20} color="#FFF" />
+            <Text style={s.emailText}>Continue with email</Text>
+          </Pressable>
+          {social.error ? (
+            <Text accessibilityRole="alert" style={[s.message, { color: theme.text }]}>
+              {social.error}
             </Text>
           ) : null}
           {!auth.configured ? (
-            <View style={[s.notice, { backgroundColor: theme.surfaceMuted }]}>
-              <Text style={[s.noticeText, { color: theme.text }]}>
-                Sign-in isn&apos;t set up in this build yet. Add the Firebase settings described in the
-                README.
+            <View style={s.notice}>
+              <Text style={[s.message, { color: theme.mutedText }]}>
+                Account sign-in is unavailable in this preview.
               </Text>
               {auth.canContinueWithoutAccount ? (
                 <TextButton
@@ -100,27 +78,43 @@ export default function Welcome() {
               ) : null}
             </View>
           ) : null}
+          <Text style={[s.legal, { color: theme.mutedText }]}>
+            By continuing, you agree to Votic&apos;s Terms and Privacy Policy.
+          </Text>
         </View>
-        <Text style={[s.legal, { color: theme.mutedText }]}>
-          By continuing, you agree to Votic&apos;s Terms and Privacy Policy.
-        </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
-
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: spacing.xl, paddingBottom: spacing.lg, gap: spacing.xl },
-  brand: { minHeight: 58, justifyContent: "center" },
-  hero: { flexGrow: 1, justifyContent: "center" },
-  copy: { gap: spacing.sm },
-  title: { ...typography.screenTitle, lineHeight: 36 },
-  subtitle: { fontSize: 17, lineHeight: 25 },
-  actions: { gap: spacing.md },
-  appleButton: { height: 54, width: "100%" },
-  error: { fontSize: 15, lineHeight: 21, fontWeight: "600" },
-  notice: { borderRadius: radii.md, padding: spacing.md, gap: spacing.xs },
-  noticeText: { fontSize: 14, lineHeight: 20 },
-  legal: { fontSize: 13, lineHeight: 18, textAlign: "center" },
+  content: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+    maxWidth: 480,
+    width: "100%",
+    alignSelf: "center",
+  },
+  topBar: { minHeight: 60, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  login: { minHeight: 48, borderRadius: 24, paddingHorizontal: 18, justifyContent: "center" },
+  loginText: { fontSize: 15, fontWeight: "700" },
+  art: { flexGrow: 1, justifyContent: "center", minHeight: 230, paddingVertical: 10 },
+  bottom: { gap: 12 },
+  copy: { alignItems: "center", gap: 10, marginBottom: 12 },
+  title: { fontSize: 36, lineHeight: 40, fontWeight: "900", letterSpacing: -1.1, textAlign: "center" },
+  subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 300 },
+  email: {
+    minHeight: 54,
+    paddingVertical: 12,
+    borderRadius: 27,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  emailText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
+  notice: { alignItems: "center" },
+  message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
+  legal: { fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 6 },
 });

@@ -5,6 +5,7 @@ import { ReactNode } from "react";
 export const router = {
   push: jest.fn(),
   back: jest.fn(),
+  canGoBack: jest.fn(() => true),
   replace: jest.fn(),
 };
 export const searchParams: { current: Record<string, string> } = { current: {} };
@@ -29,6 +30,7 @@ Stack.Protected = function StackProtected({ guard, children }: { guard: boolean;
 export function resetExpoRouterMock() {
   router.push.mockReset();
   router.back.mockReset();
+  router.canGoBack.mockReset().mockReturnValue(true);
   router.replace.mockReset();
   searchParams.current = {};
   stackScreens.length = 0;
