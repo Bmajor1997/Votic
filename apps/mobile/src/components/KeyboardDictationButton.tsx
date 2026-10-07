@@ -1,52 +1,70 @@
 import { Ionicons } from "@expo/vector-icons";
+import {
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioStream,
+  type AudioStreamBuffer,
+} from "expo-audio";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Animated, Easing, Pressable, StyleSheet, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
+import { transcribeVoiceQuestion } from "../api/voticApi";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { pcm16ToWav } from "../voice/pcmWav";
 
 const BAR_HEIGHTS = [10, 18, 13, 21, 15];
+const MAX_RECORDING_MS = 60_000;
 
-/**
- * Compact Votic voice control.
- *
- * V1 still relies on the phone keyboard's dictation service for speech-to-text,
- * so activating voice mode focuses the composer instead of pretending Votic is
- * recording audio itself. The mic morphs into a waveform to make the active
- * voice-input state clear while the transcript arrives in the text field.
- */
 export function KeyboardDictationButton({
+  value,
+  onChangeText,
   onFocus,
   disabled = false,
 }: {
+  value: string;
+  onChangeText: (text: string) => void;
   onFocus: () => void;
   disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
-  const [listening, setListening] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const chunks = useRef<ArrayBuffer[]>([]);
+  const format = useRef({ sampleRate: 16_000, channels: 1 });
+  const baseText = useRef("");
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pulse = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0))).current;
+  const streamResult = useAudioStream({
+    sampleRate: 16_000,
+    channels: 1,
+    encoding: "int16",
+    onBuffer: (buffer: AudioStreamBuffer) => {
+      chunks.current.push(buffer.data.slice(0));
+      format.current = { sampleRate: buffer.sampleRate, channels: buffer.channels };
+    },
+  });
+  const listening = streamResult.isStreaming;
 
   useEffect(() => {
     if (!listening || reduceMotion) {
-      pulse.forEach((value) => {
-        value.stopAnimation();
-        value.setValue(0);
+      pulse.forEach((item) => {
+        item.stopAnimation();
+        item.setValue(0);
       });
       return;
     }
-
-    const animations = pulse.map((value, index) =>
+    const animations = pulse.map((item, index) =>
       Animated.loop(
         Animated.sequence([
           Animated.delay(index * 55),
-          Animated.timing(value, {
+          Animated.timing(item, {
             toValue: 1,
             duration: 260,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
             isInteraction: false,
           }),
-          Animated.timing(value, {
+          Animated.timing(item, {
             toValue: 0,
             duration: 300,
             easing: Easing.inOut(Easing.quad),
@@ -60,24 +78,87 @@ export function KeyboardDictationButton({
     return () => animations.forEach((animation) => animation.stop());
   }, [listening, pulse, reduceMotion]);
 
-  function toggleVoiceInput() {
-    if (disabled) return;
-    setListening((active) => !active);
-    onFocus();
+  useEffect(
+    () => () => {
+      if (stopTimer.current) clearTimeout(stopTimer.current);
+      if (streamResult.stream.isStreaming) void streamResult.stream.stop();
+    },
+    [streamResult.stream],
+  );
+
+  async function revealTranscript(transcript: string) {
+    const prefix = baseText.current.trim();
+    const words = transcript.split(/\s+/).filter(Boolean);
+    if (reduceMotion) {
+      onChangeText([prefix, transcript].filter(Boolean).join(" ").slice(0, 1000));
+      return;
+    }
+    for (let i = 1; i <= words.length; i += 1) {
+      onChangeText([prefix, words.slice(0, i).join(" ")].filter(Boolean).join(" ").slice(0, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 34));
+    }
+  }
+
+  async function stopAndTranscribe() {
+    if (stopTimer.current) {
+      clearTimeout(stopTimer.current);
+      stopTimer.current = null;
+    }
+    await streamResult.stream.stop();
+    if (!chunks.current.length) return;
+    setTranscribing(true);
+    try {
+      const wav = pcm16ToWav(chunks.current, format.current.sampleRate, format.current.channels);
+      const transcript = await transcribeVoiceQuestion(wav);
+      await revealTranscript(transcript);
+      onFocus();
+    } catch (error) {
+      Alert.alert(
+        "Voice question",
+        error instanceof Error ? error.message : "Votic could not transcribe that recording.",
+      );
+    } finally {
+      chunks.current = [];
+      setTranscribing(false);
+      await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+    }
+  }
+
+  async function startRecording() {
+    if (disabled || transcribing) return;
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          "Microphone permission needed",
+          "Allow microphone access to ask Votic a question with your voice. You can still type instead.",
+        );
+        return;
+      }
+      chunks.current = [];
+      baseText.current = value;
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await streamResult.stream.start();
+      stopTimer.current = setTimeout(() => void stopAndTranscribe(), MAX_RECORDING_MS);
+    } catch {
+      Alert.alert("Voice question", "Votic could not start the microphone. Please try again.");
+    }
   }
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={listening ? "Stop voice input" : "Start voice input"}
+      accessibilityLabel={
+        transcribing ? "Transcribing voice question" : listening ? "Stop voice input" : "Start voice input"
+      }
       accessibilityHint={
         listening
-          ? "Stops the Votic voice input animation. Your dictated text stays editable."
-          : "Opens the keyboard so you can dictate your question with your phone microphone."
+          ? "Stops recording and adds your words to the question."
+          : "Records a voice question. You can edit the transcript before sending."
       }
-      accessibilityState={{ disabled, selected: listening }}
-      disabled={disabled}
-      onPress={toggleVoiceInput}
+      accessibilityState={{ disabled: disabled || transcribing, selected: listening, busy: transcribing }}
+      disabled={disabled || transcribing}
+      onPress={() => void (listening ? stopAndTranscribe() : startRecording())}
       style={({ pressed }) => [
         s.button,
         {
@@ -86,7 +167,7 @@ export function KeyboardDictationButton({
         },
       ]}
     >
-      {listening ? (
+      {listening || transcribing ? (
         <View
           accessible={false}
           importantForAccessibility="no-hide-descendants"
@@ -101,14 +182,13 @@ export function KeyboardDictationButton({
                 {
                   backgroundColor: theme.accentText,
                   height,
+                  opacity: transcribing ? 0.55 : 1,
                   transform: [
                     {
-                      scaleY: reduceMotion
-                        ? 0.72
-                        : pulse[index].interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [0.48, 1],
-                          }),
+                      scaleY:
+                        reduceMotion || transcribing
+                          ? 0.72
+                          : pulse[index].interpolate({ inputRange: [0, 1], outputRange: [0.48, 1] }),
                     },
                   ],
                 },
@@ -124,13 +204,7 @@ export function KeyboardDictationButton({
 }
 
 const s = StyleSheet.create({
-  button: {
-    width: 44,
-    minHeight: 48,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  button: { width: 44, minHeight: 48, borderRadius: 22, alignItems: "center", justifyContent: "center" },
   waveform: {
     width: 28,
     height: 24,
@@ -139,8 +213,5 @@ const s = StyleSheet.create({
     justifyContent: "center",
     gap: 2,
   },
-  bar: {
-    width: 3,
-    borderRadius: 2,
-  },
+  bar: { width: 3, borderRadius: 2 },
 });
