@@ -33,7 +33,7 @@ export function KeyboardDictationButton({
   const format = useRef({ sampleRate: 16_000, channels: 1 });
   const baseText = useRef("");
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pulse = useRef(BAR_HEIGHTS.map(() => new Animated.Value(0))).current;
+  const [pulse] = useState(() => BAR_HEIGHTS.map(() => new Animated.Value(0)));
   const streamResult = useAudioStream({
     sampleRate: 16_000,
     channels: 1,
