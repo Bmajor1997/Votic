@@ -81,7 +81,7 @@ export function KeyboardDictationButton({
       style={({ pressed }) => [
         s.button,
         {
-          backgroundColor: listening ? theme.accentSoft : "transparent",
+          backgroundColor: listening ? theme.sentenceHighlight : "transparent",
           opacity: disabled ? 0.4 : pressed ? 0.72 : 1,
         },
       ]}
