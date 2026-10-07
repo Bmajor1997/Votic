@@ -4,6 +4,17 @@ import { AIResponse } from "../../src/components/AIResponse";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { renderWithProviders } from "../renderWithProviders";
 
+const start = jest.fn(async () => {});
+const stop = jest.fn(async () => {});
+jest.mock("expo-audio", () => ({
+  requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  setAudioModeAsync: jest.fn(async () => {}),
+  useAudioStream: jest.fn(() => ({
+    isStreaming: false,
+    stream: { isStreaming: false, start, stop },
+  })),
+}));
+
 it("reveals answers word by word in reading order and lets the user show the full response", async () => {
   await renderWithProviders(<AIResponse text={"First word.\nNext line."} />);
   expect(screen.getByText("Generating response")).toBeTruthy();
@@ -28,7 +39,7 @@ it("shows complete text immediately with reduced motion", async () => {
 });
 it("morphs the voice button into a compact waveform while dictation is active", async () => {
   const focus = jest.fn();
-  await renderWithProviders(<KeyboardDictationButton onFocus={focus} />);
+  await renderWithProviders(\n    <KeyboardDictationButton value="" onChangeText={jest.fn()} onFocus={focus} />,\n  );
   await fireEvent.press(screen.getByRole("button", { name: "Start voice input" }));
   expect(focus).toHaveBeenCalledTimes(1);
   expect(screen.getByTestId("voice-waveform")).toBeTruthy();
