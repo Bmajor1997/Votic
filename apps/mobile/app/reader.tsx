@@ -1433,6 +1433,8 @@ function ReaderContent() {
                         onSubmitEditing={() => void sendAskVotic()}
                       />
                       <KeyboardDictationButton
+                        value={askQuestion}
+                        onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
                         disabled={askSending || summarizing}
                       />
