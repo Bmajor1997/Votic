@@ -7,6 +7,11 @@ module.exports = ({ config }) => {
   const iosUrlScheme = process.env.GOOGLE_IOS_URL_SCHEME;
   return {
     ...config,
+    extra: {
+      ...config.extra,
+      // EAS supplies this on the build worker. Production and local release bundles fail closed.
+      previewTesting: process.env.EAS_BUILD_PROFILE === "preview",
+    },
     plugins: [
       ...(config.plugins ?? []),
       ...(iosUrlScheme ? [["@react-native-google-signin/google-signin", { iosUrlScheme }]] : []),

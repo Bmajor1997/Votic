@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { PropsWithChildren, createContext, useContext, useEffect, useState } from "react";
 import { setAuthTokenProvider } from "../api/authToken";
 import { AuthBackend, VoticUser, createAuthBackend } from "./authBackend";
@@ -16,7 +17,7 @@ type AuthValue = {
   signInWithGoogle: AuthBackend["signInWithGoogle"];
   signOut: () => Promise<void>;
   deleteAccount: AuthBackend["deleteAccount"];
-  /** Development builds without Firebase settings can still be explored. Release builds always require an account. */
+  /** Development and marked preview builds without Firebase can be explored. Production requires an account. */
   canContinueWithoutAccount: boolean;
   continueWithoutAccount: () => void;
 };
@@ -54,7 +55,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => setAuthTokenProvider(null);
   }, [backend]);
 
-  const canContinueWithoutAccount = __DEV__ && !backend.configured;
+  const canContinueWithoutAccount =
+    (__DEV__ || Constants.expoConfig?.extra?.previewTesting === true) && !backend.configured;
   return (
     <AuthContext.Provider
       value={{

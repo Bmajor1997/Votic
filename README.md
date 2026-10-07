@@ -72,7 +72,7 @@ Statistics (from Home's weekly summary or Settings) uses measurements recorded o
 - Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
 ### Accounts
 
-Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".
+Votic requires an account in production. The app signs people in with Firebase Authentication. Without Firebase settings, local development and EAS builds made with the `preview` profile offer "Explore Votic without an account" for testing. The preview marker is set by `app.config.js` on the EAS build worker and is disabled for production and unmarked release builds. Testing entry reuses the local development session; it does not create a Firebase account or provide a Firebase ID token. Account deletion and server endpoints requiring authentication still require a real account. Normal personalization and onboarding remain available.
 
 1. In the Firebase console, create a project, add an iOS and an Android app, and turn on the **Email/Password**, **Google**, and **Apple** sign-in providers.
 2. Set these before `npm start` or an EAS build (they are read at build time):

@@ -71,10 +71,15 @@ export default function Welcome() {
                 Account sign-in is unavailable in this preview.
               </Text>
               {auth.canContinueWithoutAccount ? (
-                <TextButton
-                  label="Continue without an account (development)"
-                  onPress={auth.continueWithoutAccount}
-                />
+                <>
+                  <TextButton
+                    label="Explore Votic without an account"
+                    onPress={auth.continueWithoutAccount}
+                  />
+                  <Text style={[s.message, { color: theme.mutedText }]}>
+                    Testing access only. Account actions require signing in.
+                  </Text>
+                </>
               ) : null}
             </View>
           ) : null}
