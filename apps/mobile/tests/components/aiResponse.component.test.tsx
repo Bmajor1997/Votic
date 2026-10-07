@@ -1,6 +1,5 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
-import { Alert, type AlertButton } from "react-native";
 import { AIResponse } from "../../src/components/AIResponse";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { renderWithProviders } from "../renderWithProviders";
@@ -27,13 +26,15 @@ it("shows complete text immediately with reduced motion", async () => {
   expect(screen.getByText("A complete answer.")).toBeTruthy();
   expect(screen.queryByText("Generating response")).toBeNull();
 });
-it("offers keyboard dictation without recording or sending a question", async () => {
+it("morphs the voice button into a compact waveform while dictation is active", async () => {
   const focus = jest.fn();
-  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
   await renderWithProviders(<KeyboardDictationButton onFocus={focus} />);
-  await fireEvent.press(screen.getByRole("button", { name: "Use keyboard dictation" }));
-  expect(focus).not.toHaveBeenCalled();
-  const buttons = alert.mock.calls[0][2] as AlertButton[];
-  await act(async () => buttons.find((button) => button.text === "Open keyboard")?.onPress?.());
+  await fireEvent.press(screen.getByRole("button", { name: "Start voice input" }));
   expect(focus).toHaveBeenCalledTimes(1);
+  expect(screen.getByTestId("voice-waveform")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Stop voice input" })).toBeTruthy();
+
+  await fireEvent.press(screen.getByRole("button", { name: "Stop voice input" }));
+  expect(focus).toHaveBeenCalledTimes(2);
+  expect(screen.queryByTestId("voice-waveform")).toBeNull();
 });
