@@ -1,9 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, Switch, Text, View } from "react-native";
-import { useAuth } from "../../src/auth/AuthProvider";
-import { authErrorMessage } from "../../src/auth/authErrors";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { AccountSettings } from "../../src/settings/AccountSettings";
 import { OptionRow } from "../../src/onboarding/components";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { EXPLANATION_STYLES, PURPOSES, useVoticPurpose } from "../../src/personalization/PurposeProvider";
@@ -34,31 +33,7 @@ export default function Settings() {
   const a = useAccessibilityPreferences();
   const onboarding = useOnboarding();
   const personalization = useVoticPurpose();
-  const auth = useAuth();
   const [tipsReset, setTipsReset] = useState(false);
-  function confirmSignOut() {
-    Alert.alert("Sign out of Votic?", "Your documents and notes stay on this device.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign out", onPress: () => void auth.signOut() },
-    ]);
-  }
-  function confirmDelete() {
-    Alert.alert(
-      "Delete your Votic account?",
-      "This permanently deletes your account. Documents and notes on this device are not removed. This cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete account",
-          style: "destructive",
-          onPress: () =>
-            void auth
-              .deleteAccount()
-              .catch((error) => Alert.alert("Couldn't delete account", authErrorMessage(error))),
-        },
-      ],
-    );
-  }
   const segmented = (
     values: string[],
     selected: string,
@@ -233,41 +208,7 @@ export default function Settings() {
         </Pressable>
       </View>
       <View style={[s.divider, { backgroundColor: theme.border }]} />
-      <View style={s.section}>
-        <Text style={[s.h, { color: theme.text }]}>Account</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Votic membership"
-          onPress={() => router.push("/paywall")}
-          style={[s.accountButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-        >
-          <Ionicons name="sparkles-outline" size={22} color={theme.accentText} />
-          <Text style={[s.settingTitle, { color: theme.text }]}>Votic membership</Text>
-        </Pressable>
-        {auth.user?.email ? (
-          <Text style={[s.body, { color: theme.mutedText }]}>Signed in as {auth.user.email}</Text>
-        ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sign out"
-          onPress={confirmSignOut}
-          style={[s.accountButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-        >
-          <Ionicons name="log-out-outline" size={22} color={theme.text} />
-          <Text style={[s.settingTitle, { color: theme.text }]}>Sign out</Text>
-        </Pressable>
-        {auth.configured ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Delete account"
-            onPress={confirmDelete}
-            style={[s.accountButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-          >
-            <Ionicons name="trash-outline" size={22} color="#DC2626" />
-            <Text style={[s.settingTitle, { color: "#DC2626" }]}>Delete account</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <AccountSettings />
     </Screen>
   );
 }
@@ -327,15 +268,6 @@ const s = StyleSheet.create({
     gap: spacing.md,
   },
   purposes: { gap: spacing.sm },
-  accountButton: {
-    minHeight: 56,
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
   settingCopy: { flex: 1, gap: 3 },
   settingTitle: { fontSize: 16, fontWeight: "700" },
   settingDetail: { fontSize: 13, lineHeight: 18 },

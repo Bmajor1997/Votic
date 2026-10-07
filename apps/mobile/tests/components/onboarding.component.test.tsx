@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Alert, Text } from "react-native";
+import { Text } from "react-native";
 import Settings from "../../app/(tabs)/settings";
 import Personalize from "../../app/personalize";
 import Reader from "../../app/reader";
@@ -262,13 +262,12 @@ describe("Settings personalization and account", () => {
   });
 
   it("signs out after confirming", async () => {
-    const alert = jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
-      buttons?.find((button) => button.text === "Sign out")?.onPress?.();
-    });
     await renderWithProviders(<Settings />);
-    expect(screen.getByText("Signed in as reader@example.com")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Sign out" })));
-    expect(alert).toHaveBeenCalled();
+    expect(screen.getByText("reader@example.com")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("header", { name: "Sign out of Votic?" })).toBeTruthy();
+    expect(fakeAuth.calls).not.toContain("signOut");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(fakeAuth.calls).toContain("signOut");
   });
 });
