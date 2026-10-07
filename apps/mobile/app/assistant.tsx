@@ -523,6 +523,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               </Animated.View>
             </View>
             <KeyboardDictationButton
+              value={question}
+              onChangeText={setQuestion}
               onFocus={() => inputRef.current?.focus()}
               disabled={sending || launching}
             />
