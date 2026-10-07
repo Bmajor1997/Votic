@@ -11,6 +11,14 @@
       "expo-splash-screen",
       "expo-apple-authentication",
       [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Votic to listen while you ask a voice question.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow Votic to scan documents with your camera.",
