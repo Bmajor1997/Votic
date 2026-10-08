@@ -2,7 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { DocumentCover } from "../../src/components/DocumentCover";
+import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork";
+import { widgetPalette } from "../../src/home/widgetDesign";
 import { NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
 import { homeNotes } from "../../src/home/homeModel";
 import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
@@ -132,6 +133,7 @@ function ContinueCard({
   onOpen: (source: React.RefObject<View | null>, listen: boolean) => void;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "chapter");
   const listenRef = useRef<View>(null);
   const readRef = useRef<View>(null);
   const title = readableTitle(document.title);
@@ -140,27 +142,23 @@ function ContinueCard({
   const listenLabel = started ? "Resume listening" : "Listen";
   const readLabel = started ? "Resume reading" : "Read";
   return (
-    <View style={[s.featured, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
-      <View
-        pointerEvents="none"
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        style={[s.heroGlow, { backgroundColor: theme.isDark ? "#244F81" : "#C2D8FF" }]}
-      />
-      <Text style={[s.heroEyebrow, { color: theme.heroMuted }]}>YOUR NEXT CHAPTER</Text>
+    <View
+      testID="home-continue-card"
+      style={[s.featured, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <WidgetHalo color={colors.art} />
+      <Text style={[s.heroEyebrow, { color: colors.detail }]}>YOUR NEXT CHAPTER</Text>
       <View style={s.featuredTop}>
-        <DocumentCover document={document} size="lg" />
+        <HomeDocumentArtwork document={document} featured />
         <View style={s.featuredCopy}>
-          <Text numberOfLines={3} style={[s.featuredTitle, { color: theme.heroText }]}>
-            {title}
-          </Text>
-          <Text style={[s.featuredMeta, { color: theme.heroMuted }]}>{positionLabel(document)}</Text>
+          <Text style={[s.featuredTitle, { color: colors.ink }]}>{title}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{positionLabel(document)}</Text>
           <View
             accessible
             accessibilityRole="progressbar"
             accessibilityLabel={`${title} progress`}
             accessibilityValue={{ min: 0, max: 100, now: percent }}
-            style={[s.track, { backgroundColor: theme.border }]}
+            style={[s.track, { backgroundColor: colors.art }]}
           >
             <View
               style={[
@@ -169,7 +167,7 @@ function ContinueCard({
               ]}
             />
           </View>
-          <Text style={[s.featuredMeta, { color: theme.heroMuted }]}>{progressLabel(document)}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{progressLabel(document)}</Text>
         </View>
       </View>
       <View style={s.featuredActions}>
@@ -186,14 +184,7 @@ function ContinueCard({
             ]}
           >
             <Ionicons name="play" size={19} color="#FFF" />
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              style={[s.primaryText, s.shrink]}
-            >
-              {listenLabel}
-            </Text>
+            <Text style={[s.primaryText, s.shrink]}>{listenLabel}</Text>
           </Pressable>
         </View>
         <View ref={readRef} collapsable={false} style={s.half}>
@@ -205,18 +196,11 @@ function ContinueCard({
             style={({ pressed }) => [
               s.secondary,
               s.featuredButton,
-              { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+              { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
             ]}
           >
-            <Ionicons name="book-outline" size={19} color={theme.text} />
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              style={[s.secondaryText, s.shrink, { color: theme.text }]}
-            >
-              {readLabel}
-            </Text>
+            <Ionicons name="book-outline" size={19} color={colors.ink} />
+            <Text style={[s.secondaryText, s.shrink, { color: colors.ink }]}>{readLabel}</Text>
           </Pressable>
         </View>
       </View>
@@ -238,28 +222,19 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addText: { fontSize: 15, fontWeight: "700" },
-  heroGlow: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    right: -90,
-    top: -100,
-    opacity: 0.5,
-  },
   heroEyebrow: { ...typography.eyebrow },
   featured: { overflow: "hidden", borderWidth: 1, borderRadius: 24, padding: spacing.xl, gap: spacing.lg },
-  featuredTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  featuredCopy: { flex: 1, gap: spacing.xs },
+  featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "flex-start" },
+  featuredCopy: { flex: 1, minWidth: 140, gap: spacing.xs },
   featuredTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
   // Listen and Read share one row in equal halves.
-  featuredActions: { flexDirection: "row", gap: spacing.sm },
-  half: { flex: 1, minWidth: 0 },
+  featuredActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  half: { flex: 1, minWidth: 118 },
   shrink: { flexShrink: 1 },
-  featuredButton: { paddingHorizontal: spacing.sm, gap: 6 },
+  featuredButton: { paddingHorizontal: spacing.sm, paddingVertical: spacing.md, gap: 6 },
   grow: { flex: 1, minWidth: 0 },
   primary: {
     minHeight: 50,
