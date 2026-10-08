@@ -3,10 +3,14 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AccessibilityInfo } from "react-native";
 import { router } from "expo-router";
-import Settings from "../../app/(tabs)/settings";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as backend from "../mocks/authBackend";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 import { createDocumentStore } from "../../src/documents/documentStorage";
+
+function Settings() {
+  return <SettingsDetailScreen category="account" />;
+}
 
 async function openDeletion() {
   await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
@@ -27,7 +31,7 @@ function failAction(action: "deleteAccount" | "signOut", failure: unknown) {
 
 describe("Settings account management", () => {
   it("shows accessible identity, separate actions, and keeps membership and help navigation", async () => {
-    await renderWithProviders(<Settings />);
+    const rendered = await renderWithProviders(<Settings />);
     expect(screen.getByText("reader@example.com")).toBeTruthy();
     expect(screen.getByRole("header", { name: "ACCOUNT ACCESS" })).toBeTruthy();
     expect(screen.getByRole("header", { name: "ACCOUNT DELETION" })).toBeTruthy();
@@ -39,8 +43,18 @@ describe("Settings account management", () => {
     );
     await fireEvent.press(screen.getByRole("button", { name: "Votic membership" }));
     expect(router.push).toHaveBeenCalledWith("/paywall");
+    await rendered.rerender(
+      <AppProviders>
+        <SettingsDetailScreen category="reading" />
+      </AppProviders>,
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Pronunciation dictionary" }));
     expect(router.push).toHaveBeenCalledWith("/pronunciations");
+    await rendered.rerender(
+      <AppProviders>
+        <SettingsDetailScreen category="help" />
+      </AppProviders>,
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Show tips again" }));
     expect(screen.getByText("Done. Tips will appear on Home and in the Reader.")).toBeTruthy();
   });

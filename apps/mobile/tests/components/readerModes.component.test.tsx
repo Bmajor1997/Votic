@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { Pressable, Text } from "react-native";
-import Settings from "../../app/(tabs)/settings";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import Reader from "../../app/reader";
 import { LIBRARY_KEY } from "../../src/documents/documentStorage";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
@@ -261,7 +261,7 @@ function ThemeScopes() {
 
 describe("Appearance", () => {
   it("offers Light, Dark, and System for the app without Sepia", async () => {
-    await renderWithProviders(<Settings />);
+    await renderWithProviders(<SettingsDetailScreen category="appearance" />);
     for (const name of ["Light", "Dark", "System"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Sepia" })).toBeNull();
     await fireEvent.press(screen.getByRole("radio", { name: "System" }));

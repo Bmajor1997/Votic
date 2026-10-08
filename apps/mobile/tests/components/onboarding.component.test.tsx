@@ -3,7 +3,7 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { Text } from "react-native";
-import Settings from "../../app/(tabs)/settings";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import Personalize from "../../app/personalize";
 import Reader from "../../app/reader";
 import EmailSignIn from "../../app/sign-in";
@@ -13,7 +13,7 @@ import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, nextTip, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -249,12 +249,17 @@ describe("Reader tips", () => {
 
 describe("Settings personalization and account", () => {
   it("changes purpose and explanation style, and brings tips back", async () => {
-    await renderWithProviders(<Settings />);
+    const rendered = await renderWithProviders(<SettingsDetailScreen category="personalization" />);
     await fireEvent.press(screen.getByRole("radio", { name: /^Work\./ }));
     await fireEvent.press(screen.getByRole("radio", { name: "Quick" }));
-    await waitFor(async () => expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("work"));
+    expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("work");
     expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("quick");
-    await fireEvent.press(screen.getByRole("button", { name: "Show tips again" }));
+    await rendered.rerender(
+      <AppProviders>
+        <SettingsDetailScreen category="help" />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Show tips again" }));
     expect(screen.getByText("Done. Tips will appear on Home and in the Reader.")).toBeTruthy();
     await waitFor(async () =>
       expect(await savedOnboarding()).toMatchObject({ tipsSeen: [], checklistDismissed: false }),
@@ -262,7 +267,7 @@ describe("Settings personalization and account", () => {
   });
 
   it("signs out after confirming", async () => {
-    await renderWithProviders(<Settings />);
+    await renderWithProviders(<SettingsDetailScreen category="account" />);
     expect(screen.getByText("reader@example.com")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(screen.getByRole("header", { name: "Sign out of Votic?" })).toBeTruthy();

@@ -36,6 +36,16 @@ describe("root navigation", () => {
     expect(await renderLayout()).toEqual(["welcome", "sign-in"]);
   });
 
+  it("protects Settings details and honors Reduce Motion for their navigation", async () => {
+    await seedStorage({ reduceMotion: true });
+    await renderLayout();
+    expect(
+      stackScreens.filter((screen) => screen.name === "settings/[category]").at(-1)?.options,
+    ).toMatchObject({
+      animation: "none",
+    });
+  });
+
   it("sends a new account to personalization before Home", async () => {
     await seedStorage({ onboarding: { personalized: false } });
     expect(await renderLayout()).toEqual(["personalize"]);
