@@ -1,6 +1,11 @@
+import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
+import { cleanLocalDocumentText } from "../documents/importDocument";
+import { openFrom } from "../documents/useDocumentImport";
+import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
+import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../onboarding/voticGuide";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { PropsWithChildren, useState } from "react";
+import { PropsWithChildren, useState, useRef } from "react";
 import { AccessibilityInfo, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import {
   useAccessibilityPreferences,
@@ -290,11 +295,38 @@ function PersonalizationSettings() {
 }
 
 function HelpSettings() {
+  const guideRef = useRef<View>(null);
+  const library = useDocumentLibrary();
+  const transition = useDocumentTransition();
+  const { defaultPlaybackRate } = useVoticPurpose();
   const onboarding = useOnboarding();
   const [tipsReset, setTipsReset] = useState(false);
   return (
     <SettingsGroup>
+      <View ref={guideRef} collapsable={false}>
+        <SettingsRow
+          label="Votic walkthrough"
+          detail="Try reading, voice questions, Notes, and the new Settings."
+          hint="Opens the updated walkthrough as a document with listening controls"
+          icon="book-outline"
+          onPress={() => {
+            if (!library.loaded || transition.transitioning) return;
+            const existing = library.documents.find(
+              (document) =>
+                document.sourceName === VOTIC_GUIDE_SOURCE_NAME &&
+                document.plainText === cleanLocalDocumentText(VOTIC_GUIDE_TEXT),
+            );
+            if (existing) library.openDocument(existing.id);
+            else
+              library.addTextDocument(VOTIC_GUIDE_SOURCE_NAME, cleanLocalDocumentText(VOTIC_GUIDE_TEXT), {
+                playbackRate: defaultPlaybackRate,
+              });
+            openFrom(guideRef, transition, { mode: "listen" });
+          }}
+        />
+      </View>
       <SettingsRow
+        separated
         label="Show tips again"
         detail={
           tipsReset

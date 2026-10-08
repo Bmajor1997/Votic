@@ -604,14 +604,14 @@ function ReaderContent() {
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
   }
-  async function previewVoice(voice: DeviceVoice, voiceIndex: number) {
+  async function previewVoice(voice: DeviceVoice, name: string) {
     speechSession.current += 1;
     setPlaying(false);
     await Speech.stop();
     setPreviewVoiceIdentifier(voice.identifier);
     const clearPreview = () =>
       setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current));
-    Speech.speak(voticVoicePreview(voiceIndex), {
+    Speech.speak(voticVoicePreview(name), {
       voice: voice.identifier,
       rate: 1,
       onDone: clearPreview,
@@ -1480,9 +1480,9 @@ function ReaderContent() {
               onRateChange={changeRate}
               voices={voices}
               previewVoiceIdentifier={previewVoiceIdentifier}
-              onPreviewVoice={(voice, voiceIndex) => {
+              onPreviewVoice={(voice, name) => {
                 if (previewVoiceIdentifier === voice.identifier) void stop();
-                else void previewVoice(voice, voiceIndex);
+                else void previewVoice(voice, name);
               }}
               onSelectVoice={(voice) => {
                 void stop();
