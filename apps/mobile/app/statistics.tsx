@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { ComponentProps, ReactNode, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ACTIVE_DAY_MS,
@@ -78,10 +78,15 @@ export default function Statistics() {
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </Pressable>
         <Text accessibilityRole="header" numberOfLines={2} style={[s.title, { color: theme.text }]}>
-          {section ? SECTION_TITLES[section] : "Statistics"}
+          {section ? SECTION_TITLES[section] : "Your Votic activity"}
         </Text>
       </View>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {!section ? (
+          <Text style={[s.intro, { color: theme.mutedText }]}>
+            Your reading, listening, and moments of discovery.
+          </Text>
+        ) : null}
         <View accessibilityRole="radiogroup" style={[s.segmented, { backgroundColor: theme.surfaceMuted }]}>
           {KINDS.map((item) => {
             const active = item.value === kind;
@@ -143,13 +148,16 @@ export default function Statistics() {
         {!section ? (
           <>
             <Overview period={period} />
-            <Card>
+            <Card title={kind === "all" ? "Your time, month by month" : "Your time, day by day"}>
               <TimeChart points={chartSeries(log, period, now)} title={`Time for ${period.label}`} />
             </Card>
+            <InsightsPreview period={period} onOpen={() => openSection("insights")} />
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+              Explore your activity
+            </Text>
             <AskPreview period={period} onOpen={() => openSection("ask")} />
             <ActivityPreview period={period} onOpen={() => openSection("activity")} />
             <DocumentsPreview period={period} onOpen={() => openSection("documents")} />
-            <InsightsPreview period={period} onOpen={() => openSection("insights")} />
             <Text style={[s.footnote, { color: theme.mutedText }]}>
               Reading counts while the Reader is open and you&apos;re scrolling or using it, and pauses after
               two minutes without activity. Listening counts while narration plays. Time spent listening
@@ -177,123 +185,211 @@ function Overview({ period }: { period: Period }) {
   const { log } = useActivity();
   const summary = summarize(log, period.start, period.end);
   const comparison = insights(log, period).comparison;
-  const colors = seriesColors(theme.isDark);
+  const ask = askSummary(log, period.start, period.end);
+  // Preserve the rounding rule: the visible total equals the two time tiles.
+  const total = (Math.round(summary.reading / 60_000) + Math.round(summary.listening / 60_000)) * 60_000;
   return (
-    <Card>
-      <View accessible accessibilityLabel={`Total time, ${spokenDuration(summary.total)}`}>
-        <Text style={[s.label, { color: theme.mutedText }]}>Reading and listening</Text>
-        {/* Built from the rounded parts, so the total always equals Reading plus Listening. */}
-        <Text style={[s.hero, { color: theme.text }]}>
-          {formatDuration(
-            (Math.round(summary.reading / 60_000) + Math.round(summary.listening / 60_000)) * 60_000,
-          )}
-        </Text>
-        {comparison ? (
-          <Text style={[s.sub, { color: theme.mutedText }]}>
-            {Math.abs(Math.round(comparison.change * 100))}% {comparison.change >= 0 ? "more" : "less"} than{" "}
-            {comparison.previousLabel}
+    <>
+      <View style={[s.heroCard, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
+        <View style={s.heroHeading}>
+          <Text style={[s.eyebrow, { color: theme.heroMuted }]}>TIME WITH YOUR DOCUMENTS</Text>
+          <Ionicons accessible={false} name="book-outline" size={26} color={theme.heroText} />
+        </View>
+        <View accessible accessibilityLabel={`Total time, ${spokenDuration(summary.total)}`}>
+          <Text style={[s.hero, { color: theme.heroText }]}>{formatDuration(total)}</Text>
+          <Text style={[s.sub, { color: theme.heroMuted }]}>Reading and listening in this period</Text>
+        </View>
+        <View style={[s.heroNote, { borderTopColor: theme.border }]}>
+          <Ionicons
+            accessible={false}
+            name={comparison ? "analytics-outline" : "leaf-outline"}
+            size={18}
+            color={theme.heroText}
+          />
+          <Text style={[s.heroNoteText, { color: theme.heroMuted }]}>
+            {comparison
+              ? `${Math.abs(Math.round(comparison.change * 100))}% ${comparison.change >= 0 ? "more" : "less"} time than ${comparison.previousLabel}`
+              : summary.total
+                ? "Every moment is a chance to explore at your own pace."
+                : "Start with a document. Your activity will appear here."}
           </Text>
-        ) : null}
+        </View>
       </View>
-      <View style={s.stats}>
-        <Stat
+      <View style={s.metricGrid}>
+        <MetricTile
           label="Reading"
           value={formatDuration(summary.reading)}
           spoken={spokenDuration(summary.reading)}
-          swatch={colors.reading}
+          icon="book-outline"
         />
-        <Stat
+        <MetricTile
           label="Listening"
           value={formatDuration(summary.listening)}
           spoken={spokenDuration(summary.listening)}
-          swatch={colors.listening}
+          icon="headset-outline"
+          tinted
         />
-        <Stat label="Active days" value={String(summary.activeDays)} />
+        <MetricTile label="Active days" value={String(summary.activeDays)} icon="calendar-outline" tinted />
+        <MetricTile
+          label="Questions asked"
+          value={String(ask.questions)}
+          icon="chatbubble-ellipses-outline"
+        />
       </View>
-    </Card>
+    </>
   );
 }
-
+function MetricTile({
+  label,
+  value,
+  spoken,
+  icon,
+  tinted = false,
+}: {
+  label: string;
+  value: string;
+  spoken?: string;
+  icon: IconName;
+  tinted?: boolean;
+}) {
+  const { theme } = useVoticTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 360 || fontScale > 1.3;
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${label}, ${spoken ?? value}`}
+      style={[
+        s.metricTile,
+        {
+          flexBasis: stacked ? "100%" : "46%",
+          backgroundColor: tinted ? theme.brandTint : theme.surfaceMuted,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <Ionicons
+        accessible={false}
+        name={icon}
+        size={24}
+        color={label === "Questions asked" ? theme.aiStatusText : theme.accentText}
+      />
+      <Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[s.metricLabel, { color: theme.mutedText }]}>{label}</Text>
+    </View>
+  );
+}
 function AskPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
   const { log } = useActivity();
   const ask = askSummary(log, period.start, period.end);
   return (
-    <PreviewCard icon="sparkles-outline" title="Ask Votic" onOpen={onOpen}>
-      {ask.questions ? (
-        <View style={s.stats}>
-          <Stat label="Questions" value={String(ask.questions)} />
-          <Stat label="Conversations" value={String(ask.conversations)} />
-          <Stat
-            label="Most asked"
-            value={ask.categories[0] ? ASK_CATEGORY_LABELS[ask.categories[0].category] : "—"}
-            small
-          />
-        </View>
-      ) : (
-        <EmptyLine text="No questions in this period. Ask Votic about anything you're reading." />
-      )}
-    </PreviewCard>
+    <ExploreRow
+      icon="sparkles-outline"
+      title="Ask Votic"
+      detail={
+        ask.questions
+          ? `${ask.questions} questions · ${ask.conversations} conversations`
+          : "Explore the questions you ask about your documents."
+      }
+      onOpen={onOpen}
+    />
   );
 }
-
 function ActivityPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
   const { log } = useActivity();
   const streak = streaks(log);
   const summary = summarize(log, period.start, period.end);
   return (
-    <PreviewCard icon="calendar-outline" title="Activity" onOpen={onOpen}>
-      <View style={s.stats}>
-        <Stat label="Active days" value={String(summary.activeDays)} />
-        <Stat label="Current streak" value={`${streak.current} ${streak.current === 1 ? "day" : "days"}`} />
-        <Stat label="Longest streak" value={`${streak.longest} ${streak.longest === 1 ? "day" : "days"}`} />
-      </View>
-    </PreviewCard>
+    <ExploreRow
+      icon="calendar-outline"
+      title="Activity"
+      detail={`${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"} in this period · Current streak: ${streak.current} ${streak.current === 1 ? "day" : "days"}`}
+      onOpen={onOpen}
+    />
   );
 }
-
 function DocumentsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
-  const { theme } = useVoticTheme();
   const { log } = useActivity();
   const { documents } = useDocumentLibrary();
   const top = documentRanking(log, period.start, period.end)
     .map((entry) => ({ entry, document: documents.find((document) => document.id === entry.documentId) }))
-    .filter((item) => item.document)[0];
+    .find((item) => item.document);
   return (
-    <PreviewCard icon="documents-outline" title="Documents" onOpen={onOpen}>
-      {top?.document ? (
-        <View style={s.docRow}>
-          <DocumentCover document={top.document} size="sm" />
-          <View style={s.grow}>
-            <Text style={[s.label, { color: theme.mutedText }]}>Most read</Text>
-            <Text numberOfLines={2} style={[s.docTitle, { color: theme.text }]}>
-              {readableTitle(top.document.title)}
-            </Text>
-            <Text style={[s.sub, { color: theme.mutedText }]}>
-              {formatDuration(top.entry.total)} in this period
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <EmptyLine text="Documents you read or listen to in this period appear here." />
-      )}
-    </PreviewCard>
+    <ExploreRow
+      icon="documents-outline"
+      title="Documents"
+      detail={
+        top?.document
+          ? `Most read: ${readableTitle(top.document.title)} · ${formatDuration(top.entry.total)}`
+          : "See the documents you spend time reading and listening to."
+      }
+      onOpen={onOpen}
+    />
   );
 }
-
 function InsightsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+  const { theme } = useVoticTheme();
   const { log } = useActivity();
   const result = insights(log, period);
+  const observation =
+    result.enough && result.mostActiveTime
+      ? `You read and listen most ${result.mostActiveTime.id === "night" ? "at night" : `in the ${result.mostActiveTime.label.toLowerCase()}`}.`
+      : `Your personal insights take shape after ${INSIGHT_MIN_MS / 60_000} minutes across ${INSIGHT_MIN_DAYS} different days in this period.`;
   return (
-    <PreviewCard icon="bulb-outline" title="Personal insights" onOpen={onOpen}>
-      {result.enough ? (
-        <View style={s.stats}>
-          <Stat label="Listening share" value={`${Math.round(result.listeningShare * 100)}%`} />
-          <Stat label="Most active time" value={result.mostActiveTime?.label ?? "—"} small />
-        </View>
-      ) : (
-        <EmptyLine text="Insights appear once there's enough activity to be meaningful." />
-      )}
-    </PreviewCard>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Personal insights details"
+      accessibilityHint={`${observation} Opens your reading and listening insights`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        s.insightCard,
+        { backgroundColor: pressed ? theme.brandTint : theme.surfaceMuted, borderColor: theme.border },
+      ]}
+    >
+      <View style={s.heroHeading}>
+        <Text style={[s.eyebrow, { color: theme.accentText }]}>A LITTLE ABOUT YOUR RHYTHM</Text>
+        <Ionicons accessible={false} name="bulb-outline" size={24} color={theme.accentText} />
+      </View>
+      <Text style={[s.insightObservation, { color: theme.text }]}>{observation}</Text>
+      <View style={s.insightLink}>
+        <Text style={[s.details, { color: theme.accentText }]}>Personal insights</Text>
+        <Ionicons accessible={false} name="arrow-forward" size={20} color={theme.accentText} />
+      </View>
+    </Pressable>
+  );
+}
+function ExploreRow({
+  icon,
+  title,
+  detail,
+  onOpen,
+}: {
+  icon: IconName;
+  title: string;
+  detail: string;
+  onOpen: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title} details`}
+      accessibilityHint={`${detail} Opens detailed statistics for the selected period`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        s.exploreRow,
+        { backgroundColor: pressed ? theme.surfaceMuted : theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={[s.exploreIcon, { backgroundColor: theme.brandTint }]}>
+        <Ionicons accessible={false} name={icon} size={24} color={theme.accentText} />
+      </View>
+      <View style={s.grow}>
+        <Text style={[s.cardTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[s.exploreDetail, { color: theme.mutedText }]}>{detail}</Text>
+      </View>
+      <Ionicons accessible={false} name="chevron-forward" size={20} color={theme.mutedText} />
+    </Pressable>
   );
 }
 
@@ -591,36 +687,6 @@ function Card({ title, children }: { title?: string; children: ReactNode }) {
   );
 }
 
-function PreviewCard({
-  icon,
-  title,
-  onOpen,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  onOpen: () => void;
-  children: ReactNode;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${title} details`}
-        onPress={onOpen}
-        style={({ pressed }) => [s.previewHeader, { opacity: pressed ? 0.65 : 1 }]}
-      >
-        <Ionicons name={icon} size={20} color={theme.accentText} />
-        <Text style={[s.cardTitle, s.grow, { color: theme.text }]}>{title}</Text>
-        <Text style={[s.details, { color: theme.accentText }]}>Details</Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.accentText} />
-      </Pressable>
-      {children}
-    </View>
-  );
-}
-
 function Stat({
   label,
   value,
@@ -698,6 +764,61 @@ function PeriodArrow({
 }
 
 const s = StyleSheet.create({
+  intro: { ...typography.body, marginBottom: spacing.sm },
+  sectionTitle: { ...typography.sectionTitle, marginTop: spacing.sm },
+  eyebrow: { ...typography.eyebrow, flexShrink: 1 },
+  heroCard: { borderWidth: 1, borderRadius: radii.sheet, padding: spacing.xl, gap: spacing.lg },
+  heroHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  heroNote: {
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  heroNoteText: { fontSize: 15, lineHeight: 23, flex: 1 },
+  metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  metricTile: {
+    flexGrow: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  metricValue: { fontSize: 26, fontWeight: "800", letterSpacing: -0.4 },
+  metricLabel: { fontSize: 15, lineHeight: 22, fontWeight: "600" },
+  insightCard: {
+    minHeight: controlSizes.minimumTouch,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  insightObservation: { ...typography.sectionTitle, lineHeight: 29 },
+  insightLink: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  exploreRow: {
+    minHeight: 88,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  exploreIcon: {
+    width: controlSizes.minimumTouch,
+    height: controlSizes.minimumTouch,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exploreDetail: { fontSize: 14, lineHeight: 21, marginTop: spacing.xs },
   safe: { flex: 1 },
   topBar: {
     minHeight: 56,
@@ -714,10 +835,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.section, gap: spacing.md },
-  segmented: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
+  segmented: { flexDirection: "row", flexWrap: "wrap", padding: 3, borderRadius: 12, gap: 2 },
   segment: {
-    flex: 1,
-    minHeight: 44,
+    flexGrow: 1,
+    flexBasis: "auto",
+    minHeight: controlSizes.minimumTouch,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: "transparent",
@@ -738,16 +860,9 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, fontSize: 14, lineHeight: 20 },
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   cardTitle: { fontSize: 17, fontWeight: "800" },
-  previewHeader: {
-    minHeight: controlSizes.minimumTouch,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginVertical: -spacing.sm,
-  },
   details: { fontSize: 14, fontWeight: "800" },
   label: { fontSize: 14 },
-  hero: { fontSize: 40, lineHeight: 46, fontWeight: "800", letterSpacing: -0.8, marginTop: 2 },
+  hero: { fontSize: 44, lineHeight: 54, fontWeight: "800", letterSpacing: -0.8, marginTop: 2 },
   sub: { fontSize: 14, lineHeight: 20 },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg },
   stat: { minWidth: 92, flexGrow: 1, gap: 2 },

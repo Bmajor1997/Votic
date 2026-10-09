@@ -273,7 +273,7 @@ describe("Statistics", () => {
     ).toBeGreaterThan(0);
     await fireEvent.press(screen.getByRole("button", { name: "Show as table" }));
     expect(screen.getByLabelText(/as a table$/)).toBeTruthy();
-    expect(screen.getByLabelText("Questions, 1")).toBeTruthy();
+    expect(screen.getByLabelText("Questions asked, 1")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Documents details" }));
     expect(router.push).toHaveBeenCalledWith({
       pathname: "/statistics",
