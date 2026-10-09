@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork";
 import { widgetPalette } from "../../src/home/widgetDesign";
 import { NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
@@ -138,9 +138,12 @@ function ContinueCard({
   const readRef = useRef<View>(null);
   const title = readableTitle(document.title);
   const percent = Math.round(document.progress * 100);
-  const started = document.progress > 0;
-  const listenLabel = started ? "Resume listening" : "Listen";
-  const readLabel = started ? "Resume reading" : "Read";
+  const { width, fontScale } = useWindowDimensions();
+  const [labelsWrapped, setLabelsWrapped] = useState(false);
+  const compact = width <= 350;
+  const stacked = fontScale > 1.15 || width < 320 || labelsWrapped;
+  const listenLabel = "Continue Listening";
+  const readLabel = "Continue Reading";
   return (
     <View
       testID="home-continue-card"
@@ -170,11 +173,11 @@ function ContinueCard({
           <Text style={[s.featuredMeta, { color: colors.detail }]}>{progressLabel(document)}</Text>
         </View>
       </View>
-      <View style={s.featuredActions}>
-        <View ref={listenRef} collapsable={false} style={s.half}>
+      <View testID="home-continue-actions" style={[s.featuredActions, stacked && s.stackedActions]}>
+        <View ref={listenRef} collapsable={false} style={stacked ? undefined : s.listenAction}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${listenLabel} to ${title}`}
+            accessibilityLabel={`${listenLabel}: ${title}`}
             accessibilityHint="Opens the Reader and plays from where you left off"
             onPress={() => onOpen(listenRef, true)}
             style={({ pressed }) => [
@@ -183,14 +186,20 @@ function ContinueCard({
               { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <Ionicons name="play" size={19} color="#FFF" />
-            <Text style={[s.primaryText, s.shrink]}>{listenLabel}</Text>
+            <Text
+              onTextLayout={(event) => {
+                if (!stacked && event.nativeEvent.lines.length > 1) setLabelsWrapped(true);
+              }}
+              style={[s.primaryText, s.continueLabel, compact && s.compactLabel]}
+            >
+              {listenLabel}
+            </Text>
           </Pressable>
         </View>
-        <View ref={readRef} collapsable={false} style={s.half}>
+        <View ref={readRef} collapsable={false} style={stacked ? undefined : s.readAction}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${readLabel} ${title}`}
+            accessibilityLabel={`${readLabel}: ${title}`}
             accessibilityHint="Opens the document for reading, without audio controls"
             onPress={() => onOpen(readRef, false)}
             style={({ pressed }) => [
@@ -199,8 +208,14 @@ function ContinueCard({
               { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
             ]}
           >
-            <Ionicons name="book-outline" size={19} color={colors.ink} />
-            <Text style={[s.secondaryText, s.shrink, { color: colors.ink }]}>{readLabel}</Text>
+            <Text
+              onTextLayout={(event) => {
+                if (!stacked && event.nativeEvent.lines.length > 1) setLabelsWrapped(true);
+              }}
+              style={[s.secondaryText, s.continueLabel, compact && s.compactLabel, { color: colors.ink }]}
+            >
+              {readLabel}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -230,11 +245,14 @@ const s = StyleSheet.create({
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
-  // Listen and Read share one row in equal halves.
-  featuredActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  half: { flex: 1, minWidth: 118 },
-  shrink: { flexShrink: 1 },
-  featuredButton: { paddingHorizontal: spacing.sm, paddingVertical: spacing.md, gap: 6 },
+  // Give the longer Listening label more room; large text uses full-width actions in the same order.
+  featuredActions: { flexDirection: "row", gap: spacing.sm, marginHorizontal: -spacing.md },
+  stackedActions: { flexDirection: "column" },
+  listenAction: { flex: 18, minWidth: 0 },
+  readAction: { flex: 16, minWidth: 0 },
+  continueLabel: { flexShrink: 1, textAlign: "center" },
+  compactLabel: { fontSize: 14 },
+  featuredButton: { paddingHorizontal: spacing.xs, paddingVertical: spacing.md },
   grow: { flex: 1, minWidth: 0 },
   primary: {
     minHeight: 50,

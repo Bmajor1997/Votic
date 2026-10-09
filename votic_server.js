@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { extract_document } from "./app_parts/document_file_tools.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
-import { import_public_webpage } from "./app_parts/web_import.js";
+import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
 import { accounted_fetch, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -133,14 +133,19 @@ export function create_votic_handler(options = {}) {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
     if (active_extractions >= config.extract_concurrency) throw new HttpError(429, "Document processing is busy. Please try again shortly.", { "Retry-After": "2" });
-    const name = safe_filename(request), body = await read_body(request, config.max_document_bytes, config.body_timeout_ms);
-    if (!body.length) throw new HttpError(400, "The uploaded document is empty.");
-    if (!valid_signature(name, body)) throw new HttpError(415, "The document contents do not match its filename.");
+    const name = safe_filename(request);
+    // Reserve before awaiting the body: simultaneous slow uploads must share the same limit.
     active_extractions += 1;
     try {
+      const body = await read_body(request, config.max_document_bytes, config.body_timeout_ms);
+      if (!body.length) throw new HttpError(400, "The uploaded document is empty.");
+      if (!valid_signature(name, body)) throw new HttpError(415, "The document contents do not match its filename.");
       const result = await (options.extractDocument || extract_document)(name, body);
       send_json(response, 200, { text: result });
-    } catch (error) { throw new HttpError(400, extraction_error_message(error)); }
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(400, extraction_error_message(error));
+    }
     finally { active_extractions -= 1; }
     return;
   }
@@ -149,11 +154,11 @@ export function create_votic_handler(options = {}) {
     const payload = await read_json_body(request, Math.min(config.max_json_bytes, 20_000), config.body_timeout_ms);
     if (typeof payload.url !== "string" || payload.url.length > 3000) throw new HttpError(400, "Enter a valid webpage address.");
     try {
-      const page = await import_public_webpage(payload.url, { fetchImpl: fetch_impl, timeoutMs: config.body_timeout_ms });
+      const page = await import_public_webpage(payload.url, { fetchImpl: options.webFetchImpl, timeoutMs: config.body_timeout_ms });
       send_json(response, 200, page);
     } catch (error) {
       logger.warn?.("Votic webpage import unavailable", { name: error?.name });
-      throw new HttpError(400, error instanceof Error ? error.message : "Votic could not import that webpage.");
+      throw new HttpError(400, error instanceof WebImportError ? error.message : "Votic could not import that webpage. Check the address and try again.");
     }
     return;
   }

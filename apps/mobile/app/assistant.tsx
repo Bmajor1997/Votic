@@ -153,6 +153,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     lastQuestion.current = "";
     setMessages([]);
     setQuestion(initialQuestion);
+    setVoicePhase("idle");
+    setVoiceReveal(null);
     setError("");
     setSending(false);
     setRetrying(false);
@@ -541,6 +543,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               </Animated.View>
             </View>
             <KeyboardDictationButton
+              key={contextKey}
               value={question}
               onPhaseChange={setVoicePhase}
               onLevelChange={setVoiceLevel}

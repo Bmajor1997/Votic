@@ -32,6 +32,63 @@ const recent = testDocument("recent", "Field Guide", {
 });
 
 describe("Colorful Home cards", () => {
+  it.each([320, 375, 390])("keeps full Continue labels in order at a %s-point phone width", async (width) => {
+    const originalWindow = Dimensions.get("window");
+    const originalScreen = Dimensions.get("screen");
+    try {
+      await act(async () =>
+        Dimensions.set({ window: { ...originalWindow, width, fontScale: 1 }, screen: originalScreen }),
+      );
+      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      const actions = screen.getByTestId("home-continue-actions");
+      expect(StyleSheet.flatten(actions.props.style).flexDirection).toBe("row");
+      const buttons = screen.getAllByRole("button", { name: /^Continue (Listening|Reading):/ });
+      expect(buttons.map((button) => button.props.accessibilityLabel)).toEqual([
+        "Continue Listening: The next chapter",
+        "Continue Reading: The next chapter",
+      ]);
+      for (const label of ["Continue Listening", "Continue Reading"]) {
+        const text = screen.getByText(label);
+        expect(text.props.numberOfLines).toBeUndefined();
+        expect(text.props.allowFontScaling).not.toBe(false);
+        expect(StyleSheet.flatten(text.props.style).fontSize).toBeGreaterThanOrEqual(14);
+      }
+    } finally {
+      await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
+    }
+  });
+
+  it("stacks complete actions for accessibility text without changing their order", async () => {
+    const originalWindow = Dimensions.get("window");
+    const originalScreen = Dimensions.get("screen");
+    try {
+      await act(async () =>
+        Dimensions.set({ window: { ...originalWindow, fontScale: 2 }, screen: originalScreen }),
+      );
+      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
+        "column",
+      );
+      expect(screen.getAllByRole("button", { name: /^Continue (Listening|Reading):/ }).map(
+        (button) => button.props.accessibilityLabel,
+      )).toEqual(["Continue Listening: The next chapter", "Continue Reading: The next chapter"]);
+      expect(screen.getByText("Continue Listening").props.numberOfLines).toBeUndefined();
+    } finally {
+      await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
+    }
+  });
+
+  it("falls back to complete full-width actions when native text measurement detects wrapping", async () => {
+    await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+    await fireEvent(screen.getByText("Continue Listening"), "textLayout", {
+      nativeEvent: { lines: [{ text: "Continue Listen" }, { text: "ing" }] },
+    });
+    expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
+      "column",
+    );
+    expect(screen.getByText("Continue Listening")).toBeTruthy();
+  });
+
   for (const mode of ["light", "dark"] as const) {
     it(`keeps accessible actions and decorative artwork separate in ${mode} mode`, async () => {
       await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: mode }));
@@ -48,7 +105,7 @@ describe("Colorful Home cards", () => {
       expect(StyleSheet.flatten(screen.getByTestId("home-note-card").props.style).backgroundColor).toBe(
         widgetPalette(mode === "dark", "notes").surface,
       );
-      const read = screen.getByRole("button", { name: "Resume reading The next chapter" });
+      const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");
       expect(StyleSheet.flatten(read.props.style).minHeight).toBeGreaterThanOrEqual(48);
       expect(

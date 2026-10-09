@@ -148,6 +148,7 @@ export function KeyboardDictationButton({
     changePhase("transcribing");
     try {
       await stream.current.stop();
+      if (!mounted.current) return;
       await setAudioModeAsync({ allowsRecording: false });
       if (!mounted.current) return;
       if (!chunks.current.length)
@@ -165,7 +166,7 @@ export function KeyboardDictationButton({
         );
     } finally {
       chunks.current = [];
-      await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
+      if (mounted.current) await setAudioModeAsync({ allowsRecording: false }).catch(() => {});
       changePhase("idle");
       // Restore the question field before focusing it.
       if (mounted.current)

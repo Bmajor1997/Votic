@@ -8,9 +8,10 @@ import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
+import { searchParams } from "../mocks/expoRouter";
 import { VoiceRecordingArea } from "../../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -71,6 +72,28 @@ function EnableReduceMotion() {
 }
 
 describe("Ask Votic recording composer", () => {
+  it("ignores a pending transcript after the Ask context changes", async () => {
+    let finish!: (text: string) => void;
+    jest.mocked(transcribeVoiceQuestion).mockImplementationOnce(
+      () => new Promise<string>((resolve) => { finish = resolve; }),
+    );
+    const view = await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    await stop();
+    expect(screen.getByText("Transcribing")).toBeTruthy();
+    searchParams.current = { notesDocumentId: "other-doc" };
+    await view.rerender(
+      <AppProviders>
+        <AskVotic />
+      </AppProviders>,
+    );
+    await act(async () => finish("Transcript from the previous context"));
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("");
+    expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();
+    expect(screen.queryByText("Transcribing")).toBeNull();
+  });
+
   it("finishes an active transcript immediately when Reduce Motion is enabled", async () => {
     await renderWithProviders(
       <>

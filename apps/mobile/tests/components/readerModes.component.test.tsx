@@ -9,7 +9,7 @@ import { LIBRARY_KEY } from "../../src/documents/documentStorage";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { ReaderThemeProvider, useVoticTheme } from "../../src/theme/ThemeProvider";
 import { searchParams } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -160,15 +160,47 @@ describe("Read mode", () => {
     expect(screen.getByText(/Passage 1\.\s+Passage 2\./)).toBeTruthy();
   });
 
-  it("switches to listening when asked, then plays from the reading position", async () => {
+  it("keeps narration unavailable after reading to a new position", async () => {
     await openIn("read");
     await layOut();
     await dragTo(400);
     await fireEvent.press(screen.getByRole("button", { name: "Show reading tools" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Switch to listening" }));
+    expect(screen.queryByRole("button", { name: "Switch to listening" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(speak).not.toHaveBeenCalled();
+    expect(screen.getByText("35% read")).toBeTruthy();
+  });
+
+  it("honors explicit Read even when an autoplay parameter is present", async () => {
+    searchParams.current = { mode: "read", autoplay: "1" };
+    await renderWithProviders(<OpenedReader />, { documents: [long], reduceMotion: true });
+    await layOut();
+    await act(async () => jest.advanceTimersByTime(500));
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(speak).not.toHaveBeenCalled();
+    expect(Speech.stop).toHaveBeenCalled();
+  });
+
+  it("stops narration on a reused route and ignores a late completed-utterance callback", async () => {
+    searchParams.current = { mode: "listen" };
+    const view = await renderWithProviders(<OpenedReader />, { documents: [long], reduceMotion: true });
     await fireEvent.press(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(speak).toHaveBeenCalled());
-    expect(speak.mock.calls.at(-1)?.[0]).toBe("Passage 5.");
+    const options = speak.mock.calls.at(-1)?.[1] as Speech.SpeechOptions;
+    const calls = speak.mock.calls.length;
+    jest.mocked(Speech.stop).mockClear();
+    searchParams.current = { mode: "read", autoplay: "1" };
+    await view.rerender(
+      <AppProviders>
+        <OpenedReader />
+      </AppProviders>,
+    );
+    expect(Speech.stop).toHaveBeenCalled();
+    await act(async () => options.onDone?.());
+    expect(speak).toHaveBeenCalledTimes(calls);
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Show reading tools" })).toBeTruthy();
   });
 
   it("opens Ask Votic without leaving Read mode", async () => {

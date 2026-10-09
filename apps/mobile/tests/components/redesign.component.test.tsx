@@ -86,12 +86,12 @@ describe("Home", () => {
     await renderWithProviders(<Home />, { documents: [report, guide] });
     expect(screen.getByText("q3 board report FINAL")).toBeTruthy();
     expect(screen.getByText("Passage 2 of 4")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Resume listening to q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue Listening: q3 board report FINAL" }));
     expect(router.push).toHaveBeenCalledWith({
       pathname: "/reader",
       params: { mode: "listen", autoplay: "1" },
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Resume reading q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue Reading: q3 board report FINAL" }));
     expect(router.push).toHaveBeenLastCalledWith({ pathname: "/reader", params: { mode: "read" } });
   });
 

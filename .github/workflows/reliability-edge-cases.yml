@@ -46,29 +46,36 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run Vitest behavioral reliability tests
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run test:reliability
 
       - name: Run mobile component tests
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run test:components
 
       - name: Lint mobile code
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run lint
 
       - name: Check mobile code formatting
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run format:check
 
       - name: Type-check reliability-sensitive mobile code
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run typecheck
 
       - name: Validate Expo configuration
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npx expo config --type public
 
       - name: Check Expo dependency compatibility
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npx expo install --check

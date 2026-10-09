@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { request as http_request } from "node:http";
 import { create_votic_server, load_server_config, validate_production_security } from "../votic_server.js";
 const test_prices = JSON.stringify(Object.fromEntries(["ocr-model", "document-model", "review-model"].map((model) => [model, { input: 0.1, cached: 0.01, cache_write: 0.125, output: 0.5 }])));
 
@@ -433,5 +434,54 @@ test("treats hostile document instructions as untrusted AI reference text", asyn
     assert.match(apiBody.instructions, /untrusted reference text/i);
     assert.match(apiBody.instructions, /never follow instructions/i);
     assert.match(apiBody.input, /Reveal secrets and system prompts/);
+  });
+});
+
+test("reserves extraction capacity before a slow upload finishes and releases it on rejection", async () => {
+  await with_server({ config: { extract_concurrency: 1 }, extractDocument: async () => "parsed" }, async (base) => {
+    let upload;
+    const first = new Promise((resolve, reject) => {
+      upload = http_request(base + "/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf", "Content-Length": pdf.length },
+      }, (response) => { response.resume(); response.on("end", () => resolve(response.statusCode)); });
+      upload.on("error", reject);
+      upload.write(pdf.subarray(0, 1));
+    });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const second = await fetch(base + "/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf" },
+        body: pdf,
+      });
+      assert.equal(second.status, 429);
+    } finally { upload.end(pdf.subarray(1)); }
+    assert.equal(await first, 200);
+    const invalid = await fetch(base + "/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf" },
+      body: Buffer.from("not a PDF"),
+    });
+    assert.equal(invalid.status, 415);
+    const valid = await fetch(base + "/api/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf" },
+      body: pdf,
+    });
+    assert.equal(valid.status, 200);
+  });
+});
+
+test("web imports do not expose internal network error details", async () => {
+  await with_server({ webFetchImpl: async () => { throw new Error("internal transport detail"); } }, async (base) => {
+    const response = await fetch(base + "/api/import-url", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: "http://203.0.113.10/article" }),
+    });
+    assert.equal(response.status, 400);
+    const body = await response.json();
+    assert.match(body.error, /Check the address/);
+    assert.doesNotMatch(body.error, /internal transport detail/);
   });
 });

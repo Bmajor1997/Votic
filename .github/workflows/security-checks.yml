@@ -56,6 +56,7 @@ jobs:
       - name: Run Votic automated tests
         run: npm test
       - name: Check dependencies for vulnerabilities
+        if: always()
         run: |
           npm audit --json > npm-audit.json || true
           node - <<'NODE'
@@ -64,7 +65,6 @@ jobs:
           const audit = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
           const rows = [];
           for (const [name, finding] of Object.entries(audit.vulnerabilities || {})) {
-            if (!["low", "moderate"].includes(finding.severity)) continue;
             const details = (Array.isArray(finding.via) ? finding.via : []).find(item => typeof item === "object") || {};
             const title = details.title || "Dependency vulnerability";
             const cause = details.url ? `Reported by npm audit. Advisory: ${details.url}` : "Reported by npm audit.";
@@ -73,7 +73,7 @@ jobs:
           }
           const start = "<!-- AUTO-GENERATED-NPM-AUDIT:START -->";
           const end = "<!-- AUTO-GENERATED-NPM-AUDIT:END -->";
-          const body = rows.length ? rows.join("\n") : "| None | No low or moderate npm dependency vulnerabilities detected | — | — | — | — |";
+          const body = rows.length ? rows.join("\n") : "| None | No npm dependency vulnerabilities detected | — | — | — | — |";
           let report = fs.readFileSync(path, "utf8");
           const block = `${start}\n\n## Current npm audit findings\n\n| Severity | Vulnerability / Finding | Affected dependency or code | Cause | Recommended fix | Status |\n| --- | --- | --- | --- | --- | --- |\n${body}\n\n${end}`;
           report = report.includes(start) && report.includes(end) ? report.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block) : `${report}\n\n${block}\n`;
@@ -89,13 +89,17 @@ jobs:
             npm-audit.json
             security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner
+        if: always()
         run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan --config=/src/osv-scanner.toml -r /src
 
       - name: Install Semgrep
+        if: always()
         run: pip install semgrep
       - name: Scan Votic source code with Semgrep
+        if: always()
         run: semgrep scan --config auto .
       - name: Scan repository for exposed secrets
+        if: always()
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -123,12 +127,15 @@ jobs:
       - name: Check Expo dependency compatibility
         run: npx expo install --check
       - name: Install Semgrep for mobile security scanning
+        if: always()
         run: pip install semgrep
         working-directory: .
       - name: Scan React Native TypeScript with Semgrep
+        if: always()
         run: semgrep scan --config auto apps/mobile --error
         working-directory: .
       - name: Audit mobile production dependencies
+        if: always()
         run: |
           npm audit --omit=dev --json > mobile-audit.json || true
           node - <<'NODE'

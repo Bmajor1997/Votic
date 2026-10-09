@@ -193,10 +193,9 @@ function ReaderContent() {
   const askGeneration = useRef(0);
   const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
   // How someone opened the document decides the controls: Read has no audio controls, Listen does.
-  // Opening without a mode (from Documents, Notes, or Statistics) reads; only Read → Listen switches it.
-  const [mode, setMode] = useState<ReaderMode>(
-    params.mode === "listen" || params.autoplay === "1" ? "listen" : "read",
-  );
+  // An explicit Read request takes precedence over a stale autoplay parameter.
+  const mode: ReaderMode =
+    params.mode === "read" ? "read" : params.mode === "listen" || params.autoplay === "1" ? "listen" : "read";
   const listening = mode === "listen";
   const contentHeight = useRef(0);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
@@ -284,14 +283,23 @@ function ReaderContent() {
   useEffect(() => {
     onPositionChange();
   }, [index, wordIndex, accessibility.reduceMotion]);
-  // "Resume listening" from Home opens the Reader and starts narration once it is ready.
+  // Read entry cancels queued utterances and voice previews without moving the saved position.
+  const onReadEntry = useEffectEvent(() => {
+    void stop();
+    setListenExpanded(false);
+    setSheet((current) => (current === "listen" ? null : current));
+  });
+  useEffect(() => {
+    if (!listening) onReadEntry();
+  }, [listening]);
+  // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
   const onReadyToAutoplay = useEffectEvent(() => speak());
   useEffect(() => {
-    if (!readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
+    if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
     autoplayed.current = true;
     onReadyToAutoplay();
-  }, [readerReady, params.autoplay, passages.length]);
+  }, [listening, readerReady, params.autoplay, passages.length]);
   useEffect(() => {
     askGeneration.current += 1;
     const frame = requestAnimationFrame(() => {
@@ -617,9 +625,11 @@ function ReaderContent() {
     await Speech.stop();
   }
   async function previewVoice(voice: DeviceVoice, name: string) {
-    speechSession.current += 1;
+    if (!listening) return;
+    const session = ++speechSession.current;
     setPlaying(false);
     await Speech.stop();
+    if (session !== speechSession.current) return;
     setPreviewVoiceIdentifier(voice.identifier);
     const clearPreview = () =>
       setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current));
@@ -632,6 +642,7 @@ function ReaderContent() {
     });
   }
   function speak(at = index, startWord = at === index ? wordIndex : 0) {
+    if (!listening) return;
     const session = speechSession.current + 1;
     speechSession.current = session;
     void beginSpeech(at, startWord, session, true);
@@ -643,7 +654,7 @@ function ReaderContent() {
     clearQueue: boolean,
     playbackRate = rate,
   ) {
-    if (!activeDocument || !passages[at] || session !== speechSession.current) return;
+    if (!listening || !activeDocument || !passages[at] || session !== speechSession.current) return;
     if (clearQueue) await Speech.stop();
     if (session !== speechSession.current) return;
     const passage = passages[at];
@@ -1188,19 +1199,7 @@ function ReaderContent() {
                             active={sheet === "listen" || playing}
                             onPress={() => setSheet("listen")}
                           />
-                        ) : (
-                          // Read mode has no audio controls until the person asks to listen.
-                          <ToolButton
-                            icon="headset-outline"
-                            label="Listen"
-                            accessibilityLabel="Switch to listening"
-                            active={false}
-                            onPress={() => {
-                              setMode("listen");
-                              setListenExpanded(false);
-                            }}
-                          />
-                        )}
+                        ) : null}
                         {activeDocument && activeDocument.progress > 0 ? (
                           <ToolButton
                             icon="sparkles-outline"

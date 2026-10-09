@@ -111,7 +111,8 @@ export function createDocumentStore() {
       documents.push({ ...rest, plainText: text } as VoticDocument);
     }
     void AsyncStorage.removeItem(LEGACY_KEY).catch(() => {});
-    void removeOrphanedTexts(stored).catch(() => {});
+    // Finish snapshot-based cleanup before callers can save newly imported documents.
+    await removeOrphanedTexts(stored).catch(() => {});
     return documents;
   }
 

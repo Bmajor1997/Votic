@@ -5,9 +5,37 @@ import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
 const realFetch = global.fetch;
 afterEach(() => {
   global.fetch = realFetch;
+  setAuthTokenProvider(null);
 });
 
 describe("Votic API requests", () => {
+  it("times out a stalled token refresh and never sends a late request", async () => {
+    let finish!: (token: string) => void;
+    setAuthTokenProvider(() => new Promise<string>((resolve) => { finish = resolve; }));
+    const fetchMock = jest.fn(async () => new Response("{}"));
+    global.fetch = fetchMock as typeof fetch;
+    const outcome = expect(askVotic("Hello")).rejects.toThrow("Votic took too long to respond");
+    await jest.advanceTimersByTimeAsync(20_000);
+    await outcome;
+    finish("late-token");
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("times out a stalled response body and can make another request afterwards", async () => {
+    let signal: AbortSignal | null | undefined;
+    global.fetch = jest.fn(async (_url: unknown, init?: RequestInit) => {
+      signal = init?.signal;
+      return { ok: true, json: () => new Promise(() => {}) } as unknown as Response;
+    }) as typeof fetch;
+    const outcome = expect(askVotic("Hello")).rejects.toThrow("Votic took too long to respond");
+    await jest.advanceTimersByTimeAsync(20_000);
+    await outcome;
+    expect(signal?.aborted).toBe(true);
+    global.fetch = jest.fn(async () => new Response(JSON.stringify({ answer: "Recovered" }))) as typeof fetch;
+    expect((await askVotic("Try again")).answer).toBe("Recovered");
+  });
+
   it("labels Catch Me Up on the existing authenticated Ask Votic route", async () => {
     const fetchMock = jest.fn(
       async (_url: unknown, _init?: RequestInit) =>
