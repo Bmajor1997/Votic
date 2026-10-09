@@ -38,7 +38,8 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
-import { KeyboardDictationButton } from "../src/components/KeyboardDictationButton";
+import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
+import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
@@ -159,6 +160,10 @@ function ReaderContent() {
   // 0 is the Reader alone, 1 is the panel fully up; opening and closing are the same animation reversed.
   const [askProgress] = useState(() => new Animated.Value(0));
   const [askQuestion, setAskQuestion] = useState("");
+  const [askVoicePhase, setAskVoicePhase] = useState<VoiceInputPhase>("idle");
+  const [askVoiceLevel, setAskVoiceLevel] = useState(0.12);
+  const askVoiceBusy = askVoicePhase !== "idle";
+  const showAskRecording = askVoiceBusy && askVoicePhase !== "reviewing";
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
   const askInputRef = useRef<TextInput>(null);
@@ -198,13 +203,15 @@ function ReaderContent() {
   const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
-  // The empty state is dock-sized. Only a real conversation gets a bounded, scrollable tray.
+  // Keep the empty composer compact, with room for the recording waveform when active.
   const askPanelHeight = hasAskConversation
     ? Math.min(
         ASK_CONVERSATION_MAX_HEIGHT,
         Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
       )
-    : ASK_COMPOSER_HEIGHT;
+    : showAskRecording
+      ? ASK_COMPOSER_HEIGHT + 88
+      : ASK_COMPOSER_HEIGHT;
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -356,11 +363,12 @@ function ReaderContent() {
     askProgress.stopAnimation();
     askProgress.setValue(0);
     setAskPhase("closed");
+    setAskVoicePhase("idle");
   }
 
   async function sendAskVotic() {
     const clean = askQuestion.trim();
-    if (!clean || askSending || !activeDocument) return;
+    if (!clean || askSending || askVoiceBusy || !activeDocument) return;
     Keyboard.dismiss();
     const generation = askGeneration.current;
     const context = resolveAskVoticContext(documents, activeDocument, {});
@@ -1418,45 +1426,63 @@ function ReaderContent() {
                     <View
                       style={[s.askComposer, { borderColor: theme.accent, backgroundColor: theme.surface }]}
                     >
-                      {!hasAskConversation ? <VoticLogo compact markOnly progress={progress} /> : null}
-                      <TextInput
-                        ref={askInputRef}
-                        accessibilityLabel="Ask Votic a question"
-                        value={askQuestion}
-                        onChangeText={setAskQuestion}
-                        placeholder="Ask Votic about this document…"
-                        placeholderTextColor={theme.mutedText}
-                        multiline={hasAskConversation}
-                        numberOfLines={hasAskConversation ? undefined : 1}
-                        maxLength={1000}
-                        style={[s.askInput, !hasAskConversation && s.compactAskInput, { color: theme.text }]}
-                        onSubmitEditing={() => void sendAskVotic()}
-                      />
+                      {!hasAskConversation && !showAskRecording ? (
+                        <VoticLogo compact markOnly progress={progress} />
+                      ) : null}
+                      {showAskRecording ? (
+                        <View style={{ flex: 1, paddingVertical: spacing.xs }}>
+                          <VoiceRecordingArea phase={askVoicePhase} level={askVoiceLevel} />
+                        </View>
+                      ) : (
+                        <TextInput
+                          ref={askInputRef}
+                          accessibilityLabel="Ask Votic a question"
+                          value={askQuestion}
+                          editable={!askVoiceBusy}
+                          onChangeText={setAskQuestion}
+                          placeholder="Ask Votic about this document…"
+                          placeholderTextColor={theme.mutedText}
+                          multiline={hasAskConversation}
+                          numberOfLines={hasAskConversation ? undefined : 1}
+                          maxLength={1000}
+                          style={[
+                            s.askInput,
+                            !hasAskConversation && s.compactAskInput,
+                            { color: theme.text },
+                          ]}
+                          onSubmitEditing={() => void sendAskVotic()}
+                        />
+                      )}
                       <KeyboardDictationButton
                         value={askQuestion}
+                        onPhaseChange={setAskVoicePhase}
+                        onLevelChange={setAskVoiceLevel}
                         onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
                         disabled={askSending || summarizing}
                       />
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Send question"
-                        disabled={!askQuestion.trim() || askSending}
-                        onPress={() => void sendAskVotic()}
-                        style={[
-                          s.askSend,
-                          {
-                            backgroundColor: theme.accent,
-                            opacity: !askQuestion.trim() || askSending ? 0.45 : 1,
-                          },
-                        ]}
-                      >
-                        {askSending ? (
-                          <ActivityIndicator size="small" color="#FFF" />
-                        ) : (
-                          <Ionicons name="arrow-up" size={21} color="#FFF" />
-                        )}
-                      </Pressable>
+                      {!showAskRecording && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Send question"
+                          disabled={!askQuestion.trim() || askSending || askVoiceBusy}
+                          accessibilityState={{ disabled: !askQuestion.trim() || askSending || askVoiceBusy }}
+                          onPress={() => void sendAskVotic()}
+                          style={[
+                            s.askSend,
+                            {
+                              backgroundColor: theme.accent,
+                              opacity: !askQuestion.trim() || askSending || askVoiceBusy ? 0.45 : 1,
+                            },
+                          ]}
+                        >
+                          {askSending ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                          ) : (
+                            <Ionicons name="arrow-up" size={21} color="#FFF" />
+                          )}
+                        </Pressable>
+                      )}
                       {!hasAskConversation ? (
                         <Pressable
                           accessibilityRole="button"

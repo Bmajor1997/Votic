@@ -12,7 +12,7 @@ Reader Appearance controls change the document's text, spacing, and reading colo
 
 ## Ask Votic with your voice
 
-Open Ask Votic from the document. You can type a question or tap the microphone. Allow microphone access if prompted. A small waveform shows recording activity. Stop recording to transcribe what you said, review the text, and send your question. Votic answers from the document and points you to the passage it used.
+Open Ask Votic from the document. You can type a question or tap the microphone. Allow microphone access if prompted. The question field becomes a waveform while you record. Tap the Stop button when you finish. Votic transcribes the recording, then you can review or edit the words before sending your question. Votic answers from the document and points you to the passage it used.
 
 ## Save and organize notes
 

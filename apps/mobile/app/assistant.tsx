@@ -20,7 +20,8 @@ import { askVotic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
-import { KeyboardDictationButton } from "../src/components/KeyboardDictationButton";
+import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
+import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
@@ -116,6 +117,10 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 "Find information",
               ];
   const [question, setQuestion] = useState(initialQuestion);
+  const [voicePhase, setVoicePhase] = useState<VoiceInputPhase>("idle");
+  const [voiceLevel, setVoiceLevel] = useState(0.12);
+  const voiceBusy = voicePhase !== "idle";
+  const showRecording = voiceBusy && voicePhase !== "reviewing";
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const [retrying, setRetrying] = useState(false);
@@ -246,7 +251,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   async function send(retryQuestion?: string) {
     const retry = typeof retryQuestion === "string";
     const clean = (retryQuestion ?? question).trim();
-    if (!clean || sending || launching) return;
+    if (!clean || sending || launching || voiceBusy) return;
     Keyboard.dismiss();
     const askContext = context;
     const askGeneration = generation.current;
@@ -502,65 +507,78 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   ],
                 }}
               >
-                <TextInput
-                  ref={inputRef}
-                  accessibilityLabel="Ask Votic a question"
-                  value={question}
-                  onChangeText={setQuestion}
-                  placeholder={
-                    notesScopeLabel
-                      ? "Ask about these notes"
-                      : activeDocument
-                        ? "Ask about this document"
-                        : "Ask Votic"
-                  }
-                  placeholderTextColor={theme.mutedText}
-                  multiline
-                  maxLength={1000}
-                  style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                  onSubmitEditing={() => void send()}
-                />
+                {showRecording ? (
+                  <VoiceRecordingArea phase={voicePhase} level={voiceLevel} />
+                ) : (
+                  <TextInput
+                    ref={inputRef}
+                    accessibilityLabel="Ask Votic a question"
+                    value={question}
+                    editable={!voiceBusy}
+                    onChangeText={setQuestion}
+                    placeholder={
+                      notesScopeLabel
+                        ? "Ask about these notes"
+                        : activeDocument
+                          ? "Ask about this document"
+                          : "Ask Votic"
+                    }
+                    placeholderTextColor={theme.mutedText}
+                    multiline
+                    maxLength={1000}
+                    style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                    onSubmitEditing={() => void send()}
+                  />
+                )}
               </Animated.View>
             </View>
             <KeyboardDictationButton
               value={question}
+              onPhaseChange={setVoicePhase}
+              onLevelChange={setVoiceLevel}
               onChangeText={setQuestion}
               onFocus={() => inputRef.current?.focus()}
               disabled={sending || launching}
             />
-            <Animated.View style={{ transform: [{ translateY: sendBounce }] }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Send question"
-                disabled={!question.trim() || sending || launching}
-                onPress={() => void send()}
-                style={[
-                  s.send,
-                  { backgroundColor: theme.accent, opacity: !question.trim() || sending ? 0.4 : 1 },
-                ]}
-              >
-                {sending ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Animated.View
-                    style={{
-                      opacity: sendOpacity,
-                      transform: [
-                        {
-                          rotate: sendSpin.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0deg", "360deg"],
-                          }),
-                        },
-                        { translateY: sendLaunch },
-                      ],
-                    }}
-                  >
-                    <Ionicons name="arrow-up" size={22} color="#FFF" />
-                  </Animated.View>
-                )}
-              </Pressable>
-            </Animated.View>
+            {!showRecording && (
+              <Animated.View style={{ transform: [{ translateY: sendBounce }] }}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Send question"
+                  disabled={!question.trim() || sending || launching || voiceBusy}
+                  accessibilityState={{ disabled: !question.trim() || sending || launching || voiceBusy }}
+                  onPress={() => void send()}
+                  style={[
+                    s.send,
+                    {
+                      backgroundColor: theme.accent,
+                      opacity: !question.trim() || sending || voiceBusy ? 0.4 : 1,
+                    },
+                  ]}
+                >
+                  {sending ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Animated.View
+                      style={{
+                        opacity: sendOpacity,
+                        transform: [
+                          {
+                            rotate: sendSpin.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: ["0deg", "360deg"],
+                            }),
+                          },
+                          { translateY: sendLaunch },
+                        ],
+                      }}
+                    >
+                      <Ionicons name="arrow-up" size={22} color="#FFF" />
+                    </Animated.View>
+                  )}
+                </Pressable>
+              </Animated.View>
+            )}
           </View>
           {flight ? (
             <Animated.View
