@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioStream } from "expo-audio";
 import type { AudioStreamOptions } from "expo-audio/build/AudioStream.types";
-import { Alert, Animated, StyleSheet } from "react-native";
+import { Alert, Animated, Pressable, StyleSheet, Text } from "react-native";
+import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
 import { VoiceRecordingArea } from "../../src/components/VoiceRecordingArea";
+import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
@@ -55,7 +57,89 @@ async function stop() {
   await fireEvent.press(screen.getByRole("button", { name: "Stop voice input" }));
 }
 
+function EnableReduceMotion() {
+  const { setReduceMotion } = useAccessibilityPreferences();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Enable Reduce Motion"
+      onPress={() => setReduceMotion(true)}
+    >
+      <Text>Reduce Motion</Text>
+    </Pressable>
+  );
+}
+
 describe("Ask Votic recording composer", () => {
+  it("finishes an active transcript immediately when Reduce Motion is enabled", async () => {
+    await renderWithProviders(
+      <>
+        <EnableReduceMotion />
+        <AskVotic />
+      </>,
+    );
+    jest.mocked(transcribeVoiceQuestion).mockResolvedValueOnce("One two three four.");
+    await start();
+    await capture();
+    await stop();
+    await act(async () => jest.advanceTimersByTime(40));
+    await fireEvent.press(screen.getByRole("button", { name: "Enable Reduce Motion" }));
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("One two three four.");
+    expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
+  });
+
+  it("reveals a multiline transcript after Stop while locking edits and Send", async () => {
+    await renderWithProviders(<AskVotic />);
+    const prefix = "Explain:\n";
+    const transcript = "First, word.\n\nNext line.";
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), prefix);
+    jest.mocked(transcribeVoiceQuestion).mockResolvedValueOnce(transcript);
+    await start();
+    await capture();
+    await stop();
+    expect(screen.getByLabelText(prefix + transcript)).toBeTruthy();
+    expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
+    expect(screen.getByRole("button", { name: "Revealing voice transcript", disabled: true })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Send question", disabled: true }));
+    expect(askVotic).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(80));
+    expect(screen.getByText(prefix + "First, word.\n\n")).toBeTruthy();
+    await act(async () => jest.advanceTimersByTime(120));
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe(prefix + transcript);
+    expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
+    expect(screen.getByRole("button", { name: "Send question", disabled: false })).toBeTruthy();
+  });
+
+  it("cancels a transcript reveal when the microphone component unmounts", async () => {
+    const onChangeText = jest.fn();
+    const onRevealChange = jest.fn();
+    const intervals = jest.spyOn(global, "setInterval");
+    const clear = jest.spyOn(global, "clearInterval");
+    jest.mocked(transcribeVoiceQuestion).mockResolvedValueOnce("One two three four.");
+    const view = await renderWithProviders(
+      <KeyboardDictationButton
+        value=""
+        onChangeText={onChangeText}
+        onFocus={jest.fn()}
+        onRevealChange={onRevealChange}
+      />,
+    );
+    await start();
+    await capture();
+    await stop();
+    await act(async () => jest.advanceTimersByTime(40));
+    const index = intervals.mock.calls.findIndex((call) => call[1] === 40);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const revealTimer = intervals.mock.results[index].value;
+    await view.unmount();
+    const calls = onChangeText.mock.calls.length;
+    const frames = onRevealChange.mock.calls.length;
+    await act(async () => jest.advanceTimersByTime(1000));
+    expect(onChangeText).toHaveBeenCalledTimes(calls);
+    expect(onRevealChange).toHaveBeenCalledTimes(frames);
+    expect(clear).toHaveBeenCalledWith(revealTimer);
+  });
+
   it("replaces the question with a waveform and accessible Stop, then restores the transcript for review", async () => {
     await renderWithProviders(<AskVotic />, { reduceMotion: true });
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Explain");
@@ -78,7 +162,7 @@ describe("Ask Votic recording composer", () => {
     expect(transcribeVoiceQuestion).not.toHaveBeenCalled();
     await stop();
     expect(stream.stop).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Transcribing…")).toBeTruthy();
+    expect(screen.getByLabelText("Transcribing…")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Transcribing voice question", disabled: true, busy: true }),
     ).toBeTruthy();

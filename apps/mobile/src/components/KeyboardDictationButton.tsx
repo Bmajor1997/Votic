@@ -10,6 +10,7 @@ import { ActivityIndicator, Alert, AppState, Keyboard, Pressable, StyleSheet } f
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { transcribeVoiceQuestion } from "../api/voticApi";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { revealCompletedText, type TextRevealFrame } from "./textReveal";
 import { pcm16ToWav } from "../voice/pcmWav";
 
 export type VoiceInputPhase = "idle" | "starting" | "recording" | "transcribing" | "reviewing";
@@ -21,6 +22,7 @@ export function KeyboardDictationButton({
   onFocus,
   onPhaseChange,
   onLevelChange,
+  onRevealChange,
   disabled = false,
 }: {
   value: string;
@@ -28,6 +30,7 @@ export function KeyboardDictationButton({
   onFocus: () => void;
   onPhaseChange?: (phase: VoiceInputPhase) => void;
   onLevelChange?: (level: number) => void;
+  onRevealChange?: (frame: TextRevealFrame | null) => void;
   disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -39,6 +42,9 @@ export function KeyboardDictationButton({
   const format = useRef({ sampleRate: 16_000, channels: 1 });
   const baseText = useRef("");
   const lastLevelAt = useRef(-1);
+  const focusFrame = useRef<number | null>(null);
+  const pendingTranscript = useRef<string | null>(null);
+  const revealCancel = useRef<(() => void) | null>(null);
   const stopTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamResult = useAudioStream({
     sampleRate: 16_000,
@@ -89,6 +95,8 @@ export function KeyboardDictationButton({
     return () => {
       mounted.current = false;
       clearTimer();
+      revealCancel.current?.();
+      if (focusFrame.current !== null) cancelAnimationFrame(focusFrame.current);
       subscription.remove();
       if (stream.current.isStreaming) stream.current.stop();
       if (phaseRef.current !== "idle") void setAudioModeAsync({ allowsRecording: false }).catch(() => {});
@@ -96,19 +104,42 @@ export function KeyboardDictationButton({
     // The stream ref avoids stopping a recording when the hook reports status changes.
   }, []);
 
+  useEffect(() => {
+    if (!reduceMotion || phase !== "reviewing" || pendingTranscript.current === null) return;
+    revealCancel.current?.();
+    onChangeText(pendingTranscript.current);
+    onRevealChange?.(null);
+  }, [reduceMotion, phase, onChangeText, onRevealChange]);
+
   async function revealTranscript(transcript: string) {
     if (!mounted.current) return;
-    changePhase("reviewing");
-    const prefix = baseText.current.trim();
-    const words = transcript.split(/\s+/).filter(Boolean);
+    const prefix = baseText.current;
+    const separator = prefix && !/\s$/.test(prefix) ? " " : "";
+    const text = (prefix + separator + transcript).slice(0, 1000);
     if (reduceMotion) {
-      onChangeText([prefix, transcript].filter(Boolean).join(" ").slice(0, 1000));
+      onChangeText(text);
       return;
     }
-    for (let i = 1; i <= words.length && mounted.current; i += 1) {
-      onChangeText([prefix, words.slice(0, i).join(" ")].filter(Boolean).join(" ").slice(0, 1000));
-      await new Promise((resolve) => setTimeout(resolve, 34));
-    }
+    pendingTranscript.current = text;
+    changePhase("reviewing");
+    await new Promise<void>((resolve) => {
+      const cancel = revealCompletedText(text, {
+        startAt: Math.min(text.length, prefix.length + separator.length),
+        onFrame: (frame) => {
+          if (!mounted.current) return;
+          onRevealChange?.(frame);
+          onChangeText(frame.visible);
+        },
+        onComplete: resolve,
+      });
+      revealCancel.current = () => {
+        cancel();
+        resolve();
+      };
+    });
+    revealCancel.current = null;
+    pendingTranscript.current = null;
+    if (mounted.current) onRevealChange?.(null);
   }
 
   async function stopAndTranscribe() {
@@ -138,7 +169,8 @@ export function KeyboardDictationButton({
       changePhase("idle");
       // Restore the question field before focusing it.
       if (mounted.current)
-        requestAnimationFrame(() => {
+        focusFrame.current = requestAnimationFrame(() => {
+          focusFrame.current = null;
           if (mounted.current) onFocus();
         });
     }
@@ -195,9 +227,11 @@ export function KeyboardDictationButton({
           ? "Stop voice input"
           : phase === "starting"
             ? "Starting microphone"
-            : busy
-              ? "Transcribing voice question"
-              : "Start voice input"
+            : phase === "reviewing"
+              ? "Revealing voice transcript"
+              : busy
+                ? "Transcribing voice question"
+                : "Start voice input"
       }
       accessibilityHint={
         recording

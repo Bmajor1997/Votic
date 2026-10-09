@@ -20,6 +20,8 @@ import { askVotic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { RevealingText } from "../src/components/RevealingText";
+import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
@@ -117,6 +119,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 "Find information",
               ];
   const [question, setQuestion] = useState(initialQuestion);
+  const [voiceReveal, setVoiceReveal] = useState<TextRevealFrame | null>(null);
   const [voicePhase, setVoicePhase] = useState<VoiceInputPhase>("idle");
   const [voiceLevel, setVoiceLevel] = useState(0.12);
   const voiceBusy = voicePhase !== "idle";
@@ -509,6 +512,11 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               >
                 {showRecording ? (
                   <VoiceRecordingArea phase={voicePhase} level={voiceLevel} />
+                ) : voiceReveal && voicePhase === "reviewing" ? (
+                  <RevealingText
+                    frame={voiceReveal}
+                    style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                  />
                 ) : (
                   <TextInput
                     ref={inputRef}
@@ -536,6 +544,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               value={question}
               onPhaseChange={setVoicePhase}
               onLevelChange={setVoiceLevel}
+              onRevealChange={setVoiceReveal}
               onChangeText={setQuestion}
               onFocus={() => inputRef.current?.focus()}
               disabled={sending || launching}

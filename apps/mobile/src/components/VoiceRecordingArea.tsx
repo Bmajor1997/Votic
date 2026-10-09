@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { spacing, typography } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { AIStatus } from "./AIResponse";
 import type { VoiceInputPhase } from "./KeyboardDictationButton";
 
 const BAR_COUNT = 28;
@@ -39,13 +40,17 @@ export function VoiceRecordingArea({ phase, level }: { phase: VoiceInputPhase; l
 
   return (
     <View style={[s.surface, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}>
-      <Text
-        accessibilityRole="text"
-        accessibilityLiveRegion="polite"
-        style={[s.label, { color: theme.accentText }]}
-      >
-        {label}
-      </Text>
+      {phase === "transcribing" ? (
+        <AIStatus compact label="Transcribing…" />
+      ) : (
+        <Text
+          accessibilityRole="text"
+          accessibilityLiveRegion="polite"
+          style={[s.label, { color: theme.accentText }]}
+        >
+          {label}
+        </Text>
+      )}
       <View
         accessible={false}
         importantForAccessibility="no-hide-descendants"

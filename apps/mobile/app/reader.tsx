@@ -38,6 +38,8 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
+import { RevealingText } from "../src/components/RevealingText";
+import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
@@ -160,6 +162,7 @@ function ReaderContent() {
   // 0 is the Reader alone, 1 is the panel fully up; opening and closing are the same animation reversed.
   const [askProgress] = useState(() => new Animated.Value(0));
   const [askQuestion, setAskQuestion] = useState("");
+  const [askVoiceReveal, setAskVoiceReveal] = useState<TextRevealFrame | null>(null);
   const [askVoicePhase, setAskVoicePhase] = useState<VoiceInputPhase>("idle");
   const [askVoiceLevel, setAskVoiceLevel] = useState(0.12);
   const askVoiceBusy = askVoicePhase !== "idle";
@@ -364,6 +367,7 @@ function ReaderContent() {
     askProgress.setValue(0);
     setAskPhase("closed");
     setAskVoicePhase("idle");
+    setAskVoiceReveal(null);
   }
 
   async function sendAskVotic() {
@@ -1433,6 +1437,17 @@ function ReaderContent() {
                         <View style={{ flex: 1, paddingVertical: spacing.xs }}>
                           <VoiceRecordingArea phase={askVoicePhase} level={askVoiceLevel} />
                         </View>
+                      ) : askVoiceReveal && askVoicePhase === "reviewing" ? (
+                        <View style={{ flex: 1 }}>
+                          <RevealingText
+                            frame={askVoiceReveal}
+                            style={[
+                              s.askInput,
+                              !hasAskConversation && s.compactAskInput,
+                              { color: theme.text },
+                            ]}
+                          />
+                        </View>
                       ) : (
                         <TextInput
                           ref={askInputRef}
@@ -1457,6 +1472,7 @@ function ReaderContent() {
                         value={askQuestion}
                         onPhaseChange={setAskVoicePhase}
                         onLevelChange={setAskVoiceLevel}
+                        onRevealChange={setAskVoiceReveal}
                         onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
                         disabled={askSending || summarizing}

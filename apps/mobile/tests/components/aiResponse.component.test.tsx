@@ -15,14 +15,14 @@ jest.mock("expo-audio", () => ({
 
 it("reveals answers word by word in reading order and lets the user show the full response", async () => {
   await renderWithProviders(<AIResponse text={"First word.\nNext line."} />);
-  expect(screen.getByText("Generating response")).toBeTruthy();
+  expect(screen.getByText("Revealing response")).toBeTruthy();
   expect(screen.queryByText("First word.\nNext line.")).toBeNull();
   expect(screen.getByLabelText("First word.\nNext line.")).toBeTruthy();
   await act(async () => jest.advanceTimersByTime(80));
   expect(screen.getByText("First word.\n")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Show full response" }));
   expect(screen.getByText("First word.\nNext line.")).toBeTruthy();
-  expect(screen.queryByText("Generating response")).toBeNull();
+  expect(screen.queryByText("Revealing response")).toBeNull();
 });
 it("finishes the reveal and clears the generating status", async () => {
   await renderWithProviders(<AIResponse text="One two three." />);
@@ -33,7 +33,7 @@ it("finishes the reveal and clears the generating status", async () => {
 it("shows complete text immediately with reduced motion", async () => {
   await renderWithProviders(<AIResponse text="A complete answer." />, { reduceMotion: true });
   expect(screen.getByText("A complete answer.")).toBeTruthy();
-  expect(screen.queryByText("Generating response")).toBeNull();
+  expect(screen.queryByText("Revealing response")).toBeNull();
 });
 it("offers an accessible native voice input control", async () => {
   await renderWithProviders(
