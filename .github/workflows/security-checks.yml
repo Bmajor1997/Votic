@@ -97,7 +97,7 @@ jobs:
         run: pip install semgrep
       - name: Scan Votic source code with Semgrep
         if: always()
-        run: semgrep scan --config auto .
+        run: semgrep scan --config auto . --error
       - name: Scan repository for exposed secrets
         if: always()
         uses: gitleaks/gitleaks-action@v3
