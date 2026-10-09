@@ -75,7 +75,10 @@ describe("Ask Votic recording composer", () => {
   it("ignores a pending transcript after the Ask context changes", async () => {
     let finish!: (text: string) => void;
     jest.mocked(transcribeVoiceQuestion).mockImplementationOnce(
-      () => new Promise<string>((resolve) => { finish = resolve; }),
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
     );
     const view = await renderWithProviders(<AskVotic />, { reduceMotion: true });
     await start();

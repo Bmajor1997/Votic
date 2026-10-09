@@ -54,7 +54,10 @@ describe("document storage", () => {
     await createDocumentStore().saveDocuments([doc("a", "Alpha text.")]);
     let release!: (keys: string[]) => void;
     vi.mocked(AsyncStorage.getAllKeys).mockImplementationOnce(
-      () => new Promise<string[]>((resolve) => { release = resolve; }),
+      () =>
+        new Promise<string[]>((resolve) => {
+          release = resolve;
+        }),
     );
     const store = createDocumentStore();
     let loaded = false;

@@ -101,3 +101,16 @@ test("redirect response bodies are cancelled before downloading the next webpage
   assert.match(result.text, /readable public article/);
   assert.equal(calls, 2);
 });
+
+test("web importer preserves compressed articles and bounds their decoded size", async () => {
+  const { gzipSync } = await import("node:zlib");
+  const options = (html) => ({
+    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetchImpl: async () => new Response(gzipSync(html), {
+      headers: { "content-type": "text/html", "content-encoding": "gzip" },
+    }),
+  });
+  const page = await import_public_webpage("https://public.test", options("<article>" + "A readable article. ".repeat(8) + "</article>"));
+  assert.match(page.text, /readable article/);
+  await assert.rejects(() => import_public_webpage("https://public.test", options("x".repeat(2_000_001))), /too large/);
+});

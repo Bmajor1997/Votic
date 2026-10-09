@@ -69,9 +69,11 @@ describe("Colorful Home cards", () => {
       expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
         "column",
       );
-      expect(screen.getAllByRole("button", { name: /^Continue (Listening|Reading):/ }).map(
-        (button) => button.props.accessibilityLabel,
-      )).toEqual(["Continue Listening: The next chapter", "Continue Reading: The next chapter"]);
+      expect(
+        screen
+          .getAllByRole("button", { name: /^Continue (Listening|Reading):/ })
+          .map((button) => button.props.accessibilityLabel),
+      ).toEqual(["Continue Listening: The next chapter", "Continue Reading: The next chapter"]);
       expect(screen.getByText("Continue Listening").props.numberOfLines).toBeUndefined();
     } finally {
       await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));

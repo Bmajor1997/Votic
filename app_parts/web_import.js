@@ -3,7 +3,8 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
+import { createGunzip, createInflate, createBrotliDecompress } from "node:zlib";
 
 const MAX_HTML_BYTES = 2_000_000;
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
@@ -16,7 +17,7 @@ function privateIp(address) {
     // Reject mapped/compatible IPv4, local, link-local and multicast IPv6.
     // Public IPv6 unicast currently uses 2000::/3. Never let mapped private IPv4 bypass this check.
     return !/^[23][0-9a-f]{3}:/.test(canonical) ||
-      canonical.startsWith("2002:") || canonical.startsWith("2001:0:");
+      canonical.startsWith("2002:") || canonical.startsWith("2001:0:") || canonical.startsWith("2001::");
   }
   const [a, b] = address.split(".").map(Number);
   return a === 0 || a === 10 || a === 127 || a >= 224 ||
@@ -111,10 +112,20 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
       const type = (response.headers.get("content-type") || "").toLowerCase();
       if (!type.includes("text/html") && !type.includes("application/xhtml+xml")) throw new WebImportError("That link does not point to a readable webpage.");
       const encoding = (response.headers.get("content-encoding") || "identity").toLowerCase();
-      if (encoding !== "identity") throw new WebImportError("That webpage uses an unsupported content encoding.");
+      const decoders = { gzip: createGunzip, deflate: createInflate, br: createBrotliDecompress };
+      if (encoding !== "identity" && !Object.hasOwn(decoders, encoding)) throw new WebImportError("That webpage uses an unsupported content encoding.");
       if (Number(response.headers.get("content-length") || 0) > MAX_HTML_BYTES) throw new WebImportError("That webpage is too large to import.");
       if (!response.body) throw new WebImportError("The webpage could not be downloaded.");
-      reader = response.body.getReader();
+      // Bound decoded HTML too, so compressed responses cannot bypass the byte cap.
+      let body = response.body;
+      if (encoding !== "identity") {
+        const decoder = decoders[encoding]();
+        // The body reader receives decoding errors. Pipeline also handles cancellation
+        // errors on the upstream stream, avoiding uncaught errors after reader.cancel().
+        pipeline(Readable.fromWeb(response.body), decoder, () => {});
+        body = Readable.toWeb(decoder);
+      }
+      reader = body.getReader();
       const chunks = [];
       let size = 0;
       while (true) {

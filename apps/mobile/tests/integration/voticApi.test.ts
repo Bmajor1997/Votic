@@ -11,7 +11,12 @@ afterEach(() => {
 describe("Votic API requests", () => {
   it("times out a stalled token refresh and never sends a late request", async () => {
     let finish!: (token: string) => void;
-    setAuthTokenProvider(() => new Promise<string>((resolve) => { finish = resolve; }));
+    setAuthTokenProvider(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
     const fetchMock = jest.fn(async () => new Response("{}"));
     global.fetch = fetchMock as typeof fetch;
     const outcome = expect(askVotic("Hello")).rejects.toThrow("Votic took too long to respond");

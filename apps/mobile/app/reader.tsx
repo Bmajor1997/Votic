@@ -285,18 +285,25 @@ function ReaderContent() {
   }, [index, wordIndex, accessibility.reduceMotion]);
   // Read entry cancels queued utterances and voice previews without moving the saved position.
   const onReadEntry = useEffectEvent(() => {
-    void stop();
+    void progressSync.flush();
+    setPlaying(false);
+    setPreviewVoiceIdentifier(null);
     setListenExpanded(false);
     setSheet((current) => (current === "listen" ? null : current));
   });
   useEffect(() => {
-    if (!listening) onReadEntry();
+    if (listening) return;
+    speechSession.current += 1;
+    void Speech.stop();
+    const frame = requestAnimationFrame(() => onReadEntry());
+    return () => cancelAnimationFrame(frame);
   }, [listening]);
   // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
   const onReadyToAutoplay = useEffectEvent(() => speak());
   useEffect(() => {
-    if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
+    if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length)
+      return;
     autoplayed.current = true;
     onReadyToAutoplay();
   }, [listening, readerReady, params.autoplay, passages.length]);
