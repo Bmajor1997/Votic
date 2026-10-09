@@ -44,6 +44,10 @@ The package manager regenerated the mobile lockfile; no invented integrity value
 - Account deletion correctly calls Firebase deleteUser and handles recent-login requirements. It preserves device documents/notes and does not cancel store subscriptions. Server AI usage ledger retention and subscription/account policy need deployment/product review; this patch does not erase billing/security accounting.
 - Native speech cancellation, audio session handoff, VoiceOver/TalkBack, actual text wrapping at 320–430 points, huge accessibility text, Reduce Motion, real webpage TLS/DNS connections and deployed Firebase authorization require device/deployment validation.
 
+## Additional confirmed CI finding
+
+**C2 — Medium (verification), fixed:** the mobile audit gate classified a parent package by its aggregate high severity but treated *all* leaf advisories as high/critical, including moderate sprintf-js. Reproduce using one allowed high advisory plus one moderate advisory beneath a high-severity parent: the old gate falsely rejected it. The gate now classifies leaf severity, retains the exact existing exceptions, still blocks new high/critical advisories, and fails closed if audit output/severity details are missing. Behavioral tests cover mixed severity, indirect/cyclic dependency paths, unexpected high/critical findings and invalid reports. OSV still reports the open moderate advisory; no meaningful security failure was suppressed.
+
 ## Regression coverage
 
 Reader: no audio option in Read, explicit Read versus stale autoplay, playback stopped on reused route and late callback ignored; existing saved-position/listening tests retained.
@@ -53,6 +57,6 @@ Server/import: upload capacity reserved before body completion and released afte
 API/voice: stalled token/body timeouts, recovery, no late authenticated request and no transcript applied after context changes.
 Existing Statistics, Notes, Account, recording/shimmer/Reduce Motion suites remain in place.
 
-Local validation: 103 server tests and 162 Vitest reliability tests passed; root JavaScript/HTML/CSS quality checks passed; Expo dependency compatibility passed. The complete mobile component suite, lint, formatting, type-checks and scanner results are summarized in the delivery message once complete.
+Local validation: 106 server tests and 162 Vitest reliability tests passed; root JavaScript/HTML/CSS quality checks passed; Expo dependency compatibility passed. All 227 mobile component tests passed in GitHub Actions; mobile lint, formatting, type-checking and Expo configuration/compatibility passed. An initial concurrent local run had one test timeout; its unchanged Reader suite passed on isolated rerun (25 tests). Scanner results are summarized in the delivery message.
 
 The temporary workflow proposed during the initial environment outage was never published. GitHub Actions results and remaining failures are summarized in the delivery message.
