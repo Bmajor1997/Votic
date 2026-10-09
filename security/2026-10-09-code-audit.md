@@ -48,6 +48,10 @@ The package manager regenerated the mobile lockfile; no invented integrity value
 
 **C2 — Medium (verification), fixed:** the mobile audit gate classified a parent package by its aggregate high severity but treated *all* leaf advisories as high/critical, including moderate sprintf-js. Reproduce using one allowed high advisory plus one moderate advisory beneath a high-severity parent: the old gate falsely rejected it. The gate now classifies leaf severity, retains the exact existing exceptions, still blocks new high/critical advisories, and fails closed if audit output/severity details are missing. Behavioral tests cover mixed severity, indirect/cyclic dependency paths, unexpected high/critical findings and invalid reports. OSV still reports the open moderate advisory; no meaningful security failure was suppressed.
 
+## Additional supply-chain finding
+
+**C3 — Medium, fixed:** Semgrep reported 15 mutable Action tag references in the three workflows. An upstream tag can be repointed, changing CI code without a repository change. All references are now pinned to full verified commit SHAs, with version comments. Existing Action version lines are preserved (dependency-review-action resolves its explicit v5.0.0 release; its floating v5 alias was unavailable). No scanner exceptions were added. References were verified through upstream GitHub refs and git ls-remote.
+
 ## Regression coverage
 
 Reader: no audio option in Read, explicit Read versus stale autoplay, playback stopped on reused route and late callback ignored; existing saved-position/listening tests retained.
