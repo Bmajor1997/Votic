@@ -25,12 +25,18 @@ export function voticApiUrl() {
 async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT_MS) {
   const url = voticApiUrl() + path;
   const controller = new AbortController();
-  // The timeout also covers refreshing the sign-in token, so a stalled refresh cannot hang a request.
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+    }, timeoutMs);
+  });
+  // Race the whole operation: refreshing credentials and reading the body must also finish in time.
+  const request = async () => {
     const auth = await authHeaders();
     if (controller.signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
-    return await fetch(url, {
+    const response = await fetch(url, {
       ...init,
       headers: {
         ...clientHeaders(process.env.EXPO_PUBLIC_VOTIC_CLIENT_KEY),
@@ -39,6 +45,11 @@ async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT
       },
       signal: controller.signal,
     });
+    const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: response.ok, result };
+  };
+  try {
+    return await Promise.race([request(), timeout]);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
@@ -46,9 +57,6 @@ async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT
   } finally {
     clearTimeout(timer);
   }
-}
-async function responseJson(response: Response) {
-  return response.json().catch(() => ({})) as Promise<Record<string, unknown>>;
 }
 function serverError(result: Record<string, unknown>, fallback: string) {
   return typeof result.error === "string" && result.error.trim() ? result.error : fallback;
@@ -64,7 +72,7 @@ export async function extractDocument(name: string, bytes: ArrayBuffer) {
     },
     30_000,
   );
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not read this document."));
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("This document does not contain readable text.");
@@ -81,7 +89,7 @@ export async function scanDocumentImage(name: string, bytes: ArrayBuffer) {
     },
     45_000,
   );
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not read this scanned page."));
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("Votic could not find readable text in this scanned page.");
@@ -114,7 +122,7 @@ export async function askVotic(
       ...(explanationStyle !== "adaptive" ? { explanationStyle } : {}),
     }),
   });
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not answer right now."));
   if (typeof result.answer !== "string" || !result.answer.trim())
     throw new Error("Votic returned an empty answer.");
@@ -140,7 +148,7 @@ export async function transcribeVoiceQuestion(bytes: ArrayBuffer): Promise<strin
     },
     45_000,
   );
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not transcribe this voice question."));
   if (typeof result.text !== "string" || !result.text.trim() || result.text.length > 1000)
     throw new Error("Try a shorter voice question, or type it instead.");
@@ -157,7 +165,7 @@ export async function importWebPage(url: string): Promise<ImportedWebPage> {
     },
     30_000,
   );
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not import that webpage."));
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("Votic could not find readable text on that webpage.");

@@ -38,7 +38,10 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
-import { KeyboardDictationButton } from "../src/components/KeyboardDictationButton";
+import { RevealingText } from "../src/components/RevealingText";
+import type { TextRevealFrame } from "../src/components/textReveal";
+import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
+import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
@@ -159,6 +162,11 @@ function ReaderContent() {
   // 0 is the Reader alone, 1 is the panel fully up; opening and closing are the same animation reversed.
   const [askProgress] = useState(() => new Animated.Value(0));
   const [askQuestion, setAskQuestion] = useState("");
+  const [askVoiceReveal, setAskVoiceReveal] = useState<TextRevealFrame | null>(null);
+  const [askVoicePhase, setAskVoicePhase] = useState<VoiceInputPhase>("idle");
+  const [askVoiceLevel, setAskVoiceLevel] = useState(0.12);
+  const askVoiceBusy = askVoicePhase !== "idle";
+  const showAskRecording = askVoiceBusy && askVoicePhase !== "reviewing";
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
   const askInputRef = useRef<TextInput>(null);
@@ -185,10 +193,9 @@ function ReaderContent() {
   const askGeneration = useRef(0);
   const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
   // How someone opened the document decides the controls: Read has no audio controls, Listen does.
-  // Opening without a mode (from Documents, Notes, or Statistics) reads; only Read → Listen switches it.
-  const [mode, setMode] = useState<ReaderMode>(
-    params.mode === "listen" || params.autoplay === "1" ? "listen" : "read",
-  );
+  // An explicit Read request takes precedence over a stale autoplay parameter.
+  const mode: ReaderMode =
+    params.mode === "read" ? "read" : params.mode === "listen" || params.autoplay === "1" ? "listen" : "read";
   const listening = mode === "listen";
   const contentHeight = useRef(0);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
@@ -198,13 +205,15 @@ function ReaderContent() {
   const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
-  // The empty state is dock-sized. Only a real conversation gets a bounded, scrollable tray.
+  // Keep the empty composer compact, with room for the recording waveform when active.
   const askPanelHeight = hasAskConversation
     ? Math.min(
         ASK_CONVERSATION_MAX_HEIGHT,
         Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
       )
-    : ASK_COMPOSER_HEIGHT;
+    : showAskRecording
+      ? ASK_COMPOSER_HEIGHT + 88
+      : ASK_COMPOSER_HEIGHT;
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -274,14 +283,30 @@ function ReaderContent() {
   useEffect(() => {
     onPositionChange();
   }, [index, wordIndex, accessibility.reduceMotion]);
-  // "Resume listening" from Home opens the Reader and starts narration once it is ready.
+  // Read entry cancels queued utterances and voice previews without moving the saved position.
+  const onReadEntry = useEffectEvent(() => {
+    void progressSync.flush();
+    setPlaying(false);
+    setPreviewVoiceIdentifier(null);
+    setListenExpanded(false);
+    setSheet((current) => (current === "listen" ? null : current));
+  });
+  useEffect(() => {
+    if (listening) return;
+    speechSession.current += 1;
+    void Speech.stop();
+    const frame = requestAnimationFrame(() => onReadEntry());
+    return () => cancelAnimationFrame(frame);
+  }, [listening]);
+  // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
   const onReadyToAutoplay = useEffectEvent(() => speak());
   useEffect(() => {
-    if (!readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length) return;
+    if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length)
+      return;
     autoplayed.current = true;
     onReadyToAutoplay();
-  }, [readerReady, params.autoplay, passages.length]);
+  }, [listening, readerReady, params.autoplay, passages.length]);
   useEffect(() => {
     askGeneration.current += 1;
     const frame = requestAnimationFrame(() => {
@@ -356,11 +381,13 @@ function ReaderContent() {
     askProgress.stopAnimation();
     askProgress.setValue(0);
     setAskPhase("closed");
+    setAskVoicePhase("idle");
+    setAskVoiceReveal(null);
   }
 
   async function sendAskVotic() {
     const clean = askQuestion.trim();
-    if (!clean || askSending || !activeDocument) return;
+    if (!clean || askSending || askVoiceBusy || !activeDocument) return;
     Keyboard.dismiss();
     const generation = askGeneration.current;
     const context = resolveAskVoticContext(documents, activeDocument, {});
@@ -604,14 +631,16 @@ function ReaderContent() {
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
   }
-  async function previewVoice(voice: DeviceVoice, voiceIndex: number) {
-    speechSession.current += 1;
+  async function previewVoice(voice: DeviceVoice, name: string) {
+    if (!listening) return;
+    const session = ++speechSession.current;
     setPlaying(false);
     await Speech.stop();
+    if (session !== speechSession.current) return;
     setPreviewVoiceIdentifier(voice.identifier);
     const clearPreview = () =>
       setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current));
-    Speech.speak(voticVoicePreview(voiceIndex), {
+    Speech.speak(voticVoicePreview(name), {
       voice: voice.identifier,
       rate: 1,
       onDone: clearPreview,
@@ -620,6 +649,7 @@ function ReaderContent() {
     });
   }
   function speak(at = index, startWord = at === index ? wordIndex : 0) {
+    if (!listening) return;
     const session = speechSession.current + 1;
     speechSession.current = session;
     void beginSpeech(at, startWord, session, true);
@@ -631,7 +661,7 @@ function ReaderContent() {
     clearQueue: boolean,
     playbackRate = rate,
   ) {
-    if (!activeDocument || !passages[at] || session !== speechSession.current) return;
+    if (!listening || !activeDocument || !passages[at] || session !== speechSession.current) return;
     if (clearQueue) await Speech.stop();
     if (session !== speechSession.current) return;
     const passage = passages[at];
@@ -1176,19 +1206,7 @@ function ReaderContent() {
                             active={sheet === "listen" || playing}
                             onPress={() => setSheet("listen")}
                           />
-                        ) : (
-                          // Read mode has no audio controls until the person asks to listen.
-                          <ToolButton
-                            icon="headset-outline"
-                            label="Listen"
-                            accessibilityLabel="Switch to listening"
-                            active={false}
-                            onPress={() => {
-                              setMode("listen");
-                              setListenExpanded(false);
-                            }}
-                          />
-                        )}
+                        ) : null}
                         {activeDocument && activeDocument.progress > 0 ? (
                           <ToolButton
                             icon="sparkles-outline"
@@ -1418,43 +1436,75 @@ function ReaderContent() {
                     <View
                       style={[s.askComposer, { borderColor: theme.accent, backgroundColor: theme.surface }]}
                     >
-                      {!hasAskConversation ? <VoticLogo compact markOnly progress={progress} /> : null}
-                      <TextInput
-                        ref={askInputRef}
-                        accessibilityLabel="Ask Votic a question"
-                        value={askQuestion}
-                        onChangeText={setAskQuestion}
-                        placeholder="Ask Votic about this document…"
-                        placeholderTextColor={theme.mutedText}
-                        multiline={hasAskConversation}
-                        numberOfLines={hasAskConversation ? undefined : 1}
-                        maxLength={1000}
-                        style={[s.askInput, !hasAskConversation && s.compactAskInput, { color: theme.text }]}
-                        onSubmitEditing={() => void sendAskVotic()}
-                      />
+                      {!hasAskConversation && !showAskRecording ? (
+                        <VoticLogo compact markOnly progress={progress} />
+                      ) : null}
+                      {showAskRecording ? (
+                        <View style={{ flex: 1, paddingVertical: spacing.xs }}>
+                          <VoiceRecordingArea phase={askVoicePhase} level={askVoiceLevel} />
+                        </View>
+                      ) : askVoiceReveal && askVoicePhase === "reviewing" ? (
+                        <View style={{ flex: 1 }}>
+                          <RevealingText
+                            frame={askVoiceReveal}
+                            style={[
+                              s.askInput,
+                              !hasAskConversation && s.compactAskInput,
+                              { color: theme.text },
+                            ]}
+                          />
+                        </View>
+                      ) : (
+                        <TextInput
+                          ref={askInputRef}
+                          accessibilityLabel="Ask Votic a question"
+                          value={askQuestion}
+                          editable={!askVoiceBusy}
+                          onChangeText={setAskQuestion}
+                          placeholder="Ask Votic about this document…"
+                          placeholderTextColor={theme.mutedText}
+                          multiline={hasAskConversation}
+                          numberOfLines={hasAskConversation ? undefined : 1}
+                          maxLength={1000}
+                          style={[
+                            s.askInput,
+                            !hasAskConversation && s.compactAskInput,
+                            { color: theme.text },
+                          ]}
+                          onSubmitEditing={() => void sendAskVotic()}
+                        />
+                      )}
                       <KeyboardDictationButton
+                        value={askQuestion}
+                        onPhaseChange={setAskVoicePhase}
+                        onLevelChange={setAskVoiceLevel}
+                        onRevealChange={setAskVoiceReveal}
+                        onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
                         disabled={askSending || summarizing}
                       />
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Send question"
-                        disabled={!askQuestion.trim() || askSending}
-                        onPress={() => void sendAskVotic()}
-                        style={[
-                          s.askSend,
-                          {
-                            backgroundColor: theme.accent,
-                            opacity: !askQuestion.trim() || askSending ? 0.45 : 1,
-                          },
-                        ]}
-                      >
-                        {askSending ? (
-                          <ActivityIndicator size="small" color="#FFF" />
-                        ) : (
-                          <Ionicons name="arrow-up" size={21} color="#FFF" />
-                        )}
-                      </Pressable>
+                      {!showAskRecording && (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Send question"
+                          disabled={!askQuestion.trim() || askSending || askVoiceBusy}
+                          accessibilityState={{ disabled: !askQuestion.trim() || askSending || askVoiceBusy }}
+                          onPress={() => void sendAskVotic()}
+                          style={[
+                            s.askSend,
+                            {
+                              backgroundColor: theme.accent,
+                              opacity: !askQuestion.trim() || askSending || askVoiceBusy ? 0.45 : 1,
+                            },
+                          ]}
+                        >
+                          {askSending ? (
+                            <ActivityIndicator size="small" color="#FFF" />
+                          ) : (
+                            <Ionicons name="arrow-up" size={21} color="#FFF" />
+                          )}
+                        </Pressable>
+                      )}
                       {!hasAskConversation ? (
                         <Pressable
                           accessibilityRole="button"
@@ -1478,9 +1528,9 @@ function ReaderContent() {
               onRateChange={changeRate}
               voices={voices}
               previewVoiceIdentifier={previewVoiceIdentifier}
-              onPreviewVoice={(voice, voiceIndex) => {
+              onPreviewVoice={(voice, name) => {
                 if (previewVoiceIdentifier === voice.identifier) void stop();
-                else void previewVoice(voice, voiceIndex);
+                else void previewVoice(voice, name);
               }}
               onSelectVoice={(voice) => {
                 void stop();

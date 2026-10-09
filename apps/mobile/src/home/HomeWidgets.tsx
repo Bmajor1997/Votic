@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { formatDuration, spokenDuration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { DocumentCover } from "../components/DocumentCover";
@@ -20,6 +20,9 @@ import {
   resumeModeFor,
   weekActivity,
 } from "./homeModel";
+
+import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
+import { documentWidgetTone, widgetPalette } from "./widgetDesign";
 
 type Target = (node: View | null) => void;
 
@@ -215,6 +218,7 @@ function ResumeButton({
  */
 export function WeekWidget() {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "activity");
   const { log, hydrated } = useActivity();
   const { documents } = useDocumentLibrary();
   // Until the log has loaded, nothing is shown rather than a misleading "0 min".
@@ -236,34 +240,47 @@ export function WeekWidget() {
     : "This week: no reading or listening yet. Open Statistics.";
   return (
     <Pressable
+      testID="home-week-card"
       accessibilityRole="button"
       accessibilityLabel={spoken}
+      accessibilityHint="Shows your reading and listening activity"
       onPress={() => router.push("/statistics")}
       style={({ pressed }) => [
         s.week,
         theme.elevation,
-        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+        { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
       ]}
     >
+      <WidgetHalo color={colors.art} />
       {/* Says where the card leads, since Statistics no longer has its own row on Home. */}
       <View style={s.weekHeader}>
-        <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
+        <View style={s.weekIdentity}>
+          <View
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[s.widgetIcon, { backgroundColor: colors.art }]}
+          >
+            <Ionicons name="stats-chart" size={18} color={colors.ink} />
+          </View>
+          <Text style={[s.eyebrow, { color: colors.detail }]}>THIS WEEK</Text>
+        </View>
         <View style={s.weekLink}>
-          <Text style={[s.weekLinkText, { color: theme.accentText }]}>Statistics</Text>
-          <Ionicons name="chevron-forward" size={15} color={theme.accentText} />
+          <Text style={[s.weekLinkText, { color: colors.ink }]}>Statistics</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.ink} />
         </View>
       </View>
       <View style={s.weekTop}>
         <View style={s.grow}>
           {week.total ? (
             <>
-              <Text style={[s.weekTotal, { color: theme.text }]}>{formatDuration(week.total)}</Text>
+              <Text style={[s.weekTotal, { color: colors.ink }]}>{formatDuration(week.total)}</Text>
               {week.change !== null ? (
-                <Text style={[s.meta, { color: theme.mutedText }]}>{changeLabel(week.change)}</Text>
+                <Text style={[s.meta, { color: colors.detail }]}>{changeLabel(week.change)}</Text>
               ) : null}
             </>
           ) : (
-            <Text style={[s.weekEmpty, { color: theme.text }]}>Read or listen to see your week here</Text>
+            <Text style={[s.weekEmpty, { color: colors.ink }]}>Read or listen to see your week here</Text>
           )}
         </View>
         {week.total ? (
@@ -276,7 +293,7 @@ export function WeekWidget() {
                       s.dayBar,
                       {
                         height: day.total ? Math.max(4, (day.total / peak) * 40) : 4,
-                        backgroundColor: day.total ? theme.accent : theme.border,
+                        backgroundColor: day.total ? colors.strong : colors.border,
                       },
                     ]}
                   />
@@ -285,7 +302,7 @@ export function WeekWidget() {
                   style={[
                     s.dayLabel,
                     {
-                      color: day.isToday ? theme.text : theme.mutedText,
+                      color: day.isToday ? colors.ink : colors.detail,
                       fontWeight: day.isToday ? "800" : "600",
                     },
                   ]}
@@ -300,21 +317,19 @@ export function WeekWidget() {
       {week.total ? (
         <View style={s.split} importantForAccessibility="no-hide-descendants">
           {/* Reading in the accent, listening in a lighter step of it, so both read as time spent. */}
-          <View style={[s.track, s.splitTrack, { backgroundColor: theme.wordHighlight }]}>
+          <View style={[s.track, s.splitTrack, { backgroundColor: colors.art }]}>
             <View
-              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: theme.accent }]}
+              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: colors.strong }]}
             />
           </View>
           <View style={s.splitLabels}>
-            <Text style={[s.meta, { color: theme.mutedText }]}>Reading {formatDuration(week.reading)}</Text>
-            <Text style={[s.meta, { color: theme.mutedText }]}>
-              Listening {formatDuration(week.listening)}
-            </Text>
+            <Text style={[s.meta, { color: colors.detail }]}>Reading {formatDuration(week.reading)}</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>Listening {formatDuration(week.listening)}</Text>
           </View>
         </View>
       ) : null}
       {insight ? (
-        <Text style={[s.insight, { color: theme.text, borderTopColor: theme.border }]}>{insight}</Text>
+        <Text style={[s.insight, { color: colors.ink, borderTopColor: colors.border }]}>{insight}</Text>
       ) : null}
     </Pressable>
   );
@@ -370,6 +385,8 @@ function RecentCard({
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, documentWidgetTone(document.sourceName));
+  const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
   const title = readableTitle(document.title);
   const percent = Math.round(document.progress * 100);
@@ -377,7 +394,16 @@ function RecentCard({
     <View
       ref={ref}
       collapsable={false}
-      style={[s.recent, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      testID="home-recent-card"
+      style={[
+        s.recent,
+        theme.elevation,
+        {
+          width: Math.min(280, 156 * Math.max(1, fontScale)),
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
     >
       <Pressable
         accessibilityRole="button"
@@ -386,34 +412,38 @@ function RecentCard({
         onPress={() => onOpen(ref)}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <View style={[s.recentCover, { backgroundColor: theme.surfaceMuted }]}>
-          <DocumentCover document={document} size="lg" />
+        <View style={[s.recentCover, { backgroundColor: colors.art }]}>
+          <WidgetHalo color={colors.strong} />
+          <HomeDocumentArtwork document={document} />
         </View>
-        <Text numberOfLines={2} style={[s.recentTitle, { color: theme.text }]}>
+        <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={[s.recentTitle, { color: colors.ink }]}>
           {title}
         </Text>
         {document.progress >= 1 ? (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Finished</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Finished</Text>
         ) : document.progress > 0 ? (
           <View style={s.recentProgress}>
-            <View style={[s.track, s.grow, { backgroundColor: theme.border }]}>
-              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: theme.accent }]} />
+            <View style={[s.track, s.grow, { backgroundColor: colors.border }]}>
+              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: colors.strong }]} />
             </View>
-            <Text style={[s.meta, { color: theme.mutedText }]}>{percent}%</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>{percent}%</Text>
           </View>
         ) : (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Not started</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Not started</Text>
         )}
       </Pressable>
       <Pressable
         ref={moreRef}
         accessibilityRole="button"
         accessibilityLabel={`More options for ${title}`}
+        accessibilityHint="Shows document actions"
         onPress={onMore}
         hitSlop={4}
         style={s.recentMore}
       >
-        <Ionicons name="ellipsis-horizontal" size={19} color={theme.mutedText} />
+        <View style={[s.moreBadge, { backgroundColor: colors.surface }]}>
+          <Ionicons name="ellipsis-horizontal" size={19} color={colors.ink} />
+        </View>
       </Pressable>
     </View>
   );
@@ -427,6 +457,8 @@ function RecentCard({
  */
 export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "notes");
+  const { fontScale } = useWindowDimensions();
   return (
     <View style={s.section}>
       <SectionHeader
@@ -435,7 +467,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
         onAction={() => router.push("/notes")}
       />
       {!notes.length ? (
-        <Text style={{ color: theme.mutedText }}>Your saved notes will appear here.</Text>
+        <Text style={{ color: colors.detail }}>Your saved notes will appear here.</Text>
       ) : null}
       <Shelf>
         {notes.map((item) => {
@@ -448,6 +480,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
           return (
             <Pressable
               key={document.id + passage.id}
+              testID="home-note-card"
               accessibilityRole="button"
               accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relativeDay(passage.updatedAt)}.`}
               accessibilityHint="Opens the document at this passage"
@@ -455,21 +488,45 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
               style={({ pressed }) => [
                 s.note,
                 theme.elevation,
-                { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+                {
+                  width: Math.min(320, 232 * Math.max(1, fontScale)),
+                  borderColor: colors.border,
+                  backgroundColor: pressed ? colors.art : colors.surface,
+                },
               ]}
             >
+              <View
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={s.noteMark}
+              >
+                <View style={[s.widgetIcon, { backgroundColor: colors.art }]}>
+                  <Ionicons name="create-outline" size={18} color={colors.ink} />
+                </View>
+                <View style={[s.noteRule, { backgroundColor: colors.border }]} />
+              </View>
               <View style={s.noteTop}>
-                {passage.pinned ? <Ionicons name="pin" size={14} color={theme.accentText} /> : null}
-                <Text numberOfLines={2} style={[s.noteHeading, { color: theme.text }]}>
+                {passage.pinned ? <Ionicons name="pin" size={14} color={colors.strong} /> : null}
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 2}
+                  style={[s.noteHeading, { color: colors.ink }]}
+                >
                   {heading}
                 </Text>
               </View>
               {body ? (
-                <Text numberOfLines={3} style={[s.noteBody, { color: theme.mutedText }]}>
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 3}
+                  style={[s.noteBody, { color: colors.detail }]}
+                >
                   {body}
                 </Text>
               ) : null}
-              <Text numberOfLines={1} style={[s.noteSource, { color: theme.mutedText }]}>
+              <Text
+                numberOfLines={fontScale > 1.2 ? undefined : 1}
+                style={[s.noteSource, { color: colors.detail }]}
+              >
                 {source} · {relativeDay(passage.updatedAt)}
               </Text>
             </Pressable>
@@ -526,16 +583,22 @@ const s = StyleSheet.create({
   },
   resumeText: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
 
-  week: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  week: { overflow: "hidden", borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   weekHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+    flexWrap: "wrap",
   },
+  weekIdentity: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  widgetIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  noteMark: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xs },
+  noteRule: { height: 2, flex: 1, borderRadius: 1 },
+  moreBadge: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekLinkText: { fontSize: 14, fontWeight: "800" },
-  weekTop: { flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
+  weekTop: { flexWrap: "wrap", flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
   weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
   days: { flexDirection: "row", gap: 5 },
@@ -559,7 +622,8 @@ const s = StyleSheet.create({
   recent: { width: 156, padding: spacing.sm, borderWidth: 1, borderRadius: radii.lg },
   recentMain: { gap: spacing.xs },
   recentCover: {
-    height: 132,
+    height: 144,
+    overflow: "hidden",
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",

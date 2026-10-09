@@ -31,10 +31,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
 
@@ -46,29 +46,36 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Run Vitest behavioral reliability tests
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run test:reliability
 
       - name: Run mobile component tests
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run test:components
 
       - name: Lint mobile code
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run lint
 
       - name: Check mobile code formatting
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run format:check
 
       - name: Type-check reliability-sensitive mobile code
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npm run typecheck
 
       - name: Validate Expo configuration
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npx expo config --type public
 
       - name: Check Expo dependency compatibility
+        if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npx expo install --check

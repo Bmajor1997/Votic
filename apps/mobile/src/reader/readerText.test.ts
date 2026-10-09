@@ -11,7 +11,7 @@ import {
   wordAtSpeechOffset,
   wordMatches,
 } from "./readerText";
-import { uniqueEnglishVoices, voticVoiceName, voticVoicePreview } from "./voices";
+import { uniqueEnglishVoices, voticVoiceName, voticVoicePreview, deviceVoiceGender } from "./voices";
 
 // 3 + 2 + 5 = 10 words.
 const passages = ["One two three.", "Four five.", "Six seven eight nine ten."];
@@ -182,10 +182,25 @@ describe("reader text style", () => {
 });
 
 describe("Votic voices", () => {
-  it("names voices and falls back past the named ones", () => {
-    expect(voticVoiceName(0)).toBe("Arden");
-    expect(voticVoiceName(8)).toBe("Voice 9");
-    expect(voticVoicePreview(8)).toContain("Voice 9");
+  it("names voices by explicit gender and stable identity, never list order", () => {
+    const female = { identifier: "engine-female-en", name: "Female", language: "en-US" };
+    const male = { identifier: "engine-male-en", name: "Male", language: "en-US" };
+    expect(deviceVoiceGender(female)).toBe("female");
+    expect(deviceVoiceGender(male)).toBe("male");
+    expect(["Mira", "Kaia", "Nyla", "Elara", "Clara", "Sofia", "Emma", "Lily"]).toContain(
+      voticVoiceName(female),
+    );
+    expect(["Daniel", "Soren", "Kellan", "Oliver", "James", "Noah", "Henry", "Leo"]).toContain(
+      voticVoiceName(male),
+    );
+    expect(voticVoiceName(female, undefined, 0)).toBe(voticVoiceName(female, undefined, 20));
+    expect(voticVoicePreview(voticVoiceName(female))).toContain(voticVoiceName(female));
+  });
+  it("does not guess gender from opaque voice codes", () => {
+    const voice = { identifier: "en-us-x-tpf-local", name: "en-us-x-tpf-local", language: "en-US" };
+    expect(deviceVoiceGender(voice)).toBeUndefined();
+    expect(voticVoiceName(voice)).toBe("Device voice 1");
+    expect(voticVoiceName(voice, "female")).not.toBe(voticVoiceName(voice, "male"));
   });
   it("keeps one English voice per name", () => {
     const voices = [

@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Review dependency changes for vulnerabilities
-        uses: actions/dependency-review-action@v5
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
 
 
   codeql:
@@ -26,22 +26,22 @@ jobs:
       security-events: write
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           languages: javascript-typescript
       - name: Analyze JavaScript and TypeScript with CodeQL
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
 
   security:
     name: Web Quality, Security, and Tests
     runs-on: ubuntu-latest
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
           cache: npm
@@ -56,6 +56,7 @@ jobs:
       - name: Run Votic automated tests
         run: npm test
       - name: Check dependencies for vulnerabilities
+        if: always()
         run: |
           npm audit --json > npm-audit.json || true
           node - <<'NODE'
@@ -64,7 +65,6 @@ jobs:
           const audit = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
           const rows = [];
           for (const [name, finding] of Object.entries(audit.vulnerabilities || {})) {
-            if (!["low", "moderate"].includes(finding.severity)) continue;
             const details = (Array.isArray(finding.via) ? finding.via : []).find(item => typeof item === "object") || {};
             const title = details.title || "Dependency vulnerability";
             const cause = details.url ? `Reported by npm audit. Advisory: ${details.url}` : "Reported by npm audit.";
@@ -73,7 +73,7 @@ jobs:
           }
           const start = "<!-- AUTO-GENERATED-NPM-AUDIT:START -->";
           const end = "<!-- AUTO-GENERATED-NPM-AUDIT:END -->";
-          const body = rows.length ? rows.join("\n") : "| None | No low or moderate npm dependency vulnerabilities detected | — | — | — | — |";
+          const body = rows.length ? rows.join("\n") : "| None | No npm dependency vulnerabilities detected | — | — | — | — |";
           let report = fs.readFileSync(path, "utf8");
           const block = `${start}\n\n## Current npm audit findings\n\n| Severity | Vulnerability / Finding | Affected dependency or code | Cause | Recommended fix | Status |\n| --- | --- | --- | --- | --- | --- |\n${body}\n\n${end}`;
           report = report.includes(start) && report.includes(end) ? report.replace(new RegExp(`${start}[\\s\\S]*?${end}`), block) : `${report}\n\n${block}\n`;
@@ -82,21 +82,25 @@ jobs:
           npm audit --audit-level=high
       - name: Preserve dependency audit report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: npm-vulnerability-report
           path: |
             npm-audit.json
             security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner
+        if: always()
         run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan --config=/src/osv-scanner.toml -r /src
 
       - name: Install Semgrep
+        if: always()
         run: pip install semgrep
       - name: Scan Votic source code with Semgrep
-        run: semgrep scan --config auto .
+        if: always()
+        run: semgrep scan --config auto . --error
       - name: Scan repository for exposed secrets
-        uses: gitleaks/gitleaks-action@v3
+        if: always()
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_VERSION: 8.30.1
@@ -109,9 +113,9 @@ jobs:
         working-directory: apps/mobile
     steps:
       - name: Get Votic's code
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
       - name: Install mobile dependencies
@@ -123,49 +127,15 @@ jobs:
       - name: Check Expo dependency compatibility
         run: npx expo install --check
       - name: Install Semgrep for mobile security scanning
+        if: always()
         run: pip install semgrep
         working-directory: .
       - name: Scan React Native TypeScript with Semgrep
+        if: always()
         run: semgrep scan --config auto apps/mobile --error
         working-directory: .
       - name: Audit mobile production dependencies
+        if: always()
         run: |
           npm audit --omit=dev --json > mobile-audit.json || true
-          node - <<'NODE'
-          const fs = require("fs");
-          const audit = JSON.parse(fs.readFileSync("mobile-audit.json", "utf8"));
-          const allowed = new Set(["GHSA-vfj7-8cjw-p6xm", "GHSA-86w9-cpqp-85rv"]);
-          const vulnerabilities = audit.vulnerabilities || {};
-
-          function leafAdvisories(name, seen = new Set()) {
-            if (seen.has(name)) return [];
-            seen.add(name);
-            const finding = vulnerabilities[name];
-            if (!finding) return [];
-            return (Array.isArray(finding.via) ? finding.via : []).flatMap((via) =>
-              typeof via === "string" ? leafAdvisories(via, new Set(seen)) : via ? [via] : [],
-            );
-          }
-
-          const blocking = [];
-          for (const [name, finding] of Object.entries(vulnerabilities)) {
-            if (!["high", "critical"].includes(finding.severity)) continue;
-            const leaves = leafAdvisories(name);
-            if (!leaves.length) {
-              blocking.push(`${name}: no advisory details`);
-              continue;
-            }
-            const unapproved = leaves.filter((item) => {
-              const details = `${item.url || ""} ${item.title || ""}`.toLowerCase();
-              return ![...allowed].some((id) => details.includes(id.toLowerCase()));
-            });
-            if (unapproved.length) blocking.push(`${name}: unapproved high/critical advisory`);
-          }
-
-          if (blocking.length) {
-            console.error("Blocking high/critical dependency vulnerabilities:");
-            blocking.forEach((item) => console.error(`- ${item}`));
-            process.exit(1);
-          }
-          console.log("No unapproved high/critical production dependency vulnerabilities.");
-          NODE
+          node ../../security/check-mobile-audit.cjs mobile-audit.json

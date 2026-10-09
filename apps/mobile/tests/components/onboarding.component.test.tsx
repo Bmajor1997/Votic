@@ -2,18 +2,20 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Alert, Text } from "react-native";
-import Settings from "../../app/(tabs)/settings";
+import { Text } from "react-native";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import Personalize from "../../app/personalize";
 import Reader from "../../app/reader";
 import EmailSignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../../src/onboarding/voticGuide";
+import { cleanLocalDocumentText } from "../../src/documents/importDocument";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, nextTip, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -160,6 +162,22 @@ describe("Personalization", () => {
   });
 });
 
+function GuideProbe() {
+  const { documents, activeDocument } = useDocumentLibrary();
+  return (
+    <>
+      <Text testID="guide-probe">
+        {documents
+          .map(
+            (document) =>
+              `${document.sourceName}:${document.savedPassages?.map((passage) => passage.note).join(",") ?? ""}`,
+          )
+          .join("|")}
+      </Text>
+      <Text testID="active-guide">{activeDocument?.plainText ?? ""}</Text>
+    </>
+  );
+}
 function LibraryCount() {
   const { documents } = useDocumentLibrary();
   return <Text testID="library-count">{documents.map((document) => document.title).join("|")}</Text>;
@@ -177,13 +195,63 @@ describe("Getting started", () => {
     expect(screen.getByRole("header", { name: "Welcome, Sam" })).toBeTruthy();
     expect(screen.getByLabelText("Add a document, not done yet")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Try the Votic guide" }));
-    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide");
+    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide — updated features");
     expect(screen.getByLabelText("Add a document, done")).toBeTruthy();
     // With a document in the library, the card switches from first actions to the remaining steps.
     expect(screen.queryByRole("button", { name: "Try the Votic guide" })).toBeNull();
     expect(screen.getByText("3 quick steps to get the most from Votic.")).toBeTruthy();
   });
 
+  it("opens the updated walkthrough from Help and preserves the old guide and notes", async () => {
+    const old = testDocument("old-guide", "Votic guide", {
+      sourceName: "Votic guide.md",
+      savedPassages: [
+        { id: "saved", sentenceIndex: 0, text: "Old guide", note: "My note", createdAt: 1, updatedAt: 1 },
+      ],
+    });
+    await renderWithProviders(
+      <>
+        <SettingsDetailScreen category="help" />
+        <GuideProbe />
+      </>,
+      { documents: [old] },
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
+    expect(screen.getByTestId("guide-probe").props.children).toContain("Votic guide.md:My note");
+    expect(screen.getByTestId("guide-probe").props.children).toContain(VOTIC_GUIDE_SOURCE_NAME);
+    expect(screen.getByTestId("active-guide").props.children).toBe(cleanLocalDocumentText(VOTIC_GUIDE_TEXT));
+  });
+  it("reuses the current walkthrough instead of creating another copy", async () => {
+    const current = testDocument("current-guide", "Votic guide — updated features", {
+      sourceName: VOTIC_GUIDE_SOURCE_NAME,
+      plainText: cleanLocalDocumentText(VOTIC_GUIDE_TEXT),
+    });
+    await renderWithProviders(
+      <>
+        <SettingsDetailScreen category="help" />
+        <GuideProbe />
+      </>,
+      { documents: [current] },
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
+    expect(screen.getByTestId("guide-probe").props.children).toBe(`${VOTIC_GUIDE_SOURCE_NAME}:`);
+    expect(screen.getByTestId("active-guide").props.children).toBe(current.plainText);
+  });
+  it("covers the new features and the account distinction", () => {
+    for (const feature of [
+      "microphone",
+      "waveform",
+      "transcribe",
+      "Note Workspace",
+      "Settings now opens with categories",
+      "Sign Out",
+      "Delete Account",
+      "two confirmation",
+      "App Store or Google Play",
+      "Sepia",
+    ])
+      expect(VOTIC_GUIDE_TEXT).toContain(feature);
+  });
   it("can be hidden", async () => {
     await renderWithProviders(<GettingStartedCard />, { onboarding: { checklistDismissed: false } });
     await fireEvent.press(screen.getByRole("button", { name: "Hide getting started" }));
@@ -249,12 +317,17 @@ describe("Reader tips", () => {
 
 describe("Settings personalization and account", () => {
   it("changes purpose and explanation style, and brings tips back", async () => {
-    await renderWithProviders(<Settings />);
+    const rendered = await renderWithProviders(<SettingsDetailScreen category="personalization" />);
     await fireEvent.press(screen.getByRole("radio", { name: /^Work\./ }));
     await fireEvent.press(screen.getByRole("radio", { name: "Quick" }));
-    await waitFor(async () => expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("work"));
+    expect(await AsyncStorage.getItem("votic.mobile.purpose.v1")).toBe("work");
     expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("quick");
-    await fireEvent.press(screen.getByRole("button", { name: "Show tips again" }));
+    await rendered.rerender(
+      <AppProviders>
+        <SettingsDetailScreen category="help" />
+      </AppProviders>,
+    );
+    await fireEvent.press(await screen.findByRole("button", { name: "Show tips again" }));
     expect(screen.getByText("Done. Tips will appear on Home and in the Reader.")).toBeTruthy();
     await waitFor(async () =>
       expect(await savedOnboarding()).toMatchObject({ tipsSeen: [], checklistDismissed: false }),
@@ -262,13 +335,12 @@ describe("Settings personalization and account", () => {
   });
 
   it("signs out after confirming", async () => {
-    const alert = jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
-      buttons?.find((button) => button.text === "Sign out")?.onPress?.();
-    });
-    await renderWithProviders(<Settings />);
-    expect(screen.getByText("Signed in as reader@example.com")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Sign out" })));
-    expect(alert).toHaveBeenCalled();
+    await renderWithProviders(<SettingsDetailScreen category="account" />);
+    expect(screen.getByText("reader@example.com")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
+    expect(screen.getByRole("header", { name: "Sign out of Votic?" })).toBeTruthy();
+    expect(fakeAuth.calls).not.toContain("signOut");
+    await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(fakeAuth.calls).toContain("signOut");
   });
 });

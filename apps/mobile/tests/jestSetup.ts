@@ -9,6 +9,18 @@ jest.mock("@react-native-async-storage/async-storage", () =>
   require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
 );
 jest.mock("expo-router", () => require("./mocks/expoRouter"));
+jest.mock("expo-audio", () => ({
+  requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })),
+  setAudioModeAsync: jest.fn(async () => {}),
+  useAudioStream: jest.fn(() => ({
+    isStreaming: false,
+    stream: {
+      isStreaming: false,
+      start: jest.fn(async () => {}),
+      stop: jest.fn(async () => {}),
+    },
+  })),
+}));
 jest.mock("../src/auth/authBackend", () => require("./mocks/authBackend"));
 /* eslint-enable @typescript-eslint/no-require-imports */
 

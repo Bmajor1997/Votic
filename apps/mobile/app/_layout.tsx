@@ -63,6 +63,10 @@ function ThemedStack() {
               options={{ animation: reduceMotion ? "none" : "slide_from_right" }}
             />
             <Stack.Screen name="assistant" />
+            <Stack.Screen
+              name="settings/[category]"
+              options={{ animation: reduceMotion ? "none" : "slide_from_right" }}
+            />
             <Stack.Screen name="review" />
             <Stack.Screen name="recap" />
             <Stack.Screen name="handle-share" options={{ animation: reduceMotion ? "none" : "fade" }} />

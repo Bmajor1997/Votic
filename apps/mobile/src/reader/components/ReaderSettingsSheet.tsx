@@ -4,8 +4,9 @@ import { useAccessibilityPreferences } from "../../accessibility/AccessibilityPr
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
 import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
-import { DeviceVoice, voticVoiceName } from "../voices";
+import { DeviceVoice, deviceVoiceGender, voticVoiceName } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
+import { useVoiceNames } from "../useVoiceNames";
 import { sheetStyles } from "./sheetStyles";
 
 export type ReaderSheet = "appearance" | "focus" | "listen" | null;
@@ -34,11 +35,12 @@ export function ReaderSettingsSheet({
   voices: DeviceVoice[];
   previewVoiceIdentifier: string | null;
   /** Starts or stops a preview of the voice at this position in `voices`. */
-  onPreviewVoice: (voice: DeviceVoice, voiceIndex: number) => void;
+  onPreviewVoice: (voice: DeviceVoice, name: string) => void;
   onSelectVoice: (voice: DeviceVoice) => void;
 }) {
   const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
+  const voiceNames = useVoiceNames();
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
     <Modal
@@ -236,18 +238,66 @@ export function ReaderSettingsSheet({
                   </View>
                 </View>
                 <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
+                {voiceNames.error ? (
+                  <Text accessibilityRole="alert" style={{ color: theme.text }}>
+                    Voice names could not be loaded or saved. Please try again.
+                  </Text>
+                ) : null}
                 <Setting label="Voice">
                   {voices.length ? (
-                    voices.map((voice, voiceIndex) => (
-                      <VoiceChoice
-                        key={voice.identifier}
-                        name={voticVoiceName(voiceIndex)}
-                        selected={accessibility.voiceIdentifier === voice.identifier}
-                        previewing={previewVoiceIdentifier === voice.identifier}
-                        onPreview={() => onPreviewVoice(voice, voiceIndex)}
-                        onSelect={() => onSelectVoice(voice)}
-                      />
-                    ))
+                    voices.map((voice, voiceIndex) => {
+                      const gender = voiceNames.genders[voice.identifier] ?? deviceVoiceGender(voice);
+                      const name = voticVoiceName(voice, gender, voiceIndex);
+                      return (
+                        <View key={voice.identifier} style={{ gap: spacing.sm }}>
+                          <VoiceChoice
+                            name={name}
+                            selected={accessibility.voiceIdentifier === voice.identifier}
+                            previewing={previewVoiceIdentifier === voice.identifier}
+                            onPreview={() => onPreviewVoice(voice, name)}
+                            onSelect={() => onSelectVoice(voice)}
+                          />
+                          <Text style={{ color: theme.mutedText }}>
+                            {gender
+                              ? "Voice naming preference"
+                              : "Preview this voice, then choose a female or male name. Your phone does not identify its gender."}
+                          </Text>
+                          <View
+                            accessibilityRole="radiogroup"
+                            accessibilityLabel={`Name for ${name}`}
+                            style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
+                          >
+                            {(["female", "male"] as const).map((option) => (
+                              <Pressable
+                                key={option}
+                                disabled={!voiceNames.ready}
+                                accessibilityRole="radio"
+                                accessibilityLabel={`${option === "female" ? "Female" : "Male"} name for ${name}`}
+                                accessibilityHint="Saves a name for this voice without changing how it sounds"
+                                accessibilityState={{
+                                  checked: gender === option,
+                                  disabled: !voiceNames.ready,
+                                }}
+                                onPress={() => void voiceNames.setGender(voice.identifier, option)}
+                                style={{
+                                  minHeight: 48,
+                                  padding: spacing.md,
+                                  borderRadius: radii.md,
+                                  borderWidth: 1,
+                                  borderColor: gender === option ? theme.accent : theme.border,
+                                  backgroundColor: theme.surfaceMuted,
+                                }}
+                              >
+                                <Text style={{ color: theme.text }}>
+                                  {gender === option ? "✓ " : ""}
+                                  {option === "female" ? "Female name" : "Male name"}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })
                   ) : (
                     <Text style={[s.emptyVoices, { color: theme.mutedText }]}>
                       Your device voice will be used.
