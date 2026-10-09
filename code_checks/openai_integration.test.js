@@ -187,3 +187,25 @@ test("durable daily caps survive handler/process restart and identity spoofing c
     assert.equal(store.records().length, 1); assert.equal(store.records()[0].user_id, "user:verified");
   } finally { store.close(); }
 });
+
+
+test("voice readiness fails before recording when configuration is missing, without paid calls", async () => {
+  for (const [settings, authorizer, message] of [
+    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /verify sign-in/],
+    [env, () => ({ uid: "voice-user" }), /not enabled/],
+    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /not enabled/],
+  ]) {
+    await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
+      const response = await post(base, "/api/voice-question-status", {});
+      assert.equal(response.status, 503);
+      assert.match((await response.json()).error, message);
+      assert.equal(store.records().length, 0);
+    });
+  }
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, authorize: (r) => r.headers.authorization ? { uid: "voice-user" } : true }, async (base, store) => {
+    assert.equal((await post(base, "/api/voice-question-status", {})).status, 401);
+    const ready = await fetch(base + "/api/voice-question-status", { method: "POST", headers: { Authorization: "verified-by-test-authorizer" } });
+    assert.deepEqual(await ready.json(), { ready: true });
+    assert.equal(store.records().length, 0);
+  });
+});

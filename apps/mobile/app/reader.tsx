@@ -154,6 +154,8 @@ function ReaderContent() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [listenExpanded, setListenExpanded] = useState(false);
   const [dockHeight, setDockHeight] = useState(ASK_COMPOSER_HEIGHT);
+  const [askComposerHeight, setAskComposerHeight] = useState(50);
+  const [askVoiceErrorHeight, setAskVoiceErrorHeight] = useState(76);
   const [askPhase, setAskPhase] = useState<AskPhase>("closed");
   const askOpen = askPhase !== "closed";
   const askClosing = askPhase === "closing";
@@ -164,8 +166,9 @@ function ReaderContent() {
   const [askQuestion, setAskQuestion] = useState("");
   const [askVoiceReveal, setAskVoiceReveal] = useState<TextRevealFrame | null>(null);
   const [askVoicePhase, setAskVoicePhase] = useState<VoiceInputPhase>("idle");
-  const [askVoiceLevel, setAskVoiceLevel] = useState(0.12);
-  const askVoiceBusy = askVoicePhase !== "idle";
+  const [askVoiceLevel, setAskVoiceLevel] = useState({ value: 0, at: 0 });
+  const [askVoiceError, setAskVoiceError] = useState("");
+  const askVoiceBusy = !["idle", "error"].includes(askVoicePhase);
   const showAskRecording = askVoiceBusy && askVoicePhase !== "reviewing";
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
@@ -206,14 +209,16 @@ function ReaderContent() {
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
   // Keep the empty composer compact, with room for the recording waveform when active.
+  const minimumAskHeight = askComposerHeight + 22 + (askVoiceError ? askVoiceErrorHeight : 0);
   const askPanelHeight = hasAskConversation
-    ? Math.min(
-        ASK_CONVERSATION_MAX_HEIGHT,
-        Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
+    ? Math.max(
+        minimumAskHeight + 48,
+        Math.min(
+          ASK_CONVERSATION_MAX_HEIGHT,
+          Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
+        ),
       )
-    : showAskRecording
-      ? ASK_COMPOSER_HEIGHT + 88
-      : ASK_COMPOSER_HEIGHT;
+    : Math.max(showAskRecording ? ASK_COMPOSER_HEIGHT + 100 : ASK_COMPOSER_HEIGHT, minimumAskHeight);
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -383,6 +388,7 @@ function ReaderContent() {
     setAskPhase("closed");
     setAskVoicePhase("idle");
     setAskVoiceReveal(null);
+    setAskVoiceError("");
   }
 
   async function sendAskVotic() {
@@ -1433,15 +1439,37 @@ function ReaderContent() {
                         ) : null}
                       </ScrollView>
                     ) : null}
+                    {askVoiceError ? (
+                      <Text
+                        onLayout={(event) => setAskVoiceErrorHeight(event.nativeEvent.layout.height)}
+                        accessibilityLiveRegion="polite"
+                        style={[s.askError, { color: theme.text }]}
+                      >
+                        {askVoiceError}{" "}
+                        {askVoicePhase === "error"
+                          ? "Retry transcription or discard the recording."
+                          : "You can still type your question."}
+                      </Text>
+                    ) : null}
                     <View
-                      style={[s.askComposer, { borderColor: theme.accent, backgroundColor: theme.surface }]}
+                      testID="voice-composer"
+                      onLayout={(event) => setAskComposerHeight(event.nativeEvent.layout.height)}
+                      style={[
+                        s.askComposer,
+                        (showAskRecording || askVoicePhase === "error") && s.askRecordingComposer,
+                        { borderColor: theme.accent, backgroundColor: theme.surface },
+                      ]}
                     >
-                      {!hasAskConversation && !showAskRecording ? (
+                      {!hasAskConversation && !showAskRecording && askVoicePhase !== "error" ? (
                         <VoticLogo compact markOnly progress={progress} />
                       ) : null}
                       {showAskRecording ? (
-                        <View style={{ flex: 1, paddingVertical: spacing.xs }}>
-                          <VoiceRecordingArea phase={askVoicePhase} level={askVoiceLevel} />
+                        <View style={s.askRecordingInput}>
+                          <VoiceRecordingArea
+                            phase={askVoicePhase}
+                            level={askVoiceLevel.value}
+                            sampleTime={askVoiceLevel.at}
+                          />
                         </View>
                       ) : askVoiceReveal && askVoicePhase === "reviewing" ? (
                         <View style={{ flex: 1 }}>
@@ -1468,6 +1496,7 @@ function ReaderContent() {
                           maxLength={1000}
                           style={[
                             s.askInput,
+                            askVoicePhase === "error" && s.askRecordingText,
                             !hasAskConversation && s.compactAskInput,
                             { color: theme.text },
                           ]}
@@ -1475,9 +1504,12 @@ function ReaderContent() {
                         />
                       )}
                       <KeyboardDictationButton
+                        key={activeId}
+                        active={!askClosing}
                         value={askQuestion}
                         onPhaseChange={setAskVoicePhase}
-                        onLevelChange={setAskVoiceLevel}
+                        onLevelChange={(value) => setAskVoiceLevel({ value, at: Date.now() })}
+                        onErrorChange={setAskVoiceError}
                         onRevealChange={setAskVoiceReveal}
                         onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
@@ -1699,10 +1731,18 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  askInput: { flex: 1, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
+  askRecordingComposer: {
+    borderRadius: radii.lg,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+    padding: spacing.sm,
+  },
+  askRecordingText: { flexBasis: "100%" },
+  askRecordingInput: { width: "100%", minWidth: 0 },
+  askInput: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
   compactAskInput: { height: 46, paddingVertical: 0 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  askComposerClose: { width: 36, height: 40, alignItems: "center", justifyContent: "center" },
+  askComposerClose: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   dock: {
     borderWidth: 1,
     borderRadius: radii.lg,

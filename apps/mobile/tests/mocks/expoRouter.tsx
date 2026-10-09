@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 
 /** A stand-in for expo-router: records navigation and the Stack screens a layout declares. */
 export const router = {
@@ -34,4 +34,8 @@ export function resetExpoRouterMock() {
   router.replace.mockReset();
   searchParams.current = {};
   stackScreens.length = 0;
+}
+
+export function useFocusEffect(effect: () => void | (() => void)) {
+  useEffect(effect, [effect]);
 }

@@ -183,10 +183,16 @@ export function create_votic_handler(options = {}) {
     }
     return;
    }
-   if (request.method === "POST" && path === "/api/transcribe-question") {
+   if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
     rate_limit(`${client}:voice`, config.help_rate_limit);
+    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable because this Votic server is not configured to verify sign-in.");
     if (!identity?.uid) throw new HttpError(401, "Sign in to use voice questions.");
-    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are not connected yet.");
+    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are not enabled on this Votic server yet. You can still type your question.");
+    if (path === "/api/voice-question-status") {
+      await read_body(request, 1024, config.body_timeout_ms);
+      send_json(response, 200, { ready: true });
+      return;
+    }
     require_content_type(request, "audio/wav");
     const body = await read_body(request, 12000000, config.body_timeout_ms);
     try { validate_voice_wav(body); } catch (error) { throw new HttpError(400, error.message); }

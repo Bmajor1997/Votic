@@ -22,9 +22,25 @@ export function voticApiUrl() {
   });
 }
 
-async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT_MS) {
+async function apiFetch(
+  path: string,
+  init: RequestInit,
+  timeoutMs = API_TIMEOUT_MS,
+  signal?: AbortSignal,
+  requireSignIn = false,
+) {
   const url = voticApiUrl() + path;
   const controller = new AbortController();
+  let rejectCancellation: (error: Error) => void = () => {};
+  const cancellation = new Promise<never>((_resolve, reject) => {
+    rejectCancellation = reject;
+  });
+  const abort = () => {
+    controller.abort();
+    rejectCancellation(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+  };
+  signal?.addEventListener("abort", abort);
+  if (signal?.aborted) abort();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(() => {
@@ -35,6 +51,7 @@ async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT
   // Race the whole operation: refreshing credentials and reading the body must also finish in time.
   const request = async () => {
     const auth = await authHeaders();
+    if (requireSignIn && !auth.Authorization) throw new Error("Sign in to use voice questions.");
     if (controller.signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     const response = await fetch(url, {
       ...init,
@@ -49,13 +66,16 @@ async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT
     return { ok: response.ok, result };
   };
   try {
-    return await Promise.race([request(), timeout]);
+    return await Promise.race([request(), timeout, cancellation]);
   } catch (error) {
+    if (signal?.aborted) throw Object.assign(new Error("Voice input canceled."), { name: "AbortError" });
+    if (error instanceof Error && error.message === "Sign in to use voice questions.") throw error;
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
     throw new Error("Votic could not connect. Check your connection and try again.");
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
   }
 }
 function serverError(result: Record<string, unknown>, fallback: string) {
@@ -138,7 +158,20 @@ export type ImportedWebPage = { title: string; text: string; url: string };
 /** Foundation for a recorder: caller obtains consent and records <=60 s PCM WAV.
  * The transcript can be edited before submitting it through askVotic. Spoken output stays on device TTS.
  */
-export async function transcribeVoiceQuestion(bytes: ArrayBuffer): Promise<string> {
+export async function checkVoiceQuestionAvailability(signal?: AbortSignal): Promise<void> {
+  const response = await apiFetch(
+    "/api/voice-question-status",
+    { method: "POST" },
+    API_TIMEOUT_MS,
+    signal,
+    true,
+  );
+  if (!response.ok)
+    throw new Error(serverError(response.result, "Voice questions are unavailable on this Votic server."));
+  if (response.result.ready !== true) throw new Error("Update the Votic server to enable voice questions.");
+}
+
+export async function transcribeVoiceQuestion(bytes: ArrayBuffer, signal?: AbortSignal): Promise<string> {
   const response = await apiFetch(
     "/api/transcribe-question",
     {
@@ -147,6 +180,8 @@ export async function transcribeVoiceQuestion(bytes: ArrayBuffer): Promise<strin
       body: bytes,
     },
     45_000,
+    signal,
+    true,
   );
   const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not transcribe this voice question."));

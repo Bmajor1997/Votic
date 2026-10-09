@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { setAuthTokenProvider } from "../../src/api/authToken";
-import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
+import { askVotic, checkVoiceQuestionAvailability, transcribeVoiceQuestion } from "../../src/api/voticApi";
 
 const realFetch = global.fetch;
 afterEach(() => {
@@ -74,6 +74,37 @@ describe("Votic API requests", () => {
       setAuthTokenProvider(null);
     }
   });
+  it("requires sign-in before voice upload and checks backend readiness", async () => {
+    const fetchMock = jest.fn(async () => new Response(JSON.stringify({ ready: true })));
+    global.fetch = fetchMock as typeof fetch;
+    await expect(transcribeVoiceQuestion(new ArrayBuffer(44))).rejects.toThrow("Sign in");
+    expect(fetchMock).not.toHaveBeenCalled();
+    setAuthTokenProvider(async () => "id-token");
+    await checkVoiceQuestionAvailability();
+    expect(fetchMock.mock.calls).toHaveLength(1);
+  });
+
+  it("cancels during stalled credential refresh without uploading later", async () => {
+    let finish!: (token: string) => void;
+    setAuthTokenProvider(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const fetchMock = jest.fn(async () => new Response("{}"));
+    global.fetch = fetchMock as typeof fetch;
+    const controller = new AbortController();
+    const outcome = expect(
+      transcribeVoiceQuestion(new ArrayBuffer(44), controller.signal),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await outcome;
+    finish("late-token");
+    await jest.advanceTimersByTimeAsync(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("gives up with a clear message when the server never responds", async () => {
     let signal: AbortSignal | undefined;
     global.fetch = jest.fn((_url: unknown, init?: RequestInit) => {

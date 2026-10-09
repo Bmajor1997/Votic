@@ -55,7 +55,17 @@ Multiple processes on **one host sharing the same SQLite file** coordinate reser
 
 The backend sends multipart audio to `/v1/audio/transcriptions` using `gpt-4o-mini-transcribe`, records usage with feature `ask-votic-transcription`, and returns only `{text}`. No upload is saved. Transcripts over Ask Votic's 1,000-character question limit are rejected. Transcription and the subsequent answer are separate paid requests, both counted. Enable the transcription endpoint permission on the restricted backend key when turning voice on; speech-generation permission is not needed.
 
-Mobile `transcribeVoiceQuestion(bytes)` uses the existing authenticated backend client. A future recorder should obtain microphone consent, produce supported WAV, show an editable transcript, and submit it through the existing Ask Votic function only after user confirmation. No microphone UI was added in this foundation change. V1 spoken answers and narration continue with `expo-speech` / device TTS.
+Mobile Ask Votic now checks `POST /api/voice-question-status` after microphone permission and before opening capture. This authenticated endpoint returns `{ready:true}` only when server-side sign-in verification, the backend key, and the voice opt-in are configured. It does not call the provider or reserve paid usage. Deploy the backend and mobile changes together; an older server has no readiness endpoint.
+
+The recorder captures up to 60 seconds of 16-bit PCM using the hardware's actual sample rate/channels, builds a WAV, and sends it via `transcribeVoiceQuestion(bytes, signal)`. Stop releases capture, then shows processing and an editable transcript; sending the question remains a separate user action. A failed transcription retains the bounded WAV in memory for an explicit Retry, preserving typed text. Cancel, discard, backgrounding, navigation away, and unmount abort requests and clear audio. There are no automatic paid retries. Canceling an in-flight upload cannot guarantee that the provider has not already processed it.
+
+### If the phone records but words never appear
+
+- In the **backend** environment, configure `OPENAI_API_KEY`, `FIREBASE_PROJECT_ID` (the same project as mobile sign-in), and `VOTIC_VOICE_QUESTIONS_ENABLED=true`; restart the server. Without `FIREBASE_PROJECT_ID`, the default development authorizer cannot produce a verified UID even if the phone sends a token.
+- For production, also configure `NODE_ENV=production` and persistent `VOTIC_AI_USAGE_DB` as described above. Keep all OpenAI secrets on the backend.
+- Sign in on the phone. Configure mobile `EXPO_PUBLIC_VOTIC_API_URL` to the reachable backend address. An Expo/Metro tunnel exposes the JavaScript bundler, not automatically the backend on port 4173; a remote phone needs a separately reachable backend address. Rebuild/reload the bundle after changing public environment settings.
+- Ensure the restricted backend OpenAI key allows the audio transcription endpoint and the project can use `gpt-4o-mini-transcribe`. The readiness check establishes local configuration, not provider credentials or model access; validate with one short real recording.
+- Verify the full Android flow with pauses, keyboard open/closed, small screens, larger font scaling, denied permission, cancellation, unavailable service, and retry. Automated tests mock microphone input and provider responses; an Android bundle export cannot prove real-device transcription or layout. V1 spoken answers and narration continue with `expo-speech` / device TTS.
 
 ## Verification
 

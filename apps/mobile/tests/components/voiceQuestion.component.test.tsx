@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { requestRecordingPermissionsAsync, setAudioModeAsync, useAudioStream } from "expo-audio";
 import type { AudioStreamOptions } from "expo-audio/build/AudioStream.types";
-import { Alert, Animated, Pressable, StyleSheet, Text } from "react-native";
+import { Alert, Animated, AppState, Pressable, StyleSheet, Text } from "react-native";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { AskVotic } from "../../app/assistant";
-import { askVotic, transcribeVoiceQuestion } from "../../src/api/voticApi";
+import { askVotic, checkVoiceQuestionAvailability, transcribeVoiceQuestion } from "../../src/api/voticApi";
 import { searchParams } from "../mocks/expoRouter";
 import { VoiceRecordingArea } from "../../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
@@ -18,7 +18,11 @@ jest.mock("expo-speech", () => ({
   stop: jest.fn(async () => {}),
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
-jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn(), transcribeVoiceQuestion: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({
+  askVotic: jest.fn(),
+  checkVoiceQuestionAvailability: jest.fn(),
+  transcribeVoiceQuestion: jest.fn(),
+}));
 let options: AudioStreamOptions;
 const stream = {
   isStreaming: false,
@@ -34,6 +38,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   jest.mocked(transcribeVoiceQuestion).mockReset();
   jest.mocked(askVotic).mockReset();
+  jest.mocked(checkVoiceQuestionAvailability).mockResolvedValue(undefined);
   stream.isStreaming = false;
   stream.start.mockImplementation(async () => {
     stream.isStreaming = true;
@@ -192,7 +197,7 @@ describe("Ask Votic recording composer", () => {
     expect(
       screen.getByRole("button", { name: "Transcribing voice question", disabled: true, busy: true }),
     ).toBeTruthy();
-    expect(transcribeVoiceQuestion).toHaveBeenCalledWith(expect.any(ArrayBuffer));
+    expect(transcribeVoiceQuestion).toHaveBeenCalledWith(expect.any(ArrayBuffer), expect.any(AbortSignal));
     expect(askVotic).not.toHaveBeenCalled();
     await act(async () => resolve("photosynthesis"));
     expect(screen.queryByTestId("voice-waveform", { includeHiddenElements: true })).toBeNull();
@@ -220,7 +225,7 @@ describe("Ask Votic recording composer", () => {
     await stop();
     expect(alert).toHaveBeenCalledWith("Voice question", "Voice questions are temporarily unavailable.");
     expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("My typed question");
-    expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retry voice transcription" })).toBeTruthy();
     expect(setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false });
   });
 
@@ -270,6 +275,175 @@ describe("Ask Votic recording composer", () => {
     expect(setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false });
     await act(async () => jest.advanceTimersByTime(60000));
     expect(transcribeVoiceQuestion).not.toHaveBeenCalled();
+  });
+
+  it("checks backend availability before opening the microphone and preserves typed text", async () => {
+    jest
+      .mocked(checkVoiceQuestionAvailability)
+      .mockRejectedValueOnce(new Error("Voice questions are not enabled on this Votic server yet."));
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Keep this question");
+    await start();
+    expect(stream.start).not.toHaveBeenCalled();
+    expect(screen.getByText(/Voice questions are not enabled/)).toBeTruthy();
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("Keep this question");
+  });
+
+  it("retries the same recording without recapture and keeps edits made after failure", async () => {
+    jest
+      .mocked(transcribeVoiceQuestion)
+      .mockRejectedValueOnce(new Error("Connection lost"))
+      .mockResolvedValueOnce("the main point");
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    await stop();
+    const firstAudio = jest.mocked(transcribeVoiceQuestion).mock.calls[0][0];
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Explain");
+    await fireEvent.press(screen.getByRole("button", { name: "Retry voice transcription" }));
+    expect(stream.start).toHaveBeenCalledTimes(1);
+    expect(jest.mocked(transcribeVoiceQuestion).mock.calls[1][0]).toBe(firstAudio);
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("Explain the main point");
+    expect(askVotic).not.toHaveBeenCalled();
+  });
+
+  it("cancels a pending transcription, aborts its request, and ignores its late result", async () => {
+    let finish!: (text: string) => void;
+    jest.mocked(transcribeVoiceQuestion).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "My draft");
+    await start();
+    await capture();
+    await stop();
+    const signal = jest.mocked(transcribeVoiceQuestion).mock.calls[0][1];
+    await fireEvent.press(screen.getByRole("button", { name: "Cancel voice input" }));
+    expect(signal?.aborted).toBe(true);
+    await act(async () => finish("Late text"));
+    expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("My draft");
+    expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();
+  });
+
+  it("discards failed audio and allows a fresh recording", async () => {
+    jest.mocked(transcribeVoiceQuestion).mockRejectedValueOnce(new Error("Connection lost"));
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    await stop();
+    await fireEvent.press(screen.getByRole("button", { name: "Discard voice recording" }));
+    await start();
+    expect(stream.start).toHaveBeenCalledTimes(2);
+  });
+
+  it("cancels capture in the background without uploading audio", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    await act(async () => handler("background"));
+    expect(stream.stop).toHaveBeenCalledTimes(1);
+    expect(transcribeVoiceQuestion).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
+  });
+
+  it("does not start capture after cancellation during permission request", async () => {
+    let finish!: (permission: Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>) => void;
+    jest.mocked(requestRecordingPermissionsAsync).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await fireEvent.press(screen.getByRole("button", { name: "Cancel voice input" }));
+    await act(async () =>
+      finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
+    );
+    expect(stream.start).not.toHaveBeenCalled();
+    expect(checkVoiceQuestionAvailability).not.toHaveBeenCalled();
+  });
+
+  it("keeps duplicate Stop presses from making duplicate uploads", async () => {
+    jest.mocked(transcribeVoiceQuestion).mockImplementationOnce(() => new Promise(() => {}));
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    const button = screen.getByRole("button", { name: "Stop voice input" });
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+    expect(stream.stop).toHaveBeenCalledTimes(1);
+    expect(transcribeVoiceQuestion).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the hardware WAV format and bounds captured PCM to sixty seconds", async () => {
+    jest.mocked(transcribeVoiceQuestion).mockResolvedValueOnce("Short question");
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    const data = new ArrayBuffer(48000 * 2 * 61);
+    await act(async () => options.onBuffer?.({ data, sampleRate: 48000, channels: 1, timestamp: 0.2 }));
+    await stop();
+    const wav = new DataView(jest.mocked(transcribeVoiceQuestion).mock.calls[0][0]);
+    expect(wav.getUint32(24, true)).toBe(48000);
+    expect(wav.getUint32(40, true)).toBe(48000 * 2 * 60);
+    expect(wav.byteLength).toBe(44 + 48000 * 2 * 60);
+  });
+
+  it("rejects changing audio formats instead of sending damaged WAV", async () => {
+    const alert = jest.spyOn(Alert, "alert");
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    await act(async () =>
+      options.onBuffer?.({ data: new ArrayBuffer(16), sampleRate: 48000, channels: 1, timestamp: 0.4 }),
+    );
+    await stop();
+    expect(transcribeVoiceQuestion).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith("Voice question", expect.stringContaining("unsupported audio format"));
+    expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
+  });
+
+  it("fits the recording surface above its controls and measures a large-text Reader composer", async () => {
+    await renderWithProviders(<OpenedReader />, {
+      documents: [testDocument("voice-doc", "Voice book")],
+      reduceMotion: true,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await start();
+    const composer = screen.getByTestId("voice-composer");
+    expect(StyleSheet.flatten(composer.props.style)).toMatchObject({
+      flexWrap: "wrap",
+      justifyContent: "flex-end",
+    });
+    await fireEvent(composer, "layout", { nativeEvent: { layout: { height: 250, width: 280, x: 0, y: 0 } } });
+    expect(
+      StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height,
+    ).toBeGreaterThanOrEqual(272);
+  });
+
+  it("decays stale speech energy and keeps subtle baseline motion without new levels", async () => {
+    const timing = jest.spyOn(Animated, "timing");
+    const view = await renderWithProviders(<VoiceRecordingArea phase="recording" level={1} />);
+    timing.mockClear();
+    await act(async () => jest.advanceTimersByTime(100));
+    const speech = timing.mock.calls.slice(-24).map(([, config]) => config.toValue as number);
+    timing.mockClear();
+    await act(async () => jest.advanceTimersByTime(2000));
+    const silence = timing.mock.calls.slice(-24).map(([, config]) => config.toValue as number);
+    expect(Math.max(...speech)).toBeGreaterThan(0.5);
+    expect(Math.max(...silence)).toBeLessThan(0.2);
+    expect(new Set(silence).size).toBeGreaterThan(1);
+    await view.rerender(
+      <AppProviders>
+        <VoiceRecordingArea phase="transcribing" level={1} />
+      </AppProviders>,
+    );
+    expect(timing.mock.calls.slice(-24).every(([, config]) => config.toValue === 0.12)).toBe(true);
   });
 
   it("keeps the waveform steady with Reduce Motion", async () => {
