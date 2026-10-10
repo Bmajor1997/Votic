@@ -31,7 +31,7 @@ type ResetOptions = {
   legal?: LegalLinks;
 };
 
-const listeners = new Set<(entitlement: Entitlement) => void>();
+const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
 const server = new Map<string, Entitlement>();
 let currentUser: string | null = null;
 
@@ -60,7 +60,7 @@ export const fakeSubscriptions = {
   /** The store reports a change (renewal, expiry, refund) for an account. */
   setEntitlement(userId: string, entitlement: Entitlement) {
     server.set(userId, entitlement);
-    if (userId === currentUser) listeners.forEach((listener) => listener(entitlement));
+    if (userId === currentUser) listeners.forEach((listener) => listener(entitlement, userId));
   },
   entitlementFor(userId: string) {
     return server.get(userId) ?? fakeSubscriptions.defaultEntitlement;

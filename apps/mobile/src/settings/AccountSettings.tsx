@@ -19,6 +19,7 @@ import { authErrorMessage } from "../auth/authErrors";
 import { Card } from "../components/Card";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { removeAccountSetup } from "../onboarding/onboardingStorage";
+import { removeAccountPreferences } from "../onboarding/accountPreferences";
 import { hasAccess } from "../subscription/entitlement";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscriptionStatus } from "../subscription/subscriptionStatus";
@@ -74,8 +75,12 @@ export function AccountSettings() {
       else {
         const uid = auth.user.uid;
         await auth.deleteAccount();
-        // This device's setup and walkthrough progress for the deleted account go with it.
-        await Promise.all([removeAccountSetup(uid), removeWalkthroughState(uid)]).catch(() => {});
+        // This device's setup, preferences, and walkthrough progress go with the deleted account.
+        await Promise.all([
+          removeAccountSetup(uid),
+          removeAccountPreferences(uid),
+          removeWalkthroughState(uid),
+        ]).catch(() => {});
       }
       setStep(null);
     } catch (failure) {

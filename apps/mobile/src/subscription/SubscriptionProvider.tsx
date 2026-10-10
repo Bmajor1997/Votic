@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -49,12 +50,19 @@ export function SubscriptionProvider({
   const uid = user?.uid ?? null;
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
+  const [observedUid, setObservedUid] = useState(uid);
+  // Discard the previous session's result before children render, including signing back into the same account.
+  if (observedUid !== uid) {
+    setObservedUid(uid);
+    setChecked(null);
+  }
   const [bypassed, setBypassed] = useState(false);
   const identified = useRef<string | null>(null);
   const uidRef = useRef(uid);
-  useEffect(() => {
+  useLayoutEffect(() => {
     uidRef.current = uid;
   }, [uid]);
+  const settled = useRef<string | null>(null);
   const canBypass = isDevelopment && Boolean(service.unavailableReason);
 
   useEffect(() => {
@@ -66,6 +74,7 @@ export function SubscriptionProvider({
 
   // Link purchases to the Votic account, so they follow the person to other devices and reinstalls.
   useEffect(() => {
+    settled.current = null;
     if (!uid) {
       if (identified.current) void service.reset();
       identified.current = null;
@@ -74,20 +83,36 @@ export function SubscriptionProvider({
     if (service.unavailableReason) return;
     identified.current = uid;
     let current = true;
-    void service.identify(uid).then((result) => {
-      if (current) setChecked({ uid, entitlement: result });
-    });
+    void service
+      .identify(uid)
+      .catch(() => UNKNOWN_ENTITLEMENT)
+      .then((result) => {
+        if (current && uidRef.current === uid) {
+          settled.current = uid;
+          setChecked({ uid, entitlement: result });
+        }
+      });
     return () => {
       current = false;
     };
   }, [uid, service]);
 
-  const setEntitlement = useCallback((next: Entitlement) => {
-    const current = uidRef.current;
-    if (current) setChecked({ uid: current, entitlement: next });
-  }, []);
+  // Purchase/restore/refresh callbacks retain the account that started them.
+  const setEntitlement = useCallback(
+    (next: Entitlement) => {
+      if (uid && uidRef.current === uid && settled.current === uid) setChecked({ uid, entitlement: next });
+    },
+    [uid],
+  );
   // Renewals, expirations, and refunds arrive here while Votic is open.
-  useEffect(() => service.onChange(setEntitlement), [service, setEntitlement]);
+  useEffect(
+    () =>
+      service.onChange((next, owner) => {
+        if (owner === uidRef.current && owner === settled.current)
+          setChecked({ uid: owner, entitlement: next });
+      }),
+    [service],
+  );
 
   const entitlement = uid && checked?.uid === uid ? checked.entitlement : UNKNOWN_ENTITLEMENT;
   const checking = Boolean(uid && !service.unavailableReason && checked?.uid !== uid);

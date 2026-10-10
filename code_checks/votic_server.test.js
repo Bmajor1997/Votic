@@ -247,7 +247,7 @@ test("provides an authentication seam without inventing accounts", async () => {
 
 test("production refuses to start without Firebase authentication configuration", () => {
   assert.throws(() => validate_production_security({ NODE_ENV: "production" }), /FIREBASE_PROJECT_ID/);
-  assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "production", FIREBASE_PROJECT_ID: "votic-production" }));
+  assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "production", FIREBASE_PROJECT_ID: "votic-production", REVENUECAT_SECRET_API_KEY: "test-backend-key" }));
   assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "development" }));
 });
 
