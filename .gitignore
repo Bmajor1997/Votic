@@ -3,6 +3,8 @@ node_modules/
 test-results/
 playwright-report/
 apps/mobile/.expo/
+# Regenerated from targets/*/expo-target.config.js on every prebuild.
+apps/mobile/targets/*/Assets.xcassets/
 .env
 .env.*
 !.env.example

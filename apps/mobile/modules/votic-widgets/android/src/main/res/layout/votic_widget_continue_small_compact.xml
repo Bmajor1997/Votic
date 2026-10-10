@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/votic_widget_bg_chapter"
+  android:orientation="vertical"
+  android:padding="12dp">
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="20dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal">
+    <FrameLayout
+      android:layout_width="20dp"
+      android:layout_height="20dp"
+      android:background="@drawable/votic_widget_circle_chapter">
+      <ImageView
+        android:id="@+id/mode_icon"
+        android:layout_width="11dp"
+        android:layout_height="11dp"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no"
+        android:src="@drawable/votic_widget_ic_headphones"
+        android:tint="@color/votic_chapter_on_strong" />
+    </FrameLayout>
+    <TextView
+      android:id="@+id/kind_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:layout_marginStart="6dp"
+      android:maxLines="1"
+      android:textColor="@color/votic_chapter_detail"
+      android:textSize="11sp"
+      android:textStyle="bold" />
+  </LinearLayout>
+  <TextView
+    android:id="@+id/title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:ellipsize="end"
+    android:maxLines="2"
+    android:text="@string/votic_widget_sample_title"
+    android:textColor="@color/votic_chapter_ink"
+    android:textSize="14sp"
+    android:textStyle="bold" />
+  <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1" />
+  <ProgressBar
+    android:id="@+id/progress"
+    style="?android:attr/progressBarStyleHorizontal"
+    android:layout_width="match_parent"
+    android:layout_height="5dp"
+    android:importantForAccessibility="no"
+    android:max="100"
+    android:progress="0"
+    android:progressDrawable="@drawable/votic_widget_progress_chapter" />
+  <TextView
+    android:id="@+id/status"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="3dp"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:text="@string/votic_widget_sample_status"
+    android:textColor="@color/votic_chapter_detail"
+    android:textSize="11sp" />
+</LinearLayout>

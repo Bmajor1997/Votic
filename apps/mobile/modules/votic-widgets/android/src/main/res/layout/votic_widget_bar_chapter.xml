@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/bar"
+  style="?android:attr/progressBarStyleHorizontal"
+  android:layout_width="6dp"
+  android:layout_height="match_parent"
+  android:layout_marginStart="4dp"
+  android:importantForAccessibility="no"
+  android:max="100"
+  android:progress="0"
+  android:progressDrawable="@drawable/votic_widget_bar_chapter" />

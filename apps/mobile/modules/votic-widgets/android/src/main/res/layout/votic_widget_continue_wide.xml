@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/votic_widget_bg_chapter"
+  android:gravity="center_vertical"
+  android:orientation="horizontal"
+  android:padding="@dimen/votic_widget_padding">
+  <LinearLayout
+    android:id="@+id/cover"
+    android:layout_width="48dp"
+    android:layout_height="64dp"
+    android:background="@drawable/votic_widget_cover"
+    android:importantForAccessibility="noHideDescendants"
+    android:orientation="vertical">
+    <TextView
+      android:id="@+id/cover_band"
+      android:layout_width="match_parent"
+      android:layout_height="13dp"
+      android:background="@drawable/votic_widget_band_chapter"
+      android:gravity="center_vertical"
+      android:maxLines="1"
+      android:paddingStart="4dp"
+      android:text="DOC"
+      android:textColor="@color/votic_band_text"
+      android:textSize="7sp"
+      android:textStyle="bold" />
+    <ImageView
+      android:id="@+id/cover_line1"
+      android:layout_width="match_parent"
+      android:layout_height="3dp"
+      android:layout_marginStart="5dp"
+      android:layout_marginTop="6dp"
+      android:layout_marginEnd="5dp"
+      android:background="@drawable/votic_widget_line_chapter"
+      android:importantForAccessibility="no" />
+    <ImageView
+      android:id="@+id/cover_line2"
+      android:layout_width="26dp"
+      android:layout_height="3dp"
+      android:layout_marginStart="5dp"
+      android:layout_marginTop="4dp"
+      android:layout_marginEnd="5dp"
+      android:background="@drawable/votic_widget_line_chapter"
+      android:importantForAccessibility="no" />
+    <ImageView
+      android:id="@+id/cover_line3"
+      android:layout_width="match_parent"
+      android:layout_height="3dp"
+      android:layout_marginStart="5dp"
+      android:layout_marginTop="4dp"
+      android:layout_marginEnd="5dp"
+      android:background="@drawable/votic_widget_line_chapter"
+      android:importantForAccessibility="no" />
+  </LinearLayout>
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="12dp"
+    android:layout_weight="1"
+    android:orientation="vertical">
+    <TextView
+      android:id="@+id/title"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:ellipsize="end"
+      android:maxLines="2"
+      android:text="@string/votic_widget_sample_title"
+      android:textColor="@color/votic_chapter_ink"
+      android:textSize="15sp"
+      android:textStyle="bold" />
+    <TextView
+      android:id="@+id/status"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="2dp"
+      android:ellipsize="end"
+      android:maxLines="1"
+      android:text="@string/votic_widget_sample_status"
+      android:textColor="@color/votic_chapter_detail"
+      android:textSize="12sp" />
+    <ProgressBar
+      android:id="@+id/progress"
+      style="?android:attr/progressBarStyleHorizontal"
+      android:layout_width="match_parent"
+      android:layout_height="5dp"
+      android:layout_marginTop="6dp"
+      android:importantForAccessibility="no"
+      android:max="100"
+      android:progress="0"
+      android:progressDrawable="@drawable/votic_widget_progress_chapter" />
+  </LinearLayout>
+  <LinearLayout
+    android:layout_width="96dp"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="12dp"
+    android:orientation="vertical">
+    <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="34dp" >
+      <FrameLayout
+        android:id="@+id/listen_filled"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/votic_widget_pill_chapter_filled" >
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:drawableStart="@drawable/votic_widget_ic_play"
+          android:drawablePadding="6dp"
+          android:drawableTint="@color/votic_chapter_on_strong"
+          android:gravity="center_vertical"
+          android:maxLines="1"
+          android:text="@string/votic_widget_listen"
+          android:textColor="@color/votic_chapter_on_strong"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </FrameLayout>
+      <FrameLayout
+        android:id="@+id/listen_outline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/votic_widget_pill_chapter_outline" android:visibility="gone">
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:drawableStart="@drawable/votic_widget_ic_play"
+          android:drawablePadding="6dp"
+          android:drawableTint="@color/votic_chapter_ink"
+          android:gravity="center_vertical"
+          android:maxLines="1"
+          android:text="@string/votic_widget_listen"
+          android:textColor="@color/votic_chapter_ink"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </FrameLayout>
+    </FrameLayout>
+    <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="34dp" android:layout_marginTop="6dp">
+      <FrameLayout
+        android:id="@+id/read_filled"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/votic_widget_pill_chapter_filled" >
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:drawableStart="@drawable/votic_widget_ic_book"
+          android:drawablePadding="6dp"
+          android:drawableTint="@color/votic_chapter_on_strong"
+          android:gravity="center_vertical"
+          android:maxLines="1"
+          android:text="@string/votic_widget_read"
+          android:textColor="@color/votic_chapter_on_strong"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </FrameLayout>
+      <FrameLayout
+        android:id="@+id/read_outline"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/votic_widget_pill_chapter_outline" android:visibility="gone">
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:drawableStart="@drawable/votic_widget_ic_book"
+          android:drawablePadding="6dp"
+          android:drawableTint="@color/votic_chapter_ink"
+          android:gravity="center_vertical"
+          android:maxLines="1"
+          android:text="@string/votic_widget_read"
+          android:textColor="@color/votic_chapter_ink"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </FrameLayout>
+    </FrameLayout>
+  </LinearLayout>
+</LinearLayout>

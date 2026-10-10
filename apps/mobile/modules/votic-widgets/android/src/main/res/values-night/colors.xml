@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Votic widget colors: the same families as the Home cards in the app (src/home/widgetDesign.ts). -->
+<resources>
+  <color name="votic_chapter_surface">#17345B</color>
+  <color name="votic_chapter_border">#365986</color>
+  <color name="votic_chapter_ink">#EDF4FF</color>
+  <color name="votic_chapter_detail">#C1D3EE</color>
+  <color name="votic_chapter_art">#294D7C</color>
+  <color name="votic_chapter_strong">#91B8FF</color>
+  <color name="votic_chapter_on_strong">#132C50</color>
+  <color name="votic_activity_surface">#163B35</color>
+  <color name="votic_activity_border">#335E54</color>
+  <color name="votic_activity_ink">#E1F7ED</color>
+  <color name="votic_activity_detail">#B7D7CB</color>
+  <color name="votic_activity_art">#285449</color>
+  <color name="votic_activity_strong">#8BD8BC</color>
+  <color name="votic_activity_on_strong">#153E32</color>
+  <color name="votic_pdf_surface">#452C36</color>
+  <color name="votic_pdf_border">#70505B</color>
+  <color name="votic_pdf_ink">#FFECEF</color>
+  <color name="votic_pdf_detail">#E6C2C9</color>
+  <color name="votic_pdf_art">#63404B</color>
+  <color name="votic_pdf_strong">#F3B4BD</color>
+  <color name="votic_pdf_on_strong">#572731</color>
+  <color name="votic_slides_surface">#42332A</color>
+  <color name="votic_slides_border">#705641</color>
+  <color name="votic_slides_ink">#FFF0DE</color>
+  <color name="votic_slides_detail">#E4CBB4</color>
+  <color name="votic_slides_art">#604937</color>
+  <color name="votic_slides_strong">#ECC092</color>
+  <color name="votic_slides_on_strong">#4B321D</color>
+  <color name="votic_book_surface">#2D2C4C</color>
+  <color name="votic_book_border">#515177</color>
+  <color name="votic_book_ink">#EFEEFF</color>
+  <color name="votic_book_detail">#C9C6E9</color>
+  <color name="votic_book_art">#44446C</color>
+  <color name="votic_book_strong">#BEB6F2</color>
+  <color name="votic_book_on_strong">#302855</color>
+  <color name="votic_text_surface">#213A45</color>
+  <color name="votic_text_border">#405E6B</color>
+  <color name="votic_text_ink">#E5F5FA</color>
+  <color name="votic_text_detail">#BCD7E1</color>
+  <color name="votic_text_art">#345462</color>
+  <color name="votic_text_strong">#98CEDF</color>
+  <color name="votic_text_on_strong">#213F4B</color>
+  <!-- The page of a document cover. -->
+  <color name="votic_cover_page">#1E2B3D</color>
+  <color name="votic_band_text">#1E2230</color>
+</resources>

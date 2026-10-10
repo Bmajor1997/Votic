@@ -88,6 +88,10 @@ Votic requires an account in production. The app signs people in with Firebase A
 4. Set `FIREBASE_PROJECT_ID` on the Votic server so every `/api/*` request must carry a valid Firebase ID token. Each signed-in account then gets its own `VOTIC_AI_CLIENT_DAILY_LIMIT` allowance instead of sharing one per network address.
 
 Settings includes **Sign out** and **Delete account**. Documents and notes stay on the device either way.
+
+### Home-screen widgets
+
+Votic has two widgets on iPhone and Android. **Continue** shows the document in progress, with Listen and Read; larger sizes add Up next and this week. **This Week** shows reading and listening time day by day. iPhone also has Lock Screen versions. The app shares a small snapshot (titles, progress, and daily totals, never document text or notes), and taps open Votic through `votic://widget` links. Widgets need a development or release build. Before the first build, set `ios.appleTeamId` and `android.package` in `app.json`. See [apps/mobile/docs/HOME_SCREEN_WIDGETS.md](apps/mobile/docs/HOME_SCREEN_WIDGETS.md) for setup, how the widgets update, and what still needs checking on a device.
 ## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:

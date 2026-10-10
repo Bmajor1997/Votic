@@ -8,6 +8,7 @@
     "scheme": "votic",
     "plugins": [
       "expo-router",
+      "@bacons/apple-targets",
       "expo-splash-screen",
       "expo-apple-authentication",
       [
@@ -54,7 +55,10 @@
     "ios": {
       "bundleIdentifier": "com.votic.app",
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.votic.app"]
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",

@@ -17,6 +17,8 @@ const SAVE_DELAY_MS = 2000;
 
 type ActivityValue = {
   log: ActivityLog;
+  /** Always the measured log, even while sample statistics are shown (used by the home-screen widgets). */
+  measuredLog: ActivityLog;
   hydrated: boolean;
   recordTime: (documentId: string, kind: ActivityKind, start: number, end: number) => void;
   recordAsk: (event: AskEvent) => void;
@@ -89,6 +91,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
     <ActivityContext.Provider
       value={{
         log: sample ?? log,
+        measuredLog: log,
         hydrated,
         recordTime: (documentId, kind, start, end) =>
           change((current) => addInterval(current, documentId, kind, start, end)),

@@ -12,6 +12,7 @@ import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvide
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { OnboardingProvider, useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
+import { WidgetSync } from "../src/widgets/WidgetSync";
 
 // Keep the launch screen up until Votic knows whether to show Welcome, personalization, or Home.
 Promise.resolve(SplashScreen.preventAutoHideAsync?.()).catch(() => {});
@@ -28,6 +29,8 @@ function ThemedStack() {
   const signedIn = Boolean(user);
   return (
     <DocumentLibraryProvider>
+      {/* Keeps the iPhone and Android home-screen widgets up to date. */}
+      <WidgetSync />
       <DocumentTransitionProvider>
         <Stack
           screenOptions={{
@@ -74,6 +77,8 @@ function ThemedStack() {
               name="statistics"
               options={{ animation: reduceMotion ? "none" : "slide_from_right" }}
             />
+            {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
+            <Stack.Screen name="widget" options={{ animation: "none" }} />
           </Stack.Protected>
         </Stack>
       </DocumentTransitionProvider>

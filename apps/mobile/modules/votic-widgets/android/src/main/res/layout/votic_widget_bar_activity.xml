@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="wrap_content"
+  android:layout_height="match_parent"
+  android:layout_marginStart="5dp"
+  android:gravity="center_horizontal"
+  android:importantForAccessibility="noHideDescendants"
+  android:orientation="vertical">
+  <ProgressBar
+    android:id="@+id/bar"
+    style="?android:attr/progressBarStyleHorizontal"
+    android:layout_width="9dp"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:max="100"
+    android:progress="0"
+    android:progressDrawable="@drawable/votic_widget_bar_activity" />
+  <TextView
+    android:id="@+id/bar_letter"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="3dp"
+    android:textColor="@color/votic_activity_detail"
+    android:textSize="10sp" />
+</LinearLayout>
