@@ -6,11 +6,65 @@
     "orientation": "default",
     "userInterfaceStyle": "automatic",
     "scheme": "votic",
-    "plugins": ["expo-router", "expo-splash-screen", "expo-apple-authentication"],
-    "ios": { "supportsTablet": true, "usesAppleSignIn": true },
+    "plugins": [
+      "expo-router",
+      "@bacons/apple-targets",
+      "expo-splash-screen",
+      "expo-apple-authentication",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Votic to listen while you ask a voice question.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Votic to scan documents with your camera.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-sharing",
+        {
+          "ios": {
+            "enabled": true,
+            "activationRule": {
+              "supportsFileWithMaxCount": 1,
+              "supportsAttachmentsWithMaxCount": 1
+            }
+          },
+          "android": {
+            "enabled": true,
+            "singleShareMimeTypes": [
+              "application/pdf",
+              "text/plain",
+              "text/markdown",
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+              "application/vnd.ms-powerpoint",
+              "application/epub+zip"
+            ],
+            "multipleShareMimeTypes": []
+          }
+        }
+      ]
+    ],
+    "ios": {
+      "bundleIdentifier": "com.votic.app",
+      "supportsTablet": true,
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.votic.app"]
+      }
+    },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
-      "adaptiveIcon": { "backgroundColor": "#ffffff" }
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff"
+      }
     }
   }
 }

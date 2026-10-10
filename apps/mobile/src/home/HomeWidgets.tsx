@@ -1,7 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { formatDuration, spokenDuration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { DocumentCover } from "../components/DocumentCover";
@@ -21,6 +29,9 @@ import {
   resumeModeFor,
   weekActivity,
 } from "./homeModel";
+
+import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
+import { documentWidgetTone, widgetPalette } from "./widgetDesign";
 
 type Target = (node: View | null) => void;
 
@@ -151,82 +162,6 @@ export function ContinueWidget({
   );
 }
 
-/**
- * Continue before there's anything to continue: the same card, saying so, with the way to add a first
- * document where Listen and Read will be.
- */
-export function EmptyContinueWidget({
-  onAdd,
-  importing,
-  addRef,
-  targetRef,
-}: {
-  onAdd: () => void;
-  importing: boolean;
-  addRef: React.RefObject<View | null>;
-  targetRef?: Target;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View
-      ref={targetRef}
-      collapsable={false}
-      style={[s.continue, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}
-    >
-      <View style={s.continueTop}>
-        <View style={[s.emptyCover, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-          <Ionicons name="document-outline" size={30} color={theme.mutedText} />
-        </View>
-        <View style={s.grow}>
-          <Text style={[s.continueTitle, { color: theme.text }]}>Ready when you are</Text>
-          <Text style={[s.emptyMessage, { color: theme.mutedText }]}>
-            Add a PDF, Word, PowerPoint, EPUB, or text file, then listen or read along.
-          </Text>
-        </View>
-      </View>
-      <View ref={addRef} collapsable={false}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add document"
-          accessibilityState={{ busy: importing }}
-          disabled={importing}
-          onPress={onAdd}
-          style={({ pressed }) => [s.resume, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
-        >
-          {importing ? (
-            <ActivityIndicator color={theme.onAccent} />
-          ) : (
-            <Ionicons name="add" size={20} color={theme.onAccent} />
-          )}
-          <Text style={[s.resumeText, { color: theme.onAccent }]}>Add document</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-/** What a Home section says before it has anything to show. */
-function EmptyPanel({
-  icon,
-  title,
-  message,
-}: {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  title: string;
-  message: string;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View accessible style={[s.emptyPanel, { borderColor: theme.border }]}>
-      <Ionicons name={icon} size={22} color={theme.mutedText} />
-      <View style={s.grow}>
-        <Text style={[s.emptyTitle, { color: theme.text }]}>{title}</Text>
-        <Text style={[s.emptyMessage, { color: theme.mutedText }]}>{message}</Text>
-      </View>
-    </View>
-  );
-}
-
 /** "today", "yesterday", "3 days ago", or "on Sep 27". */
 function whenPhrase(time: number) {
   const day = relativeDay(time);
@@ -287,11 +222,99 @@ function ResumeButton({
 // ---------- This week ----------
 
 /**
+ * Continue before there's anything to continue: the same card, saying so, with the way to add a first
+ * document where Continue Listening and Continue Reading will be.
+ */
+export function EmptyContinueWidget({
+  onAdd,
+  importing,
+  addRef,
+  targetRef,
+}: {
+  onAdd: () => void;
+  importing: boolean;
+  addRef: React.RefObject<View | null>;
+  targetRef?: Target;
+}) {
+  const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "chapter");
+  return (
+    <View
+      ref={targetRef}
+      collapsable={false}
+      testID="home-empty-continue"
+      style={[
+        s.emptyContinue,
+        theme.elevation,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
+    >
+      <WidgetHalo color={colors.art} />
+      <View style={s.emptyContinueTop}>
+        <View style={[s.emptyCover, { borderColor: colors.border, backgroundColor: theme.surface }]}>
+          <Ionicons name="document-outline" size={30} color={colors.detail} />
+        </View>
+        <View style={s.grow}>
+          <Text style={[s.emptyContinueTitle, { color: colors.ink }]}>Ready when you are</Text>
+          <Text style={[s.emptyMessage, { color: colors.detail }]}>
+            Add a PDF, Word, PowerPoint, EPUB, or text file, then listen or read along.
+          </Text>
+        </View>
+      </View>
+      <View ref={addRef} collapsable={false}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add document"
+          accessibilityState={{ busy: importing }}
+          disabled={importing}
+          onPress={onAdd}
+          style={({ pressed }) => [
+            s.emptyAdd,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
+          ]}
+        >
+          {importing ? (
+            <ActivityIndicator color={theme.onAccent} />
+          ) : (
+            <Ionicons name="add" size={20} color={theme.onAccent} />
+          )}
+          <Text style={[s.emptyAddText, { color: theme.onAccent }]}>Add document</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** What a Home section says before it has anything to show. */
+function EmptyPanel({
+  icon,
+  title,
+  message,
+  color,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  message: string;
+  color: { border: string; ink: string; detail: string };
+}) {
+  return (
+    <View accessible style={[s.emptyPanel, { borderColor: color.border }]}>
+      <Ionicons name={icon} size={22} color={color.detail} />
+      <View style={s.grow}>
+        <Text style={[s.emptyPanelTitle, { color: color.ink }]}>{title}</Text>
+        <Text style={[s.emptyMessage, { color: color.detail }]}>{message}</Text>
+      </View>
+    </View>
+  );
+}
+
+/**
  * This week at a glance: total time, how it splits between reading and listening, a small day-by-day
  * strip, and one factual note when there's enough activity. The whole card opens Statistics.
  */
 export function WeekWidget() {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "activity");
   const { log, hydrated } = useActivity();
   const { documents } = useDocumentLibrary();
   const weekTarget = useWalkthroughTarget("home.week");
@@ -315,35 +338,49 @@ export function WeekWidget() {
   return (
     <Pressable
       ref={weekTarget}
+      testID="home-week-card"
       accessibilityRole="button"
       accessibilityLabel={spoken}
+      accessibilityHint="Shows your reading and listening activity"
       onPress={() => router.push("/statistics")}
       style={({ pressed }) => [
         s.week,
-        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+        theme.elevation,
+        { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
       ]}
     >
+      <WidgetHalo color={colors.art} />
       {/* Says where the card leads, since Statistics no longer has its own row on Home. */}
       <View style={s.weekHeader}>
-        <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
+        <View style={s.weekIdentity}>
+          <View
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[s.widgetIcon, { backgroundColor: colors.art }]}
+          >
+            <Ionicons name="stats-chart" size={18} color={colors.ink} />
+          </View>
+          <Text style={[s.eyebrow, { color: colors.detail }]}>THIS WEEK</Text>
+        </View>
         <View style={s.weekLink}>
-          <Text style={[s.weekLinkText, { color: theme.accentText }]}>Statistics</Text>
-          <Ionicons name="chevron-forward" size={15} color={theme.accentText} />
+          <Text style={[s.weekLinkText, { color: colors.ink }]}>Statistics</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.ink} />
         </View>
       </View>
       <View style={s.weekTop}>
         <View style={s.grow}>
           {week.total ? (
             <>
-              <Text style={[s.weekTotal, { color: theme.text }]}>{formatDuration(week.total)}</Text>
+              <Text style={[s.weekTotal, { color: colors.ink }]}>{formatDuration(week.total)}</Text>
               {week.change !== null ? (
-                <Text style={[s.meta, { color: theme.mutedText }]}>{changeLabel(week.change)}</Text>
+                <Text style={[s.meta, { color: colors.detail }]}>{changeLabel(week.change)}</Text>
               ) : null}
             </>
           ) : (
             <>
-              <Text style={[s.weekEmpty, { color: theme.text }]}>No activity</Text>
-              <Text style={[s.meta, { color: theme.mutedText }]}>
+              <Text style={[s.weekEmpty, { color: colors.ink }]}>No activity</Text>
+              <Text style={[s.meta, { color: colors.detail }]}>
                 Your reading and listening time will show here once you start.
               </Text>
             </>
@@ -360,7 +397,7 @@ export function WeekWidget() {
                       s.dayBar,
                       {
                         height: day.total ? Math.max(4, (day.total / peak) * 40) : 4,
-                        backgroundColor: day.total ? theme.accent : theme.border,
+                        backgroundColor: day.total ? colors.strong : colors.border,
                       },
                     ]}
                   />
@@ -369,7 +406,7 @@ export function WeekWidget() {
                   style={[
                     s.dayLabel,
                     {
-                      color: day.isToday ? theme.text : theme.mutedText,
+                      color: day.isToday ? colors.ink : colors.detail,
                       fontWeight: day.isToday ? "800" : "600",
                     },
                   ]}
@@ -384,21 +421,19 @@ export function WeekWidget() {
       {week.total ? (
         <View style={s.split} importantForAccessibility="no-hide-descendants">
           {/* Reading in the accent, listening in a lighter step of it, so both read as time spent. */}
-          <View style={[s.track, s.splitTrack, { backgroundColor: theme.wordHighlight }]}>
+          <View style={[s.track, s.splitTrack, { backgroundColor: colors.art }]}>
             <View
-              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: theme.accent }]}
+              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: colors.strong }]}
             />
           </View>
           <View style={s.splitLabels}>
-            <Text style={[s.meta, { color: theme.mutedText }]}>Reading {formatDuration(week.reading)}</Text>
-            <Text style={[s.meta, { color: theme.mutedText }]}>
-              Listening {formatDuration(week.listening)}
-            </Text>
+            <Text style={[s.meta, { color: colors.detail }]}>Reading {formatDuration(week.reading)}</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>Listening {formatDuration(week.listening)}</Text>
           </View>
         </View>
       ) : null}
       {insight ? (
-        <Text style={[s.insight, { color: theme.text, borderTopColor: theme.border }]}>{insight}</Text>
+        <Text style={[s.insight, { color: colors.ink, borderTopColor: colors.border }]}>{insight}</Text>
       ) : null}
     </Pressable>
   );
@@ -406,10 +441,7 @@ export function WeekWidget() {
 
 // ---------- Recent documents ----------
 
-/**
- * Recently opened documents as a short horizontal shelf. The Documents tab has the full library. With no
- * documents at all, it says so.
- */
+/** Recently opened documents as a short horizontal shelf. The Documents tab has the full library. */
 export function RecentShelf({
   documents,
   onOpen,
@@ -423,21 +455,23 @@ export function RecentShelf({
   targetRef?: Target;
   optionsTargetRef?: Target;
 }) {
+  const { theme } = useVoticTheme();
   if (!documents.length)
     return (
       <View style={s.section}>
-        <SectionHeader title="Recent" />
+        <SectionHeader title="Recent files" />
         <EmptyPanel
           icon="time-outline"
           title="Your shelf starts here"
           message="Everything you open lines up here, so you can jump back in anytime."
+          color={widgetPalette(theme.isDark, "chapter")}
         />
       </View>
     );
   return (
     <View ref={targetRef} collapsable={false} style={s.section}>
       <SectionHeader
-        title="Recent"
+        title="Recent files"
         actionLabel="See all documents"
         onAction={() => router.push("/documents")}
       />
@@ -468,11 +502,26 @@ function RecentCard({
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, documentWidgetTone(document.sourceName));
+  const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
   const title = readableTitle(document.title);
   const percent = Math.round(document.progress * 100);
   return (
-    <View ref={ref} collapsable={false} style={s.recent}>
+    <View
+      ref={ref}
+      collapsable={false}
+      testID="home-recent-card"
+      style={[
+        s.recent,
+        theme.elevation,
+        {
+          width: Math.min(280, 156 * Math.max(1, fontScale)),
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
@@ -480,34 +529,38 @@ function RecentCard({
         onPress={() => onOpen(ref)}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <View style={[s.recentCover, { backgroundColor: theme.surfaceMuted }]}>
-          <DocumentCover document={document} size="lg" />
+        <View style={[s.recentCover, { backgroundColor: colors.art }]}>
+          <WidgetHalo color={colors.strong} />
+          <HomeDocumentArtwork document={document} />
         </View>
-        <Text numberOfLines={2} style={[s.recentTitle, { color: theme.text }]}>
+        <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={[s.recentTitle, { color: colors.ink }]}>
           {title}
         </Text>
         {document.progress >= 1 ? (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Finished</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Finished</Text>
         ) : document.progress > 0 ? (
           <View style={s.recentProgress}>
-            <View style={[s.track, s.grow, { backgroundColor: theme.border }]}>
-              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: theme.accent }]} />
+            <View style={[s.track, s.grow, { backgroundColor: colors.border }]}>
+              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: colors.strong }]} />
             </View>
-            <Text style={[s.meta, { color: theme.mutedText }]}>{percent}%</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>{percent}%</Text>
           </View>
         ) : (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Not started</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Not started</Text>
         )}
       </Pressable>
       <Pressable
         ref={moreRef}
         accessibilityRole="button"
         accessibilityLabel={`More options for ${title}`}
+        accessibilityHint="Shows document actions"
         onPress={onMore}
         hitSlop={4}
         style={s.recentMore}
       >
-        <Ionicons name="ellipsis-horizontal" size={19} color={theme.mutedText} />
+        <View style={[s.moreBadge, { backgroundColor: colors.surface }]}>
+          <Ionicons name="ellipsis-horizontal" size={19} color={colors.ink} />
+        </View>
       </Pressable>
     </View>
   );
@@ -517,37 +570,28 @@ function RecentCard({
 
 /**
  * Notes worth coming back to: pinned ones first, then the newest. Each opens its document at the exact spot.
- * Without notes it isn't shown, unless `showEmpty` (an empty library), where it says notes will come.
+ * Not shown until there's at least one note.
  */
-export function NotesShelf({
-  notes,
-  onOpen,
-  showEmpty = false,
-}: {
-  notes: NoteItem[];
-  onOpen: (item: NoteItem) => void;
-  showEmpty?: boolean;
-}) {
+export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
+  const colors = widgetPalette(theme.isDark, "notes");
+  const { fontScale } = useWindowDimensions();
   const notesTarget = useWalkthroughTarget("home.notes");
-  if (!notes.length)
-    return showEmpty ? (
-      <View style={s.section}>
-        <SectionHeader title="From your notes" />
+  return (
+    <View ref={notes.length ? notesTarget : undefined} collapsable={false} style={s.section}>
+      <SectionHeader
+        title="Recent notes"
+        actionLabel={notes.length ? "See all notes" : undefined}
+        onAction={() => router.push("/notes")}
+      />
+      {!notes.length ? (
         <EmptyPanel
           icon="create-outline"
           title="No notes"
           message="Save a passage while you read and it lands here, ready to revisit."
+          color={colors}
         />
-      </View>
-    ) : null;
-  return (
-    <View ref={notesTarget} collapsable={false} style={s.section}>
-      <SectionHeader
-        title="From your notes"
-        actionLabel="See all notes"
-        onAction={() => router.push("/notes")}
-      />
+      ) : null}
       <Shelf>
         {notes.map((item) => {
           const { passage, document } = item;
@@ -559,27 +603,53 @@ export function NotesShelf({
           return (
             <Pressable
               key={document.id + passage.id}
+              testID="home-note-card"
               accessibilityRole="button"
               accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relativeDay(passage.updatedAt)}.`}
               accessibilityHint="Opens the document at this passage"
               onPress={() => onOpen(item)}
               style={({ pressed }) => [
                 s.note,
-                { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+                theme.elevation,
+                {
+                  width: Math.min(320, 232 * Math.max(1, fontScale)),
+                  borderColor: colors.border,
+                  backgroundColor: pressed ? colors.art : colors.surface,
+                },
               ]}
             >
+              <View
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={s.noteMark}
+              >
+                <View style={[s.widgetIcon, { backgroundColor: colors.art }]}>
+                  <Ionicons name="create-outline" size={18} color={colors.ink} />
+                </View>
+                <View style={[s.noteRule, { backgroundColor: colors.border }]} />
+              </View>
               <View style={s.noteTop}>
-                {passage.pinned ? <Ionicons name="pin" size={14} color={theme.accentText} /> : null}
-                <Text numberOfLines={2} style={[s.noteHeading, { color: theme.text }]}>
+                {passage.pinned ? <Ionicons name="pin" size={14} color={colors.strong} /> : null}
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 2}
+                  style={[s.noteHeading, { color: colors.ink }]}
+                >
                   {heading}
                 </Text>
               </View>
               {body ? (
-                <Text numberOfLines={3} style={[s.noteBody, { color: theme.mutedText }]}>
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 3}
+                  style={[s.noteBody, { color: colors.detail }]}
+                >
                   {body}
                 </Text>
               ) : null}
-              <Text numberOfLines={1} style={[s.noteSource, { color: theme.mutedText }]}>
+              <Text
+                numberOfLines={fontScale > 1.2 ? undefined : 1}
+                style={[s.noteSource, { color: colors.detail }]}
+              >
                 {source} · {relativeDay(passage.updatedAt)}
               </Text>
             </Pressable>
@@ -594,6 +664,7 @@ export function NotesShelf({
 function Shelf({ children }: { children: ReactNode }) {
   return (
     <ScrollView
+      testID="home-horizontal-shelf"
       horizontal
       showsHorizontalScrollIndicator={false}
       style={s.shelf}
@@ -635,16 +706,22 @@ const s = StyleSheet.create({
   },
   resumeText: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
 
-  week: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  week: { overflow: "hidden", borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   weekHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+    flexWrap: "wrap",
   },
+  weekIdentity: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  widgetIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  noteMark: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xs },
+  noteRule: { height: 2, flex: 1, borderRadius: 1 },
+  moreBadge: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekLinkText: { fontSize: 14, fontWeight: "800" },
-  weekTop: { flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
+  weekTop: { flexWrap: "wrap", flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
   weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
   days: { flexDirection: "row", gap: 5 },
@@ -664,11 +741,12 @@ const s = StyleSheet.create({
   },
 
   shelf: { marginHorizontal: -SCREEN_GUTTER },
-  shelfContent: { paddingHorizontal: SCREEN_GUTTER, gap: spacing.md },
-  recent: { width: 132 },
+  shelfContent: { paddingHorizontal: SCREEN_GUTTER, paddingVertical: spacing.sm, gap: spacing.md },
+  recent: { width: 156, padding: spacing.sm, borderWidth: 1, borderRadius: radii.lg },
   recentMain: { gap: spacing.xs },
   recentCover: {
-    height: 132,
+    height: 144,
+    overflow: "hidden",
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
@@ -680,8 +758,8 @@ const s = StyleSheet.create({
     position: "absolute",
     top: 2,
     right: 2,
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -699,6 +777,15 @@ const s = StyleSheet.create({
   noteBody: { fontSize: 14, lineHeight: 19 },
   noteSource: { fontSize: 12, marginTop: "auto", paddingTop: spacing.xs },
 
+  emptyContinue: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  emptyContinueTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
+  emptyContinueTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
   emptyCover: {
     width: 76,
     height: 100,
@@ -708,6 +795,16 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  emptyAdd: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  emptyAddText: { fontSize: 16, fontWeight: "800" },
   emptyPanel: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -717,6 +814,6 @@ const s = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
   },
-  emptyTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  emptyPanelTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
   emptyMessage: { fontSize: 14, lineHeight: 20, marginTop: 2 },
 });

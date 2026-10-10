@@ -22,15 +22,38 @@ export function voticApiUrl() {
   });
 }
 
-async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT_MS) {
+async function apiFetch(
+  path: string,
+  init: RequestInit,
+  timeoutMs = API_TIMEOUT_MS,
+  signal?: AbortSignal,
+  requireSignIn = false,
+) {
   const url = voticApiUrl() + path;
   const controller = new AbortController();
-  // The timeout also covers refreshing the sign-in token, so a stalled refresh cannot hang a request.
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
+  let rejectCancellation: (error: Error) => void = () => {};
+  const cancellation = new Promise<never>((_resolve, reject) => {
+    rejectCancellation = reject;
+  });
+  const abort = () => {
+    controller.abort();
+    rejectCancellation(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+  };
+  signal?.addEventListener("abort", abort);
+  if (signal?.aborted) abort();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(Object.assign(new Error("Aborted"), { name: "AbortError" }));
+    }, timeoutMs);
+  });
+  // Race the whole operation: refreshing credentials and reading the body must also finish in time.
+  const request = async () => {
     const auth = await authHeaders();
+    if (requireSignIn && !auth.Authorization) throw new Error("Sign in to use voice questions.");
     if (controller.signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
-    return await fetch(url, {
+    const response = await fetch(url, {
       ...init,
       headers: {
         ...clientHeaders(process.env.EXPO_PUBLIC_VOTIC_CLIENT_KEY),
@@ -39,16 +62,21 @@ async function apiFetch(path: string, init: RequestInit, timeoutMs = API_TIMEOUT
       },
       signal: controller.signal,
     });
+    const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    return { ok: response.ok, result };
+  };
+  try {
+    return await Promise.race([request(), timeout, cancellation]);
   } catch (error) {
+    if (signal?.aborted) throw Object.assign(new Error("Voice input canceled."), { name: "AbortError" });
+    if (error instanceof Error && error.message === "Sign in to use voice questions.") throw error;
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
     throw new Error("Votic could not connect. Check your connection and try again.");
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
   }
-}
-async function responseJson(response: Response) {
-  return response.json().catch(() => ({})) as Promise<Record<string, unknown>>;
 }
 function serverError(result: Record<string, unknown>, fallback: string) {
   return typeof result.error === "string" && result.error.trim() ? result.error : fallback;
@@ -64,11 +92,28 @@ export async function extractDocument(name: string, bytes: ArrayBuffer) {
     },
     30_000,
   );
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not read this document."));
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("This document does not contain readable text.");
   return result.text;
+}
+
+export async function scanDocumentImage(name: string, bytes: ArrayBuffer) {
+  const response = await apiFetch(
+    "/api/scan",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent(name) },
+      body: bytes,
+    },
+    45_000,
+  );
+  const result = response.result;
+  if (!response.ok) throw new Error(serverError(result, "Votic could not read this scanned page."));
+  if (typeof result.text !== "string" || !result.text.trim())
+    throw new Error("Votic could not find readable text in this scanned page.");
+  return result.text.trim();
 }
 
 export type VoticAnswer = {
@@ -83,19 +128,21 @@ export async function askVotic(
   document?: { title: string; sections: { heading: string; text: string }[] },
   history: { role: "user" | "assistant"; text: string }[] = [],
   explanationStyle: ExplanationStyle = "adaptive",
+  feature: "ask-votic" | "catch-me-up" = "ask-votic",
 ): Promise<VoticAnswer> {
   const response = await apiFetch("/api/help", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       question,
+      ...(feature !== "ask-votic" ? { feature } : {}),
       document,
       ...(history.length ? { history } : {}),
       // "adaptive" is the server's default, so it is left out to keep requests unchanged for most people.
       ...(explanationStyle !== "adaptive" ? { explanationStyle } : {}),
     }),
   });
-  const result = await responseJson(response);
+  const result = response.result;
   if (!response.ok) throw new Error(serverError(result, "Votic could not answer right now."));
   if (typeof result.answer !== "string" || !result.answer.trim())
     throw new Error("Votic returned an empty answer.");
@@ -104,5 +151,62 @@ export async function askVotic(
     mode: String(result.mode || "built-in"),
     sectionIndex: Number.isInteger(result.sectionIndex) ? (result.sectionIndex as number) : null,
     sectionTitle: typeof result.sectionTitle === "string" ? result.sectionTitle : null,
+  };
+}
+
+export type ImportedWebPage = { title: string; text: string; url: string };
+/** Foundation for a recorder: caller obtains consent and records <=60 s PCM WAV.
+ * The transcript can be edited before submitting it through askVotic. Spoken output stays on device TTS.
+ */
+export async function checkVoiceQuestionAvailability(signal?: AbortSignal): Promise<void> {
+  const response = await apiFetch(
+    "/api/voice-question-status",
+    { method: "POST" },
+    API_TIMEOUT_MS,
+    signal,
+    true,
+  );
+  if (!response.ok)
+    throw new Error(serverError(response.result, "Voice questions are unavailable on this Votic server."));
+  if (response.result.ready !== true) throw new Error("Update the Votic server to enable voice questions.");
+}
+
+export async function transcribeVoiceQuestion(bytes: ArrayBuffer, signal?: AbortSignal): Promise<string> {
+  const response = await apiFetch(
+    "/api/transcribe-question",
+    {
+      method: "POST",
+      headers: { "Content-Type": "audio/wav" },
+      body: bytes,
+    },
+    45_000,
+    signal,
+    true,
+  );
+  const result = response.result;
+  if (!response.ok) throw new Error(serverError(result, "Votic could not transcribe this voice question."));
+  if (typeof result.text !== "string" || !result.text.trim() || result.text.length > 1000)
+    throw new Error("Try a shorter voice question, or type it instead.");
+  return result.text.trim();
+}
+
+export async function importWebPage(url: string): Promise<ImportedWebPage> {
+  const response = await apiFetch(
+    "/api/import-url",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url.trim() }),
+    },
+    30_000,
+  );
+  const result = response.result;
+  if (!response.ok) throw new Error(serverError(result, "Votic could not import that webpage."));
+  if (typeof result.text !== "string" || !result.text.trim())
+    throw new Error("Votic could not find readable text on that webpage.");
+  return {
+    title: typeof result.title === "string" && result.title.trim() ? result.title.trim() : "Web article",
+    text: result.text.trim(),
+    url: typeof result.url === "string" ? result.url : url.trim(),
   };
 }

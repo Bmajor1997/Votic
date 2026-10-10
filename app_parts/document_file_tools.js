@@ -5,11 +5,40 @@ import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
 
+const MAX_ARCHIVE_ENTRIES = 5000;
+const MAX_ARCHIVE_ENTRY_BYTES = 8_000_000;
+const MAX_ARCHIVE_TOTAL_BYTES = 40_000_000;
+const MAX_POWERPOINT_SLIDES = 1000;
+
+function validate_archive(archive) {
+  const entries = Object.values(archive.files).filter((entry) => !entry.dir);
+  if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("This document archive contains too many files.");
+  let total = 0;
+  for (const entry of entries) {
+    const size = Number(entry?._data?.uncompressedSize);
+    if (!Number.isSafeInteger(size) || size < 0) continue;
+    if (size > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
+    total += size;
+    if (total > MAX_ARCHIVE_TOTAL_BYTES) throw new Error("This document archive expands beyond Votic's processing limit.");
+  }
+  return archive;
+}
+
+async function load_safe_archive(buffer) { return validate_archive(await JSZip.loadAsync(buffer)); }
+async function safe_archive_text(file) {
+  const size = Number(file?._data?.uncompressedSize);
+  if (Number.isSafeInteger(size) && size > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
+  const text = await file.async("string");
+  if (Buffer.byteLength(text, "utf8") > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
+  return text;
+}
+
 export async function extract_document(name, buffer) {
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
   if (/\.ppt$/i.test(name)) return extract_legacy_powerpoint(buffer);
   if (/\.pptx$/i.test(name)) return extract_powerpoint(buffer);
   if (/\.docx$/i.test(name)) {
+    await load_safe_archive(buffer);
     const result = await mammoth.convertToHtml({ buffer }, { styleMap: [
       "p[style-name='Title'] => h1:fresh",
       "p[style-name='Heading 1'] => h2:fresh",
@@ -49,14 +78,14 @@ export function extract_legacy_powerpoint(buffer) {
 }
 
 export async function extract_epub(buffer) {
-  const archive = await JSZip.loadAsync(buffer);
+  const archive = await load_safe_archive(buffer);
   const container_file = archive.file("META-INF/container.xml");
   if (!container_file) throw new Error("This EPUB is missing its publication manifest.");
-  const container = await container_file.async("string");
+  const container = await safe_archive_text(container_file);
   const package_path = decode_powerpoint_xml(container.match(/<rootfile\b[^>]*full-path=["']([^"']+)["']/i)?.[1] || "");
   const package_file = archive.file(package_path);
   if (!package_path || !package_file) throw new Error("This EPUB is missing its publication package.");
-  const package_xml = await package_file.async("string");
+  const package_xml = await safe_archive_text(package_file);
   const manifest = new Map([...package_xml.matchAll(/<item\b([^>]*)\/?\s*>/gi)].map(([, source]) => {
     const attributes = xml_attributes(source);
     return [attributes.id, attributes];
@@ -72,9 +101,11 @@ export async function extract_epub(buffer) {
   let extracted_characters = 0;
   for (const item of reading_order) {
     const item_path = path_posix.normalize(path_posix.join(package_directory, decode_powerpoint_xml(item.href).split("#", 1)[0]));
+    const package_prefix = package_directory === "." ? "" : package_directory + "/";
+    if (item_path.startsWith("../") || (package_prefix && !item_path.startsWith(package_prefix))) throw new Error("This EPUB contains an unsafe publication path.");
     const content_file = archive.file(item_path);
     if (!content_file) continue;
-    const text = clean_extracted_text(html_to_document_text(await content_file.async("string")));
+    const text = clean_extracted_text(html_to_document_text(await safe_archive_text(content_file)));
     if (!text) continue;
     extracted_characters += text.length;
     if (extracted_characters > 10_000_000) throw new Error("This EPUB expands beyond Votic's current reading limit.");
@@ -90,19 +121,20 @@ function xml_attributes(source) {
 }
 
 export async function extract_powerpoint(buffer) {
-  const archive = await JSZip.loadAsync(buffer);
+  const archive = await load_safe_archive(buffer);
   const slides = Object.keys(archive.files)
     .map((path) => ({ path, number: Number(path.match(/^ppt\/slides\/slide(\d+)\.xml$/)?.[1]) }))
     .filter(({ number }) => Number.isInteger(number))
     .sort((left, right) => left.number - right.number);
   if (!slides.length) throw new Error("This PowerPoint presentation does not contain readable slides.");
+  if (slides.length > MAX_POWERPOINT_SLIDES) throw new Error("This PowerPoint presentation contains too many slides.");
 
   const sections = [];
   for (const slide of slides) {
-    const slide_text = powerpoint_xml_text(await archive.file(slide.path).async("string"));
+    const slide_text = powerpoint_xml_text(await safe_archive_text(archive.file(slide.path)));
     const notes_path = `ppt/notesSlides/notesSlide${slide.number}.xml`;
     const notes_file = archive.file(notes_path);
-    const notes_text = notes_file ? powerpoint_xml_text(await notes_file.async("string"), { notes: true }) : "";
+    const notes_text = notes_file ? powerpoint_xml_text(await safe_archive_text(notes_file), { notes: true }) : "";
     const content = [slide_text, notes_text && `Speaker notes:\n${notes_text}`].filter(Boolean).join("\n\n");
     if (content) sections.push(`# Slide ${slide.number}\n\n${content}`);
   }

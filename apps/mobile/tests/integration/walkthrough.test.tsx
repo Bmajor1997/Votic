@@ -311,7 +311,7 @@ describe("Documents walkthrough", () => {
     screen.unmount();
     await renderTab(<Documents />);
     expect(inCard("Add your first document")).toBeTruthy();
-    expect(measured).toContain("Upload document");
+    expect(measured).toContain("Add document");
     // Upload can be used for real through the spotlight.
     expect(
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
@@ -339,12 +339,14 @@ describe("Documents walkthrough", () => {
     expect((await saved()).documents?.status).toBe("completed");
   });
 
-  it("finishes when the person taps Upload", async () => {
+  it("finishes when the person taps Add", async () => {
     await renderTab(<Documents />);
-    await press("Upload document");
-    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalled();
+    await press("Add document");
     expect(card()).toBeNull();
     expect((await saved()).documents?.status).toBe("completed");
+    // Add offers files, cloud storage, or the camera; choosing a file opens the picker.
+    await press("Choose file or cloud storage");
+    expect(DocumentPicker.getDocumentAsync).toHaveBeenCalled();
   });
 
   it("shows again from the start if the person leaves before finishing", async () => {
@@ -416,6 +418,8 @@ describe("Notes walkthrough", () => {
     ];
     await renderTab(<Notes />, { documents });
     expect(card()).toBeNull();
+    // Notes live in their document's notebook.
+    await press("Open Biology notebook");
     await press("More options for note");
     await fireEvent.press(screen.getByText("Pin note"));
     await waitForWalkthrough();
@@ -466,13 +470,31 @@ async function renderReader(
     ],
   });
   await settle();
-  // The Reader is ready once its text has been laid out.
-  await fireEvent(screen.getByTestId("reader-scroll"), "layout", {
-    nativeEvent: { layout: { height: 600 } },
-  });
-  await fireEvent(screen.getByText("First passage here."), "layout", {
-    nativeEvent: { layout: { y: 0, height: 40 } },
-  });
+  // The Reader is ready once its text has been laid out: pages in Read mode, a scrolling page in Listen.
+  if (screen.queryByTestId("reading-pages")) {
+    await fireEvent(screen.getByTestId("reading-pages"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 600 } },
+    });
+    await fireEvent(
+      screen.getByTestId("reading-measurement", { includeHiddenElements: true }),
+      "textLayout",
+      {
+        nativeEvent: {
+          lines: [
+            { text: "First passage here.\n\n", height: 40 },
+            { text: "Second passage there.", height: 40 },
+          ],
+        },
+      },
+    );
+  } else {
+    await fireEvent(screen.getByTestId("reader-scroll"), "layout", {
+      nativeEvent: { layout: { height: 600 } },
+    });
+    await fireEvent(screen.getByText("First passage here."), "layout", {
+      nativeEvent: { layout: { y: 0, height: 40 } },
+    });
+  }
   await act(async () => jest.advanceTimersByTime(50));
   await waitForWalkthrough();
 }
@@ -523,15 +545,13 @@ describe("Reader walkthrough", () => {
       titles.push(screen.getAllByRole("header").at(-1)!.props.children);
     }
     expect(titles).toEqual(["Your document", "Your progress", "Ask Votic", "More controls"]);
-    expect(
-      screen.getByText("Tap More for reading tools: text, color, listening, and bookmarks."),
-    ).toBeTruthy();
+    expect(screen.getByText("Tap More for reading tools: text, color, and bookmarks.")).toBeTruthy();
     await press("Show reading tools");
     await act(async () => jest.advanceTimersByTime(200));
     await waitForWalkthrough();
     expect(
       screen.getByText(
-        "Text and Color adjust size, font, spacing, and theme. Listen switches to listening, and Bookmark saves this passage to Notes.",
+        "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes. Once you've read some, Catch up recaps it.",
       ),
     ).toBeTruthy();
   });

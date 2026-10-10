@@ -26,7 +26,17 @@ async function afterChange(change: () => void | Promise<void>) {
   await act(async () => {});
   return currentScreens();
 }
-const APP = ["(tabs)", "reader", "assistant", "review", "recap", "statistics"];
+const APP = [
+  "(tabs)",
+  "reader",
+  "assistant",
+  "settings/[category]",
+  "review",
+  "recap",
+  "handle-share",
+  "statistics",
+  "widget",
+];
 
 describe("root navigation", () => {
   it("opens the Reader over the current screen without a competing stack animation", async () => {
@@ -105,6 +115,16 @@ describe("root navigation", () => {
         }),
       ),
     ).toEqual(APP);
+  });
+
+  it("protects Settings details and honors Reduce Motion for their navigation", async () => {
+    await seedStorage({ reduceMotion: true });
+    await renderLayout();
+    expect(
+      stackScreens.filter((screen) => screen.name === "settings/[category]").at(-1)?.options,
+    ).toMatchObject({
+      animation: "none",
+    });
   });
 
   it("treats a first launch as new even though other providers save their defaults right away", async () => {

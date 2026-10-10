@@ -2,12 +2,12 @@
 
 This file is generated automatically by GitHub Actions from `npm audit`.
 
-**Generated:** 2026-10-01T19:42:47.207Z
+**Generated:** 2026-10-05T21:13:40.245Z
 
 ## Summary
 
 - Critical: 0
-- High: 0
+- High: 47
 - Moderate: 0
 - Low: 0
 

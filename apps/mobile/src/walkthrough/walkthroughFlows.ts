@@ -170,8 +170,8 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         title: "Your documents",
         message: (c) =>
           c.hasDocuments
-            ? "Upload and organize everything you read in Documents."
-            : "Upload and organize what you read in Documents. Tap it to add your first document.",
+            ? "Add and organize everything you read in Documents."
+            : "Add and organize what you read in Documents. Tap it to add your first document.",
       },
       {
         target: "tab.notes",
@@ -199,8 +199,8 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         title: (c) => (c.hasDocuments ? "Add documents" : "Add your first document"),
         message: (c) =>
           c.hasDocuments
-            ? "Tap Upload anytime to bring in another PDF, Word, PowerPoint, EPUB, text, or Markdown file."
-            : "Tap Upload to bring in a PDF, Word, PowerPoint, EPUB, text, or Markdown file. Votic opens it in the Reader.",
+            ? "Tap Add anytime to bring in another document from your files, cloud storage, or the camera."
+            : "Tap Add to choose a file, browse cloud storage, or scan a printed page. Votic opens it in the Reader.",
       },
       {
         target: "documents.search",
@@ -286,7 +286,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message: (c) =>
           c.listening
             ? "Tap More to skip between passages, change the speed, and adjust how the Reader looks."
-            : "Tap More for reading tools: text, color, listening, and bookmarks.",
+            : "Tap More for reading tools: text, color, and bookmarks.",
       },
       {
         target: "reader.tools",
@@ -294,7 +294,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message: (c) =>
           c.listening
             ? "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting."
-            : "Text and Color adjust size, font, spacing, and theme. Listen switches to listening, and Bookmark saves this passage to Notes.",
+            : "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes. Once you've read some, Catch up recaps it.",
       },
       {
         target: "reader.close",

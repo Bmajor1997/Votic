@@ -3,6 +3,7 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import Notes from "../../app/(tabs)/notes";
 import Settings from "../../app/(tabs)/settings";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { AskVotic } from "../../app/assistant";
 import { askVotic } from "../../src/api/voticApi";
 import { EMPTY_ANSWERS, PersonalizationAnswers } from "../../src/onboarding/onboardingModel";
@@ -90,8 +91,8 @@ describe("Ask Votic suggestions", () => {
 
   it("send the explanation style chosen in personalization with each question", async () => {
     askVoticMock.mockResolvedValue({ answer: "Short.", mode: "ai", sectionIndex: null, sectionTitle: null });
-    await renderWithProviders(<Settings />, { reduceMotion: true });
-    await fireEvent.press(screen.getByRole("button", { name: "Personalization" }));
+    await renderWithProviders(<SettingsDetailScreen category="personalization" />, { reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
     for (let step = 0; step < 2; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await fireEvent.press(screen.getByLabelText("Quickly. Just give me the answer."));
@@ -118,6 +119,7 @@ describe("Notes notebook actions", () => {
   async function openNotebook(setup: Parameters<typeof renderWithProviders>[1] = {}) {
     await renderWithProviders(<Notes />, { documents, ...setup });
     await fireEvent.press(screen.getByRole("button", { name: "Open Biology notebook" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Notebook tools" }));
   }
 
   it("follow the person's personalization answers", async () => {
@@ -142,8 +144,11 @@ describe("Notes notebook actions", () => {
 
 describe("Settings", () => {
   it("edits personalization, saves it, and updates Ask Votic's suggestions", async () => {
-    await renderWithProviders(<Settings />, answered({ goals: ["summarize"] }));
-    await fireEvent.press(screen.getByRole("button", { name: "Personalization" }));
+    await renderWithProviders(
+      <SettingsDetailScreen category="personalization" />,
+      answered({ goals: ["summarize"] }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
     await fireEvent.press(screen.getByLabelText("Find important information quickly"));
     for (let step = 0; step < 4; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
@@ -158,8 +163,11 @@ describe("Settings", () => {
   it("offers Learn Votic and Personalization separately, without the old app tour", async () => {
     await renderWithProviders(<Settings />);
     expect(screen.queryByText("Replay app tour")).toBeNull();
+    expect(screen.getByRole("button", { name: "Personalization" })).toBeTruthy();
+    screen.unmount();
+    // Learn Votic lives under Help.
+    await renderWithProviders(<SettingsDetailScreen category="help" />);
     expect(screen.getByText("LEARN VOTIC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Replay the Home walkthrough" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Personalization" })).toBeTruthy();
   });
 });

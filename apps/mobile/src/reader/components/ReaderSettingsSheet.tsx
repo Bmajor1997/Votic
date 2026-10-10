@@ -3,9 +3,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "re
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
-import { AppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
-import { DeviceVoice, voticVoiceName } from "../voices";
+import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
+import { DeviceVoice, deviceVoiceGender, voticVoiceName } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
+import { useVoiceNames } from "../useVoiceNames";
 import { sheetStyles } from "./sheetStyles";
 
 export type ReaderSheet = "appearance" | "focus" | "listen" | null;
@@ -34,11 +35,12 @@ export function ReaderSettingsSheet({
   voices: DeviceVoice[];
   previewVoiceIdentifier: string | null;
   /** Starts or stops a preview of the voice at this position in `voices`. */
-  onPreviewVoice: (voice: DeviceVoice, voiceIndex: number) => void;
+  onPreviewVoice: (voice: DeviceVoice, name: string) => void;
   onSelectVoice: (voice: DeviceVoice) => void;
 }) {
-  const { theme, appearanceMode, setAppearanceMode } = useVoticTheme();
+  const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
+  const voiceNames = useVoiceNames();
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
     <Modal
@@ -123,19 +125,19 @@ export function ReaderSettingsSheet({
                     label="Light"
                     value="light"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Dark"
                     value="dark"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Sepia"
                     value="sepia"
                     current={appearanceMode}
-                    onChange={(value: AppearanceMode) => setAppearanceMode(value)}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                 </Setting>
                 <Setting label="Line spacing">
@@ -220,19 +222,82 @@ export function ReaderSettingsSheet({
             ) : null}
             {sheet === "listen" ? (
               <>
+                <View
+                  accessible
+                  accessibilityLabel="Offline listening ready"
+                  style={[s.offlineCard, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
+                >
+                  <Ionicons name="cloud-offline-outline" size={22} color={theme.accent} />
+                  <View style={s.toggleCopy}>
+                    <Text style={[s.toggleTitle, { color: theme.text }]}>Offline listening ready</Text>
+                    <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
+                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so
+                      Votic does not need a server connection while reading it aloud. Voice availability is
+                      controlled by your phone.
+                    </Text>
+                  </View>
+                </View>
                 <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
+                {voiceNames.error ? (
+                  <Text accessibilityRole="alert" style={{ color: theme.text }}>
+                    Voice names could not be loaded or saved. Please try again.
+                  </Text>
+                ) : null}
                 <Setting label="Voice">
                   {voices.length ? (
-                    voices.map((voice, voiceIndex) => (
-                      <VoiceChoice
-                        key={voice.identifier}
-                        name={voticVoiceName(voiceIndex)}
-                        selected={accessibility.voiceIdentifier === voice.identifier}
-                        previewing={previewVoiceIdentifier === voice.identifier}
-                        onPreview={() => onPreviewVoice(voice, voiceIndex)}
-                        onSelect={() => onSelectVoice(voice)}
-                      />
-                    ))
+                    voices.map((voice, voiceIndex) => {
+                      const gender = voiceNames.genders[voice.identifier] ?? deviceVoiceGender(voice);
+                      const name = voticVoiceName(voice, gender, voiceIndex);
+                      return (
+                        <View key={voice.identifier} style={{ gap: spacing.sm }}>
+                          <VoiceChoice
+                            name={name}
+                            selected={accessibility.voiceIdentifier === voice.identifier}
+                            previewing={previewVoiceIdentifier === voice.identifier}
+                            onPreview={() => onPreviewVoice(voice, name)}
+                            onSelect={() => onSelectVoice(voice)}
+                          />
+                          <Text style={{ color: theme.mutedText }}>
+                            {gender
+                              ? "Voice naming preference"
+                              : "Preview this voice, then choose a female or male name. Your phone does not identify its gender."}
+                          </Text>
+                          <View
+                            accessibilityRole="radiogroup"
+                            accessibilityLabel={`Name for ${name}`}
+                            style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}
+                          >
+                            {(["female", "male"] as const).map((option) => (
+                              <Pressable
+                                key={option}
+                                disabled={!voiceNames.ready}
+                                accessibilityRole="radio"
+                                accessibilityLabel={`${option === "female" ? "Female" : "Male"} name for ${name}`}
+                                accessibilityHint="Saves a name for this voice without changing how it sounds"
+                                accessibilityState={{
+                                  checked: gender === option,
+                                  disabled: !voiceNames.ready,
+                                }}
+                                onPress={() => void voiceNames.setGender(voice.identifier, option)}
+                                style={{
+                                  minHeight: 48,
+                                  padding: spacing.md,
+                                  borderRadius: radii.md,
+                                  borderWidth: 1,
+                                  borderColor: gender === option ? theme.accent : theme.border,
+                                  backgroundColor: theme.surfaceMuted,
+                                }}
+                              >
+                                <Text style={{ color: theme.text }}>
+                                  {gender === option ? "✓ " : ""}
+                                  {option === "female" ? "Female name" : "Male name"}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        </View>
+                      );
+                    })
                   ) : (
                     <Text style={[s.emptyVoices, { color: theme.mutedText }]}>
                       Your device voice will be used.
@@ -250,6 +315,14 @@ export function ReaderSettingsSheet({
 
 const s = StyleSheet.create({
   sheetContent: { paddingTop: spacing.lg, paddingBottom: spacing.xl, gap: spacing.lg },
+  offlineCard: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    flexDirection: "row",
+    gap: spacing.md,
+    alignItems: "flex-start",
+  },
   toggleRow: {
     minHeight: 72,
     borderWidth: 1,

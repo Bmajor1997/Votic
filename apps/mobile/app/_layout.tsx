@@ -16,6 +16,7 @@ import { OnboardingProvider } from "../src/onboarding/OnboardingProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
 import { SubscriptionProvider, useSubscription } from "../src/subscription/SubscriptionProvider";
 import { WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
+import { WidgetSync } from "../src/widgets/WidgetSync";
 
 // Keep the launch screen up until Votic knows whether to show Welcome, setup, or Home.
 Promise.resolve(SplashScreen.preventAutoHideAsync?.()).catch(() => {});
@@ -49,6 +50,8 @@ function ThemedStack() {
   const fade = { animation: reduceMotion ? ("none" as const) : ("fade" as const) };
   return (
     <DocumentLibraryProvider>
+      {/* Keeps the iPhone and Android home-screen widgets up to date. */}
+      <WidgetSync />
       <DocumentTransitionProvider>
         <WalkthroughProvider>
           {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}
@@ -88,9 +91,13 @@ function ThemedStack() {
                   }}
                 />
                 <Stack.Screen name="assistant" />
+                <Stack.Screen name="settings/[category]" options={slide} />
                 <Stack.Screen name="review" />
                 <Stack.Screen name="recap" />
+                <Stack.Screen name="handle-share" options={fade} />
                 <Stack.Screen name="statistics" options={slide} />
+                {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
+                <Stack.Screen name="widget" options={{ animation: "none" }} />
               </Stack.Protected>
             </Stack>
           </SetupAccent>

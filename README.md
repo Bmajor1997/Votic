@@ -72,7 +72,7 @@ Statistics (from Home's weekly summary or Settings) uses measurements recorded o
 - Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
 ### Accounts
 
-Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".
+Votic requires an account in production. The app signs people in with Firebase Authentication. Without Firebase settings, local development and EAS builds made with the `preview` profile offer "Explore Votic without an account" for testing. The preview marker is set by `app.config.js` on the EAS build worker and is disabled for production and unmarked release builds. Testing entry reuses the local development session; it does not create a Firebase account or provide a Firebase ID token. Account deletion and server endpoints requiring authentication still require a real account. Normal personalization and onboarding remain available.
 
 1. In the Firebase console, create a project, add an iOS and an Android app, and turn on the **Email/Password**, **Google**, and **Apple** sign-in providers.
 2. Set these before `npm start` or an EAS build (they are read at build time):
@@ -92,6 +92,10 @@ Settings includes **Sign out** and **Delete account**. Documents and notes stay 
 ### Votic Premium
 
 Votic requires the Votic Premium subscription, sold through the App Store and Google Play with RevenueCat. Without RevenueCat keys (and always in Expo Go) the subscription screen says purchases aren't available, and only development builds can continue past it. Set `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and optionally `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` (default `pro`), `EXPO_PUBLIC_VOTIC_TERMS_URL`, and `EXPO_PUBLIC_VOTIC_PRIVACY_URL`. Store, RevenueCat, and trial setup are in [apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md](apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md).
+
+### Home-screen widgets
+
+Votic has two widgets on iPhone and Android. **Continue** shows the document in progress, with Listen and Read; larger sizes add Up next and this week. **This Week** shows reading and listening time day by day. iPhone also has Lock Screen versions. The app shares a small snapshot (titles, progress, and daily totals, never document text or notes), and taps open Votic through `votic://widget` links. Widgets need a development or release build. Before the first build, set `ios.appleTeamId` and `android.package` in `app.json`. See [apps/mobile/docs/HOME_SCREEN_WIDGETS.md](apps/mobile/docs/HOME_SCREEN_WIDGETS.md) for setup, how the widgets update, and what still needs checking on a device.
 ## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:
@@ -119,6 +123,8 @@ Follow-along highlighting can be personalized with Warm orange, Blue, Green, Pur
 
 The mobile app uses `votic_server.js` for document extraction and AI features. Serve it over HTTPS (for example behind a load balancer) and configure it with environment variables:
 
+Use Node 24+. See [OpenAI backend setup](docs/openai-backend.md) for secure key entry, persistent token/cost accounting, monthly allowances, and the voice-question foundation. `gpt-6-luna` is the initial Responses model. Production AI requires `FIREBASE_PROJECT_ID` and `VOTIC_AI_USAGE_DB` on a private persistent volume.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `OPENAI_API_KEY` | unset | Enables AI help, document questions, and reviews. |
@@ -131,7 +137,7 @@ The mobile app uses `votic_server.js` for document extraction and AI features. S
 
 Build the mobile app with `EXPO_PUBLIC_VOTIC_API_URL` set to the server's `https://` address and `EXPO_PUBLIC_VOTIC_CLIENT_KEY` set to one of the server's client keys. Release builds refuse to run AI or extraction requests without an HTTPS address; development builds fall back to the computer running Expo on port 4173.
 
-A client key ships inside the app, so it filters casual abuse but is not a secret. `VOTIC_AI_DAILY_LIMIT` is what bounds AI cost, and `VOTIC_AI_CLIENT_DAILY_LIMIT` keeps one client from exhausting it (a client rotating addresses can still get around it). Set `FIREBASE_PROJECT_ID` to give each signed-in account its own allowance instead.
+A client key ships inside the app, so it filters casual abuse but is not a secret. Daily attempt caps supplement durable per-account monthly token/cost allowances and the global monthly budget. Production requires Firebase authentication and a persistent ledger. See the linked setup guide for deployment limits and reconciliation of uncertain provider calls.
 
 ## Product Hypothesis
 

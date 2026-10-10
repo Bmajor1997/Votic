@@ -50,6 +50,33 @@ beforeEach(() => {
 });
 
 describe("document storage", () => {
+  it("finishes delayed orphan cleanup before exposing a library that can be saved", async () => {
+    await createDocumentStore().saveDocuments([doc("a", "Alpha text.")]);
+    let release!: (keys: string[]) => void;
+    vi.mocked(AsyncStorage.getAllKeys).mockImplementationOnce(
+      () =>
+        new Promise<string[]>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const store = createDocumentStore();
+    let loaded = false;
+    const loading = store.loadDocuments().then((documents) => {
+      loaded = true;
+      return documents;
+    });
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    expect(loaded).toBe(false);
+    release([...memory.keys()]);
+    const documents = await loading;
+    await store.saveDocuments([...documents, doc("b", "New text and notes.")]);
+    expect(memory.get(documentTextKey("b"))).toBe("New text and notes.");
+    expect(await createDocumentStore().loadDocuments()).toEqual([
+      doc("a", "Alpha text."),
+      doc("b", "New text and notes."),
+    ]);
+  });
+
   it("stores metadata without document text, and each text under its own key", async () => {
     const store = createDocumentStore();
     await store.loadDocuments();

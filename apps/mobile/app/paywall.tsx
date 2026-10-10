@@ -312,7 +312,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         {unavailable ? (
           subscription.canBypass ? (
             <SecondaryButton
-              label="Continue without a subscription (development build)"
+              label="Continue without a subscription (testing build)"
               onPress={subscription.bypass}
             />
           ) : null

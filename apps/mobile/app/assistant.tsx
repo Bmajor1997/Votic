@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -19,6 +20,11 @@ import { askVotic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { RevealingText } from "../src/components/RevealingText";
+import type { TextRevealFrame } from "../src/components/textReveal";
+import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
+import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
+import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { AskVoticEmptyAnimation } from "../src/components/EmptyStateIllustrations";
@@ -73,12 +79,19 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   // Chosen from the person's personalization answers, or the purpose chosen in earlier versions.
   const suggestedPrompts = askSuggestions(personalization.answers, personalization.purpose);
   const [question, setQuestion] = useState(initialQuestion);
+  const [voiceReveal, setVoiceReveal] = useState<TextRevealFrame | null>(null);
+  const [voicePhase, setVoicePhase] = useState<VoiceInputPhase>("idle");
+  const [voiceLevel, setVoiceLevel] = useState({ value: 0, at: 0 });
+  const [voiceError, setVoiceError] = useState("");
+  const voiceBusy = !["idle", "error"].includes(voicePhase);
+  const showRecording = voiceBusy && voicePhase !== "reviewing";
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
   const lastQuestion = useRef("");
   const [flight, setFlight] = useState<PromptFlight | null>(null);
   const rootRef = useRef<View>(null);
@@ -101,6 +114,9 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     lastQuestion.current = "";
     setMessages([]);
     setQuestion(initialQuestion);
+    setVoicePhase("idle");
+    setVoiceReveal(null);
+    setVoiceError("");
     setError("");
     setSending(false);
     setRetrying(false);
@@ -202,7 +218,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   async function send(retryQuestion?: string) {
     const retry = typeof retryQuestion === "string";
     const clean = (retryQuestion ?? question).trim();
-    if (!clean || sending || launching) return;
+    if (!clean || sending || launching || voiceBusy) return;
+    Keyboard.dismiss();
     const askContext = context;
     const askGeneration = generation.current;
     const current = () => askGeneration === generation.current;
@@ -294,7 +311,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       edges={embedded ? ["top", "left", "right"] : ["top", "bottom", "left", "right"]}
       style={[s.safe, { backgroundColor: theme.background }]}
     >
-      <KeyboardAvoidingView style={s.safe} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={s.safe} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View ref={rootRef} style={s.safe}>
           <View style={[s.header, { borderBottomColor: theme.border }]}>
             {embedded ? (
@@ -321,7 +338,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
             ref={scrollRef}
             contentContainerStyle={s.messages}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            onLayout={() => scrollRef.current?.scrollToEnd({ animated: false })}
+            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
           >
             {messages.length === 0 ? (
               <View style={s.welcome}>
@@ -373,7 +391,11 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                     m.role === "user" && { backgroundColor: theme.accent },
                   ]}
                 >
-                  <Text style={[s.body, { color: m.role === "user" ? "#FFF" : theme.text }]}>{m.text}</Text>
+                  {m.role === "votic" ? (
+                    <AIResponse text={m.text} animate={!m.fallback} style={[s.body, { color: theme.text }]} />
+                  ) : (
+                    <Text style={[s.body, { color: "#FFF" }]}>{m.text}</Text>
+                  )}
                   {m.role === "votic" && canSaveAnswer(m) ? (
                     <Pressable
                       accessibilityRole="button"
@@ -414,12 +436,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 </View>
               ))
             )}
-            {sending ? (
-              <View accessibilityLiveRegion="polite" style={s.thinking}>
-                <ActivityIndicator color={theme.accent} />
-                <Text style={[s.status, { color: theme.mutedText }]}>Thinking about your question…</Text>
-              </View>
-            ) : null}
+            {sending ? <AIThinking /> : null}
             {error || retrying ? (
               <View accessibilityLiveRegion="polite" style={[s.error, { borderColor: theme.border }]}>
                 {error ? <Text style={[s.body, { color: theme.text }]}>{error}</Text> : null}
@@ -447,68 +464,120 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               </View>
             ) : null}
           </ScrollView>
-          <View style={[s.composer, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
-            <View ref={composerTargetRef} style={s.inputMotion}>
-              <Animated.View
-                style={{
-                  opacity: promptEntry,
-                  transform: [
-                    { translateY: promptEntry.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
-                  ],
-                }}
+          <View>
+            {voiceError ? (
+              <Text style={[s.voiceError, { color: theme.text }]}>
+                {voiceError}{" "}
+                {voicePhase === "error"
+                  ? "Retry transcription or discard the recording."
+                  : "You can still type your question."}
+              </Text>
+            ) : null}
+            <View
+              testID="voice-composer"
+              style={[
+                s.composer,
+                (showRecording || voicePhase === "error") && s.recordingComposer,
+                { borderTopColor: theme.border, backgroundColor: theme.background },
+              ]}
+            >
+              <View
+                ref={composerTargetRef}
+                style={[s.inputMotion, (showRecording || voicePhase === "error") && s.recordingInput]}
               >
-                <TextInput
-                  accessibilityLabel="Ask Votic a question"
-                  value={question}
-                  onChangeText={setQuestion}
-                  placeholder={
-                    notesScopeLabel
-                      ? "Ask about these notes"
-                      : activeDocument
-                        ? "Ask about this document"
-                        : "Ask Votic"
-                  }
-                  placeholderTextColor={theme.mutedText}
-                  multiline
-                  maxLength={1000}
-                  style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
-                  onSubmitEditing={() => void send()}
-                />
-              </Animated.View>
-            </View>
-            <Animated.View style={{ transform: [{ translateY: sendBounce }] }}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Send question"
-                disabled={!question.trim() || sending || launching}
-                onPress={() => void send()}
-                style={[
-                  s.send,
-                  { backgroundColor: theme.accent, opacity: !question.trim() || sending ? 0.4 : 1 },
-                ]}
-              >
-                {sending ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Animated.View
-                    style={{
-                      opacity: sendOpacity,
-                      transform: [
-                        {
-                          rotate: sendSpin.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0deg", "360deg"],
-                          }),
-                        },
-                        { translateY: sendLaunch },
-                      ],
-                    }}
+                <Animated.View
+                  style={{
+                    opacity: promptEntry,
+                    transform: [
+                      { translateY: promptEntry.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }) },
+                    ],
+                  }}
+                >
+                  {showRecording ? (
+                    <VoiceRecordingArea
+                      phase={voicePhase}
+                      level={voiceLevel.value}
+                      sampleTime={voiceLevel.at}
+                    />
+                  ) : voiceReveal && voicePhase === "reviewing" ? (
+                    <RevealingText
+                      frame={voiceReveal}
+                      style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                    />
+                  ) : (
+                    <TextInput
+                      ref={inputRef}
+                      accessibilityLabel="Ask Votic a question"
+                      value={question}
+                      editable={!voiceBusy}
+                      onChangeText={setQuestion}
+                      placeholder={
+                        notesScopeLabel
+                          ? "Ask about these notes"
+                          : activeDocument
+                            ? "Ask about this document"
+                            : "Ask Votic"
+                      }
+                      placeholderTextColor={theme.mutedText}
+                      multiline
+                      maxLength={1000}
+                      style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                      onSubmitEditing={() => void send()}
+                    />
+                  )}
+                </Animated.View>
+              </View>
+              <KeyboardDictationButton
+                key={contextKey}
+                value={question}
+                onPhaseChange={setVoicePhase}
+                onLevelChange={(value) => setVoiceLevel({ value, at: Date.now() })}
+                onErrorChange={setVoiceError}
+                onRevealChange={setVoiceReveal}
+                onChangeText={setQuestion}
+                onFocus={() => inputRef.current?.focus()}
+                disabled={sending || launching}
+              />
+              {!showRecording && (
+                <Animated.View style={{ transform: [{ translateY: sendBounce }] }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Send question"
+                    disabled={!question.trim() || sending || launching || voiceBusy}
+                    accessibilityState={{ disabled: !question.trim() || sending || launching || voiceBusy }}
+                    onPress={() => void send()}
+                    style={[
+                      s.send,
+                      {
+                        backgroundColor: theme.accent,
+                        opacity: !question.trim() || sending || voiceBusy ? 0.4 : 1,
+                      },
+                    ]}
                   >
-                    <Ionicons name="arrow-up" size={22} color="#FFF" />
-                  </Animated.View>
-                )}
-              </Pressable>
-            </Animated.View>
+                    {sending ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Animated.View
+                        style={{
+                          opacity: sendOpacity,
+                          transform: [
+                            {
+                              rotate: sendSpin.interpolate({
+                                inputRange: [0, 1],
+                                outputRange: ["0deg", "360deg"],
+                              }),
+                            },
+                            { translateY: sendLaunch },
+                          ],
+                        }}
+                      >
+                        <Ionicons name="arrow-up" size={22} color="#FFF" />
+                      </Animated.View>
+                    )}
+                  </Pressable>
+                </Animated.View>
+              )}
+            </View>
           </View>
           {flight ? (
             <Animated.View
@@ -624,7 +693,10 @@ const s = StyleSheet.create({
     alignItems: "flex-end",
     gap: spacing.sm,
   },
-  inputMotion: { flex: 1 },
+  inputMotion: { flex: 1, minWidth: 0 },
+  recordingInput: { flexBasis: "100%", flexGrow: 0 },
+  recordingComposer: { flexWrap: "wrap", justifyContent: "flex-end" },
+  voiceError: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, fontSize: 13, lineHeight: 19 },
   input: {
     width: "100%",
     minHeight: 48,

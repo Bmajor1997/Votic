@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
-import { Alert } from "react-native";
+import { Alert, StyleSheet } from "react-native";
 import Documents from "../../app/(tabs)/documents";
 import { extractDocument } from "../../src/api/voticApi";
+import { router } from "../mocks/expoRouter";
 import { renderWithProviders } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
@@ -25,7 +26,8 @@ describe("document import", () => {
     })) as unknown as typeof fetch;
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     await renderWithProviders(<Documents />);
-    await fireEvent.press(screen.getByRole("button", { name: "Upload document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
     // The Documents page explains the failure in place, with a way to try again.
     expect(await screen.findByText("Couldn't add big.pdf")).toBeTruthy();
     expect(screen.getByText("Document is too large. The current limit is 25 MB.")).toBeTruthy();
@@ -33,4 +35,19 @@ describe("document import", () => {
     expect(alert).not.toHaveBeenCalled();
     expect(extractDocument).not.toHaveBeenCalled();
   });
+});
+
+it("keeps import choices scrollable with bottom safe-area clearance and working destinations", async () => {
+  await renderWithProviders(<Documents />);
+  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  expect(screen.getByTestId("document-import-options")).toBeTruthy();
+  expect(
+    StyleSheet.flatten(screen.getByTestId("document-import-sheet").props.style).paddingBottom,
+  ).toBeGreaterThan(34);
+  expect(screen.getByRole("button", { name: "Import webpage" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Scan with camera" }));
+  expect(router.push).toHaveBeenLastCalledWith("/scan");
+  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Import webpage" }));
+  expect(router.push).toHaveBeenLastCalledWith("/import-web");
 });

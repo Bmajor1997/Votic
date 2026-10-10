@@ -1,3 +1,4 @@
+import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
@@ -24,13 +25,19 @@ export function NoteOptionsMenu({
   onRemove: (item: NoteItem) => void;
 }) {
   const { theme } = useVoticTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   function run(action: (item: NoteItem) => void) {
     if (!item) return;
     onClose();
     action(item);
   }
   return (
-    <Modal visible={item !== null} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={item !== null}
+      transparent
+      animationType={reduceMotion ? "none" : "fade"}
+      onRequestClose={onClose}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close note options"

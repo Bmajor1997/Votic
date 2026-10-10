@@ -1,20 +1,35 @@
-/** A short document that teaches Votic by being read in Votic. It replaces the old slideshow tour. */
-export const VOTIC_GUIDE_SOURCE_NAME = "Votic guide.md";
-
+/** Versioned source keeps previous guides, their progress, and saved notes intact. */
+export const VOTIC_GUIDE_SOURCE_NAME = "Votic guide — updated features.md";
 export const VOTIC_GUIDE_TEXT = `# Getting started with Votic
 
-Welcome to Votic. This short guide is a real document, so everything it describes, you can try right here.
+Welcome to Votic. This walkthrough is a real document, so you can try reading and listening right here. Reopen it any time from Settings, then Help, then Votic walkthrough.
 
-Press play at the bottom of the screen to hear this guide read aloud. Votic highlights each word as it is spoken, so your eyes and ears stay together. You can pause at any time and pick up exactly where you stopped.
+## Read and listen
 
-Want it faster or slower? Choose More, then the speed, to change how quickly Votic reads. You can also pick a different voice there.
+Press play at the bottom to hear this guide. Votic highlights spoken words, and you can pause and resume where you stopped. Open the Listen controls to change speed, preview voices, and choose a voice. If your phone does not identify a voice's gender, preview it and choose a female or male name. That naming choice does not change the sound.
 
-When a passage matters, tap the bookmark at the top of the screen to save it. Add a note if you like. Everything you save appears in Notes, ready when you need it.
+Reader Appearance controls change the document's text, spacing, and reading colors. Sepia is for the Reader; the app itself uses Light, Dark, or System.
 
-Stuck on an idea? Tap Ask Votic to ask a question about the document you are reading. Votic answers from the document itself and points you to the part it used.
+## Ask Votic with your voice
 
-To read your own files, go to Documents and choose Upload. Votic opens PDF, Word, PowerPoint, EPUB, text, and Markdown files.
+Open Ask Votic from the document. You can type a question or tap the microphone. Allow microphone access if prompted. The question field becomes a waveform while you record. Tap the Stop button when you finish. Votic transcribes the recording, then you can review or edit the words before sending your question. Votic answers from the document and points you to the passage it used.
 
-You can change text size, spacing, colors, and how Votic explains things at any time in Settings.
+## Save and organize notes
 
-That's everything you need to begin. Enjoy reading with Votic.`;
+Save an important passage with the bookmark control and add a note. Open Notes to find your saved passages and use the Note Workspace to organize and edit your notes. Your documents and notes are stored locally on this device.
+
+## Add your documents
+
+Open Documents and choose Upload for PDF, Word, PowerPoint, EPUB, text, or Markdown files. Return to Home to continue reading.
+
+## Find your settings
+
+Settings now opens with categories. Appearance controls the app theme and accent. Reading & Listening includes text size, spacing, word emphasis, and pronunciation. Accessibility includes Reduce Motion. Personalization includes your purpose and explanation style. Help lets you reopen this walkthrough, show contextual tips again, and see Statistics. Preferences apply as you change them and are saved on your device.
+
+## Manage your account
+
+Account & Membership shows your identity and Votic Membership. Sign Out ends your session, keeps your account active, and does not delete locally stored documents or notes. You can sign back in later.
+
+Delete Account is different: it permanently deletes your Votic sign-in after two confirmation steps. It cannot be undone. Local documents and notes are not automatically removed. Deleting an account does not necessarily cancel an App Store or Google Play subscription; manage store subscriptions separately. Firebase may require you to sign in again before deletion.
+
+Enjoy reading with Votic.`;

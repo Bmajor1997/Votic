@@ -2,8 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Alert, Linking, Text } from "react-native";
-import Settings from "../../app/(tabs)/settings";
+import { Linking, Text } from "react-native";
 import CreateAccount from "../../app/create-account";
 import ForgotPassword from "../../app/forgot-password";
 import Paywall from "../../app/paywall";
@@ -17,6 +16,7 @@ import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, nextTip, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
 import { loadAccountSetup } from "../../src/onboarding/onboardingStorage";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { useSubscription } from "../../src/subscription/SubscriptionProvider";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
@@ -328,7 +328,7 @@ describe("Votic Premium", () => {
     expect(screen.getByText(/can't be purchased in Expo Go/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Start free trial" })).toBeNull();
     await fireEvent.press(
-      screen.getByRole("button", { name: "Continue without a subscription (development build)" }),
+      screen.getByRole("button", { name: "Continue without a subscription (testing build)" }),
     );
     expect(screen.getByTestId("access").props.children).toBe("true:unknown");
   });
@@ -380,7 +380,7 @@ describe("Getting started", () => {
     expect(screen.getByRole("header", { name: "Welcome, Sam" })).toBeTruthy();
     expect(screen.getByLabelText("Add a document, not done yet")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Try the Votic guide" }));
-    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide");
+    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide — updated features");
     expect(screen.getByLabelText("Add a document, done")).toBeTruthy();
     // With a document in the library, the card switches from first actions to the remaining steps.
     expect(screen.queryByRole("button", { name: "Try the Votic guide" })).toBeNull();
@@ -405,12 +405,16 @@ describe("Getting started", () => {
 });
 
 describe("Settings personalization and account", () => {
-  it("changes the explanation style, and brings walkthroughs and the checklist back", async () => {
-    await renderWithProviders(<Settings />);
+  it("changes the explanation style", async () => {
+    await renderWithProviders(<SettingsDetailScreen category="personalization" />);
     await fireEvent.press(screen.getByRole("radio", { name: "Quick" }));
     await waitFor(async () =>
       expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("quick"),
     );
+  });
+
+  it("brings walkthroughs and the checklist back from Help", async () => {
+    await renderWithProviders(<SettingsDetailScreen category="help" />);
     await fireEvent.press(screen.getByRole("button", { name: "Show all walkthroughs and tips again" }));
     expect(screen.getByText(/Getting Started checklist will appear again/)).toBeTruthy();
     await waitFor(async () =>
@@ -422,30 +426,22 @@ describe("Settings personalization and account", () => {
     fakeSubscriptions.reset({
       defaultEntitlement: entitlementOf("trial", { expiresAt: Date.UTC(2026, 9, 15, 12) }),
     });
-    await renderWithProviders(<Settings />);
+    await renderWithProviders(<SettingsDetailScreen category="account" />);
     expect(screen.getByText(/^Free trial · ends October 15, 2026$/)).toBeTruthy();
+    const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+    await fireEvent.press(screen.getByRole("button", { name: "Votic Premium" }));
+    expect(openURL).toHaveBeenCalled();
     await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
     expect(fakeSubscriptions.calls).toContain("restore");
     expect(await screen.findByText("Your Votic Premium subscription is active.")).toBeTruthy();
   });
 
-  it("signs out after confirming", async () => {
-    const alert = jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
-      buttons?.find((button) => button.text === "Sign out")?.onPress?.();
-    });
-    await renderWithProviders(<Settings />);
-    expect(screen.getByText("Signed in as reader@example.com")).toBeTruthy();
-    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Sign out" })));
-    expect(alert).toHaveBeenCalled();
-    expect(fakeAuth.calls).toContain("signOut");
-  });
-
   it("forgets this account's setup and walkthrough progress when the account is deleted", async () => {
-    jest.spyOn(Alert, "alert").mockImplementation((_title, _message, buttons) => {
-      buttons?.find((button) => button.text === "Delete account")?.onPress?.();
-    });
-    await renderWithProviders(<Settings />);
+    await renderWithProviders(<SettingsDetailScreen category="account" />);
     expect(await loadAccountSetup("test-user")).not.toBeNull();
+    // Deleting takes two confirmations.
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete account" })));
     await waitFor(async () => expect(await loadAccountSetup("test-user")).toBeNull());
     expect(await AsyncStorage.getItem(walkthroughKey("test-user"))).toBeNull();

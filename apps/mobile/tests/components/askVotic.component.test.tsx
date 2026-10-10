@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
+import { Keyboard } from "react-native";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, VoticAnswer } from "../../src/api/voticApi";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
@@ -17,7 +18,9 @@ describe("Ask Votic retry", () => {
   it("keeps a failed question and retries the same question", async () => {
     askVoticMock.mockRejectedValueOnce(new Error(CONNECTION_ERROR));
     await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    const dismissKeyboard = jest.spyOn(Keyboard, "dismiss");
     await ask("What is ATP?");
+    expect(dismissKeyboard).toHaveBeenCalled();
     expect(await screen.findByText(CONNECTION_ERROR)).toBeTruthy();
     expect(screen.getByText("What is ATP?")).toBeTruthy();
 
@@ -27,6 +30,7 @@ describe("Ask Votic retry", () => {
 
     // While the retry is in flight it says so, and can't be pressed again.
     expect(screen.getByText("Trying again…")).toBeTruthy();
+    expect(screen.getByText("Thinking")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry question", disabled: true })).toBeTruthy();
     expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, [], "adaptive");
 

@@ -50,16 +50,48 @@ async function seedActivity(log: ActivityLog) {
 }
 
 describe("Home", () => {
+  it("restores the weekly statistics, horizontal files, and recent notes", async () => {
+    const now = new Date();
+    await seedActivity(addInterval(emptyLog(), report.id, "reading", now.getTime() - 5 * MIN, now.getTime()));
+    const withNote = {
+      ...report,
+      savedPassages: [
+        {
+          id: "home-note",
+          sentenceIndex: 1,
+          text: "Costs held steady.",
+          title: "Quarterly costs",
+          note: "Review this before the meeting.",
+          createdAt: now.getTime(),
+          updatedAt: now.getTime(),
+        },
+      ],
+    };
+    await renderWithProviders(<Home />, { documents: [withNote, guide] });
+    expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
+    expect(screen.getByText("Statistics")).toBeTruthy();
+    expect(screen.getByText(/Reading 5 min/, { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText(/Listening 0 min/, { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent notes" })).toBeTruthy();
+    expect(screen.getByText("Quarterly costs")).toBeTruthy();
+    expect(screen.getAllByTestId("home-horizontal-shelf")).toHaveLength(2);
+    for (const shelf of screen.getAllByTestId("home-horizontal-shelf"))
+      expect(shelf.props.horizontal).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: /Quarterly costs\. From/ }));
+    expect(router.push).toHaveBeenCalledWith("/reader");
+  });
+
   it("features the document in progress with a readable title and resumes listening", async () => {
     await renderWithProviders(<Home />, { documents: [report, guide] });
     expect(screen.getByText("q3 board report FINAL")).toBeTruthy();
     expect(screen.getByText("Passage 2 of 4")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Resume listening to q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue Listening: q3 board report FINAL" }));
     expect(router.push).toHaveBeenCalledWith({
       pathname: "/reader",
       params: { mode: "listen", autoplay: "1" },
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Resume reading q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue Reading: q3 board report FINAL" }));
     expect(router.push).toHaveBeenLastCalledWith({ pathname: "/reader", params: { mode: "read" } });
   });
 
@@ -69,22 +101,6 @@ describe("Home", () => {
     await fireEvent.press(summary);
     expect(router.push).toHaveBeenCalledWith("/statistics");
   });
-
-  it("keeps Home's sections with an empty library, each saying what will show up there", async () => {
-    await renderWithProviders(<Home />);
-    expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
-    expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
-    expect(screen.getByText("Ready when you are")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
-    expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
-    expect(screen.getByText("No activity")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "Recent" })).toBeTruthy();
-    expect(screen.getByText("Your shelf starts here")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "From your notes" })).toBeTruthy();
-    expect(screen.getByText("No notes")).toBeTruthy();
-    // Nothing to see yet, so no "See all".
-    expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
-  });
 });
 
 describe("Documents", () => {
@@ -92,7 +108,9 @@ describe("Documents", () => {
     await renderWithProviders(<Documents />);
     expect(screen.getByRole("header", { name: "Your Documents page is empty" })).toBeTruthy();
     expect(
-      screen.getByText("Upload a PDF, Word, PowerPoint, EPUB, text, or Markdown file to read and listen."),
+      screen.getByText(
+        "Add a file from your device or a connected cloud storage provider to read and listen.",
+      ),
     ).toBeTruthy();
   });
 
@@ -144,16 +162,14 @@ describe("Documents", () => {
 describe("Notes", () => {
   it("shows a welcoming empty state without selection controls", async () => {
     await renderWithProviders(<Notes />, { documents: [report] });
-    expect(screen.getByRole("header", { name: "Keep what matters." })).toBeTruthy();
-    expect(
-      screen.getByText("Save a passage or add a thought. Find it here, linked to your document."),
-    ).toBeTruthy();
+    expect(screen.getByText("No notes yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Select notes" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Open a document" }));
-    expect(router.push).toHaveBeenCalledWith("/documents");
+    await fireEvent.press(screen.getByRole("button", { name: "Open q3_board-report_FINAL notebook" }));
+    expect(screen.getByRole("header", { name: "No notes yet" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
   });
 
-  it("previews each document's newest notes and keeps Notes or Saved passages in the filter panel", async () => {
+  it("opens each document’s notebook and keeps Notes or Saved passages in the filter panel", async () => {
     const passage = (id: string, note: string) => ({
       id,
       sentenceIndex: 0,
@@ -167,7 +183,11 @@ describe("Notes", () => {
       savedPassages: [passage("p1", "First"), passage("p2", ""), passage("p3", "Third")],
     };
     await renderWithProviders(<Notes />, { documents: [noted] });
-    expect(screen.getByRole("button", { name: "Show all 3 from q3 board report FINAL" })).toBeTruthy();
+    expect(screen.getByText("2 notes · 1 passage")).toBeTruthy();
+    expect(screen.queryByText("Third")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Open q3_board-report_FINAL notebook" }));
+    expect(screen.getAllByText("Third").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("First").length).toBeGreaterThan(0);
     expect(screen.queryByRole("radio", { name: "Saved Passages" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Filters" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Saved passages" }));
@@ -257,7 +277,7 @@ describe("Statistics", () => {
     ).toBeGreaterThan(0);
     await fireEvent.press(screen.getByRole("button", { name: "Show as table" }));
     expect(screen.getByLabelText(/as a table$/)).toBeTruthy();
-    expect(screen.getByLabelText("Questions, 1")).toBeTruthy();
+    expect(screen.getByLabelText("Questions asked, 1")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Documents details" }));
     expect(router.push).toHaveBeenCalledWith({
       pathname: "/statistics",
@@ -276,7 +296,7 @@ describe("Statistics", () => {
         /Insights appear after at least 30 minutes of reading or listening on 3 different days/,
       ),
     ).toBeTruthy();
-    expect(screen.getByText(/Votic started measuring on/)).toBeTruthy();
+    expect(screen.getByText(/So far: 5 min on 1 day\./)).toBeTruthy();
   });
 
   it("opens a ranked document from the Documents detail", async () => {

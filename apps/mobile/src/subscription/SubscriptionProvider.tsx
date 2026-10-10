@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import {
   PropsWithChildren,
   createContext,
@@ -14,7 +15,7 @@ import { hasAccess } from "./entitlement";
 import { createSubscriptionService, legalLinks } from "./subscriptionService";
 import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
 
-/** Development builds only: lets testers past the paywall when this build can't make real purchases. */
+/** Development and marked preview builds only: lets testers past the paywall when the build can't make real purchases. */
 const DEVELOPMENT_BYPASS_KEY = "votic.mobile.development-paywall-bypass.v1";
 
 type SubscriptionValue = {
@@ -26,7 +27,7 @@ type SubscriptionValue = {
   checking: boolean;
   /** Whether the paid part of Votic is open to this account. */
   access: boolean;
-  /** Development builds without store purchases can skip the paywall; release builds never can. */
+  /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
   canBypass: boolean;
   bypass: () => void;
   setEntitlement: (entitlement: Entitlement) => void;
@@ -38,7 +39,9 @@ const SubscriptionContext = createContext<SubscriptionValue | null>(null);
 
 export function SubscriptionProvider({
   children,
-  isDevelopment = __DEV__,
+  // The same builds that may be explored without an account (see AuthProvider): local development, and EAS
+  // builds made with the "preview" profile. Production and unmarked release builds never qualify.
+  isDevelopment = __DEV__ || Constants.expoConfig?.extra?.previewTesting === true,
 }: PropsWithChildren<{ isDevelopment?: boolean }>) {
   const [service] = useState(createSubscriptionService);
   const [legal] = useState(legalLinks);

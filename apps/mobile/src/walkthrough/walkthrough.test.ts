@@ -85,7 +85,7 @@ describe("walkthrough steps", () => {
     expect(listening[1]).toMatch(/••• button .* word or sentence highlighting/);
     // Read mode has no audio controls, so its More opens the reading tools.
     const reading = FLOWS.reader.steps.slice(4, 6).map((step) => copyFor(step, { listening: false }).message);
-    expect(reading[0]).toBe("Tap More for reading tools: text, color, listening, and bookmarks.");
+    expect(reading[0]).toBe("Tap More for reading tools: text, color, and bookmarks.");
     expect(reading[1]).not.toMatch(/•••/);
   });
   it("keeps every message short", () => {

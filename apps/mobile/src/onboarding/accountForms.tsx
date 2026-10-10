@@ -293,20 +293,23 @@ export function NotConfiguredNotice() {
   if (auth.configured) return null;
   return (
     <View style={[s.notice, { backgroundColor: theme.surfaceMuted }]}>
-      <Text style={[s.noticeText, { color: theme.text }]}>
-        Sign-in isn&apos;t set up in this build yet. Add the Firebase settings described in the README.
-      </Text>
+      <Text style={[s.noticeText, { color: theme.text }]}>Account sign-in is unavailable in this build.</Text>
       {auth.canContinueWithoutAccount ? (
-        <Pressable
-          accessibilityRole="button"
-          onPress={auth.continueWithoutAccount}
-          hitSlop={8}
-          style={s.noticeAction}
-        >
-          <Text style={[s.noticeActionText, { color: theme.accentText }]}>
-            Continue without an account (development)
+        <>
+          <Pressable
+            accessibilityRole="button"
+            onPress={auth.continueWithoutAccount}
+            hitSlop={8}
+            style={s.noticeAction}
+          >
+            <Text style={[s.noticeActionText, { color: theme.accentText }]}>
+              Explore Votic without an account
+            </Text>
+          </Pressable>
+          <Text style={[s.noticeText, { color: theme.mutedText }]}>
+            Testing access only. Account actions require signing in.
           </Text>
-        </Pressable>
+        </>
       ) : null}
     </View>
   );

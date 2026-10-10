@@ -1,158 +1,227 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
-import { fireEvent, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, screen } from "@testing-library/react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
-import { ACTIVITY_KEY } from "../../src/activity/ActivityProvider";
-import { ActivityLog, addInterval, emptyLog } from "../../src/activity/activityModel";
+import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
+import { homeNotes } from "../../src/home/homeModel";
+import { documentWidgetTone, widgetPalette, WidgetTone } from "../../src/home/widgetDesign";
 import { router } from "../mocks/expoRouter";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
-// The Reader grows out of the tapped card using on-screen measurements, which tests don't have.
-jest.mock("../../src/documents/useDocumentImport", () => {
-  const actual = jest.requireActual<typeof import("../../src/documents/useDocumentImport")>(
-    "../../src/documents/useDocumentImport",
-  );
-  return {
-    ...actual,
-    openFrom: (_source: unknown, _transition: unknown, params?: Record<string, string>) => {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { router: mockRouter } = require("../mocks/expoRouter");
-      mockRouter.push(params ? { pathname: "/reader", params } : "/reader");
-    },
-  };
-});
-
-const MIN = 60_000;
-const longText = Array.from({ length: 40 }, (_, index) => `Sentence number ${index + 1} of the report.`).join(
-  " ",
-);
-const report = testDocument("doc-report", "Quarterly report", {
-  plainText: longText,
-  progress: 0.4,
-  sentenceIndex: 15,
-  lastOpenedAt: 9,
-});
-const guide = testDocument("doc-guide", "Field Guide", { progress: 1, lastOpenedAt: 5 });
-const notebook = testDocument("doc-notes", "Biology", {
-  lastOpenedAt: 3,
+const featured = testDocument("featured", "The next chapter", {
+  progress: 0.45,
+  lastOpenedAt: 10,
   savedPassages: [
     {
-      id: "p-1",
-      sentenceIndex: 1,
-      text: "Cells divide.",
-      note: "Mitosis basics",
-      createdAt: 1,
-      updatedAt: 1,
-    },
-    {
-      id: "p-0",
+      id: "note",
       sentenceIndex: 0,
-      text: "Energy comes from ATP.",
-      note: "",
-      title: "Remember for the exam",
-      createdAt: 1,
-      updatedAt: 1,
+      title: "An idea to revisit",
+      text: "A saved passage.",
+      note: "A useful thought.",
       pinned: true,
+      createdAt: 1,
+      updatedAt: 2,
     },
   ],
 });
+const recent = testDocument("recent", "Field Guide", {
+  sourceName: "Field Guide.epub",
+  progress: 0.3,
+  lastOpenedAt: 1,
+});
 
-async function seedActivity(log: ActivityLog) {
-  await AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+describe("Colorful Home cards", () => {
+  it.each([320, 375, 390])("keeps full Continue labels in order at a %s-point phone width", async (width) => {
+    const originalWindow = Dimensions.get("window");
+    const originalScreen = Dimensions.get("screen");
+    try {
+      await act(async () =>
+        Dimensions.set({ window: { ...originalWindow, width, fontScale: 1 }, screen: originalScreen }),
+      );
+      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      const actions = screen.getByTestId("home-continue-actions");
+      expect(StyleSheet.flatten(actions.props.style).flexDirection).toBe("row");
+      const buttons = screen.getAllByRole("button", { name: /^Continue (Listening|Reading):/ });
+      expect(buttons.map((button) => button.props.accessibilityLabel)).toEqual([
+        "Continue Listening: The next chapter",
+        "Continue Reading: The next chapter",
+      ]);
+      for (const label of ["Continue Listening", "Continue Reading"]) {
+        const text = screen.getByText(label);
+        expect(text.props.numberOfLines).toBeUndefined();
+        expect(text.props.allowFontScaling).not.toBe(false);
+        expect(StyleSheet.flatten(text.props.style).fontSize).toBeGreaterThanOrEqual(14);
+      }
+    } finally {
+      await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
+    }
+  });
+
+  it("stacks complete actions for accessibility text without changing their order", async () => {
+    const originalWindow = Dimensions.get("window");
+    const originalScreen = Dimensions.get("screen");
+    try {
+      await act(async () =>
+        Dimensions.set({ window: { ...originalWindow, fontScale: 2 }, screen: originalScreen }),
+      );
+      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
+        "column",
+      );
+      expect(
+        screen
+          .getAllByRole("button", { name: /^Continue (Listening|Reading):/ })
+          .map((button) => button.props.accessibilityLabel),
+      ).toEqual(["Continue Listening: The next chapter", "Continue Reading: The next chapter"]);
+      expect(screen.getByText("Continue Listening").props.numberOfLines).toBeUndefined();
+    } finally {
+      await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
+    }
+  });
+
+  it("falls back to complete full-width actions when native text measurement detects wrapping", async () => {
+    await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+    await fireEvent(screen.getByText("Continue Listening"), "textLayout", {
+      nativeEvent: { lines: [{ text: "Continue Listen" }, { text: "ing" }] },
+    });
+    expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
+      "column",
+    );
+    expect(screen.getByText("Continue Listening")).toBeTruthy();
+  });
+
+  for (const mode of ["light", "dark"] as const) {
+    it(`keeps accessible actions and decorative artwork separate in ${mode} mode`, async () => {
+      await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: mode }));
+      await renderWithProviders(<Home />, { documents: [featured, recent], reduceMotion: true });
+      expect(StyleSheet.flatten(screen.getByTestId("home-continue-card").props.style).backgroundColor).toBe(
+        widgetPalette(mode === "dark", "chapter").surface,
+      );
+      expect(StyleSheet.flatten(screen.getByTestId("home-week-card").props.style).backgroundColor).toBe(
+        widgetPalette(mode === "dark", "activity").surface,
+      );
+      expect(StyleSheet.flatten(screen.getByTestId("home-recent-card").props.style).backgroundColor).toBe(
+        widgetPalette(mode === "dark", "book").surface,
+      );
+      expect(StyleSheet.flatten(screen.getByTestId("home-note-card").props.style).backgroundColor).toBe(
+        widgetPalette(mode === "dark", "notes").surface,
+      );
+      const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
+      expect(read.props.accessibilityHint).toContain("without audio controls");
+      expect(StyleSheet.flatten(read.props.style).minHeight).toBeGreaterThanOrEqual(48);
+      expect(
+        screen.getByRole("progressbar", { name: "The next chapter progress" }).props.accessibilityValue.now,
+      ).toBe(45);
+      expect(screen.getByRole("button", { name: "Open Field Guide" }).props.accessibilityHint).toContain(
+        "30%",
+      );
+      expect(
+        screen.getByRole("button", { name: /Pinned note. An idea to revisit/ }).props.accessibilityHint,
+      ).toBe("Opens the document at this passage");
+      for (const artwork of screen.getAllByTestId("home-document-artwork", { includeHiddenElements: true })) {
+        expect(artwork.props.importantForAccessibility).toBe("no-hide-descendants");
+        expect(artwork.props.accessible).toBe(false);
+      }
+      await fireEvent.press(screen.getByRole("button", { name: /This week: no reading or listening yet/ }));
+      expect(router.push).toHaveBeenCalledWith("/statistics");
+      await fireEvent.press(screen.getByRole("button", { name: "See all documents" }));
+      expect(router.push).toHaveBeenCalledWith("/documents");
+      await fireEvent.press(screen.getByRole("button", { name: "See all notes" }));
+      expect(router.push).toHaveBeenCalledWith("/notes");
+    });
+  }
+  it("preserves recent-document and options callbacks with the original document", async () => {
+    const open = jest.fn(),
+      more = jest.fn();
+    await renderWithProviders(<RecentShelf documents={[recent]} onOpen={open} onMore={more} />);
+    await fireEvent.press(screen.getByRole("button", { name: "Open Field Guide" }));
+    expect(open).toHaveBeenCalledWith(recent, expect.objectContaining({ current: expect.anything() }));
+    await fireEvent.press(screen.getByRole("button", { name: "More options for Field Guide" }));
+    expect(more).toHaveBeenCalledWith(recent);
+  });
+  it("expands shelf cards and keeps long titles available with larger text", async () => {
+    const originalWindow = Dimensions.get("window");
+    const originalScreen = Dimensions.get("screen");
+    try {
+      await act(async () =>
+        Dimensions.set({ window: { ...originalWindow, fontScale: 2 }, screen: originalScreen }),
+      );
+      const longTitle = "A longer reading title that should remain available at larger text sizes";
+      const document = { ...recent, title: longTitle };
+      const open = jest.fn();
+      await renderWithProviders(
+        <>
+          <RecentShelf documents={[document]} onOpen={open} onMore={() => {}} />
+          <NotesShelf notes={homeNotes([featured])} onOpen={() => {}} />
+        </>,
+      );
+      expect(screen.getByText(longTitle).props.numberOfLines).toBeUndefined();
+      expect(screen.getByText("An idea to revisit").props.numberOfLines).toBeUndefined();
+      expect(StyleSheet.flatten(screen.getByTestId("home-recent-card").props.style).width).toBeGreaterThan(
+        156,
+      );
+      await fireEvent.press(screen.getByRole("button", { name: `Open ${longTitle}` }));
+      expect(open).toHaveBeenCalledWith(document, expect.anything());
+    } finally {
+      await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
+    }
+  });
+  it("preserves pinned-note selection and its original passage", async () => {
+    const open = jest.fn();
+    const notes = homeNotes([featured]);
+    await renderWithProviders(<NotesShelf notes={notes} onOpen={open} />);
+    await fireEvent.press(screen.getByRole("button", { name: /Pinned note. An idea to revisit/ }));
+    expect(open).toHaveBeenCalledWith(notes[0]);
+  });
+});
+
+function contrast(a: string, b: string) {
+  const luminance = (hex: string) => {
+    const channels = [1, 3, 5]
+      .map((start) => parseInt(hex.slice(start, start + 2), 16) / 255)
+      .map((value) => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+    return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+  };
+  const [bright, dim] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (bright + 0.05) / (dim + 0.05);
 }
-
-describe("Continue", () => {
-  it("puts reading first when the document was last read", async () => {
-    await renderWithProviders(<Home />, { documents: [report] });
-    const actions = screen.getAllByRole("button", {
-      name: /^Resume (reading|listening to) Quarterly report$/,
-    });
-    expect(actions.map((button) => button.props.accessibilityLabel)).toEqual([
-      "Resume reading Quarterly report",
-      "Resume listening to Quarterly report",
-    ]);
-    expect(screen.getByText(/% · about \d+ min left/)).toBeTruthy();
+describe("Home palette contrast", () => {
+  it("keeps normal-size text readable on resting and pressed surfaces in both themes", () => {
+    const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
+    for (const dark of [false, true])
+      for (const tone of tones) {
+        const palette = widgetPalette(dark, tone);
+        for (const surface of [palette.surface, palette.art]) {
+          expect(contrast(palette.ink, surface)).toBeGreaterThanOrEqual(4.5);
+          expect(contrast(palette.detail, surface)).toBeGreaterThanOrEqual(4.5);
+        }
+        expect(contrast(palette.strong, palette.onStrong)).toBeGreaterThanOrEqual(4.5);
+      }
   });
-
-  it("puts listening first, and says so, when the document was last listened to", async () => {
-    const now = Date.now();
-    await seedActivity(addInterval(emptyLog(0), report.id, "listening", now - 20 * MIN, now - 10 * MIN));
-    await renderWithProviders(<Home />, { documents: [report] });
-    const actions = screen.getAllByRole("button", {
-      name: /^Resume (reading|listening to) Quarterly report$/,
-    });
-    expect(actions[0].props.accessibilityLabel).toBe("Resume listening to Quarterly report");
-    expect(screen.getByText(/Listened today/)).toBeTruthy();
-    await fireEvent.press(actions[0]);
-    expect(router.push).toHaveBeenLastCalledWith({
-      pathname: "/reader",
-      params: { mode: "listen", autoplay: "1" },
-    });
-  });
-
-  it("isn't shown when everything is finished", async () => {
-    await renderWithProviders(<Home />, { documents: [guide] });
-    expect(screen.queryByRole("button", { name: /^Resume/ })).toBeNull();
-    // The most recent document is still a tap away.
-    expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
+  it("uses file type rather than document order to choose the cover treatment", () => {
+    expect(documentWidgetTone("REPORT.PDF")).toBe("pdf");
+    expect(documentWidgetTone("slides.pptx")).toBe("slides");
+    expect(documentWidgetTone("book.epub")).toBe("book");
+    expect(documentWidgetTone("report.docx")).toBe("chapter");
+    expect(documentWidgetTone("notes.md")).toBe("text");
   });
 });
 
-describe("Ask Votic", () => {
-  it("isn't on Home", async () => {
-    await renderWithProviders(<Home />, { documents: [report, guide] });
-    expect(screen.queryByRole("button", { name: /^Ask Votic/ })).toBeNull();
-  });
-});
-
-describe("This week", () => {
-  it("shows the week's time, the split, and opens Statistics", async () => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 30).getTime();
-    let log = addInterval(emptyLog(0), report.id, "reading", today, today + 40 * MIN);
-    log = addInterval(log, report.id, "listening", today + 60 * MIN, today + 80 * MIN);
-    await seedActivity(log);
-    await renderWithProviders(<Home />, { documents: [report] });
-    const week = screen.getByRole("button", { name: /^This week: 1 hour/ });
-    expect(within(week).getByText("1 h")).toBeTruthy();
-    expect(within(week).getByText("Reading 40 min", { includeHiddenElements: true })).toBeTruthy();
-    expect(week.props.accessibilityLabel).toMatch(/reading 40 minutes, listening 20 minutes/);
-    expect(within(week).getByText("Listening 20 min", { includeHiddenElements: true })).toBeTruthy();
-    expect(within(week).getByText("Statistics")).toBeTruthy();
-    await fireEvent.press(week);
-    expect(router.push).toHaveBeenLastCalledWith("/statistics");
-  });
-
-  it("doesn't invent an insight from a little activity", async () => {
-    const now = Date.now();
-    await seedActivity(addInterval(emptyLog(0), report.id, "listening", now - 5 * MIN, now));
-    await renderWithProviders(<Home />, { documents: [report] });
-    expect(screen.queryByText(/Most of your time/)).toBeNull();
-  });
-});
-
-describe("Recent and notes", () => {
-  it("lists recent documents other than the one in Continue", async () => {
-    await renderWithProviders(<Home />, { documents: [report, guide, notebook] });
-    expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open Biology" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Open Quarterly report" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "See all documents" }));
-    expect(router.push).toHaveBeenLastCalledWith("/documents");
-  });
-
-  it("surfaces pinned notes first and opens the document at the note", async () => {
-    await renderWithProviders(<Home />, { documents: [report, notebook] });
-    expect(screen.getByRole("header", { name: "From your notes" })).toBeTruthy();
-    const notes = screen.getAllByRole("button", { name: /From Biology/ });
-    expect(notes[0].props.accessibilityLabel).toMatch(/^Pinned note\. Remember for the exam\./);
-    expect(notes[1].props.accessibilityLabel).toMatch(/^Mitosis basics\./);
-    await fireEvent.press(notes[1]);
-    expect(router.push).toHaveBeenLastCalledWith("/reader");
-  });
-
-  it("leaves notes off Home until there are some", async () => {
-    await renderWithProviders(<Home />, { documents: [report] });
-    expect(screen.queryByRole("header", { name: "From your notes" })).toBeNull();
+describe("Home with an empty library", () => {
+  it("keeps Home's sections, each saying what will show up there", async () => {
+    await renderWithProviders(<Home />);
+    expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
+    expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
+    expect(screen.getByText("Ready when you are")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
+    expect(screen.getByText("No activity")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
+    expect(screen.getByText("Your shelf starts here")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Recent notes" })).toBeTruthy();
+    expect(screen.getByText("No notes")).toBeTruthy();
+    // Nothing to see yet, so no "See all".
+    expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
   });
 });

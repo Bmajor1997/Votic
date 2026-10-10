@@ -1,3 +1,4 @@
+import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -49,8 +50,14 @@ export function NotesFilterSheet({
   onReset: () => void;
 }) {
   const { theme } = useVoticTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType={reduceMotion ? "none" : "fade"}
+      onRequestClose={onClose}
+    >
       <View style={sheet.backdrop}>
         <Pressable
           accessibilityRole="button"
