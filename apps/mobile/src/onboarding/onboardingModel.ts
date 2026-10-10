@@ -52,6 +52,8 @@ export type OnboardingState = {
   /** Set when the person finishes or skips personalization. */
   personalizationCompletedAt: number | null;
   personalizationSkipped: boolean;
+  /** Set when the person has seen the Home Screen widgets screen during setup. */
+  widgetsIntroducedAt: number | null;
   /** Set when the person first enters Votic after setup. */
   completedAt: number | null;
 };
@@ -71,6 +73,7 @@ export function newOnboardingState(): OnboardingState {
     answers: { ...EMPTY_ANSWERS },
     personalizationCompletedAt: null,
     personalizationSkipped: false,
+    widgetsIntroducedAt: null,
     completedAt: null,
   };
 }
@@ -234,6 +237,7 @@ export function parseOnboardingState(raw: string | null): OnboardingState | null
     },
     personalizationCompletedAt: time(value.personalizationCompletedAt),
     personalizationSkipped: value.personalizationSkipped === true,
+    widgetsIntroducedAt: time(value.widgetsIntroducedAt),
     completedAt: time(value.completedAt),
   };
 }

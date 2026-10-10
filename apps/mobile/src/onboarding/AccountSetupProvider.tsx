@@ -1,4 +1,5 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useState } from "react";
+import { Platform } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
@@ -20,6 +21,11 @@ type AccountSetupValue = {
   personalized: boolean;
   /** "Votic is ready for you" has been seen, so the app opens to Home. */
   handedOff: boolean;
+  /**
+   * The Home Screen widgets screen has been seen (or doesn't apply: on the web, which has no widgets, and
+   * for accounts that finished setup before it existed).
+   */
+  widgetsIntroduced: boolean;
   /** Saved as answers change, so leaving mid-question loses nothing. */
   setAnswers: (answers: PersonalizationAnswers) => void;
   setStep: (step: number) => void;
@@ -29,6 +35,8 @@ type AccountSetupValue = {
   savePersonalization: (answers: PersonalizationAnswers) => void;
   /** After "Start using Votic" on "Votic is ready for you": the app opens to Home from now on. */
   completeHandoff: () => void;
+  /** After the Home Screen widgets screen: setup moves on to "Votic is ready for you". */
+  completeWidgetsIntro: () => void;
 };
 
 const AccountSetupContext = createContext<AccountSetupValue | null>(null);
@@ -109,6 +117,8 @@ export function AccountSetupProvider({
     loading: Boolean(uid && !setup),
     personalized: Boolean(setup?.personalizationCompletedAt),
     handedOff: Boolean(setup?.completedAt),
+    widgetsIntroduced:
+      Platform.OS === "web" || Boolean(setup?.widgetsIntroducedAt) || Boolean(setup?.completedAt),
     setAnswers: (answers) => update((state) => ({ ...state, answers })),
     setStep: (step) =>
       update((state) => ({ ...state, currentStep: Math.min(QUESTIONS.length - 1, Math.max(0, step)) })),
@@ -128,6 +138,9 @@ export function AccountSetupProvider({
     },
     completeHandoff() {
       update((state) => ({ ...state, completedAt: state.completedAt ?? now() }));
+    },
+    completeWidgetsIntro() {
+      update((state) => ({ ...state, widgetsIntroducedAt: state.widgetsIntroducedAt ?? now() }));
     },
   };
   return <AccountSetupContext.Provider value={value}>{children}</AccountSetupContext.Provider>;

@@ -35,6 +35,7 @@ const APP = [
   "recap",
   "handle-share",
   "statistics",
+  "home-screen-widgets",
   "widget",
 ];
 
@@ -79,7 +80,7 @@ describe("root navigation", () => {
     // A trial starting (or a restore) is reported by the store, and only then does setup move on.
     expect(
       await afterChange(() => fakeSubscriptions.setEntitlement("test-user", entitlementOf("trial"))),
-    ).toEqual(["ready"]);
+    ).toEqual(["widgets-intro"]);
   });
 
   it("returns to the paywall when a subscription ends while Votic is open", async () => {
@@ -96,8 +97,13 @@ describe("root navigation", () => {
     expect(await renderLayout()).toEqual(["paywall"]);
   });
 
-  it("shows the handoff once after a subscription starts", async () => {
+  it("introduces the Home Screen widgets, then shows the handoff once, after a subscription starts", async () => {
     await seedStorage({ accountSetup: { completedAt: null } });
+    expect(await renderLayout()).toEqual(["widgets-intro"]);
+  });
+
+  it("goes on to the handoff once the widgets have been introduced", async () => {
+    await seedStorage({ accountSetup: { completedAt: null, widgetsIntroducedAt: 1 } });
     expect(await renderLayout()).toEqual(["ready"]);
   });
 

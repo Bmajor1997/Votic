@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ComponentProps, PropsWithChildren, useEffect, useRef } from "react";
-import { AccessibilityInfo, findNodeHandle, Pressable, StyleSheet, Text, View } from "react-native";
+import { AccessibilityInfo, findNodeHandle, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Screen } from "../components/Screen";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -83,6 +83,8 @@ export function SettingsPage({ title, children }: PropsWithChildren<{ title: str
   const { theme } = useVoticTheme();
   const heading = useRef<Text>(null);
   useEffect(() => {
+    // findNodeHandle isn't supported on web, where the browser keeps focus on its own.
+    if (Platform.OS === "web") return;
     const frame = requestAnimationFrame(() => {
       const handle = heading.current ? findNodeHandle(heading.current) : null;
       if (handle) AccessibilityInfo.setAccessibilityFocus(handle);

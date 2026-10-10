@@ -6,7 +6,7 @@ import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../onboarding/voticGu
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { PropsWithChildren, useState, useRef } from "react";
-import { AccessibilityInfo, Modal, Pressable, StyleSheet, Switch, Text, View } from "react-native";
+import { AccessibilityInfo, Modal, Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import {
   useAccessibilityPreferences,
   ReadingSpacing,
@@ -347,6 +347,17 @@ function HelpSettings() {
             );
           }}
         />
+        {/* The web has no Home Screen widgets. */}
+        {Platform.OS !== "web" ? (
+          <SettingsRow
+            label="Home Screen widgets"
+            detail="See what you're reading and continue from your Home Screen."
+            hint="Shows how to add a Votic widget"
+            icon="apps-outline"
+            separated
+            onPress={() => router.push("/home-screen-widgets")}
+          />
+        ) : null}
         <SettingsRow
           label="Statistics"
           detail="Reading and listening time, activity, and insights."

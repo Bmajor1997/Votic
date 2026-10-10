@@ -1,6 +1,12 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { act } from "@testing-library/react-native";
+import { act, fireEvent, screen as rendered, waitFor } from "@testing-library/react-native";
+import { Platform } from "react-native";
+import HomeScreenWidgets from "../../app/home-screen-widgets";
 import WidgetLink from "../../app/widget";
+import WidgetsIntro from "../../app/widgets-intro";
+import { WIDGET_STEPS } from "../../src/onboarding/HomeScreenWidgetsIntro";
+import { loadAccountSetup } from "../../src/onboarding/onboardingStorage";
+import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { WIDGET_PUBLISH_DELAY_MS, WidgetSync } from "../../src/widgets/WidgetSync";
 import { WidgetSnapshot } from "../../src/widgets/widgetSnapshot";
 import { fakeAuth } from "../mocks/authBackend";
@@ -91,5 +97,36 @@ describe("opening Votic from a widget", () => {
     searchParams.current = { open: "add" };
     await renderWithProviders(<WidgetLink />);
     expect(router.push).toHaveBeenLastCalledWith("/documents");
+  });
+});
+
+describe("telling people about the widgets", () => {
+  it("shows during setup with this phone's steps, and moves setup on", async () => {
+    await renderWithProviders(<WidgetsIntro />, { accountSetup: { completedAt: null } });
+    expect(rendered.getByRole("header", { name: "Votic on your Home Screen" })).toBeTruthy();
+    for (const step of WIDGET_STEPS.ios) expect(rendered.getByText(step.text)).toBeTruthy();
+    expect(rendered.getByText(/Continue also fits on your Lock Screen/)).toBeTruthy();
+    expect((await loadAccountSetup("test-user"))?.widgetsIntroducedAt).toBeNull();
+    await fireEvent.press(rendered.getByRole("button", { name: "Continue" }));
+    await waitFor(async () =>
+      expect((await loadAccountSetup("test-user"))?.widgetsIntroducedAt).toEqual(expect.any(Number)),
+    );
+  });
+
+  it("uses Android's own steps on Android", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    await renderWithProviders(<WidgetsIntro />, { accountSetup: { completedAt: null } });
+    for (const step of WIDGET_STEPS.android) expect(rendered.getByText(step.text)).toBeTruthy();
+    expect(rendered.queryByText(/Lock Screen/)).toBeNull();
+  });
+
+  it("can be opened again from Settings → Help", async () => {
+    const screen = await renderWithProviders(<SettingsDetailScreen category="help" />);
+    await fireEvent.press(rendered.getByRole("button", { name: "Home Screen widgets" }));
+    expect(router.push).toHaveBeenLastCalledWith("/home-screen-widgets");
+    screen.unmount();
+    await renderWithProviders(<HomeScreenWidgets />);
+    await fireEvent.press(rendered.getByRole("button", { name: "Done" }));
+    expect(router.back).toHaveBeenCalled();
   });
 });

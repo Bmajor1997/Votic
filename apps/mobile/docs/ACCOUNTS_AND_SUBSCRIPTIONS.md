@@ -8,10 +8,14 @@ How a new person gets into Votic, what each service does, and what has to be set
 Welcome ─┬─ Get started ─ Create account (Apple · Google · email) ─┐
          └─ Sign in (Apple · Google · email · Forgot password) ────┤
                                                                    ▼
-        Personalization (5 questions, new accounts only) ─ Votic Premium ─ "Votic is ready for you" ─ Home
+        Personalization (5 questions, new accounts only) ─ Votic Premium ─ Home Screen widgets
                                                                                    │
-                                          "Start using Votic" opens Home, where the Home tour begins
+                       "Votic is ready for you" ─ "Start using Votic" opens Home, where the Home tour begins
 ```
+
+"Votic on your Home Screen" (`app/widgets-intro.tsx`) shows once, during setup, with the steps to add a widget on
+the person's phone. It's skipped on the web, which has no widgets, and can be opened again from Settings → Help →
+Home Screen widgets.
 
 `app/_layout.tsx` shows only the screens for the current stage (`Stack.Protected`). The stage comes from three
 separate facts, so finishing setup never grants access by itself:
@@ -25,14 +29,14 @@ separate facts, so finishing setup never grants access by itself:
 
 ## Who sees setup
 
-| Situation                                                              | What happens                                               |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
-| New account (email, or the first Apple/Google sign-in)                 | Personalization → Votic Premium → "Votic is ready for you" |
-| Leaves mid-setup and comes back                                        | Same question, same answers (saved as they change)         |
-| Existing account signs in on a new phone or after a reinstall          | Setup is skipped; answers can be set in Settings           |
-| Another account signs in on the same phone                             | That account has its own setup                             |
-| Signed in on a build from before per-account setup                     | Keeps whatever that build decided                          |
-| Any account without an active subscription or trial (including expiry) | Votic Premium screen                                       |
+| Situation                                                              | What happens                                                                     |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| New account (email, or the first Apple/Google sign-in)                 | Personalization → Votic Premium → Home Screen widgets → "Votic is ready for you" |
+| Leaves mid-setup and comes back                                        | Same question, same answers (saved as they change)                               |
+| Existing account signs in on a new phone or after a reinstall          | Setup is skipped; answers can be set in Settings                                 |
+| Another account signs in on the same phone                             | That account has its own setup                                                   |
+| Signed in on a build from before per-account setup                     | Keeps whatever that build decided                                                |
+| Any account without an active subscription or trial (including expiry) | Votic Premium screen                                                             |
 
 Walkthroughs follow the same rules: a new account gets them, an existing account signing in on a new phone or
 after a reinstall doesn't (each can be replayed from Settings → Learn Votic), another account on the same phone

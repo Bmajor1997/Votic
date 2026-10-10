@@ -76,7 +76,10 @@ function ThemedStack() {
               <Stack.Protected guard={personalized && !subscribed}>
                 <Stack.Screen name="paywall" options={fade} />
               </Stack.Protected>
-              <Stack.Protected guard={subscribed && !setup.handedOff}>
+              <Stack.Protected guard={subscribed && !setup.handedOff && !setup.widgetsIntroduced}>
+                <Stack.Screen name="widgets-intro" options={fade} />
+              </Stack.Protected>
+              <Stack.Protected guard={subscribed && !setup.handedOff && setup.widgetsIntroduced}>
                 <Stack.Screen name="ready" options={fade} />
               </Stack.Protected>
               <Stack.Protected guard={subscribed && setup.handedOff}>
@@ -96,6 +99,7 @@ function ThemedStack() {
                 <Stack.Screen name="recap" />
                 <Stack.Screen name="handle-share" options={fade} />
                 <Stack.Screen name="statistics" options={slide} />
+                <Stack.Screen name="home-screen-widgets" options={slide} />
                 {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                 <Stack.Screen name="widget" options={{ animation: "none" }} />
               </Stack.Protected>

@@ -5,6 +5,7 @@ import {
   findNodeHandle,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -40,7 +41,8 @@ export function AccountSettings() {
   const deleteRow = useRef<View>(null);
   const destructive = theme.isDark ? "#FFB4B4" : "#B91C1C";
   function focus(target: Text | View | null) {
-    const handle = target ? findNodeHandle(target) : null;
+    // findNodeHandle isn't supported on web, where the browser keeps focus on its own.
+    const handle = target && Platform.OS !== "web" ? findNodeHandle(target) : null;
     if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
   }
   useEffect(() => {

@@ -14,6 +14,13 @@ Each widget also has honest states for the rest of the time:
 - **No activity this week:** "No activity".
 - **Signed out, or Votic never opened:** "Open Votic". Nothing from the library is shown.
 
+## Telling people about them
+
+New accounts see **Votic on your Home Screen** during setup, between Votic Premium and "Votic is ready for you": a
+picture of both widgets and the steps to add one on their phone (iPhone or Android wording, plus the Lock Screen
+on iPhone). It's skipped on the web. Anyone can open it again from Settings → Help → Home Screen widgets. See
+`src/onboarding/HomeScreenWidgetsIntro.tsx`.
+
 ## How it works
 
 ```
