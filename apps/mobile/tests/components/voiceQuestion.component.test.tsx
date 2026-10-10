@@ -351,6 +351,58 @@ describe("Ask Votic recording composer", () => {
     expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
   });
 
+  it("still records when Android pauses the app for the first microphone permission dialog", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    let finish!: (permission: Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>) => void;
+    jest.mocked(requestRecordingPermissionsAsync).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    await act(async () => handler("background"));
+    await act(async () => handler("active"));
+    await act(async () =>
+      finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
+    );
+    expect(stream.start).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Stop voice input" })).toBeTruthy();
+  });
+
+  it("does not open the microphone if the app stays in the background while starting", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    let finish!: (permission: Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>) => void;
+    jest.mocked(requestRecordingPermissionsAsync).mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    await act(async () => handler("background"));
+    await act(async () =>
+      finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
+    );
+    expect(stream.start).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();
+  });
+
+  it("keeps recording when iOS briefly reports inactive", async () => {
+    const listener = jest.spyOn(AppState, "addEventListener");
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    await act(async () => handler("inactive"));
+    expect(stream.stop).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Stop voice input" })).toBeTruthy();
+  });
+
   it("does not start capture after cancellation during permission request", async () => {
     let finish!: (permission: Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>) => void;
     jest.mocked(requestRecordingPermissionsAsync).mockImplementationOnce(

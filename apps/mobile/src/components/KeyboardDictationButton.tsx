@@ -58,6 +58,7 @@ export function KeyboardDictationButton({
   const capturedBytes = useRef(0);
   const captureError = useRef("");
   const startingOperation = useRef(false);
+  const leftWhileStarting = useRef(false);
   const audioRelease = useRef<Promise<void>>(Promise.resolve());
   const streamResult = useAudioStream({
     sampleRate: 16_000,
@@ -160,7 +161,18 @@ export function KeyboardDictationButton({
   useEffect(() => {
     mounted.current = true;
     const subscription = AppState.addEventListener("change", (state) => {
-      if (state !== "active") cancelAction.current();
+      if (state === "active") {
+        leftWhileStarting.current = false;
+        return;
+      }
+      // iOS "inactive" covers Control Center, notifications, and system prompts; the app is still in front.
+      if (state !== "background") return;
+      // Android pauses the app while the microphone permission dialog is open. Decide after it closes.
+      if (startingOperation.current) {
+        leftWhileStarting.current = true;
+        return;
+      }
+      cancelAction.current();
     });
     return () => {
       mounted.current = false;
@@ -268,6 +280,7 @@ export function KeyboardDictationButton({
   async function startRecording() {
     if (disabled || !active || startingOperation.current || phaseRef.current !== "idle") return;
     startingOperation.current = true;
+    leftWhileStarting.current = false;
     const currentSession = ++session.current;
     const current = () => mounted.current && currentSession === session.current;
     changePhase("starting");
@@ -288,6 +301,11 @@ export function KeyboardDictationButton({
       requestController.current = new AbortController();
       await checkVoiceQuestionAvailability(requestController.current.signal);
       if (!current()) return;
+      // The app went to the background while starting and has not come back: never open the mic there.
+      if (leftWhileStarting.current) {
+        cancelAction.current();
+        return;
+      }
       chunks.current = [];
       savedAudio.current = null;
       capturedBytes.current = 0;
@@ -346,9 +364,11 @@ export function KeyboardDictationButton({
                     : "Start voice input"
         }
         accessibilityHint={
-          recording
-            ? "Stops recording and transcribes your words. Review them before sending."
-            : "Records a voice question. Tap Stop when finished, then review and send."
+          failed
+            ? "Sends the same recording for transcription again. Your typed text is kept."
+            : recording
+              ? "Stops recording and transcribes your words. Review them before sending."
+              : "Records a voice question. Tap Stop when finished, then review and send."
         }
         accessibilityState={{ disabled: disabled || busy, selected: recording, busy }}
         disabled={disabled || busy}

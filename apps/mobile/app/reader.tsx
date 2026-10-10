@@ -1442,7 +1442,6 @@ function ReaderContent() {
                     {askVoiceError ? (
                       <Text
                         onLayout={(event) => setAskVoiceErrorHeight(event.nativeEvent.layout.height)}
-                        accessibilityLiveRegion="polite"
                         style={[s.askError, { color: theme.text }]}
                       >
                         {askVoiceError}{" "}

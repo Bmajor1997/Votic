@@ -10,3 +10,8 @@ reason = "braces <=3.0.3 is pulled transitively by Expo/Jest tooling; the adviso
 id = "GHSA-86w9-cpqp-85rv"
 ignoreUntil = 2026-11-15
 reason = "node-forge is pulled transitively by Expo tooling; the current advisory has no patched npm release. Recheck upstream before expiry."
+
+[[IgnoredVulns]]
+id = "GHSA-hp3w-g68c-fv3c"
+ignoreUntil = 2026-11-15
+reason = "sprintf-js <=1.1.3 is pulled transitively by mammoth (argparse) and Expo/Jest tooling; 1.1.3 is the latest release and no patched version exists. Recheck upstream before expiry."

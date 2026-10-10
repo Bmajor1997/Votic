@@ -209,3 +209,12 @@ test("voice readiness fails before recording when configuration is missing, with
     assert.equal(store.records().length, 0);
   });
 });
+
+test("voice readiness checks do not use up the transcription rate limit", async () => {
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true", VOTIC_HELP_RATE_LIMIT: "1" }, authorize: () => ({ uid: "voice-user" }), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base) => {
+    assert.equal((await post(base, "/api/voice-question-status", {})).status, 200);
+    const upload = await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") });
+    assert.equal(upload.status, 400);
+    assert.equal((await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") })).status, 429);
+  });
+});

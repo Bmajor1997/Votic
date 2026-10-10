@@ -184,7 +184,8 @@ export function create_votic_handler(options = {}) {
     return;
    }
    if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
-    rate_limit(`${client}:voice`, config.help_rate_limit);
+    // The free readiness check has its own bucket so each voice question spends one transcription slot.
+    rate_limit(path === "/api/voice-question-status" ? `${client}:voice-status` : `${client}:voice`, config.help_rate_limit);
     if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable because this Votic server is not configured to verify sign-in.");
     if (!identity?.uid) throw new HttpError(401, "Sign in to use voice questions.");
     if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are not enabled on this Votic server yet. You can still type your question.");

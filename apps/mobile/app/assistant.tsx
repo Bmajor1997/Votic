@@ -506,7 +506,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
           </ScrollView>
           <View>
             {voiceError ? (
-              <Text accessibilityLiveRegion="polite" style={[s.voiceError, { color: theme.text }]}>
+              <Text style={[s.voiceError, { color: theme.text }]}>
                 {voiceError}{" "}
                 {voicePhase === "error"
                   ? "Retry transcription or discard the recording."
