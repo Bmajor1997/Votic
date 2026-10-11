@@ -141,6 +141,29 @@ describe("Ask Votic recording composer", () => {
     expect(screen.getByRole("button", { name: "Send question", disabled: false })).toBeTruthy();
   });
 
+  it("keeps the Reader's question box to one line while a transcript appears, then lets it grow", async () => {
+    await renderWithProviders(<OpenedReader />, { documents: [testDocument("voice-doc", "Voice book")] });
+    // Let the Reader finish opening (its first frame resets Ask Votic) before asking.
+    await act(async () => jest.advanceTimersByTime(50));
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await act(async () => jest.advanceTimersByTime(500));
+    const transcript = "What does the author mean by saving, and how would I start doing that?";
+    jest.mocked(transcribeVoiceQuestion).mockResolvedValueOnce(transcript);
+    await start();
+    await capture();
+    await stop();
+    // While the words appear, the box stays one line and shows the newest words.
+    const revealing = screen.getByLabelText(transcript);
+    expect(revealing.props.numberOfLines).toBe(1);
+    expect(revealing.props.ellipsizeMode).toBe("head");
+    for (let step = 0; step < 10; step += 1) await act(async () => jest.advanceTimersByTime(100));
+    // Once they're all there, it's the question box again, free to grow to three lines.
+    const input = screen.getByLabelText("Ask Votic a question");
+    expect(input.props.value).toBe(transcript);
+    expect(input.props.multiline).toBe(true);
+    expect(StyleSheet.flatten(input.props.style).maxHeight).toBe(86);
+  });
+
   it("cancels a transcript reveal when the microphone component unmounts", async () => {
     const onChangeText = jest.fn();
     const onRevealChange = jest.fn();

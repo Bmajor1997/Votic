@@ -1485,8 +1485,11 @@ function ReaderContent() {
                         </View>
                       ) : askVoiceReveal && askVoicePhase === "reviewing" ? (
                         <View style={{ flex: 1 }}>
+                          {/* Before a conversation starts, the box stays one line while your words appear and
+                              grows to fit them once they're all there. */}
                           <RevealingText
                             frame={askVoiceReveal}
+                            singleLine={!hasAskConversation}
                             style={[
                               s.askInput,
                               !hasAskConversation && s.compactAskInput,
