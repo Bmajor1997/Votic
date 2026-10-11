@@ -114,3 +114,34 @@ test("web importer preserves compressed articles and bounds their decoded size",
   assert.match(page.text, /readable article/);
   await assert.rejects(() => import_public_webpage("https://public.test", options("x".repeat(2_000_001))), /too large/);
 });
+
+test("webpage cleanup drops site menus, language lists, and tables of contents but keeps the article", () => {
+  const languages = ["العربية", "Català", "Čeština", "Deutsch", "Eesti", "Español", "Euskara", "فارسی", "Français", "日本語"]
+    .map((name) => `<li><a href="#">${name}</a></li>`).join("");
+  const html = `<html><head><title>Speech synthesis - Wikipedia</title></head><body>
+    <a class="mw-jump-link" href="#content">Jump to content</a>
+    <div class="vector-header"><div id="p-personal"><ul><li><a>Donate</a></li><li><a>Create account</a></li><li><a>Log in</a></li></ul></div><div>Personal tools</div></div>
+    <div class="vector-column-start"><div id="vector-toc"><ul><li><a>(Top)</a></li><li><a>History</a></li><li><a>Synthesizer technologies</a></li><li><a>Challenges</a></li><li><a>See also</a></li></ul></div></div>
+    <main id="content">
+      <h1>Speech synthesis</h1>
+      <div id="p-lang-btn"><span>51 languages</span><ul>${languages}</ul></div>
+      <div class="vector-page-toolbar"><ul><li><a>Article</a></li><li><a>Talk</a></li><li><a>Read</a></li><li><a>Edit</a></li><li><a>View history</a></li><li><a>Tools</a></li></ul></div>
+      <div id="mw-content-text">
+        <div>From Wikipedia, the free encyclopedia</div>
+        <p>Speech synthesis is the artificial production of human speech. A computer system used for this purpose is called a speech synthesizer.</p>
+        <h2>History</h2>
+        <p>Long before the invention of electronic signal processing, some people tried to build machines to emulate human speech.</p>
+        <ul><li>Some systems join recorded pieces of human speech together.</li><li>Other systems model the human vocal tract to create a fully synthetic voice.</li></ul>
+      </div>
+    </main>
+    <footer>Privacy policy</footer>
+  </body></html>`;
+  const { title, text } = clean_webpage_html(html);
+  assert.equal(title, "Speech synthesis - Wikipedia");
+  assert.match(text, /^Speech synthesis\n\nFrom Wikipedia, the free encyclopedia\n\nSpeech synthesis is the artificial production/);
+  assert.match(text, /\n\nHistory\n\nLong before the invention/);
+  assert.match(text, /Some systems join recorded pieces/);
+  assert.match(text, /Other systems model the human vocal tract/);
+  for (const clutter of ["Jump to content", "Donate", "Create account", "Log in", "Personal tools", "Eesti", "Euskara", "51 languages", "View history", "Synthesizer technologies", "(Top)", "Privacy policy"])
+    assert.ok(!text.includes(clutter), `should drop "${clutter}"`);
+});

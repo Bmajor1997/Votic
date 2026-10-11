@@ -105,8 +105,9 @@ const ASK_INPUT_LINE = 20;
 const ASK_INPUT_PADDING = 13;
 const ASK_INPUT_MIN_HEIGHT = ASK_INPUT_LINE + ASK_INPUT_PADDING * 2;
 const ASK_INPUT_MAX_HEIGHT = ASK_INPUT_LINE * 6 + ASK_INPUT_PADDING * 2;
-const ASK_CONVERSATION_MAX_HEIGHT = 720;
-const ASK_CONVERSATION_MAX_SHARE = 0.85;
+// Ask Votic never covers more than half the Reader, so the document stays in view; answers scroll inside.
+const ASK_CONVERSATION_MAX_HEIGHT = 460;
+const ASK_CONVERSATION_MAX_SHARE = 0.5;
 const READING_BOTTOM_PADDING = 190;
 
 /** closed → opening → open → closing → closed; askProgress runs 0 (panel hidden) → 1 (panel up) and back. */
@@ -219,8 +220,15 @@ function ReaderContent() {
   const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
   // How someone opened the document decides the controls: Read has no audio controls, Listen does.
   // An explicit Read request takes precedence over a stale autoplay parameter.
-  const mode: ReaderMode =
-    params.mode === "read" ? "read" : params.mode === "listen" || params.autoplay === "1" ? "listen" : "read";
+  // Listen in the Reading dock switches to listening without leaving the document.
+  const [switchedToListen, setSwitchedToListen] = useState(false);
+  const mode: ReaderMode = switchedToListen
+    ? "listen"
+    : params.mode === "read"
+      ? "read"
+      : params.mode === "listen" || params.autoplay === "1"
+        ? "listen"
+        : "read";
   const listening = mode === "listen";
   const contentHeight = useRef(0);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
@@ -349,6 +357,14 @@ function ReaderContent() {
     void Speech.stop();
     const frame = requestAnimationFrame(() => onReadEntry());
     return () => cancelAnimationFrame(frame);
+  }, [listening]);
+  // Listen in the Reading dock: narration starts once the Reader has switched to listening.
+  const listenAfterSwitch = useRef(false);
+  const onSwitchedToListen = useEffectEvent(() => speak());
+  useEffect(() => {
+    if (!listening || !listenAfterSwitch.current) return;
+    listenAfterSwitch.current = false;
+    onSwitchedToListen();
   }, [listening]);
   // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
@@ -1144,6 +1160,24 @@ function ReaderContent() {
                           ]}
                         >
                           <Ionicons name={playing ? "pause" : "play"} size={20} color={theme.playIcon} />
+                        </Pressable>
+                      ) : null}
+                      {!listening && !listenExpanded ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Listen"
+                          accessibilityHint="Reads this document aloud from where you are."
+                          onPress={() => {
+                            listenAfterSwitch.current = true;
+                            setSwitchedToListen(true);
+                          }}
+                          style={({ pressed }) => [
+                            s.compactPlay,
+                            { backgroundColor: theme.playButton },
+                            !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.95 : 1 }] },
+                          ]}
+                        >
+                          <Ionicons name="headset" size={20} color={theme.playIcon} />
                         </Pressable>
                       ) : null}
                       <Pressable

@@ -95,6 +95,17 @@ describe("Reader", () => {
     }
   });
 
+  it("starts listening from the Reading dock without leaving the document", async () => {
+    searchParams.current = { mode: "read" };
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Listen" }));
+    await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Expand listening controls" })).toBeTruthy();
+  });
+
   it("shows the document's passages and reading progress", async () => {
     await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
     expect(screen.getByText("Field Guide")).toBeTruthy();
@@ -475,14 +486,14 @@ describe("Reader", () => {
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await screen.findByText("Focus improves when distractions are reduced.");
-    // Answers use most of the available screen, with a scrollable conversation.
-    expect(askPanelHeight()).toBeGreaterThan(Dimensions.get("window").height * 0.4);
-    expect(askPanelHeight()).toBeLessThanOrEqual(720);
-    expect(askPanelHeight()).toBeLessThanOrEqual(Dimensions.get("window").height * 0.85);
+    // Answers get room, with a scrollable conversation, but never cover more than half the Reader.
+    expect(askPanelHeight()).toBeGreaterThan(Dimensions.get("window").height * 0.3);
+    expect(askPanelHeight()).toBeLessThanOrEqual(460);
+    expect(askPanelHeight()).toBeLessThanOrEqual(Dimensions.get("window").height * 0.5);
     await fireEvent(screen.getByTestId("reader-available-space"), "layout", {
       nativeEvent: { layout: { height: 340 } },
     });
-    expect(askPanelHeight()).toBe(289);
+    expect(askPanelHeight()).toBe(170);
     expect(screen.getByText("Second passage there.")).toBeTruthy();
     speak.mockClear();
 

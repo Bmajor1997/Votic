@@ -66,23 +66,53 @@ export function fetch_public_page(url, options, addresses, requestImpl = url.pro
 function decodeEntities(text) {
   return text.replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'");
 }
+/** The part of the page that holds the article: the first <article> … last </article>, else <main>, else <body>. */
+function contentRegion(html) {
+  for (const tag of ["article", "main", "body"]) {
+    const open = html.search(new RegExp(`<${tag}\\b`, "i"));
+    const close = html.toLowerCase().lastIndexOf(`</${tag}>`);
+    if (open !== -1 && close > open) return html.slice(open, close + tag.length + 3);
+  }
+  return html;
+}
+const HEADING = "\u0001";
+/** A line that reads like a menu item: a few words with no sentence punctuation. */
+function menuLike(line) {
+  if (line.startsWith(HEADING)) return false;
+  const words = line.replace(/^• /, "").split(/\s+/).filter(Boolean);
+  return words.length <= 4 && !/[.!?:;,"”)]$/.test(line);
+}
 export function clean_webpage_html(html) {
   const title = decodeEntities((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim()).slice(0,200);
-  let source = html
+  let source = contentRegion(html)
     .replace(/<!--[\s\S]*?-->/g," ")
-    .replace(/<(script|style|noscript|svg|canvas|iframe|form|nav|footer|aside)[^>]*>[\s\S]*?<\/\1>/gi," ")
+    .replace(/<(script|style|noscript|svg|canvas|iframe|form|nav|footer|aside|header|button|select)[^>]*>[\s\S]*?<\/\1>/gi," ")
     .replace(/<(br|hr)\b[^>]*>/gi,"\n")
-    .replace(/<\/(p|div|section|article|main|h[1-6]|li|blockquote)>/gi,"\n")
+    // Headings stand alone, so they are never mistaken for menu items below.
+    .replace(/<h[1-6]\b[^>]*>/gi,`\n${HEADING}`)
+    .replace(/<\/(p|div|section|article|main|h[1-6]|li|blockquote|tr|dd|dt)>/gi,"\n")
     .replace(/<li\b[^>]*>/gi,"• ")
     .replace(/<[^>]+>/g," ");
   source = decodeEntities(source).replace(/\r/g,"").replace(/[ \t]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
-  const lines = source.split("\n").map((line)=>line.trim()).filter(Boolean).filter((line)=>line.length > 1);
+  const lines = source.split("\n").map((line)=>line.trim()).filter((line)=>line.replace(HEADING, "").length > 1);
+  // Navigation, account links, language lists, tool menus, and tables of contents arrive as runs of short
+  // link labels. Drop any run of three or more; real headings and sentences break a run.
+  const filtered = [];
+  for (let index = 0; index < lines.length; ) {
+    if (!menuLike(lines[index])) { filtered.push(lines[index]); index += 1; continue; }
+    let end = index;
+    while (end < lines.length && menuLike(lines[end])) end += 1;
+    if (end - index < 3) filtered.push(...lines.slice(index, end));
+    index = end;
+  }
   const seen = new Set(), kept = [];
-  for (const line of lines) {
+  for (const raw of filtered) {
+    const line = raw.replace(HEADING, "").trim();
+    if (!line) continue;
     const key=line.toLocaleLowerCase();
     if (seen.has(key) && line.length < 160) continue;
     seen.add(key);
-    if (/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content)$/i.test(line)) continue;
+    if (/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line)) continue;
     kept.push(line);
   }
   return { title, text: kept.join("\n\n").slice(0,400_000) };

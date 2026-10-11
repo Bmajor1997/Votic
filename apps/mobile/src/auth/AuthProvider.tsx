@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { setAuthTokenProvider } from "../api/authToken";
@@ -25,6 +26,8 @@ type AuthValue = {
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
+/** Remembers "Explore Votic without an account" across launches, in builds that allow it. */
+export const EXPLORE_SESSION_KEY = "votic.mobile.explore-session.v1";
 const DEVELOPMENT_USER: VoticUser = {
   uid: "development",
   email: null,
@@ -41,6 +44,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const reportedUid = useRef<string | null>(null);
   const [appleAvailable, setAppleAvailable] = useState(false);
   const [developmentUser, setDevelopmentUser] = useState(false);
+  const canContinueWithoutAccount =
+    (__DEV__ || Constants.expoConfig?.extra?.previewTesting === true) && !backend.configured;
+  // Until the saved explore choice is read, the app can't know whether to show Welcome or Votic.
+  const [exploreRestored, setExploreRestored] = useState(!canContinueWithoutAccount);
+  useEffect(() => {
+    if (!canContinueWithoutAccount) return;
+    let mounted = true;
+    AsyncStorage.getItem(EXPLORE_SESSION_KEY)
+      .then((saved) => {
+        if (mounted && saved === "1") setDevelopmentUser(true);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setExploreRestored(true);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [canContinueWithoutAccount]);
 
   useEffect(
     () =>
@@ -71,13 +93,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => setAuthTokenProvider(null);
   }, [backend]);
 
-  const canContinueWithoutAccount =
-    (__DEV__ || Constants.expoConfig?.extra?.previewTesting === true) && !backend.configured;
   return (
     <AuthContext.Provider
       value={{
         user: user ?? (developmentUser ? DEVELOPMENT_USER : null),
-        hydrated,
+        hydrated: hydrated && exploreRestored,
         sessionRestored: sessionRestored && !developmentUser,
         configured: backend.configured,
         googleAvailable: backend.googleAvailable,
@@ -89,12 +109,15 @@ export function AuthProvider({ children }: PropsWithChildren) {
         signInWithGoogle: backend.signInWithGoogle,
         async signOut() {
           setDevelopmentUser(false);
+          void AsyncStorage.removeItem(EXPLORE_SESSION_KEY).catch(() => {});
           await backend.signOut();
         },
         deleteAccount: backend.deleteAccount,
         canContinueWithoutAccount,
         continueWithoutAccount() {
-          if (canContinueWithoutAccount) setDevelopmentUser(true);
+          if (!canContinueWithoutAccount) return;
+          setDevelopmentUser(true);
+          void AsyncStorage.setItem(EXPLORE_SESSION_KEY, "1").catch(() => {});
         },
       }}
     >

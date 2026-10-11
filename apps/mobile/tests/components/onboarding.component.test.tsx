@@ -10,6 +10,7 @@ import Personalize from "../../app/personalize";
 import Ready from "../../app/ready";
 import SignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
+import { EXPLORE_SESSION_KEY, useAuth } from "../../src/auth/AuthProvider";
 import { walkthroughKey } from "../../src/walkthrough/walkthroughState";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
@@ -56,6 +57,40 @@ describe("Welcome", () => {
     await fireEvent.press(screen.getByRole("link", { name: "Terms" }));
     expect(open).toHaveBeenCalledWith("https://votic.app/terms");
     expect(screen.queryByRole("link", { name: "Privacy Policy" })).toBeNull();
+  });
+});
+
+function ExploreProbe() {
+  const auth = useAuth();
+  return (
+    <>
+      <Text testID="explore-user">{auth.hydrated ? (auth.user?.uid ?? "signed out") : "loading"}</Text>
+      <Text accessibilityRole="button" onPress={auth.continueWithoutAccount}>
+        Explore
+      </Text>
+      <Text accessibilityRole="button" onPress={() => void auth.signOut()}>
+        Leave
+      </Text>
+    </>
+  );
+}
+
+describe("Explore without an account", () => {
+  it("is remembered after Votic restarts, until signing out", async () => {
+    fakeAuth.reset(null);
+    fakeAuth.configured = false;
+    await renderWithProviders(<ExploreProbe />);
+    expect(screen.getByTestId("explore-user").props.children).toBe("signed out");
+    await fireEvent.press(screen.getByRole("button", { name: "Explore" }));
+    expect(screen.getByTestId("explore-user").props.children).toBe("development");
+    await waitFor(async () => expect(await AsyncStorage.getItem(EXPLORE_SESSION_KEY)).toBe("1"));
+    screen.unmount();
+
+    await renderWithProviders(<ExploreProbe />);
+    await waitFor(() => expect(screen.getByTestId("explore-user").props.children).toBe("development"));
+    await fireEvent.press(screen.getByRole("button", { name: "Leave" }));
+    expect(screen.getByTestId("explore-user").props.children).toBe("signed out");
+    await waitFor(async () => expect(await AsyncStorage.getItem(EXPLORE_SESSION_KEY)).toBeNull());
   });
 });
 

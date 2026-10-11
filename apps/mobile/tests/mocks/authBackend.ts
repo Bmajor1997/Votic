@@ -10,8 +10,11 @@ export const fakeAuth = {
   calls: [] as string[],
   /** Whether Apple and Google sign-ins create a new account (true) or sign in to an existing one. */
   socialCreatesAccount: true,
+  /** False behaves like a build without Firebase settings, where development builds can be explored. */
+  configured: true,
   reset(user: VoticUser | null = SIGNED_IN) {
     fakeAuth.user = user;
+    fakeAuth.configured = true;
     fakeAuth.accounts.clear();
     fakeAuth.calls.length = 0;
     fakeAuth.socialCreatesAccount = true;
@@ -29,7 +32,7 @@ function failure(code: string) {
 
 export function createAuthBackend(): AuthBackend {
   return {
-    configured: true,
+    configured: fakeAuth.configured,
     googleAvailable: true,
     appleAvailable: async () => true,
     subscribe(listener) {
