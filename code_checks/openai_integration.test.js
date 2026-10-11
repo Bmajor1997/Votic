@@ -223,7 +223,7 @@ test("AI fallbacks log the provider's status and error code, never the key or pr
   const warnings = [];
   await with_server({
     logger: { warn: (...args) => warnings.push(args), error() {} },
-    fetchImpl: async () => new Response(JSON.stringify({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }), { status: 401, headers: { "Content-Type": "application/json" } }),
+    fetchImpl: async () => ({ ok: false, status: 401, headers: { get: () => null }, json: async () => ({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }) }),
   }, async (base) => {
     const answer = await (await post(base, "/api/help", { question: "What is this about?", document })).json();
     assert.match(answer.answer, /could not answer from this document/);
