@@ -15,6 +15,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
   const packages = new Map<string, PurchasesPackage>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
   let generation = 0;
+  let intendedUser: string | null = null;
   let identifiedUser: string | null = null;
   let identityQueue: Promise<void> = Promise.resolve();
   // Identity mutations must finish in order: a slow logout must not sign out the next account.
@@ -58,11 +59,23 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
     return sdkPromise;
   }
   async function safely(read: (sdk: Sdk) => Promise<CustomerInfo>) {
-    const owner = identifiedUser;
+    const owner = intendedUser;
     const token = generation;
     try {
       await identityQueue;
       if (!owner || token !== generation) return UNKNOWN_ENTITLEMENT;
+      // A temporary login failure must not make Retry and Restore permanently unavailable.
+      // Serialize recovery with account changes, and never retry an account that has signed out.
+      if (identifiedUser !== owner) {
+        await serializeIdentity(async () => {
+          if (token !== generation || owner !== intendedUser || identifiedUser === owner) return;
+          const sdk = await load(owner);
+          if (token !== generation || owner !== intendedUser) return;
+          await sdk.logIn(owner);
+          if (token === generation && owner === intendedUser) identifiedUser = owner;
+        });
+      }
+      if (token !== generation || owner !== identifiedUser) return UNKNOWN_ENTITLEMENT;
       const sdk = await load();
       if ((await sdk.getAppUserID()) !== owner) return UNKNOWN_ENTITLEMENT;
       const info = await read(sdk);
@@ -76,6 +89,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
     unavailableReason: null,
     async identify(userId) {
       const token = ++generation;
+      intendedUser = userId;
       identifiedUser = null;
       packages.clear();
       return serializeIdentity(async () => {
@@ -92,6 +106,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
     },
     async reset() {
       ++generation;
+      intendedUser = null;
       identifiedUser = null;
       packages.clear();
       await serializeIdentity(async () => {

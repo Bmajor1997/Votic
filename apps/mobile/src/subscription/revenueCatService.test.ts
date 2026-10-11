@@ -43,10 +43,61 @@ async function flush() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 }
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
   sdk.isAnonymous.mockResolvedValue(false);
   sdk.logOut.mockResolvedValue(info(false));
 });
+
+it.each(["refresh", "restore"] as const)(
+  "%s retries identification after a temporary login failure",
+  async (action) => {
+    sdk.logIn.mockRejectedValueOnce(new Error("offline"));
+    const service = createRevenueCatService("public-key", "pro");
+    expect((await service.identify("a")).status).toBe("unknown");
+    sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+    sdk.getAppUserID.mockResolvedValue("a");
+    sdk.getCustomerInfo.mockResolvedValue(info(true));
+    sdk.restorePurchases.mockResolvedValue(info(true));
+    expect((await service[action]()).status).toBe("active");
+    expect(sdk.logIn).toHaveBeenCalledTimes(2);
+    expect(action === "refresh" ? sdk.getCustomerInfo : sdk.restorePurchases).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("keeps recovery retryable when the next identification attempt also fails", async () => {
+  sdk.logIn.mockRejectedValue(new Error("offline"));
+  const service = createRevenueCatService("public-key", "pro");
+  await service.identify("a");
+  expect((await service.refresh()).status).toBe("unknown");
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  sdk.getCustomerInfo.mockResolvedValue(info(true));
+  expect((await service.refresh()).status).toBe("active");
+});
+
+it.each(["reset", "switch"] as const)(
+  "discards recovery when the account changes through %s",
+  async (action) => {
+    sdk.logIn.mockRejectedValueOnce(new Error("offline"));
+    const service = createRevenueCatService("public-key", "pro");
+    await service.identify("a");
+    const recovery = deferred<{ customerInfo: CustomerInfo; created: boolean }>();
+    sdk.logIn.mockReturnValueOnce(recovery.promise);
+    const refresh = service.refresh();
+    await flush();
+    expect(sdk.logIn).toHaveBeenCalledTimes(2);
+    sdk.logIn.mockResolvedValue({ customerInfo: info(false), created: false });
+    const changing = action === "reset" ? service.reset() : service.identify("b");
+    recovery.resolve({ customerInfo: info(true), created: false });
+    expect((await refresh).status).toBe("unknown");
+    await changing;
+    expect(sdk.getCustomerInfo).not.toHaveBeenCalled();
+    if (action === "reset") {
+      expect((await service.restore()).status).toBe("unknown");
+      expect(sdk.logIn).toHaveBeenCalledTimes(2);
+    } else expect(sdk.logIn).toHaveBeenLastCalledWith("b");
+  },
+);
 
 it("re-reads the identified customer instead of applying a queued native payload from the old account", async () => {
   let owner = "a";
