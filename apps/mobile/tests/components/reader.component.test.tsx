@@ -317,9 +317,12 @@ describe("Reader", () => {
     expect(readerDockOffset(true)).toBeGreaterThan(0);
     expect(readerDockOpacity(true)).toBe(0);
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
-    const compactAskInput = screen.getByPlaceholderText("Ask Votic about this document…");
-    expect(compactAskInput.props.multiline).toBe(false);
-    expect(compactAskInput.props.numberOfLines).toBe(1);
+    const compactAskInput = screen.getByPlaceholderText("Ask a question…");
+    // One line to start, growing to three for longer questions; Return still sends.
+    expect(compactAskInput.props.multiline).toBe(true);
+    expect(compactAskInput.props.submitBehavior).toBe("submit");
+    expect(compactAskInput.props.returnKeyType).toBe("send");
+    expect(StyleSheet.flatten(compactAskInput.props.style)).toMatchObject({ minHeight: 46, maxHeight: 86 });
 
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));

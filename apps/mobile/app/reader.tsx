@@ -99,6 +99,9 @@ const ASK_TRANSITION_MS = 320;
 const ASK_OPEN_EASING = Easing.out(Easing.cubic);
 const ASK_CLOSE_EASING = Easing.in(Easing.cubic);
 const ASK_COMPOSER_HEIGHT = 72;
+/** The question box before a conversation starts: one 20-point line, growing to three. */
+const COMPACT_ASK_MIN_HEIGHT = 46;
+const COMPACT_ASK_MAX_HEIGHT = 86;
 const ASK_CONVERSATION_MAX_HEIGHT = 720;
 const ASK_CONVERSATION_MAX_SHARE = 0.85;
 const READING_BOTTOM_PADDING = 190;
@@ -170,6 +173,8 @@ function ReaderContent() {
   const [listenExpanded, setListenExpanded] = useState(false);
   const [dockHeight, setDockHeight] = useState(ASK_COMPOSER_HEIGHT);
   const [askComposerHeight, setAskComposerHeight] = useState(50);
+  // The web doesn't grow a multi-line box by itself, so it's sized from its content there.
+  const [askWebInputHeight, setAskWebInputHeight] = useState(COMPACT_ASK_MIN_HEIGHT);
   const [askVoiceErrorHeight, setAskVoiceErrorHeight] = useState(76);
   const [askPhase, setAskPhase] = useState<AskPhase>("closed");
   const askOpen = askPhase !== "closed";
@@ -1456,10 +1461,18 @@ function ReaderContent() {
                         s.askComposer,
                         // Recording stays in the one-line bar; only a failed transcription needs more room.
                         askVoicePhase === "error" && s.askRecordingComposer,
+                        // Once the question wraps, the pill rounds into a box with the buttons along the bottom.
+                        !hasAskConversation &&
+                          askComposerHeight > COMPACT_ASK_MIN_HEIGHT + 12 &&
+                          s.askComposerTall,
                         { borderColor: theme.accent, backgroundColor: theme.surface },
                       ]}
                     >
-                      {!hasAskConversation && !showAskRecording && askVoicePhase !== "error" ? (
+                      {/* The logo steps aside once there's a question, so the words get the room. */}
+                      {!hasAskConversation &&
+                      !showAskRecording &&
+                      askVoicePhase !== "error" &&
+                      !askQuestion ? (
                         <VoticLogo compact markOnly progress={progress} />
                       ) : null}
                       {showAskRecording ? (
@@ -1488,15 +1501,32 @@ function ReaderContent() {
                           value={askQuestion}
                           editable={!askVoiceBusy}
                           onChangeText={setAskQuestion}
-                          placeholder="Ask Votic about this document…"
+                          // Short enough to fit on one line beside the buttons before a conversation starts.
+                          placeholder={
+                            hasAskConversation ? "Ask Votic about this document…" : "Ask a question…"
+                          }
                           placeholderTextColor={theme.mutedText}
-                          multiline={hasAskConversation}
-                          numberOfLines={hasAskConversation ? undefined : 1}
+                          multiline
+                          // Before a conversation starts, Return still sends, as it did when the box was one line.
+                          submitBehavior={hasAskConversation ? undefined : "submit"}
+                          returnKeyType={hasAskConversation ? undefined : "send"}
+                          onContentSizeChange={
+                            Platform.OS === "web"
+                              ? (event) => setAskWebInputHeight(event.nativeEvent.contentSize.height)
+                              : undefined
+                          }
                           maxLength={1000}
                           style={[
                             s.askInput,
                             askVoicePhase === "error" && s.askRecordingText,
                             !hasAskConversation && s.compactAskInput,
+                            !hasAskConversation &&
+                              Platform.OS === "web" && {
+                                height: Math.min(
+                                  COMPACT_ASK_MAX_HEIGHT,
+                                  Math.max(COMPACT_ASK_MIN_HEIGHT, askWebInputHeight),
+                                ),
+                              },
                             { color: theme.text },
                           ]}
                           onSubmitEditing={() => void sendAskVotic()}
@@ -1680,7 +1710,15 @@ const s = StyleSheet.create({
   askRecordingText: { flexBasis: "100%" },
   askRecordingInput: { flex: 1, minWidth: 0 },
   askInput: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
-  compactAskInput: { height: 46, paddingVertical: 0 },
+  // One line to start, growing to three for longer questions such as a voice transcript.
+  compactAskInput: {
+    minHeight: COMPACT_ASK_MIN_HEIGHT,
+    maxHeight: COMPACT_ASK_MAX_HEIGHT,
+    paddingTop: 13,
+    paddingBottom: 13,
+    lineHeight: 20,
+  },
+  askComposerTall: { borderRadius: 24, alignItems: "flex-end", paddingVertical: 2 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   askComposerClose: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   dock: {
