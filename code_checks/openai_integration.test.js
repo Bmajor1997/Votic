@@ -218,3 +218,17 @@ test("voice readiness checks do not use up the transcription rate limit", async 
     assert.equal((await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") })).status, 429);
   });
 });
+
+test("AI fallbacks log the provider's status and error code, never the key or provider message", async () => {
+  const warnings = [];
+  await with_server({
+    logger: { warn: (...args) => warnings.push(args), error() {} },
+    fetchImpl: async () => new Response(JSON.stringify({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }), { status: 401, headers: { "Content-Type": "application/json" } }),
+  }, async (base) => {
+    const answer = await (await post(base, "/api/help", { question: "What is this about?", document })).json();
+    assert.match(answer.answer, /could not answer from this document/);
+  });
+  const logged = warnings.find(([message]) => /document help unavailable/.test(message));
+  assert.deepEqual(logged?.[1], { status: 401, code: "invalid_api_key" });
+  assert.ok(!JSON.stringify(warnings).includes(env.OPENAI_API_KEY));
+});

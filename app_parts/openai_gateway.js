@@ -53,7 +53,12 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
         // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
         store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
         finished = true;
-        throw new Error("AI unavailable");
+        // Keep the provider's status and error code (never its message, which can echo part of the key).
+        const body = await response.json().catch(() => null);
+        throw Object.assign(new Error("AI unavailable"), {
+          provider_status: response.status,
+          provider_code: typeof body?.error?.code === "string" ? body.error.code : typeof body?.error?.type === "string" ? body.error.type : null,
+        });
       }
       const result = await response.json();
       const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
@@ -103,4 +108,11 @@ export async function transcribe_voice(bytes, { env, fetch_impl, timeout_ms }) {
     if (typeof result.text !== "string" || !result.text.trim() || result.text.length > 1000) throw new Error("Invalid voice question");
     return result.text.trim();
   } finally { clearTimeout(timer); }
+}
+
+/** A safe, loggable reason an AI request failed: the provider's status and code, a timeout, or Votic's own check. */
+export function ai_failure_reason(error) {
+  if (error?.provider_status) return { status: error.provider_status, code: error.provider_code ?? null };
+  if (error?.name === "AbortError") return { reason: "timed out" };
+  return { reason: String(error?.message || "unknown").slice(0, 160) };
 }

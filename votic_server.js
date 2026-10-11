@@ -9,7 +9,7 @@ import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
-import { accounted_fetch, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
+import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
 const public_files = new Map([
@@ -185,7 +185,7 @@ export function create_votic_handler(options = {}) {
       send_json(response, 200, { text });
     } catch (error) {
       if (error instanceof HttpError || error.status === 429) throw error;
-      logger.warn?.("Votic scan OCR unavailable");
+      logger.warn?.("Votic scan OCR unavailable", ai_failure_reason(error));
       throw new HttpError(503, "Votic could not read this scanned page right now. Please try again.");
     }
     return;
@@ -231,8 +231,8 @@ export function create_votic_handler(options = {}) {
         if (!env.OPENAI_API_KEY) answer = "Questions about this document require the AI connection. I can still help you use Votic without sending the document.";
         else if (limit_message) answer = `${limit_message} Your document remains open, and I can still help with Votic’s controls.`;
         else try { ({ answer, sectionIndex, sectionTitle } = await answer_document_question(question, safe_document, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style })); mode = "document-ai"; }
-        catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic document help unavailable; using built-in guidance"); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
-      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style }); mode = "ai"; } catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic AI help unavailable; using built-in guidance"); } }
+        catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic document help unavailable; using built-in guidance", ai_failure_reason(error)); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
+      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style }); mode = "ai"; } catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic AI help unavailable; using built-in guidance", ai_failure_reason(error)); } }
       send_json(response, 200, { answer, mode, sectionIndex, sectionTitle });
     return;
   }
@@ -248,7 +248,7 @@ export function create_votic_handler(options = {}) {
         send_json(response, 200, { ...review, mode: "ai" });
       } catch (error) {
         if (error.status === 429) throw error;
-        logger.warn?.("Votic AI review unavailable");
+        logger.warn?.("Votic AI review unavailable", ai_failure_reason(error));
         throw new HttpError(503, "Votic could not generate an AI review right now. The local review is still available.");
       }
     return;
