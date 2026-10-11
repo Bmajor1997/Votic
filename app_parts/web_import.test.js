@@ -145,3 +145,8 @@ test("webpage cleanup drops site menus, language lists, and tables of contents b
   for (const clutter of ["Jump to content", "Donate", "Create account", "Log in", "Personal tools", "Eesti", "Euskara", "51 languages", "View history", "Synthesizer technologies", "(Top)", "Privacy policy"])
     assert.ok(!text.includes(clutter), `should drop "${clutter}"`);
 });
+
+test("webpage cleanup closes gaps left by inline links before punctuation", () => {
+  const { text } = clean_webpage_html("<main><p>A system is called a <a href=\"#\">speech synthesizer</a>, and a text-to-speech (<a>TTS</a>) system <b>converts</b> text.</p></main>");
+  assert.equal(text, "A system is called a speech synthesizer, and a text-to-speech (TTS) system converts text.");
+});

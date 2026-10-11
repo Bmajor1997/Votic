@@ -93,7 +93,9 @@ export function clean_webpage_html(html) {
     .replace(/<\/(p|div|section|article|main|h[1-6]|li|blockquote|tr|dd|dt)>/gi,"\n")
     .replace(/<li\b[^>]*>/gi,"• ")
     .replace(/<[^>]+>/g," ");
-  source = decodeEntities(source).replace(/\r/g,"").replace(/[ \t]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim();
+  source = decodeEntities(source).replace(/\r/g,"").replace(/[ \t]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim()
+    // Removing inline tags leaves "synthesizer ," and "( TTS )"; close those gaps so text reads naturally.
+    .replace(/ +([.,;:!?%)\]])/g, "$1").replace(/([([]) +/g, "$1");
   const lines = source.split("\n").map((line)=>line.trim()).filter((line)=>line.replace(HEADING, "").length > 1);
   // Navigation, account links, language lists, tool menus, and tables of contents arrive as runs of short
   // link labels. Drop any run of three or more; real headings and sentences break a run.
