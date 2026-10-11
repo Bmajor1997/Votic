@@ -95,17 +95,6 @@ describe("Reader", () => {
     }
   });
 
-  it("starts listening from the Reading dock without leaving the document", async () => {
-    searchParams.current = { mode: "read" };
-    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
-    expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Listen" }));
-    await waitFor(() => expect(lastSpeech().text).toBe("First passage here."));
-    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Expand listening controls" })).toBeTruthy();
-  });
-
   it("shows the document's passages and reading progress", async () => {
     await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
     expect(screen.getByText("Field Guide")).toBeTruthy();

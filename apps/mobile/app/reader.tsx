@@ -220,15 +220,8 @@ function ReaderContent() {
   const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
   // How someone opened the document decides the controls: Read has no audio controls, Listen does.
   // An explicit Read request takes precedence over a stale autoplay parameter.
-  // Listen in the Reading dock switches to listening without leaving the document.
-  const [switchedToListen, setSwitchedToListen] = useState(false);
-  const mode: ReaderMode = switchedToListen
-    ? "listen"
-    : params.mode === "read"
-      ? "read"
-      : params.mode === "listen" || params.autoplay === "1"
-        ? "listen"
-        : "read";
+  const mode: ReaderMode =
+    params.mode === "read" ? "read" : params.mode === "listen" || params.autoplay === "1" ? "listen" : "read";
   const listening = mode === "listen";
   const contentHeight = useRef(0);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
@@ -357,14 +350,6 @@ function ReaderContent() {
     void Speech.stop();
     const frame = requestAnimationFrame(() => onReadEntry());
     return () => cancelAnimationFrame(frame);
-  }, [listening]);
-  // Listen in the Reading dock: narration starts once the Reader has switched to listening.
-  const listenAfterSwitch = useRef(false);
-  const onSwitchedToListen = useEffectEvent(() => speak());
-  useEffect(() => {
-    if (!listening || !listenAfterSwitch.current) return;
-    listenAfterSwitch.current = false;
-    onSwitchedToListen();
   }, [listening]);
   // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
@@ -1160,24 +1145,6 @@ function ReaderContent() {
                           ]}
                         >
                           <Ionicons name={playing ? "pause" : "play"} size={20} color={theme.playIcon} />
-                        </Pressable>
-                      ) : null}
-                      {!listening && !listenExpanded ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Listen"
-                          accessibilityHint="Reads this document aloud from where you are."
-                          onPress={() => {
-                            listenAfterSwitch.current = true;
-                            setSwitchedToListen(true);
-                          }}
-                          style={({ pressed }) => [
-                            s.compactPlay,
-                            { backgroundColor: theme.playButton },
-                            !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.95 : 1 }] },
-                          ]}
-                        >
-                          <Ionicons name="headset" size={20} color={theme.playIcon} />
                         </Pressable>
                       ) : null}
                       <Pressable
