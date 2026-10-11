@@ -346,8 +346,22 @@ export function KeyboardDictationButton({
   const recording = phase === "recording";
   const failed = phase === "error";
   const busy = !["idle", "error", "recording"].includes(phase);
+  // While recording or transcribing, discarding sits just before Stop. After a failed transcription, Retry
+  // comes first and discarding follows.
+  const discard =
+    phase !== "idle" ? (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Discard voice recording"
+        onPress={cancelRecording}
+        style={({ pressed }) => [s.button, { opacity: pressed ? 0.6 : 1 }]}
+      >
+        <Ionicons name="trash-outline" size={20} color={theme.mutedText} />
+      </Pressable>
+    ) : null;
   return (
     <View style={s.controls}>
+      {failed ? null : discard}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={
@@ -375,6 +389,7 @@ export function KeyboardDictationButton({
         onPress={() => void (recording || failed ? stopAndTranscribe() : startRecording())}
         style={({ pressed }) => [
           s.button,
+          recording && s.stop,
           {
             backgroundColor: recording ? theme.accent : "transparent",
             opacity: disabled ? 0.4 : pressed ? 0.72 : 1,
@@ -386,21 +401,12 @@ export function KeyboardDictationButton({
         ) : (
           <Ionicons
             name={failed ? "refresh" : recording ? "stop" : "mic-outline"}
-            size={recording ? 20 : 22}
+            size={recording ? 17 : 22}
             color={recording ? "#FFF" : theme.accentText}
           />
         )}
       </Pressable>
-      {phase !== "idle" && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={failed ? "Discard voice recording" : "Cancel voice input"}
-          onPress={cancelRecording}
-          style={s.button}
-        >
-          <Ionicons name="close" size={22} color={theme.mutedText} />
-        </Pressable>
-      )}
+      {failed ? discard : null}
     </View>
   );
 }
@@ -408,4 +414,6 @@ export function KeyboardDictationButton({
 const s = StyleSheet.create({
   controls: { flexDirection: "row", flexShrink: 0, alignItems: "center" },
   button: { width: 48, minHeight: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  // Stop matches the size of the send button it stands in for, so the bar doesn't change height.
+  stop: { width: 40, minHeight: 40, height: 40, borderRadius: 20, marginHorizontal: 4 },
 });

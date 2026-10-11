@@ -9,7 +9,7 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import { AskVotic } from "../../app/assistant";
 import { askVotic, checkVoiceQuestionAvailability, transcribeVoiceQuestion } from "../../src/api/voticApi";
 import { searchParams } from "../mocks/expoRouter";
-import { VoiceRecordingArea } from "../../src/components/VoiceRecordingArea";
+import { VoiceRecordingArea, WAVEFORM_BARS } from "../../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 
@@ -185,7 +185,7 @@ describe("Ask Votic recording composer", () => {
     expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
     expect(screen.queryByRole("button", { name: "Send question" })).toBeNull();
     expect(screen.getByTestId("voice-waveform", { includeHiddenElements: true })).toBeTruthy();
-    expect(screen.getByText("Recording")).toBeTruthy();
+    expect(screen.getByLabelText("Recording")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Stop voice input", selected: true }).props.accessibilityHint,
     ).toContain("transcribes");
@@ -321,7 +321,7 @@ describe("Ask Votic recording composer", () => {
     await capture();
     await stop();
     const signal = jest.mocked(transcribeVoiceQuestion).mock.calls[0][1];
-    await fireEvent.press(screen.getByRole("button", { name: "Cancel voice input" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Discard voice recording" }));
     expect(signal?.aborted).toBe(true);
     await act(async () => finish("Late text"));
     expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("My draft");
@@ -413,7 +413,7 @@ describe("Ask Votic recording composer", () => {
     );
     await renderWithProviders(<AskVotic />, { reduceMotion: true });
     await start();
-    await fireEvent.press(screen.getByRole("button", { name: "Cancel voice input" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Discard voice recording" }));
     await act(async () =>
       finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
     );
@@ -460,55 +460,68 @@ describe("Ask Votic recording composer", () => {
     expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
   });
 
-  it("fits the recording surface above its controls and measures a large-text Reader composer", async () => {
+  it("records inside the same one-line Reader bar instead of expanding it", async () => {
     await renderWithProviders(<OpenedReader />, {
       documents: [testDocument("voice-doc", "Voice book")],
       reduceMotion: true,
     });
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    const compactHeight = StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height;
     await start();
     const composer = screen.getByTestId("voice-composer");
-    expect(StyleSheet.flatten(composer.props.style)).toMatchObject({
-      flexWrap: "wrap",
-      justifyContent: "flex-end",
-    });
-    await fireEvent(composer, "layout", { nativeEvent: { layout: { height: 250, width: 280, x: 0, y: 0 } } });
+    expect(StyleSheet.flatten(composer.props.style).flexWrap).toBeUndefined();
+    expect(StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height).toBe(compactHeight);
+    // Discard comes just before Stop, and the bar still measures large text.
+    const buttons = screen.getAllByRole("button").map((button) => button.props.accessibilityLabel);
+    expect(buttons.indexOf("Discard voice recording")).toBe(buttons.indexOf("Stop voice input") - 1);
+    await fireEvent(composer, "layout", { nativeEvent: { layout: { height: 90, width: 280, x: 0, y: 0 } } });
     expect(
       StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height,
-    ).toBeGreaterThanOrEqual(272);
+    ).toBeGreaterThanOrEqual(112);
   });
 
-  it("decays stale speech energy and keeps subtle baseline motion without new levels", async () => {
-    const timing = jest.spyOn(Animated, "timing");
+  it("scrolls measured speech in from the right, decays it in silence, and shows the time", async () => {
     const view = await renderWithProviders(<VoiceRecordingArea phase="recording" level={1} />);
-    timing.mockClear();
-    await act(async () => jest.advanceTimersByTime(100));
-    const speech = timing.mock.calls.slice(-24).map(([, config]) => config.toValue as number);
-    timing.mockClear();
-    await act(async () => jest.advanceTimersByTime(2000));
-    const silence = timing.mock.calls.slice(-24).map(([, config]) => config.toValue as number);
-    expect(Math.max(...speech)).toBeGreaterThan(0.5);
-    expect(Math.max(...silence)).toBeLessThan(0.2);
+    const heights = () =>
+      screen
+        .getByTestId("voice-waveform", { includeHiddenElements: true })
+        .children.filter((bar) => typeof bar !== "string")
+        .map((bar) => parseFloat(String(StyleSheet.flatten((bar as any).props.style).height)));
+    // A level counts as current for 300 ms, so look while it's still fresh.
+    await act(async () => jest.advanceTimersByTime(200));
+    const speech = heights();
+    expect(speech).toHaveLength(WAVEFORM_BARS);
+    // The newest sound is at the right edge; older bars to the left are still at rest.
+    expect(speech.at(-1)).toBeGreaterThan(50);
+    expect(speech[0]).toBeLessThan(20);
+    await act(async () => jest.advanceTimersByTime(2300));
+    const silence = heights().slice(-10);
+    expect(Math.max(...silence)).toBeLessThan(20);
     expect(new Set(silence).size).toBeGreaterThan(1);
+    expect(screen.getByText("0:02")).toBeTruthy();
+    const frozen = heights();
     await view.rerender(
       <AppProviders>
         <VoiceRecordingArea phase="transcribing" level={1} />
       </AppProviders>,
     );
-    expect(timing.mock.calls.slice(-24).every(([, config]) => config.toValue === 0.12)).toBe(true);
+    expect(screen.getByLabelText("Transcribing…")).toBeTruthy();
+    await act(async () => jest.advanceTimersByTime(1000));
+    expect(heights()).toEqual(frozen);
   });
 
-  it("keeps the waveform steady with Reduce Motion", async () => {
+  it("keeps the waveform steady with Reduce Motion while the time still counts", async () => {
     const timing = jest.spyOn(Animated, "timing");
     await renderWithProviders(<VoiceRecordingArea phase="recording" level={0.9} />, { reduceMotion: true });
-    expect(screen.getByText("Recording")).toBeTruthy();
+    expect(screen.getByLabelText("Recording")).toBeTruthy();
     const waveform = screen.getByTestId("voice-waveform", { includeHiddenElements: true });
     for (const bar of waveform.children) {
-      if (typeof bar !== "string") expect(StyleSheet.flatten(bar.props.style).transform[0].scaleY).toBe(0.35);
+      if (typeof bar !== "string") expect(StyleSheet.flatten(bar.props.style).height).toBe("35%");
     }
     timing.mockClear();
-    await act(async () => jest.advanceTimersByTime(1000));
+    await act(async () => jest.advanceTimersByTime(3000));
     expect(timing).not.toHaveBeenCalled();
+    expect(screen.getByText("0:03")).toBeTruthy();
   });
 });
 
@@ -525,10 +538,8 @@ it("uses the recording composer inside Reader and releases it on Close", async (
   await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
   const compactHeight = StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height;
   await start();
-  expect(StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height).toBeGreaterThan(
-    compactHeight,
-  );
-  expect(screen.getByText("Recording")).toBeTruthy();
+  expect(StyleSheet.flatten(screen.getByTestId("ask-votic-panel").props.style).height).toBe(compactHeight);
+  expect(screen.getByLabelText("Recording")).toBeTruthy();
   expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
   expect(screen.queryByRole("button", { name: "Send question" })).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));

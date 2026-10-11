@@ -248,7 +248,7 @@ function ReaderContent() {
           : []),
       ]
     : [];
-  // Keep the empty composer compact, with room for the recording waveform when active.
+  // Keep the empty composer compact; recording happens inside the same one-line bar.
   const minimumAskHeight = askComposerHeight + 22 + (askVoiceError ? askVoiceErrorHeight : 0);
   const askPanelHeight = hasAskConversation
     ? Math.max(
@@ -258,7 +258,7 @@ function ReaderContent() {
           Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
         ),
       )
-    : Math.max(showAskRecording ? ASK_COMPOSER_HEIGHT + 100 : ASK_COMPOSER_HEIGHT, minimumAskHeight);
+    : Math.max(ASK_COMPOSER_HEIGHT, minimumAskHeight);
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -1454,7 +1454,8 @@ function ReaderContent() {
                       onLayout={(event) => setAskComposerHeight(event.nativeEvent.layout.height)}
                       style={[
                         s.askComposer,
-                        (showAskRecording || askVoicePhase === "error") && s.askRecordingComposer,
+                        // Recording stays in the one-line bar; only a failed transcription needs more room.
+                        askVoicePhase === "error" && s.askRecordingComposer,
                         { borderColor: theme.accent, backgroundColor: theme.surface },
                       ]}
                     >
@@ -1677,7 +1678,7 @@ const s = StyleSheet.create({
     padding: spacing.sm,
   },
   askRecordingText: { flexBasis: "100%" },
-  askRecordingInput: { width: "100%", minWidth: 0 },
+  askRecordingInput: { flex: 1, minWidth: 0 },
   askInput: { flex: 1, minWidth: 0, minHeight: 46, maxHeight: 100, paddingVertical: 10, fontSize: 14 },
   compactAskInput: { height: 46, paddingVertical: 0 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },

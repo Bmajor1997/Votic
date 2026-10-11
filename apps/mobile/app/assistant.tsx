@@ -468,13 +468,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               testID="voice-composer"
               style={[
                 s.composer,
-                (showRecording || voicePhase === "error") && s.recordingComposer,
+                voicePhase === "error" && s.recordingComposer,
                 { borderTopColor: theme.border, backgroundColor: theme.background },
               ]}
             >
               <View
                 ref={composerTargetRef}
-                style={[s.inputMotion, (showRecording || voicePhase === "error") && s.recordingInput]}
+                style={[s.inputMotion, voicePhase === "error" && s.recordingInput]}
               >
                 <Animated.View
                   style={{
@@ -485,11 +485,14 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   }}
                 >
                   {showRecording ? (
-                    <VoiceRecordingArea
-                      phase={voicePhase}
-                      level={voiceLevel.value}
-                      sampleTime={voiceLevel.at}
-                    />
+                    // Recording takes the question box's place, at the same size.
+                    <View style={[s.input, s.recording, { backgroundColor: theme.surfaceMuted }]}>
+                      <VoiceRecordingArea
+                        phase={voicePhase}
+                        level={voiceLevel.value}
+                        sampleTime={voiceLevel.at}
+                      />
+                    </View>
                   ) : voiceReveal && voicePhase === "reviewing" ? (
                     <RevealingText
                       frame={voiceReveal}
@@ -690,6 +693,7 @@ const s = StyleSheet.create({
     fontSize: 16,
   },
   send: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },
+  recording: { flexDirection: "row", alignItems: "center", paddingVertical: 0 },
   flyingWords: { position: "absolute", zIndex: 20, maxWidth: 230 },
   flightText: { fontSize: 14, fontWeight: "700", maxWidth: 220 },
 });
