@@ -157,11 +157,11 @@ describe("Ask Votic recording composer", () => {
     expect(revealing.props.numberOfLines).toBe(1);
     expect(revealing.props.ellipsizeMode).toBe("head");
     for (let step = 0; step < 10; step += 1) await act(async () => jest.advanceTimersByTime(100));
-    // Once they're all there, it's the question box again, free to grow to three lines.
+    // Once they're all there, it's the question box again, free to grow a line at a time.
     const input = screen.getByLabelText("Ask Votic a question");
     expect(input.props.value).toBe(transcript);
     expect(input.props.multiline).toBe(true);
-    expect(StyleSheet.flatten(input.props.style).maxHeight).toBe(86);
+    expect(StyleSheet.flatten(input.props.style).maxHeight).toBe(146);
   });
 
   it("cancels a transcript reveal when the microphone component unmounts", async () => {

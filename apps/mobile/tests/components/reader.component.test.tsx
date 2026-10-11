@@ -302,6 +302,28 @@ describe("Reader", () => {
     expect(Speech.stop).toHaveBeenCalled();
   });
 
+  it("grows the Ask Votic box with each line of a question, up to six, then scrolls", async () => {
+    // Phones grow a multi-line box by themselves; the web is sized from what's typed.
+    const platform = jest.replaceProperty(Platform, "OS", "web");
+    await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    const height = () => StyleSheet.flatten(screen.getByLabelText("Ask Votic a question").props.style).height;
+    expect(height()).toBe(46);
+    for (const [lines, expected] of [
+      [2, 66],
+      [3, 86],
+      [4, 106],
+      [6, 146],
+      [9, 146],
+    ]) {
+      await fireEvent(screen.getByLabelText("Ask Votic a question"), "contentSizeChange", {
+        nativeEvent: { contentSize: { width: 200, height: lines * 20 + 26 } },
+      });
+      expect(height()).toBe(expected);
+    }
+    platform.restore();
+  });
+
   it("opens Ask Votic inside Reader and keeps the document as context", async () => {
     askVoticMock.mockResolvedValue({
       answer: "Focus improves when distractions are reduced.",
@@ -318,11 +340,11 @@ describe("Reader", () => {
     expect(readerDockOpacity(true)).toBe(0);
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
     const compactAskInput = screen.getByPlaceholderText("Ask a question…");
-    // One line to start, growing to three for longer questions; Return still sends.
+    // One line to start, growing a line at a time up to six; Return still sends.
     expect(compactAskInput.props.multiline).toBe(true);
     expect(compactAskInput.props.submitBehavior).toBe("submit");
     expect(compactAskInput.props.returnKeyType).toBe("send");
-    expect(StyleSheet.flatten(compactAskInput.props.style)).toMatchObject({ minHeight: 46, maxHeight: 86 });
+    expect(StyleSheet.flatten(compactAskInput.props.style)).toMatchObject({ minHeight: 46, maxHeight: 146 });
 
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
