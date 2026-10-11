@@ -21,6 +21,7 @@ import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { RevealingText } from "../src/components/RevealingText";
+import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
 import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
@@ -93,6 +94,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const [error, setError] = useState("");
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  useWebAutoGrow(inputRef, question, INPUT_MIN_HEIGHT, INPUT_MAX_HEIGHT);
   const lastQuestion = useRef("");
   const [flight, setFlight] = useState<PromptFlight | null>(null);
   const rootRef = useRef<View>(null);
@@ -494,8 +496,10 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                       />
                     </View>
                   ) : voiceReveal && voicePhase === "reviewing" ? (
+                    // One line while your words appear; the box grows to fit once they're all there.
                     <RevealingText
                       frame={voiceReveal}
+                      singleLine
                       style={[s.input, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                     />
                   ) : (
@@ -627,6 +631,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
 export default function Assistant() {
   return <AskVotic />;
 }
+/** The question box: one 24-point line to start, growing a line at a time up to six, then scrolling. */
+const INPUT_LINE = 24;
+const INPUT_PADDING = 12;
+const INPUT_MIN_HEIGHT = INPUT_LINE + INPUT_PADDING * 2;
+const INPUT_MAX_HEIGHT = INPUT_LINE * 6 + INPUT_PADDING * 2;
+
 const s = StyleSheet.create({
   safe: { flex: 1 },
   header: {
@@ -683,13 +693,16 @@ const s = StyleSheet.create({
   recordingInput: { flexBasis: "100%", flexGrow: 0 },
   recordingComposer: { flexWrap: "wrap", justifyContent: "flex-end" },
   voiceError: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, fontSize: 13, lineHeight: 19 },
+  // Grows with each line of the question, up to six lines, then scrolls (as in the Reader).
   input: {
     width: "100%",
-    minHeight: 48,
-    maxHeight: 120,
+    minHeight: INPUT_MIN_HEIGHT,
+    maxHeight: INPUT_MAX_HEIGHT,
     borderRadius: 18,
     paddingHorizontal: spacing.lg,
-    paddingVertical: 12,
+    paddingTop: INPUT_PADDING,
+    paddingBottom: INPUT_PADDING,
+    lineHeight: INPUT_LINE,
     fontSize: 16,
   },
   send: { width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center" },

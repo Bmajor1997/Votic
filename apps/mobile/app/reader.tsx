@@ -39,6 +39,7 @@ import {
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
 import { RevealingText } from "../src/components/RevealingText";
+import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
 import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
@@ -175,8 +176,6 @@ function ReaderContent() {
   const [listenExpanded, setListenExpanded] = useState(false);
   const [dockHeight, setDockHeight] = useState(ASK_COMPOSER_HEIGHT);
   const [askComposerHeight, setAskComposerHeight] = useState(50);
-  // The web doesn't grow a multi-line box by itself, so it's sized from its content there.
-  const [askWebInputHeight, setAskWebInputHeight] = useState(ASK_INPUT_MIN_HEIGHT);
   const [askVoiceErrorHeight, setAskVoiceErrorHeight] = useState(76);
   const [askPhase, setAskPhase] = useState<AskPhase>("closed");
   const askOpen = askPhase !== "closed";
@@ -195,6 +194,7 @@ function ReaderContent() {
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
   const askInputRef = useRef<TextInput>(null);
+  useWebAutoGrow(askInputRef, askQuestion, ASK_INPUT_MIN_HEIGHT, ASK_INPUT_MAX_HEIGHT);
   const [askError, setAskError] = useState("");
   const [conversationSummary, setConversationSummary] = useState<ConversationSummary | null>(null);
   const [conversationSaved, setConversationSaved] = useState(false);
@@ -1509,21 +1509,10 @@ function ReaderContent() {
                           // Before a conversation starts, Return still sends, as it did when the box was one line.
                           submitBehavior={hasAskConversation ? undefined : "submit"}
                           returnKeyType={hasAskConversation ? undefined : "send"}
-                          onContentSizeChange={
-                            Platform.OS === "web"
-                              ? (event) => setAskWebInputHeight(event.nativeEvent.contentSize.height)
-                              : undefined
-                          }
                           maxLength={1000}
                           style={[
                             s.askInput,
                             askVoicePhase === "error" && s.askRecordingText,
-                            Platform.OS === "web" && {
-                              height: Math.min(
-                                ASK_INPUT_MAX_HEIGHT,
-                                Math.max(ASK_INPUT_MIN_HEIGHT, askWebInputHeight),
-                              ),
-                            },
                             { color: theme.text },
                           ]}
                           onSubmitEditing={() => void sendAskVotic()}

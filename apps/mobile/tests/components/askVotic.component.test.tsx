@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
-import { Keyboard } from "react-native";
+import { Keyboard, StyleSheet } from "react-native";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, VoticAnswer } from "../../src/api/voticApi";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
@@ -67,5 +67,15 @@ describe("Ask Votic answers", () => {
     await ask("Why rest?");
     expect(await screen.findByText(LIMIT)).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Save answer to Notes" })).toHaveLength(1);
+  });
+});
+
+describe("Ask Votic question box", () => {
+  it("starts at one line and allows up to six before scrolling", async () => {
+    await renderWithProviders(<AskVotic />);
+    expect(StyleSheet.flatten(screen.getByLabelText("Ask Votic a question").props.style)).toMatchObject({
+      minHeight: 48,
+      maxHeight: 168,
+    });
   });
 });
