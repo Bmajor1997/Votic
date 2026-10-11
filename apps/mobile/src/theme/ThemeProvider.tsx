@@ -91,6 +91,8 @@ function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, r
   return {
     ...(reader || resolvedMode === "sepia" ? palettes[resolvedMode] : navigationPalettes[resolvedMode]),
     accentText: reader ? accent : resolvedMode === "dark" ? tint(accent, 0.65) : shade(accent, 0.12),
+    /** Small accent-colored text, such as links, that stays readable on dark backgrounds too. */
+    linkText: resolvedMode === "dark" ? tint(accent, 0.45) : accent,
     onAccent: "#FFFFFF",
     aiStatusText: resolvedMode === "dark" ? "#C4A7EA" : resolvedMode === "sepia" ? "#704795" : "#7653A6",
     brandTint: resolvedMode === "dark" ? "#1B3458" : "#E5EEFF",

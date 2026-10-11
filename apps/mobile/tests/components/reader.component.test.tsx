@@ -332,14 +332,33 @@ describe("Reader", () => {
       [],
       "adaptive",
     );
-    expect(screen.getByRole("button", { name: "Save conversation to Notes" })).toBeTruthy();
-    expect(screen.getByText("+ Save conversation to Notes")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Create a quick summary" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Save conversation to Notes" }));
-    expect(screen.getByRole("button", { name: "Conversation saved to Notes" })).toBeTruthy();
-    expect(screen.getByText("✓ Saved to Notes")).toBeTruthy();
+    // Each answer ends with its source passage and a bookmark; nothing about the whole conversation.
+    expect(screen.getByRole("button", { name: "Open Field Guide at passage 1 in Reader" })).toBeTruthy();
+    expect(screen.getByText("Passage 1 · Field Guide")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Save conversation to Notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Save answer to Notes" }));
     expect(screen.getByRole("button", { name: "Saved to Notes" })).toBeTruthy();
+
+    // Saving the whole conversation is in the header's menu. One answer isn't worth summarizing yet.
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    expect(screen.queryByRole("menuitem", { name: "Summarize conversation" })).toBeNull();
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Save conversation to Notes" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    expect(screen.getByRole("menuitem", { name: "Conversation saved to Notes" })).toBeDisabled();
+    await fireEvent.press(screen.getByLabelText("Close conversation options"));
+
+    askVoticMock.mockResolvedValueOnce({
+      answer: "Single-tasking keeps attention on one thing.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: "Field Guide · 1/1",
+    });
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "And single-tasking?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    await waitFor(() =>
+      expect(screen.getByText("Single-tasking keeps attention on one thing.")).toBeTruthy(),
+    );
 
     askVoticMock.mockResolvedValueOnce({
       answer: "• Reduce distractions\n• Give one task full attention\n• Key term: focus",
@@ -347,11 +366,13 @@ describe("Reader", () => {
       sectionIndex: 0,
       sectionTitle: "Field Guide · 1/1",
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Create a quick summary" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize conversation" }));
     await waitFor(() => expect(screen.getByLabelText("Conversation notes preview")).toBeTruthy());
     expect(screen.getByText(/Key term: focus/)).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Save conversation notes" }));
-    expect(screen.getByRole("button", { name: "Conversation notes saved" })).toBeTruthy();
+    expect(screen.getByText("Conversation summary")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Save conversation summary to Notes" }));
+    expect(screen.getByRole("button", { name: "Conversation summary saved to Notes" })).toBeTruthy();
     expect(router.push).not.toHaveBeenCalledWith("/assistant");
   });
 
@@ -370,7 +391,7 @@ describe("Reader", () => {
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByText("· From this document")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Create a quick summary" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Conversation options" })).toBeNull();
 
     // The notice is not sent back as if it were an earlier answer.
     askVoticMock.mockResolvedValueOnce({
@@ -411,7 +432,8 @@ describe("Reader", () => {
       sectionIndex: null,
       sectionTitle: null,
     });
-    await fireEvent.press(screen.getByRole("button", { name: "Create a quick summary" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize conversation" }));
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByLabelText("Conversation notes preview")).toBeNull();
     // All ten messages were sent, not just the last six.

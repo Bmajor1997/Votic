@@ -41,6 +41,7 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
+import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { askEventFor } from "../src/activity/askCategories";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
@@ -396,41 +397,31 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   ) : (
                     <Text style={[s.body, { color: "#FFF" }]}>{m.text}</Text>
                   )}
-                  {m.role === "votic" && canSaveAnswer(m) ? (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={m.saved ? "Saved to Notes" : "Save answer to Notes"}
-                      disabled={m.saved}
-                      onPress={() => saveAnswerToNotes(i)}
-                      style={s.saveNote}
-                    >
-                      <Ionicons
-                        name={m.saved ? "checkmark-circle" : "bookmark-outline"}
-                        size={17}
-                        color={theme.accent}
-                      />
-                      <Text style={[s.saveNoteText, { color: theme.accent }]}>
-                        {m.saved ? "Saved to Notes" : "Save to Notes"}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {m.role === "votic" && m.link
+                  {m.role === "votic"
                     ? (() => {
                         const link = m.link;
-                        const target = documents.find((document) => document.id === link.documentId);
-                        return target ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel={`Open ${target.title} at passage ${link.sentenceIndex + 1} in Reader`}
-                            onPress={() => openAnswerLink(link)}
-                            style={s.saveNote}
-                          >
-                            <Ionicons name="book-outline" size={17} color={theme.accent} />
-                            <Text style={[s.saveNoteText, { color: theme.accent }]}>
-                              Open in Reader · passage {link.sentenceIndex + 1}
-                            </Text>
-                          </Pressable>
-                        ) : null;
+                        const target = link
+                          ? documents.find((document) => document.id === link.documentId)
+                          : undefined;
+                        return (
+                          <AskAnswerFooter
+                            style={s.answerFooter}
+                            source={
+                              link && target
+                                ? {
+                                    label: `Passage ${link.sentenceIndex + 1} · ${target.title}`,
+                                    accessibilityLabel: `Open ${target.title} at passage ${link.sentenceIndex + 1} in Reader`,
+                                    onPress: () => openAnswerLink(link),
+                                  }
+                                : null
+                            }
+                            save={
+                              canSaveAnswer(m)
+                                ? { saved: Boolean(m.saved), onPress: () => saveAnswerToNotes(i) }
+                                : null
+                            }
+                          />
+                        );
                       })()
                     : null}
                 </View>
@@ -666,15 +657,7 @@ const s = StyleSheet.create({
   message: { maxWidth: "92%", paddingVertical: spacing.sm },
   userMessage: { alignSelf: "flex-end", borderRadius: 16, paddingHorizontal: spacing.md },
   voticMessage: { alignSelf: "flex-start" },
-  saveNote: {
-    minHeight: 40,
-    marginTop: spacing.xs,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    alignSelf: "flex-start",
-  },
-  saveNoteText: { fontSize: 13, fontWeight: "800" },
+  answerFooter: { marginTop: spacing.sm },
   thinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   status: { fontSize: 14 },
   error: { borderWidth: 1, borderRadius: 12, padding: spacing.md, gap: spacing.sm },

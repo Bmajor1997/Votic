@@ -43,6 +43,8 @@ import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
+import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
+import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
@@ -221,6 +223,31 @@ function ReaderContent() {
   const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
+  // Answers drawn from the document (not notices such as a daily limit) can be saved and summarized.
+  const documentAnswers = askMessages.filter(
+    (message) => message.role === "votic" && !message.fallback,
+  ).length;
+  // What applies to the whole conversation sits in the header's menu rather than under the answers.
+  // Summarizing is offered once there's more than one answer to sum up.
+  const conversationActions: AskConversationAction[] = documentAnswers
+    ? [
+        {
+          label: conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes",
+          icon: "bookmark-outline",
+          done: conversationSaved,
+          onPress: saveConversationToNotes,
+        },
+        ...(documentAnswers >= 2 && !conversationSummary && !summarizing && !askSending
+          ? [
+              {
+                label: "Summarize conversation",
+                icon: "sparkles-outline" as const,
+                onPress: () => void summarizeConversation(),
+              },
+            ]
+          : []),
+      ]
+    : [];
   // Keep the empty composer compact, with room for the recording waveform when active.
   const minimumAskHeight = askComposerHeight + 22 + (askVoiceError ? askVoiceErrorHeight : 0);
   const askPanelHeight = hasAskConversation
@@ -540,7 +567,7 @@ function ReaderContent() {
     if (!note) return;
     savePassage(note.documentId, {
       ...note.passage,
-      title: "Ask Votic quick summary",
+      title: "Ask Votic conversation summary",
       noteType: "key-point",
       tags: ["votic", "summary"],
     });
@@ -1284,14 +1311,17 @@ function ReaderContent() {
                           <VoticLogo compact markOnly />
                           <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
                         </View>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Close Ask Votic"
-                          onPress={closeAskVotic}
-                          style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
-                        >
-                          <Ionicons name="close" size={24} color={theme.text} />
-                        </Pressable>
+                        <View style={s.askHeaderActions}>
+                          <AskConversationMenu actions={conversationActions} />
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Close Ask Votic"
+                            onPress={closeAskVotic}
+                            style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                          >
+                            <Ionicons name="close" size={24} color={theme.text} />
+                          </Pressable>
+                        </View>
                       </View>
                     ) : null}
                     {hasAskConversation ? (
@@ -1310,7 +1340,10 @@ function ReaderContent() {
                         ) : null}
                         {askMessages.map((message, messageIndex) =>
                           message.role === "user" ? (
-                            <View key={messageIndex} style={s.askUserMessage}>
+                            <View
+                              key={messageIndex}
+                              style={[s.askUserMessage, theme.isDark && { backgroundColor: theme.accent }]}
+                            >
                               <Text style={s.askUserText}>{message.text}</Text>
                             </View>
                           ) : (
@@ -1335,84 +1368,28 @@ function ReaderContent() {
                                 animate={!message.fallback && !message.revealed}
                                 style={[s.askAnswerText, { color: theme.text }]}
                               />
-                              <View style={s.askAnswerActions}>
-                                {message.link ? (
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={`Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`}
-                                    onPress={() => openAskAnswerLink(message.link!)}
-                                    style={[s.askSourcePill, { backgroundColor: `${theme.accent}1F` }]}
-                                  >
-                                    <Text
-                                      style={[s.askSourceText, { color: theme.accent }]}
-                                      numberOfLines={1}
-                                    >
-                                      p. {message.link.sentenceIndex + 1} · {activeDocument?.title}
-                                    </Text>
-                                  </Pressable>
-                                ) : null}
-                                {message.source ? (
-                                  <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel={
-                                      message.saved ? "Saved to Notes" : "Save answer to Notes"
-                                    }
-                                    disabled={message.saved}
-                                    onPress={() => saveAskAnswer(messageIndex)}
-                                    style={[s.askSave, { borderColor: theme.text }]}
-                                  >
-                                    <Text style={[s.askSaveText, { color: theme.text }]}>
-                                      {message.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
-                                    </Text>
-                                  </Pressable>
-                                ) : null}
-                              </View>
+                              <AskAnswerFooter
+                                source={
+                                  message.link
+                                    ? {
+                                        label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
+                                        accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
+                                        onPress: () => openAskAnswerLink(message.link!),
+                                      }
+                                    : null
+                                }
+                                save={
+                                  message.source
+                                    ? {
+                                        saved: Boolean(message.saved),
+                                        onPress: () => saveAskAnswer(messageIndex),
+                                      }
+                                    : null
+                                }
+                              />
                             </View>
                           ),
                         )}
-                        {askMessages.some((message) => message.role === "votic" && !message.fallback) ? (
-                          <View style={s.conversationNoteActions}>
-                            <Pressable
-                              accessibilityRole="button"
-                              accessibilityLabel={
-                                conversationSaved
-                                  ? "Conversation saved to Notes"
-                                  : "Save conversation to Notes"
-                              }
-                              disabled={conversationSaved}
-                              onPress={saveConversationToNotes}
-                              style={[s.askSave, { borderColor: theme.text }]}
-                            >
-                              <Text style={[s.askSaveText, { color: theme.text }]}>
-                                {conversationSaved ? "✓ Saved to Notes" : "+ Save conversation to Notes"}
-                              </Text>
-                            </Pressable>
-                            {!conversationSummary ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel="Create a quick summary"
-                                disabled={summarizing || askSending}
-                                onPress={() => void summarizeConversation()}
-                                style={({ pressed }) => [
-                                  s.summarizeButton,
-                                  {
-                                    borderColor: theme.accent,
-                                    opacity: summarizing || askSending ? 0.5 : pressed ? 0.7 : 1,
-                                  },
-                                ]}
-                              >
-                                {summarizing ? (
-                                  <ActivityIndicator size="small" color={theme.accent} />
-                                ) : (
-                                  <Ionicons name="sparkles-outline" size={17} color={theme.accent} />
-                                )}
-                                <Text style={[s.summarizeButtonText, { color: theme.accent }]}>
-                                  {summarizing ? "Creating summary…" : "Quick summary"}
-                                </Text>
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        ) : null}
                         {conversationSummary ? (
                           <View
                             accessibilityLabel="Conversation notes preview"
@@ -1423,7 +1400,9 @@ function ReaderContent() {
                           >
                             <View style={s.summaryTitleRow}>
                               <Ionicons name="sparkles" size={17} color={theme.accent} />
-                              <Text style={[s.summaryTitle, { color: theme.text }]}>Quick summary</Text>
+                              <Text style={[s.summaryTitle, { color: theme.text }]}>
+                                Conversation summary
+                              </Text>
                             </View>
                             {conversationSummary.partial ? (
                               <Text style={[s.askStatus, { color: theme.mutedText }]}>
@@ -1435,23 +1414,18 @@ function ReaderContent() {
                               text={conversationSummary.text}
                               style={[s.askAnswerText, { color: theme.text }]}
                             />
-                            {conversationSummary.source ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={
-                                  conversationSummary.saved
-                                    ? "Conversation notes saved"
-                                    : "Save conversation notes"
-                                }
-                                disabled={conversationSummary.saved}
-                                onPress={saveConversationSummary}
-                                style={[s.askSave, { borderColor: theme.text }]}
-                              >
-                                <Text style={[s.askSaveText, { color: theme.text }]}>
-                                  {conversationSummary.saved ? "✓ Saved to Notes" : "+ Save to Notes"}
-                                </Text>
-                              </Pressable>
-                            ) : null}
+                            <AskAnswerFooter
+                              save={
+                                conversationSummary.source
+                                  ? {
+                                      saved: Boolean(conversationSummary.saved),
+                                      onPress: saveConversationSummary,
+                                      label: "Save conversation summary to Notes",
+                                      savedLabel: "Conversation summary saved to Notes",
+                                    }
+                                  : null
+                              }
+                            />
                           </View>
                         ) : null}
                         {askSending || summarizing ? <AIThinking summary={summarizing} /> : null}
@@ -1661,6 +1635,7 @@ const s = StyleSheet.create({
   askConversation: { flex: 1 },
   askConversationContent: { gap: spacing.md, paddingBottom: spacing.sm },
   askHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  askHeaderActions: { flexDirection: "row", alignItems: "center" },
   askBrand: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   askTitle: { fontSize: 16, fontWeight: "800" },
   askUserMessage: {
@@ -1678,26 +1653,9 @@ const s = StyleSheet.create({
   askAnswerName: { fontSize: 12, fontWeight: "800" },
   askAnswerSource: { fontSize: 11 },
   askAnswerText: { fontSize: 15, lineHeight: 22 },
-  askAnswerActions: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  askSourcePill: { flexShrink: 1, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
-  askSourceText: { fontSize: 11, fontWeight: "700" },
-  askSave: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  askSaveText: { fontSize: 11, fontWeight: "800" },
   askThinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   askStatus: { fontSize: 13 },
   askError: { borderRadius: radii.md, fontSize: 13, lineHeight: 19 },
-  summarizeButton: {
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: spacing.md,
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-  },
-  conversationNoteActions: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  summarizeButtonText: { fontSize: 13, fontWeight: "800" },
   summaryCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.md },
   summaryTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   summaryTitle: { fontSize: 14, fontWeight: "800" },
