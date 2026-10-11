@@ -37,11 +37,12 @@ const NOT_SET_UP = { accountSetup: { personalizationCompletedAt: null, completed
 const NOT_HANDED_OFF = { accountSetup: { completedAt: null } };
 
 describe("Welcome", () => {
-  it("states what Votic does and offers Get started and Sign in", async () => {
+  it("welcomes people and offers Continue with email and Sign in", async () => {
     fakeAuth.reset(null);
     await renderWithProviders(<Welcome />);
-    expect(screen.getByRole("header", { name: "Make any document easier to read" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Get started" }));
+    expect(screen.getByRole("header", { name: "Make room for\nwhat matters." })).toBeTruthy();
+    expect(screen.getByText("A place to read, listen, and keep your ideas.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
     expect(router.push).toHaveBeenCalledWith("/create-account");
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     expect(router.push).toHaveBeenCalledWith("/sign-in");
@@ -146,47 +147,42 @@ describe("Sign in", () => {
 });
 
 describe("Personalization", () => {
-  it("asks five questions, one at a time, and saves each answer for this account", async () => {
+  it("asks four questions, one at a time, and saves the answers for this account", async () => {
     await renderWithProviders(<Personalize />, NOT_SET_UP);
-    expect(screen.getByRole("progressbar", { name: "Step 1 of 5" })).toBeTruthy();
-    expect(screen.getByRole("header", { name: "What would you like Votic to help you do?" })).toBeTruthy();
-    expect(screen.getByText("Choose anything that would be helpful. Select all that apply.")).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Step 1 of 4" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "What should Votic help you with?" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Back" })).toBeNull();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Summarize long documents" }));
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Find important information quickly" }));
+    // Continue waits for a choice; Skip doesn't.
+    expect(screen.getByRole("button", { name: "Continue", disabled: true })).toBeTruthy();
+    await fireEvent.press(
+      screen.getByRole("radio", { name: "Research. Dig into papers and compare findings" }),
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
-    // "I'll decide as I go" stands alone: choosing it clears the others.
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Give me the key points" }));
-    await fireEvent.press(screen.getByRole("checkbox", { name: "I'll decide as I go" }));
-    expect(screen.getByRole("checkbox", { name: "Give me the key points", checked: false })).toBeTruthy();
+    // The reading preview changes as soon as a choice is made.
+    expect(screen.getByRole("header", { name: "What makes reading easier for you?" })).toBeTruthy();
+    const before = JSON.stringify(screen.getByText(/A clear page helps ideas stick/).props.style);
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Larger text" }));
+    expect(JSON.stringify(screen.getByText(/A clear page helps ideas stick/).props.style)).not.toBe(before);
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
-    // The one pick-one question doesn't say "Select all that apply".
-    expect(screen.getByText("Choose one.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Simply. Make it easy to understand." }));
+    // "Adapt to the question" is chosen until something else is, and its example shows.
+    expect(screen.getByRole("radio", { name: /^Adapt to the question/, checked: true })).toBeTruthy();
+    expect(screen.getByText(/Votic keeps quick questions short/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Simple. Plain words, no jargon" }));
     expect(screen.getByText(/It's the money a business really gets/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Highlight the current sentence" }));
+    expect(screen.getByRole("progressbar", { name: "Step 4 of 4" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Sentences only. A calmer highlight" }));
     await fireEvent.press(screen.getByRole("radio", { name: "1.5× speed" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-
-    expect(screen.getByRole("progressbar", { name: "Step 5 of 5" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Save important passages" }));
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(async () =>
       expect((await loadAccountSetup("test-user"))?.personalizationCompletedAt).toBeTruthy(),
     );
     const setup = await loadAccountSetup("test-user");
-    expect(setup?.answers).toEqual({
-      goals: ["summarize", "find-quickly"],
-      readingHelp: ["decide-as-i-go"],
-      explanationStyle: "simple",
-      listening: ["highlight-sentence"],
-      keepingTrack: ["save-passages"],
-    });
+    expect(setup?.answers).toMatchObject({ explanationStyle: "simple", listening: ["highlight-sentence"] });
     expect(setup?.personalizationSkipped).toBe(false);
     // The answers take effect: Ask Votic's explanations, the Reader's highlight, and the starting speed.
     expect(await loadAccountPreferences("test-user")).toMatchObject({
@@ -196,21 +192,25 @@ describe("Personalization", () => {
     });
   });
 
-  it("resumes on the same question with the same answers after Votic is closed", async () => {
+  it("resumes on the same question after Votic is closed", async () => {
     await renderWithProviders(<Personalize />, NOT_SET_UP);
-    await fireEvent.press(screen.getByRole("checkbox", { name: "Take and organize notes" }));
+    await fireEvent.press(
+      screen.getByRole("radio", { name: "Work. Get through reports and find decisions" }),
+    );
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await act(async () => {});
     screen.unmount();
     await renderWithProviders(<Personalize />, { accountSetup: "none" });
-    expect(screen.getByRole("progressbar", { name: "Step 2 of 5" })).toBeTruthy();
+    expect(screen.getByRole("progressbar", { name: "Step 2 of 4" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Back" }));
-    expect(screen.getByRole("checkbox", { name: "Take and organize notes", checked: true })).toBeTruthy();
+    expect(
+      screen.getByRole("radio", { name: "Work. Get through reports and find decisions", checked: true }),
+    ).toBeTruthy();
   });
 
   it("lets every question be skipped, and changes nothing that wasn't answered", async () => {
     await renderWithProviders(<Personalize />, NOT_SET_UP);
-    for (let step = 0; step < 5; step += 1)
+    for (let step = 0; step < 4; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Skip this step" }));
     await waitFor(async () =>
       expect((await loadAccountSetup("test-user"))?.personalizationSkipped).toBe(true),
@@ -247,12 +247,12 @@ async function renderPaywall() {
 }
 
 describe("Votic Premium", () => {
-  it("shows the store's trial and price, the timeline, and what's included", async () => {
+  it("shows the store's trial and price and what's included", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlementOf("none") });
     await renderPaywall();
-    expect(screen.getByRole("header", { name: "Try Votic Premium free for 2 weeks" })).toBeTruthy();
-    expect(screen.getByText("Today")).toBeTruthy();
-    expect(screen.getByText("October 15")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Your documents.\nMore possibilities." })).toBeTruthy();
+    expect(screen.getByText("Try Votic Premium free for 2 weeks")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Everything in one plan" })).toBeTruthy();
     expect(screen.getByLabelText(/^Ask Votic\. .* Included\.$/)).toBeTruthy();
     expect(screen.getByText("2 weeks free, then $9.99/month. Cancel anytime.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
@@ -290,9 +290,8 @@ describe("Votic Premium", () => {
   it("never offers the trial again after a subscription has ended", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlementOf("expired") });
     await renderPaywall();
-    expect(screen.getByRole("header", { name: "Get Votic Premium" })).toBeTruthy();
+    expect(screen.queryByText(/free for 2 weeks/)).toBeNull();
     expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
-    expect(screen.queryByText("Today")).toBeNull();
     expect(screen.getByText(/Your Votic Premium subscription has ended/)).toBeTruthy();
   });
 

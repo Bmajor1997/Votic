@@ -16,15 +16,15 @@ import { useAuth } from "../src/auth/AuthProvider";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
-import { OptionRow, PrimaryButton, SecondaryButton } from "../src/onboarding/components";
+import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
 import { hasAccess } from "../src/subscription/entitlement";
 import {
   billingSummary,
   billingTerms,
   offerTitle,
   planName,
+  priceLabel,
   primaryActionLabel,
-  trialTimeline,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
 import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
@@ -75,9 +75,6 @@ const UNAVAILABLE_MESSAGES: Record<SubscriptionUnavailableReason, string> = {
 
 const STORE = Platform.OS === "ios" ? "App Store" : "Google Play";
 
-function formatDate(date: Date) {
-  return date.toLocaleDateString(undefined, { month: "long", day: "numeric" });
-}
 function formatLongDate(date: Date) {
   return date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
@@ -189,58 +186,38 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       : entitlement.status === "unknown" && !unavailable && !subscription.checking
         ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
         : null;
-  const timeline = selected ? trialTimeline(selected, { now: now(), formatDate }) : [];
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={s.brand}>
+        <View style={[s.hero, { backgroundColor: theme.surfaceMuted }]}>
+          <View pointerEvents="none" style={[s.glow, { backgroundColor: theme.accent }]} />
           <VoticLogo />
-        </View>
-        <View style={s.heading}>
-          <Text style={[s.eyebrow, { color: theme.accentText }]}>VOTIC PREMIUM</Text>
+          <Text style={[s.eyebrow, { color: theme.accentText }]}>VOTIC MEMBERSHIP</Text>
           <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            {unavailable ? "Get Votic Premium" : offerTitle(selected)}
+            {"Your documents.\nMore possibilities."}
           </Text>
           <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            Read, listen to, and ask about any document.
+            Read, listen, and understand—with support that fits you.
           </Text>
+          {/* Worded from the store's offer, so a trial is promised only when the plan really has one. */}
+          {!unavailable && selected?.trial ? (
+            <View style={[s.trial, { backgroundColor: theme.surface }]}>
+              <Ionicons name="gift-outline" size={20} color={theme.accentText} />
+              <Text style={[s.trialText, { color: theme.text }]}>{offerTitle(selected)}</Text>
+            </View>
+          ) : null}
         </View>
-
-        {timeline.length ? (
-          <View accessibilityLabel="How your free trial works" style={s.timeline}>
-            {timeline.map((item, index) => (
-              <View key={item.when} style={s.timelineRow}>
-                <View style={s.timelineMarker}>
-                  <View
-                    style={[
-                      s.dot,
-                      {
-                        backgroundColor: index === 0 ? theme.accent : theme.surface,
-                        borderColor: theme.accent,
-                      },
-                    ]}
-                  />
-                  {index < timeline.length - 1 ? (
-                    <View style={[s.line, { backgroundColor: theme.border }]} />
-                  ) : null}
-                </View>
-                <View style={s.timelineCopy}>
-                  <Text style={[s.timelineWhen, { color: theme.text }]}>{item.when}</Text>
-                  <Text style={[s.timelineWhat, { color: theme.mutedText }]}>{item.what}</Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : null}
 
         <View
           accessibilityLabel="Included with Votic Premium"
-          style={[s.table, { borderColor: theme.border, backgroundColor: theme.surface }]}
+          style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
           <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
-            <Text style={[s.tableTitle, { color: theme.text }]}>What you get</Text>
-            <Text style={[s.tableColumn, { color: theme.mutedText }]}>Included</Text>
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+              Everything in one plan
+            </Text>
+            <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
           </View>
           {PREMIUM_FEATURES.map((feature, index) => (
             <View
@@ -248,19 +225,18 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
               accessible
               accessibilityLabel={`${feature.title}. ${feature.detail} Included.`}
               style={[
-                s.featureRow,
+                s.row,
                 index < PREMIUM_FEATURES.length - 1 && {
                   borderBottomWidth: StyleSheet.hairlineWidth,
                   borderBottomColor: theme.border,
                 },
               ]}
             >
-              <Ionicons name={feature.icon} size={21} color={theme.accentText} />
-              <View style={s.featureCopy}>
-                <Text style={[s.featureTitle, { color: theme.text }]}>{feature.title}</Text>
-                <Text style={[s.featureDetail, { color: theme.mutedText }]}>{feature.detail}</Text>
+              <View style={s.benefitCopy}>
+                <Text style={[s.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
+                <Text style={[s.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
               </View>
-              <Ionicons name="checkmark" size={20} color={theme.accentText} />
+              <Ionicons name="checkmark-circle" size={23} color={theme.accentText} />
             </View>
           ))}
         </View>
@@ -271,21 +247,42 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         {statusNotice ? <FormMessage icon="information-circle-outline" text={statusNotice} /> : null}
 
         {shown.length > 1 ? (
-          <View accessibilityRole="radiogroup" style={s.plans}>
-            {shown.map((plan) => (
-              <OptionRow
-                key={plan.id}
-                label={planName(plan)}
-                detail={billingSummary(plan)}
-                selected={plan.id === selectedId}
-                onPress={() => setSelectedId(plan.id)}
-              />
-            ))}
+          <View accessibilityRole="radiogroup" accessibilityLabel="Billing plan" style={s.plans}>
+            {shown.map((plan) => {
+              const active = plan.id === selectedId;
+              return (
+                <Pressable
+                  key={plan.id}
+                  accessibilityRole="radio"
+                  accessibilityLabel={`${planName(plan)}, ${billingSummary(plan)}`}
+                  accessibilityState={{ checked: active }}
+                  onPress={() => setSelectedId(plan.id)}
+                  style={[
+                    s.plan,
+                    {
+                      backgroundColor: active ? theme.sentenceHighlight : theme.surface,
+                      borderColor: active ? theme.accent : theme.border,
+                    },
+                  ]}
+                >
+                  <View style={s.planTop}>
+                    <Text style={[s.benefitTitle, { color: theme.text }]}>{planName(plan)}</Text>
+                    <Ionicons
+                      name={active ? "radio-button-on" : "radio-button-off"}
+                      size={22}
+                      color={active ? theme.accentText : theme.mutedText}
+                    />
+                  </View>
+                  <Text style={[s.price, { color: theme.text }]}>{priceLabel(plan)}</Text>
+                  <Text style={[s.detail, { color: theme.mutedText }]}>{billingSummary(plan)}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 
         {selected ? (
-          <Text style={[s.terms, { color: theme.mutedText }]}>
+          <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
             {billingTerms(selected, { now: now(), store: STORE, formatDate: formatLongDate })}
           </Text>
         ) : null}
@@ -307,7 +304,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       {/* The offer, the button, and Restore stay in view while the rest scrolls. */}
       <SafeAreaView
         edges={["bottom"]}
-        style={[s.footer, { borderTopColor: theme.border, backgroundColor: theme.background }]}
+        style={[s.footer, { borderTopColor: theme.border, backgroundColor: theme.surface }]}
       >
         {message ? <FormMessage icon={message.icon} text={message.text} /> : null}
         {unavailable ? (
@@ -333,7 +330,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ) : (
           <>
             {selected ? (
-              <Text style={[s.summary, { color: theme.text }]}>{billingSummary(selected)}</Text>
+              <Text style={[s.summary, { color: theme.mutedText }]}>{billingSummary(selected)}</Text>
             ) : null}
             <PrimaryButton
               label={primaryActionLabel(selected)}
@@ -392,46 +389,61 @@ function FooterLink({
 
 const s = StyleSheet.create({
   fill: { flex: 1 },
-  content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xl, gap: spacing.xl },
-  brand: { minHeight: 58, justifyContent: "center" },
-  heading: { gap: spacing.sm },
+  content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
+  hero: { borderRadius: radii.sheet, padding: spacing.lg, gap: spacing.md, overflow: "hidden" },
+  glow: {
+    position: "absolute",
+    width: 230,
+    height: 230,
+    borderRadius: 115,
+    opacity: 0.13,
+    right: -72,
+    top: -78,
+  },
   eyebrow: { ...typography.eyebrow },
-  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34 },
-  subtitle: { fontSize: 17, lineHeight: 24 },
-  timeline: { gap: 0 },
-  timelineRow: { flexDirection: "row", gap: spacing.md },
-  timelineMarker: { width: 16, alignItems: "center" },
-  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2, marginTop: 3 },
-  line: { width: 2, flex: 1, marginVertical: 2 },
-  timelineCopy: { flex: 1, gap: 2, paddingBottom: spacing.lg },
-  timelineWhen: { fontSize: 16, fontWeight: "800" },
-  timelineWhat: { fontSize: 15, lineHeight: 21 },
-  table: { borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.lg },
+  title: { ...typography.screenTitle, fontSize: 34, lineHeight: 39, letterSpacing: -0.8 },
+  subtitle: { fontSize: 16, lineHeight: 23, fontWeight: "600" },
+  trial: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+  },
+  trialText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  card: { borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.md },
   tableHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
     paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
   },
-  tableTitle: { fontSize: 16, fontWeight: "800" },
-  tableColumn: { fontSize: 13, fontWeight: "700" },
-  featureRow: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
-  featureCopy: { flex: 1, gap: 2 },
-  featureTitle: { fontSize: 16, fontWeight: "700" },
-  featureDetail: { fontSize: 14, lineHeight: 19 },
+  sectionTitle: { fontSize: 18, fontWeight: "800", flexShrink: 1 },
+  included: { fontSize: 12, fontWeight: "700" },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
+  benefitCopy: { flex: 1, gap: spacing.xs },
+  benefitTitle: { fontSize: 16, fontWeight: "700" },
+  detail: { fontSize: 14, lineHeight: 20 },
   plans: { gap: spacing.sm },
-  terms: { fontSize: 13, lineHeight: 19 },
-  signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
-  signOutText: { fontSize: 14, textAlign: "center" },
-  footer: {
-    borderTopWidth: 1,
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.md,
+  plan: { borderWidth: 2, borderRadius: radii.lg, padding: spacing.md, gap: spacing.xs },
+  planTop: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
   },
+  price: { fontSize: 28, fontWeight: "800" },
+  terms: { fontSize: 12, lineHeight: 18 },
+  signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
+  signOutText: { fontSize: 14, textAlign: "center" },
+  footer: { padding: spacing.md, gap: spacing.sm, borderTopWidth: 1 },
   loading: { minHeight: 54, alignItems: "center", justifyContent: "center" },
-  summary: { fontSize: 15, fontWeight: "600", lineHeight: 21, textAlign: "center" },
+  summary: { fontSize: 13, lineHeight: 19, textAlign: "center" },
   links: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: spacing.lg },
   link: { minHeight: controlSizes.minimumTouch, justifyContent: "center", paddingHorizontal: spacing.xs },
   linkText: { fontSize: 14, fontWeight: "700" },
