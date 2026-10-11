@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { extract_document } from "./app_parts/document_file_tools.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
+import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
 import { accounted_fetch, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
@@ -95,6 +96,8 @@ export function create_votic_handler(options = {}) {
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
  // With FIREBASE_PROJECT_ID set, every /api/ request needs a signed-in Votic account.
  const authorize = options.authorize || (env.FIREBASE_PROJECT_ID ? create_firebase_authorizer(env.FIREBASE_PROJECT_ID) : () => true);
+ const premium_required = env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorizePremium);
+ const authorize_premium = options.authorizePremium || create_premium_authorizer(env, { fetchImpl: options.revenueCatFetchImpl });
  let active_extractions = 0, next_prune = 0, ai_day = "", ai_calls = 0;
  // Paid AI calls per client today. Only granted calls are recorded, so it never outgrows ai_daily_limit.
  const ai_client_calls = new Map();
@@ -129,6 +132,10 @@ export function create_votic_handler(options = {}) {
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
    const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature });
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
+   if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) {
+    if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
+    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
+   }
    if (request.method === "POST" && path === "/api/extract") {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
@@ -265,6 +272,10 @@ export function validate_production_security(env = process.env) {
  if (env.NODE_ENV === "production" && env.OPENAI_API_KEY && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
    throw new Error("VOTIC_AI_USAGE_DB must name a persistent private ledger when production AI is enabled.");
  if (Object.keys(env).some((name) => /^EXPO_PUBLIC_.*OPENAI/i.test(name))) throw new Error("OpenAI configuration must remain in backend environment variables.");
+ if (env.NODE_ENV === "production" && !String(env.REVENUECAT_SECRET_API_KEY || "").trim())
+   throw new Error("REVENUECAT_SECRET_API_KEY is required when NODE_ENV=production to verify Votic Premium.");
+ if (Object.keys(env).some((name) => /^EXPO_PUBLIC_.*REVENUECAT.*SECRET/i.test(name)))
+   throw new Error("RevenueCat secret configuration must remain in backend environment variables.");
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  validate_production_security();
@@ -288,7 +299,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request." }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request." }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, or EPUB document."); return name; }
 function safe_scan_filename(request) {

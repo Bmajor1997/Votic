@@ -145,7 +145,9 @@ describe("Settings preferences", () => {
     expect(screen.getByRole("button", { name: "Your answers" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: /^Research\./ })).toBeNull();
     await fireEvent.press(screen.getByRole("radio", { name: "Simple" }));
-    expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("simple");
+    expect(
+      JSON.parse((await AsyncStorage.getItem("votic.mobile.personalization-preferences.v1:test-user"))!),
+    ).toMatchObject({ explanationStyle: "simple" });
     await rendered.unmount();
     await renderWithProviders(<SettingsDetailScreen category="personalization" />);
     expect(await screen.findByRole("radio", { name: "Simple", checked: true })).toBeTruthy();

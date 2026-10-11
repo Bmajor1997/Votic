@@ -64,6 +64,12 @@ Everything else is recorded for later use; nothing is turned off ("I'm mainly he
 Answers are edited in Settings → Personalization → Your answers. People with no answers keep the suggestions
 their earlier "purpose" choice gave them.
 
+Explanation style, Reader highlighting, and starting playback speed are stored per account on this device at
+`votic.mobile.personalization-preferences.v1:<firebase uid>`. Switching accounts restores that person's effective
+preferences, including later edits made in Settings. A restored session from an older build migrates its device
+preferences once; another account starts with its own answers or defaults. These preferences do not sync across
+devices. Deleting an account removes its local preferences too.
+
 The server only accepts the four style names. Missing or unknown values get today's default answer, and request
 text is never added to the AI instructions.
 
@@ -82,7 +88,7 @@ text is never added to the AI instructions.
 - Purchase results: success opens Votic once RevenueCat confirms the entitlement; closing the store sheet does
   nothing; pending (Ask to Buy, slow payment) explains that Votic opens when approved; failures show a short,
   plain message. Raw store or RevenueCat errors are never shown.
-- Restore Purchases, Terms, and Privacy stay pinned at the bottom. Sign out is at the end of the page.
+- Restore Purchases, Terms, and Privacy stay pinned at the bottom. Manage account and Sign out are at the end of the page.
 - The screen can't be dismissed: Votic requires Premium.
 - Access: trial, active, cancelled-but-paid-through, and billing grace period. "Unknown" never grants access.
 - Expo Go and builds without RevenueCat keys say purchases aren't available. Only development builds also offer
@@ -101,6 +107,13 @@ text is never added to the AI instructions.
 5. Put the **public** SDK keys in `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` and `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`.
 6. Purchases need native code: use a development build (`npx expo run:ios`, `npx expo run:android`, or EAS),
    then test with App Store sandbox accounts and Play license testers.
+7. Configure `REVENUECAT_SECRET_API_KEY` on the Votic backend and, if needed, `REVENUECAT_ENTITLEMENT_ID` (default
+   `pro`, matching the mobile entitlement). Production API access checks the Firebase UID with RevenueCat before
+   any protected API work. See [backend setup](../../../docs/openai-backend.md#verify-premium-on-the-backend).
+
+The SDK's login/logout operations are serialized. Subscription callbacks and purchase/restore/refresh results
+are tied to their initiating account; queued native events trigger a fresh read of the currently identified
+customer instead of assigning an old customer's payload to a new account.
 
 ## Terms of Service and Privacy Policy
 
@@ -110,7 +123,7 @@ made-up link.
 
 ## Account deletion
 
-Settings → Delete account deletes the Firebase account and this device's setup and walkthrough progress for it. Documents and notes stay
+Settings → Delete account, or Votic Premium → Manage account → Delete account, deletes the Firebase account and this device's setup, preferences, and walkthrough progress for it. Manage account is available to every signed-in account, including people without an active subscription or people still completing setup. Documents and notes stay
 on the device. It does not cancel a store subscription. If Firebase asks for a recent sign-in, the person is told
 to sign out and back in first.
 

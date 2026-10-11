@@ -9,6 +9,7 @@ export type TextSpacing = "default" | "wide";
 export type HighlightMode = "off" | "sentence" | "word" | "both";
 
 type AccessibilityPreferences = {
+  hydrated: boolean;
   textSize: TextSize;
   setTextSize: (value: TextSize) => void;
   readingSpacing: ReadingSpacing;
@@ -94,6 +95,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   return (
     <AccessibilityContext.Provider
       value={{
+        hydrated,
         textSize,
         setTextSize,
         readingSpacing,
@@ -112,6 +114,23 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         setWordEmphasis,
       }}
     >
+      {children}
+    </AccessibilityContext.Provider>
+  );
+}
+
+/** Only personalization's highlight setting is account-specific; other accessibility choices stay on the device. */
+export function AccountHighlightPreferences({
+  children,
+  highlightMode,
+  setHighlightMode,
+}: PropsWithChildren<{
+  highlightMode: HighlightMode;
+  setHighlightMode: (value: HighlightMode) => void;
+}>) {
+  const parent = useAccessibilityPreferences();
+  return (
+    <AccessibilityContext.Provider value={{ ...parent, highlightMode, setHighlightMode }}>
       {children}
     </AccessibilityContext.Provider>
   );

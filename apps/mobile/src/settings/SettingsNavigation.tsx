@@ -79,7 +79,18 @@ export function SettingsGroup({ children, title }: PropsWithChildren<{ title?: s
   );
 }
 
-export function SettingsPage({ title, children }: PropsWithChildren<{ title: string }>) {
+export function SettingsPage({
+  title,
+  children,
+  onBack,
+  backLabel = "Back to Settings",
+  backHint = "Returns to the Settings categories",
+}: PropsWithChildren<{
+  title: string;
+  onBack?: () => void;
+  backLabel?: string;
+  backHint?: string;
+}>) {
   const { theme } = useVoticTheme();
   const heading = useRef<Text>(null);
   useEffect(() => {
@@ -96,9 +107,11 @@ export function SettingsPage({ title, children }: PropsWithChildren<{ title: str
       <View style={s.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back to Settings"
-          accessibilityHint="Returns to the Settings categories"
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings"))}
+          accessibilityLabel={backLabel}
+          accessibilityHint={backHint}
+          onPress={
+            onBack ?? (() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings")))
+          }
           style={({ pressed }) => [
             s.back,
             { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },

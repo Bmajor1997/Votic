@@ -52,7 +52,7 @@ export interface SubscriptionService {
   purchase(planId: string): Promise<PurchaseOutcome>;
   restore(): Promise<Entitlement>;
   /** Called whenever the store reports a change (renewal, expiry, refund). Returns an unsubscribe function. */
-  onChange(listener: (entitlement: Entitlement) => void): () => void;
+  onChange(listener: (entitlement: Entitlement, userId: string) => void): () => void;
 }
 
 export const UNKNOWN_ENTITLEMENT: Entitlement = { status: "unknown", expiresAt: null, managementUrl: null };

@@ -16,6 +16,7 @@ import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, nextTip, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
 import { loadAccountSetup } from "../../src/onboarding/onboardingStorage";
+import { loadAccountPreferences } from "../../src/onboarding/accountPreferences";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { useSubscription } from "../../src/subscription/SubscriptionProvider";
 import { fakeAuth } from "../mocks/authBackend";
@@ -188,10 +189,11 @@ describe("Personalization", () => {
     });
     expect(setup?.personalizationSkipped).toBe(false);
     // The answers take effect: Ask Votic's explanations, the Reader's highlight, and the starting speed.
-    expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("simple");
-    expect(await AsyncStorage.getItem("votic.mobile.default-playback-rate.v1")).toBe("1.5");
-    const accessibility = JSON.parse((await AsyncStorage.getItem("votic.mobile.accessibility.v1")) || "{}");
-    expect(accessibility).toMatchObject({ highlightMode: "sentence" });
+    expect(await loadAccountPreferences("test-user")).toMatchObject({
+      explanationStyle: "simple",
+      defaultPlaybackRate: 1.5,
+      highlightMode: "sentence",
+    });
   });
 
   it("resumes on the same question with the same answers after Votic is closed", async () => {
@@ -409,7 +411,7 @@ describe("Settings personalization and account", () => {
     await renderWithProviders(<SettingsDetailScreen category="personalization" />);
     await fireEvent.press(screen.getByRole("radio", { name: "Quick" }));
     await waitFor(async () =>
-      expect(await AsyncStorage.getItem("votic.mobile.explanation-style.v1")).toBe("quick"),
+      expect((await loadAccountPreferences("test-user"))?.explanationStyle).toBe("quick"),
     );
   });
 

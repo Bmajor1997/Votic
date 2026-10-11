@@ -42,7 +42,7 @@ Widget tap → votic://widget?open=… → app/widget.tsx → Reader, Statistics
 
 1. **iPhone: set your Apple Team ID.** Add `"appleTeamId": "<your team ID>"` under `expo.ios` in `app.json`. It's in the Apple Developer portal under Membership, or in Xcode's Signing & Capabilities. Until it's set, `npx expo prebuild` warns and iOS signing may fail.
 2. **iPhone: App Group.** The app, the share extension (`expo-sharing`), and the widget extension (`com.votic.app.widgets`) all use `group.com.votic.app`. EAS Build with managed credentials registers it. Otherwise, register it in the Apple Developer portal and enable it for all three identifiers.
-3. **Android: set the package name.** `app.json` has no `expo.android.package` yet, and every Android build needs one (for example `com.votic.app`). Choose it carefully: it can't change after the app is on Google Play.
+3. **Android: verify the package name.** `app.json` sets `expo.android.package` to `com.votic.app`, matching the iOS app identifier. Use the same identifier in Firebase, RevenueCat, and Play Console; it can't change after the app is on Google Play.
 4. **Build a development or release build** (`npx expo run:ios`, `npx expo run:android`, or EAS). Widgets need native code, so they don't appear in Expo Go.
 
 Nothing here adds a paid service. `@bacons/apple-targets` (MIT) adds the widget extension to the Xcode project during prebuild and gives the app access to the App Group. `package.json` overrides its bundled plist parser to the patched version Expo already uses, so it adds no new vulnerable code.

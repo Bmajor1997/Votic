@@ -1,8 +1,18 @@
 import { PropsWithChildren, createContext, useCallback, useContext, useEffect, useState } from "react";
 import { Platform } from "react-native";
-import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
+import {
+  AccountHighlightPreferences,
+  useAccessibilityPreferences,
+} from "../accessibility/AccessibilityProvider";
 import { useAuth } from "../auth/AuthProvider";
-import { useVoticPurpose } from "../personalization/PurposeProvider";
+import { AccountPurposePreferences, useVoticPurpose } from "../personalization/PurposeProvider";
+import { normalizePlaybackRate } from "../playback/rates";
+import {
+  AccountPreferences,
+  DEFAULT_ACCOUNT_PREFERENCES,
+  loadAccountPreferences,
+  saveAccountPreferences,
+} from "./accountPreferences";
 import {
   highlightModeFor,
   newOnboardingState,
@@ -51,47 +61,77 @@ export function AccountSetupProvider({
 }: PropsWithChildren<{ now?: () => number }>) {
   const { user, sessionRestored } = useAuth();
   const legacy = useOnboarding();
-  const { setHighlightMode } = useAccessibilityPreferences();
-  const { setExplanationStyle } = useVoticPurpose();
+  const deviceAccessibility = useAccessibilityPreferences();
+  const devicePurpose = useVoticPurpose();
   const uid = user?.uid ?? null;
   // Kept with the account it belongs to, so another account's setup never shows while this one loads.
   const [stored, setStored] = useState<{ uid: string; state: OnboardingState } | null>(null);
   const setup = uid && stored?.uid === uid ? stored.state : null;
+  const [preferences, setPreferences] = useState<{ uid: string; value: AccountPreferences } | null>(null);
+  const effective = uid && preferences?.uid === uid ? preferences.value : DEFAULT_ACCOUNT_PREFERENCES;
 
   // Facts read once, when this account's setup is first created on this device.
   const isNewAccount = Boolean(user?.isNewAccount);
   const legacyPersonalized = legacy.personalized;
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || !deviceAccessibility.hydrated || !devicePurpose.hydrated) return;
     let current = true;
-    void loadAccountSetup(uid)
-      .catch(() => null)
-      .then(async (saved) => {
-        let state = saved;
-        if (!state) {
-          // No setup saved here: a new account starts setup. An existing account signing in (another
-          // device, a reinstall) already went through it. A session from before per-account setup keeps
-          // whatever this device had decided.
-          const done = sessionRestored ? legacyPersonalized : !isNewAccount;
-          const time = now();
-          state = done
-            ? {
-                ...newOnboardingState(),
-                personalizationCompletedAt: time,
-                personalizationSkipped: true,
-                completedAt: time,
-              }
-            : newOnboardingState();
-          await saveAccountSetup(uid, state).catch(() => {});
-        }
-        if (current) setStored({ uid, state });
-      });
+    void Promise.all([
+      loadAccountSetup(uid).catch(() => null),
+      loadAccountPreferences(uid).catch(() => null),
+    ]).then(async ([saved, savedPreferences]) => {
+      let state = saved;
+      if (!state) {
+        // No setup saved here: a new account starts setup. An existing account signing in (another
+        // device, a reinstall) already went through it. A session from before per-account setup keeps
+        // whatever this device had decided.
+        const done = sessionRestored ? legacyPersonalized : !isNewAccount;
+        const time = now();
+        state = done
+          ? {
+              ...newOnboardingState(),
+              personalizationCompletedAt: time,
+              personalizationSkipped: true,
+              completedAt: time,
+            }
+          : newOnboardingState();
+        await saveAccountSetup(uid, state).catch(() => {});
+      }
+      if (!current) return;
+      // Migrate legacy device preferences only into the restored account. A different/new account
+      // gets defaults plus its own answers, never the account that just signed out's settings.
+      const baseline = sessionRestored
+        ? {
+            explanationStyle: devicePurpose.explanationStyle,
+            highlightMode: deviceAccessibility.highlightMode,
+            defaultPlaybackRate: devicePurpose.defaultPlaybackRate,
+          }
+        : DEFAULT_ACCOUNT_PREFERENCES;
+      const value = savedPreferences ?? {
+        ...baseline,
+        explanationStyle: state.answers.explanationStyle ?? baseline.explanationStyle,
+        highlightMode: highlightModeFor(state.answers.listening) ?? baseline.highlightMode,
+      };
+      if (!savedPreferences) void saveAccountPreferences(uid, value).catch(() => {});
+      setPreferences({ uid, value });
+      setStored({ uid, state });
+    });
     return () => {
       current = false;
     };
     // Only a change of account reloads setup; the facts above are read as they were at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
+  }, [uid, deviceAccessibility.hydrated, devicePurpose.hydrated]);
+
+  function changePreferences(change: Partial<AccountPreferences>) {
+    if (!uid) return;
+    setPreferences((previous) => {
+      if (previous?.uid !== uid) return previous;
+      const value = { ...previous.value, ...change };
+      void saveAccountPreferences(uid, value).catch(() => {});
+      return { uid, value };
+    });
+  }
 
   const update = useCallback(
     (change: (state: OnboardingState) => OnboardingState) => {
@@ -108,13 +148,15 @@ export function AccountSetupProvider({
 
   function apply(answers: PersonalizationAnswers) {
     const highlight = highlightModeFor(answers.listening);
-    if (highlight) setHighlightMode(highlight);
-    if (answers.explanationStyle) setExplanationStyle(answers.explanationStyle);
+    changePreferences({
+      ...(highlight ? { highlightMode: highlight } : {}),
+      ...(answers.explanationStyle ? { explanationStyle: answers.explanationStyle } : {}),
+    });
   }
 
   const value: AccountSetupValue = {
     setup,
-    loading: Boolean(uid && !setup),
+    loading: Boolean(uid && (!setup || preferences?.uid !== uid)),
     personalized: Boolean(setup?.personalizationCompletedAt),
     handedOff: Boolean(setup?.completedAt),
     widgetsIntroduced:
@@ -143,7 +185,25 @@ export function AccountSetupProvider({
       update((state) => ({ ...state, widgetsIntroducedAt: state.widgetsIntroducedAt ?? now() }));
     },
   };
-  return <AccountSetupContext.Provider value={value}>{children}</AccountSetupContext.Provider>;
+  return (
+    <AccountSetupContext.Provider value={value}>
+      <AccountPurposePreferences
+        explanationStyle={effective.explanationStyle}
+        setExplanationStyle={(explanationStyle) => changePreferences({ explanationStyle })}
+        defaultPlaybackRate={effective.defaultPlaybackRate}
+        setDefaultPlaybackRate={(rate) =>
+          changePreferences({ defaultPlaybackRate: normalizePlaybackRate(rate) })
+        }
+      >
+        <AccountHighlightPreferences
+          highlightMode={effective.highlightMode}
+          setHighlightMode={(highlightMode) => changePreferences({ highlightMode })}
+        >
+          {children}
+        </AccountHighlightPreferences>
+      </AccountPurposePreferences>
+    </AccountSetupContext.Provider>
+  );
 }
 
 export function useAccountSetup() {

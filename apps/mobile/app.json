@@ -61,6 +61,7 @@
       }
     },
     "android": {
+      "package": "com.votic.app",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"

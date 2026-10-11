@@ -103,6 +103,9 @@ function ThemedStack() {
                 {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                 <Stack.Screen name="widget" options={{ animation: "none" }} />
               </Stack.Protected>
+              <Stack.Protected guard={signedIn}>
+                <Stack.Screen name="account" options={slide} />
+              </Stack.Protected>
             </Stack>
           </SetupAccent>
         </WalkthroughProvider>

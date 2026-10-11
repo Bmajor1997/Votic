@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -344,6 +345,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           </>
         )}
         <View style={s.links}>
+          <FooterLink label="Manage account" disabled={working} onPress={() => router.push("/account")} />
           {!unavailable ? (
             <FooterLink
               label={restoring ? "Restoring…" : "Restore Purchases"}
