@@ -28,7 +28,7 @@ import {
   sortDocuments,
 } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { VoticDocument } from "../../src/documents/types";
+import { readableDocuments, VoticDocument } from "../../src/documents/types";
 import { useDocumentImport } from "../../src/documents/useDocumentImport";
 import {
   useWalkthrough,
@@ -46,7 +46,10 @@ export default function Documents() {
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const uploadRef = useRef<View>(null);
-  const { documents, collections, loaded, openDocument, addCollection } = useDocumentLibrary();
+  const library = useDocumentLibrary();
+  const { collections, loaded, openDocument, addCollection } = library;
+  // Quick Notes lives in Notes; it isn't a document to read.
+  const documents = useMemo(() => readableDocuments(library.documents), [library.documents]);
   const { importing, processingName, failure, dismissFailure, importDocument } = useDocumentImport(
     uploadRef,
     {
@@ -189,7 +192,7 @@ export default function Documents() {
               },
             ]}
           >
-            <Ionicons name="options-outline" size={20} color={filterCount ? theme.accent : theme.text} />
+            <Ionicons name="options-outline" size={20} color={filterCount ? theme.accentText : theme.text} />
           </Pressable>
         </View>
       ) : null}
@@ -685,7 +688,7 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
       <Ionicons
         name={selected ? "radio-button-on" : "radio-button-off"}
         size={22}
-        color={selected ? theme.accent : theme.mutedText}
+        color={selected ? theme.accentText : theme.mutedText}
       />
       <Text style={[s.choiceText, { color: theme.text }]}>{label}</Text>
     </Pressable>

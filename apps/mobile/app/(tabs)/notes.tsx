@@ -34,6 +34,7 @@ import {
   noteGroups,
   NoteItem,
   NotesFilter,
+  notesSummary,
   shareText,
 } from "../../src/notes/notesList";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
@@ -79,7 +80,6 @@ export default function Notes() {
     setSelectedIds([]);
     setTimeout(() => walkthrough.request("notes.askSelected"), 300);
   }
-  const itemCount = groups.reduce((total, group) => total + group.passages.length, 0);
   // Search and filters narrow notebooks by their matching notes.
   const browsing = !notebook && !query.trim() && filter === "all" && dateFilter === "all" && !tagFilter;
 
@@ -302,7 +302,7 @@ export default function Notes() {
               <Ionicons
                 name="options-outline"
                 size={19}
-                color={activeFilterCount ? theme.accent : theme.text}
+                color={activeFilterCount ? theme.accentText : theme.text}
               />
               {activeFilterCount ? (
                 <View style={[s.filterCount, { backgroundColor: theme.accent }]}>
@@ -377,12 +377,9 @@ export default function Notes() {
                 </Pressable>
               </View>
             </View>
-          ) : (
+          ) : groups.length || !browsing ? (
             <View style={s.summaryRow}>
-              <Text style={[s.summary, { color: theme.mutedText }]}>
-                {itemCount} {itemCount === 1 ? "item" : "items"} from {groups.length}{" "}
-                {groups.length === 1 ? "document" : "documents"}
-              </Text>
+              <Text style={[s.summary, { color: theme.mutedText }]}>{notesSummary(groups)}</Text>
               {groups.length && !notebook ? (
                 <Pressable
                   ref={askTarget}
@@ -408,7 +405,7 @@ export default function Notes() {
                 </Pressable>
               ) : null}
             </View>
-          )}
+          ) : null}
         </>
       ) : null}
       {!notebook && !selecting && notebooks.length ? (

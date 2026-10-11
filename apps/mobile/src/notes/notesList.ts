@@ -86,6 +86,22 @@ export function noteGroups(documents: VoticDocument[], view: NotesView, now = Da
     .sort((a, b) => b.passages[0].updatedAt - a.passages[0].updatedAt);
 }
 
+/**
+ * "3 notes · 2 saved passages in 2 notebooks". A saved passage without anything written is not a note,
+ * so the two are counted apart, as on each notebook.
+ */
+export function notesSummary(groups: { passages: Pick<SavedPassage, "note">[] }[]) {
+  const passages = groups.flatMap((group) => group.passages);
+  if (!passages.length) return "No matching notes";
+  const notes = passages.filter((passage) => passage.note.trim()).length;
+  const saved = passages.length - notes;
+  const parts = [
+    notes ? `${notes} ${notes === 1 ? "note" : "notes"}` : "",
+    saved ? `${saved} saved ${saved === 1 ? "passage" : "passages"}` : "",
+  ].filter(Boolean);
+  return `${parts.join(" · ")} in ${groups.length} ${groups.length === 1 ? "notebook" : "notebooks"}`;
+}
+
 export function shareText(items: NoteItem[], title: string) {
   const body = items
     .map(({ document, passage }, index) => {

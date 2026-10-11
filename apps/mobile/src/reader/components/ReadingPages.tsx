@@ -77,8 +77,14 @@ export function ReadingPages({
     if (echo?.pages === pages && echo.index === index && echo.word === wordIndex) return;
     emitted.current = null;
     setPage(target);
+    // Right after pages are measured the list may not have laid out its pages yet, and a scroll then is
+    // dropped (the label said "Page 8" over page 1). It also starts at the target, and scrolls again next frame.
     list.current?.scrollToOffset({ offset: target * size.width, animated: false });
+    const frame = requestAnimationFrame(() =>
+      list.current?.scrollToOffset({ offset: target * size.width, animated: false }),
+    );
     ready.current();
+    return () => cancelAnimationFrame(frame);
   }, [pages, target, size.width, index, wordIndex]);
   function turn(next: number, scroll = true) {
     if (!pages.length || !size.width) return;
@@ -122,6 +128,9 @@ export function ReadingPages({
         ) : null}
         <FlatList
           ref={list}
+          // Remounted once pages exist, so it opens on the saved page instead of scrolling there afterwards.
+          key={pages.length ? `pages-${size.width}x${size.height}` : "measuring"}
+          initialScrollIndex={pages.length ? Math.min(target, pages.length - 1) : undefined}
           testID="reading-page-list"
           data={pages}
           horizontal
@@ -149,7 +158,7 @@ export function ReadingPages({
           onPress={() => turn(page - 1)}
           style={styles.button}
         >
-          <Text style={{ color: page === 0 ? theme.mutedText : theme.accent }}>‹</Text>
+          <Text style={{ color: page === 0 ? theme.mutedText : theme.accentText }}>‹</Text>
         </Pressable>
         <Text style={{ color: theme.mutedText }}>
           {pages.length ? `Page ${page + 1} of ${pages.length}` : "Preparing pages…"}
@@ -161,7 +170,7 @@ export function ReadingPages({
           onPress={() => turn(page + 1)}
           style={styles.button}
         >
-          <Text style={{ color: theme.accent }}>›</Text>
+          <Text style={{ color: theme.accentText }}>›</Text>
         </Pressable>
       </View>
     </View>

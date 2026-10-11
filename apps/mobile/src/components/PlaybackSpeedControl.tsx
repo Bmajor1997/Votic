@@ -73,7 +73,7 @@ export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChang
               },
             ]}
           >
-            <Text style={[typography.control, { color: rate === value ? theme.accent : theme.text }]}>
+            <Text style={[typography.control, { color: rate === value ? theme.accentText : theme.text }]}>
               {formatPlaybackRate(value)}
             </Text>
           </Pressable>

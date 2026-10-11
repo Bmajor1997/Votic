@@ -193,7 +193,7 @@ describe("Notes", () => {
     await fireEvent.press(screen.getByRole("radio", { name: "Saved passages" }));
     await fireEvent.press(screen.getByText("Show Results"));
     expect(screen.getByRole("button", { name: "Remove Saved passages filter" })).toBeTruthy();
-    expect(screen.getByText("1 item from 1 document")).toBeTruthy();
+    expect(screen.getByText("1 saved passage in 1 notebook")).toBeTruthy();
   });
 });
 

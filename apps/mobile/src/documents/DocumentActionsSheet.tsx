@@ -215,7 +215,7 @@ export function DocumentActionsSheet({
                           <Ionicons
                             name={selected ? "radio-button-on" : "radio-button-off"}
                             size={22}
-                            color={selected ? theme.accent : theme.mutedText}
+                            color={selected ? theme.accentText : theme.mutedText}
                           />
                           <Text style={[s.choiceText, { color: theme.text }]}>{collection ?? "Unfiled"}</Text>
                         </Pressable>

@@ -14,7 +14,7 @@ import {
 } from "../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { useOnboarding } from "../onboarding/OnboardingProvider";
-import { PersonalizationFlow } from "../onboarding/PersonalizationFlow";
+import { PersonalizationQuestions } from "../onboarding/PersonalizationQuestions";
 import { EXPLANATION_STYLES, useVoticPurpose } from "../personalization/PurposeProvider";
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../theme/ThemeProvider";
 import { LearnVoticSettings } from "../walkthrough/LearnVoticSettings";
@@ -280,7 +280,7 @@ function PersonalizationSettings() {
         animationType={reduceMotion ? "none" : "slide"}
         onRequestClose={() => setEditing(false)}
       >
-        {editing ? <PersonalizationFlow mode="edit" onClose={() => setEditing(false)} /> : null}
+        {editing ? <PersonalizationQuestions mode="edit" onClose={() => setEditing(false)} /> : null}
       </Modal>
       <Section title="Explanations">
         <Choices

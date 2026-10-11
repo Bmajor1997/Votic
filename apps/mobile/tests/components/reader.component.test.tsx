@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { Animated, BackHandler, Dimensions, Platform, StyleSheet } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Reader from "../../app/reader";
+import { ONBOARDING_KEY } from "../../src/onboarding/OnboardingProvider";
 import { askVotic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { router, searchParams } from "../mocks/expoRouter";
@@ -395,6 +397,8 @@ describe("Reader", () => {
     expect(screen.queryByText("· From this document")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Conversation options" })).toBeNull();
+    // A notice doesn't tick "Ask Votic a question" off the getting-started checklist.
+    expect(JSON.parse((await AsyncStorage.getItem(ONBOARDING_KEY)) ?? "{}").askedVotic).not.toBe(true);
 
     // The notice is not sent back as if it were an earlier answer.
     askVoticMock.mockResolvedValueOnce({
@@ -412,6 +416,8 @@ describe("Reader", () => {
       [{ role: "user", text: "Why does focus help?" }],
       "adaptive",
     );
+    await act(async () => {});
+    expect(JSON.parse((await AsyncStorage.getItem(ONBOARDING_KEY)) ?? "{}").askedVotic).toBe(true);
   });
 
   it("summarizes the whole conversation, and shows a limit notice instead of a summary", async () => {

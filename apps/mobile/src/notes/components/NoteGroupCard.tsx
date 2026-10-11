@@ -111,7 +111,7 @@ export function NoteGroupCard({
                 <Ionicons
                   name={selected ? "checkmark-circle" : "ellipse-outline"}
                   size={23}
-                  color={selected ? theme.accent : theme.mutedText}
+                  color={selected ? theme.accentText : theme.mutedText}
                 />
               </Pressable>
             ) : null}

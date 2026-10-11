@@ -56,3 +56,27 @@ it("keeps a swiped page through saved-location echoes and background renders, wh
   expect(screen.getByText("Page 1 of 3")).toBeTruthy();
   expect(scroll).toHaveBeenLastCalledWith({ offset: 0, animated: false });
 });
+
+it("opens a saved spot on its own page, so the page shown matches the page label", async () => {
+  await renderWithProviders(
+    <ReadingPages
+      passages={passages}
+      index={0}
+      wordIndex={4}
+      textStyle={{ fontSize: 18 }}
+      onLocation={() => {}}
+      onReady={() => {}}
+    />,
+  );
+  await fireEvent(screen.getByTestId("reading-pages"), "layout", {
+    nativeEvent: { layout: { width: 390, height: 232 } },
+  });
+  await fireEvent(screen.getByTestId("reading-measurement", { includeHiddenElements: true }), "textLayout", {
+    nativeEvent: {
+      lines: ["Alpha beta", "gamma delta", "epsilon zeta"].map((text) => ({ text, height: 200 })),
+    },
+  });
+  expect(screen.getByText("Page 3 of 3")).toBeTruthy();
+  // The list starts on that page rather than relying on a scroll before its pages exist.
+  expect(screen.getByTestId("reading-page-list").props.initialScrollIndex).toBe(2);
+});

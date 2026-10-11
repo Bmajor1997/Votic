@@ -288,6 +288,11 @@ export function KeyboardDictationButton({
     try {
       await audioRelease.current;
       if (!current()) return;
+      // Checked first, so someone who can't use voice questions (a guest who needs to sign in, or someone
+      // at today's limit) hears why before being asked for the microphone.
+      requestController.current = new AbortController();
+      await checkVoiceQuestionAvailability(requestController.current.signal);
+      if (!current()) return;
       const permission = await requestRecordingPermissionsAsync();
       if (!current()) return;
       if (!permission.granted) {
@@ -298,9 +303,6 @@ export function KeyboardDictationButton({
         changePhase("idle");
         return;
       }
-      requestController.current = new AbortController();
-      await checkVoiceQuestionAvailability(requestController.current.signal);
-      if (!current()) return;
       // The app went to the background while starting and has not come back: never open the mic there.
       if (leftWhileStarting.current) {
         cancelAction.current();

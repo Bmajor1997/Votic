@@ -454,9 +454,10 @@ function ReaderContent() {
     try {
       const request = prepareAskRequest(context, clean, history);
       const answer = await askVotic(clean, request.document, request.history, explanationStyle);
-      onboarding.recordAskedVotic();
-      if (generation !== askGeneration.current) return;
       const grounded = answeredFromContext(request, answer);
+      // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
+      if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
+      if (generation !== askGeneration.current) return;
       setAskMessages((current) => [
         ...current,
         grounded
@@ -499,7 +500,13 @@ function ReaderContent() {
         explanationStyle,
         "catch-me-up",
       );
-      setAskMessages((current) => [...current, { role: "votic", text: answer.answer }]);
+      // A notice (such as a daily limit) did not come from the document, so it isn't labeled as if it did.
+      setAskMessages((current) => [
+        ...current,
+        answer.mode === "document-ai"
+          ? { role: "votic", text: answer.answer }
+          : { role: "votic", text: answer.answer, fallback: true },
+      ]);
     } catch (error) {
       setAskError(error instanceof Error ? error.message : "Votic could not catch you up right now.");
     } finally {
@@ -975,7 +982,7 @@ function ReaderContent() {
                       <Ionicons
                         name={savedPassage ? "bookmark" : "bookmark-outline"}
                         size={22}
-                        color={savedPassage ? theme.accent : theme.text}
+                        color={savedPassage ? theme.accentText : theme.text}
                       />
                     </Pressable>
                   </View>
@@ -1438,7 +1445,10 @@ function ReaderContent() {
                         ) : null}
                         {askSending || summarizing ? <AIThinking summary={summarizing} /> : null}
                         {askError ? (
-                          <Text accessibilityLiveRegion="polite" style={[s.askError, { color: theme.text }]}>
+                          <Text
+                            accessibilityLiveRegion="polite"
+                            style={[s.askError, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
+                          >
                             {askError}
                           </Text>
                         ) : null}
@@ -1447,7 +1457,7 @@ function ReaderContent() {
                     {askVoiceError ? (
                       <Text
                         onLayout={(event) => setAskVoiceErrorHeight(event.nativeEvent.layout.height)}
-                        style={[s.askError, { color: theme.text }]}
+                        style={[s.askError, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                       >
                         {askVoiceError}{" "}
                         {askVoicePhase === "error"
@@ -1673,7 +1683,13 @@ const s = StyleSheet.create({
   askAnswerText: { fontSize: 15, lineHeight: 22 },
   askThinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   askStatus: { fontSize: 13 },
-  askError: { borderRadius: radii.md, fontSize: 13, lineHeight: 19 },
+  askError: {
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 13,
+    lineHeight: 19,
+  },
   summaryCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.md },
   summaryTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   summaryTitle: { fontSize: 14, fontWeight: "800" },

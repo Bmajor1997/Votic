@@ -441,7 +441,16 @@ describe("Ask Votic recording composer", () => {
       finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
     );
     expect(stream.start).not.toHaveBeenCalled();
-    expect(checkVoiceQuestionAvailability).not.toHaveBeenCalled();
+  });
+
+  it("tells a guest to sign in before asking for the microphone", async () => {
+    jest
+      .mocked(checkVoiceQuestionAvailability)
+      .mockRejectedValueOnce(new Error("Sign in to use voice questions."));
+    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await start();
+    expect(requestRecordingPermissionsAsync).not.toHaveBeenCalled();
+    expect(screen.getByText(/Sign in to use voice questions/)).toBeTruthy();
   });
 
   it("keeps duplicate Stop presses from making duplicate uploads", async () => {

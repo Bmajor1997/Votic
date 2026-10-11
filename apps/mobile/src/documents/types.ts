@@ -31,3 +31,8 @@ export type VoticDocument = {
   savedPassages?: SavedPassage[];
   reviewResponses?: Record<string, string>;
 };
+
+/** Documents to read or listen to. Quick Notes is a notebook, so it stays out of the library and Home. */
+export function readableDocuments<T extends Pick<VoticDocument, "notebookKind">>(documents: T[]) {
+  return documents.filter((document) => !document.notebookKind);
+}

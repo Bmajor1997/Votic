@@ -11,7 +11,7 @@ import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import { positionLabel, progressLabel, readableTitle } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { mostRecentIncomplete } from "../../src/documents/insights";
-import { VoticDocument } from "../../src/documents/types";
+import { readableDocuments, VoticDocument } from "../../src/documents/types";
 import { openFrom, useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
@@ -21,7 +21,9 @@ import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrou
 
 export default function Home() {
   const { theme } = useVoticTheme();
-  const { documents, loaded, openDocument } = useDocumentLibrary();
+  const { documents: everything, loaded, openDocument } = useDocumentLibrary();
+  // Quick Notes is a notebook: its notes still show under Recent notes, but it isn't a document to continue.
+  const documents = readableDocuments(everything);
   const { checklistDismissed } = useOnboarding();
   const transition = useDocumentTransition();
   const addRef = useRef<View>(null);
@@ -32,7 +34,7 @@ export default function Home() {
     .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 8);
-  const notes = homeNotes(documents);
+  const notes = homeNotes(everything);
   // With nothing added yet, Home keeps its usual sections, each saying what will show up there.
   const empty = loaded && !documents.length;
   const continueTarget = useWalkthroughTarget("home.continue");

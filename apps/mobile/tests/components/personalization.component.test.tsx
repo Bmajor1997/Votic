@@ -7,15 +7,11 @@ import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { AskVotic } from "../../app/assistant";
 import { askVotic } from "../../src/api/voticApi";
 import { EMPTY_ANSWERS, PersonalizationAnswers } from "../../src/onboarding/onboardingModel";
-import { loadAccountSetup } from "../../src/onboarding/onboardingStorage";
-import { fakeAuth } from "../mocks/authBackend";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
 const askVoticMock = jest.mocked(askVotic);
 
-// The account the fake sign-in starts with.
-const UID = fakeAuth.user!.uid;
 const PURPOSE_KEY = "votic.mobile.purpose.v1";
 
 /** Setup finished with these answers, for renderWithProviders. */
@@ -93,11 +89,11 @@ describe("Ask Votic suggestions", () => {
     askVoticMock.mockResolvedValue({ answer: "Short.", mode: "ai", sectionIndex: null, sectionTitle: null });
     await renderWithProviders(<SettingsDetailScreen category="personalization" />, { reduceMotion: true });
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
+    await fireEvent.press(screen.getByLabelText("Personal reading. Read and listen at your own pace"));
     for (let step = 0; step < 2; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-    await fireEvent.press(screen.getByLabelText("Quickly. Just give me the answer."));
-    for (let step = 2; step < 4; step += 1)
-      await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    await fireEvent.press(screen.getByLabelText("Quick. A sentence or two"));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
     screen.unmount();
@@ -143,21 +139,18 @@ describe("Notes notebook actions", () => {
 });
 
 describe("Settings", () => {
-  it("edits personalization, saves it, and updates Ask Votic's suggestions", async () => {
-    await renderWithProviders(
-      <SettingsDetailScreen category="personalization" />,
-      answered({ goals: ["summarize"] }),
-    );
+  it("edits personalization with the same four questions as setup, and saves it", async () => {
+    await renderWithProviders(<SettingsDetailScreen category="personalization" />, answered({}));
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
-    await fireEvent.press(screen.getByLabelText("Find important information quickly"));
-    for (let step = 0; step < 4; step += 1)
+    expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
+    await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
+    for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("How do you like to listen?")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
-    expect((await loadAccountSetup(UID))?.answers.goals).toEqual(["summarize", "find-quickly"]);
-    screen.unmount();
-    await renderWithProviders(<AskVotic />, { accountSetup: "none" });
-    expect(suggestions().slice(0, 2)).toEqual(["Summarize this document", "Find information"]);
+    expect(screen.queryByText("How do you like to listen?")).toBeNull();
+    expect(await AsyncStorage.getItem(PURPOSE_KEY)).toBe("research");
   });
 
   it("offers Learn Votic and Personalization separately, without the old app tour", async () => {

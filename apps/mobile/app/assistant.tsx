@@ -253,10 +253,11 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     try {
       const request = prepareAskRequest(askContext, clean, messages);
       const answer = await askVotic(clean, request.document, request.history, explanationStyle);
-      onboarding.recordAskedVotic();
+      const grounded = answeredFromContext(request, answer);
+      // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
+      if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (!current()) return;
       setError("");
-      const grounded = answeredFromContext(request, answer);
       setMessages((v) => [
         ...v,
         grounded

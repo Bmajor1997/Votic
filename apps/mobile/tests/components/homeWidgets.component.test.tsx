@@ -225,3 +225,21 @@ describe("Home with an empty library", () => {
     expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
   });
 });
+
+describe("Quick Notes on Home", () => {
+  it("is never offered as the document to continue, but its notes still show", async () => {
+    const quickNotes = testDocument("quick", "Quick Notes", {
+      sourceName: "Quick Notes.txt",
+      notebookKind: "quick-notes",
+      progress: 0,
+      lastOpenedAt: 99,
+      savedPassages: [
+        { id: "q1", sentenceIndex: 0, text: "", note: "Call the library", createdAt: 1, updatedAt: 5 },
+      ],
+    });
+    await renderWithProviders(<Home />, { documents: [quickNotes, recent] });
+    expect(screen.queryByRole("button", { name: /^Continue (Listening|Reading): Quick Notes/ })).toBeNull();
+    expect(screen.getAllByRole("button", { name: /^Continue Reading: Field Guide/ }).length).toBe(1);
+    expect(screen.getAllByText("Call the library").length).toBeGreaterThan(0);
+  });
+});

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { SavedPassage, VoticDocument } from "../documents/types";
-import { advancedFilterCount, availableTags, dateLabel, noteGroups, NotesView, shareText } from "./notesList";
+import {
+  advancedFilterCount,
+  availableTags,
+  dateLabel,
+  noteGroups,
+  notesSummary,
+  NotesView,
+  shareText,
+} from "./notesList";
 
 const DAY = 86_400_000;
 const NOW = 100 * DAY;
@@ -104,5 +112,17 @@ describe("sharing and dates", () => {
     expect(dateLabel(new Date(2026, 8, 29, 9).getTime(), today)).toBe("Today");
     expect(dateLabel(new Date(2026, 8, 28, 23).getTime(), today)).toBe("Yesterday");
     expect(dateLabel(new Date(2026, 8, 20).getTime(), today)).not.toMatch(/Today|Yesterday/);
+  });
+});
+
+describe("notesSummary", () => {
+  it("counts notes and saved passages apart, by notebook", () => {
+    expect(
+      notesSummary([{ passages: [{ note: "An idea" }, { note: "" }] }, { passages: [{ note: "  " }] }]),
+    ).toBe("1 note · 2 saved passages in 2 notebooks");
+    expect(notesSummary([{ passages: [{ note: "A" }, { note: "B" }] }])).toBe("2 notes in 1 notebook");
+  });
+  it("never says 0 items from 0 documents", () => {
+    expect(notesSummary([])).toBe("No matching notes");
   });
 });

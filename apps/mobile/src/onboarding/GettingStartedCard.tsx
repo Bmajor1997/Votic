@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { radii, spacing } from "../design/tokens";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { cleanLocalDocumentText } from "../documents/importDocument";
-import { VoticDocument } from "../documents/types";
+import { readableDocuments, VoticDocument } from "../documents/types";
 import { openFrom, useDocumentImport } from "../documents/useDocumentImport";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
@@ -15,7 +15,9 @@ import { PrimaryButton, SecondaryButton } from "./components";
 import { useOnboarding } from "./OnboardingProvider";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "./voticGuide";
 
-export function gettingStartedSteps(documents: VoticDocument[], askedVotic: boolean) {
+export function gettingStartedSteps(everything: VoticDocument[], askedVotic: boolean) {
+  // Quick Notes is a notebook, and Votic's own answers saved to Notes aren't passages the person saved.
+  const documents = readableDocuments(everything);
   return [
     { label: "Add a document", done: documents.length > 0 },
     {
@@ -26,7 +28,9 @@ export function gettingStartedSteps(documents: VoticDocument[], askedVotic: bool
     },
     {
       label: "Save a passage",
-      done: documents.some((document) => (document.savedPassages || []).length > 0),
+      done: documents.some((document) =>
+        (document.savedPassages || []).some((passage) => !(passage.tags || []).includes("votic")),
+      ),
     },
     { label: "Ask Votic a question", done: askedVotic },
   ];
@@ -47,6 +51,7 @@ export function GettingStartedCard() {
   if (onboarding.checklistDismissed) return null;
 
   const steps = gettingStartedSteps(documents, onboarding.askedVotic);
+  const hasDocuments = readableDocuments(documents).length > 0;
   const remaining = steps.filter((step) => !step.done).length;
   const firstName = user?.displayName?.trim().split(/\s+/)[0];
 
@@ -76,7 +81,7 @@ export function GettingStartedCard() {
           <Text style={[s.subtitle, { color: theme.mutedText }]}>
             {remaining === 0
               ? "You've tried everything Votic does best."
-              : documents.length
+              : hasDocuments
                 ? `${remaining} quick ${remaining === 1 ? "step" : "steps"} to get the most from Votic.`
                 : "Start with a document. Votic will show you around as you go."}
           </Text>
@@ -91,7 +96,7 @@ export function GettingStartedCard() {
           <Ionicons name="close" size={22} color={theme.mutedText} />
         </Pressable>
       </View>
-      {documents.length === 0 ? (
+      {!hasDocuments ? (
         <View style={s.actions}>
           <View ref={uploadRef} collapsable={false}>
             <PrimaryButton
@@ -121,7 +126,7 @@ export function GettingStartedCard() {
             <Ionicons
               name={step.done ? "checkmark-circle" : "ellipse-outline"}
               size={22}
-              color={step.done ? theme.accent : theme.mutedText}
+              color={step.done ? theme.accentText : theme.mutedText}
             />
             <Text
               style={[

@@ -90,7 +90,9 @@ function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, r
     resolvedMode === "sepia" ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE) : accentColors[accentName];
   return {
     ...(reader || resolvedMode === "sepia" ? palettes[resolvedMode] : navigationPalettes[resolvedMode]),
-    accentText: reader ? accent : resolvedMode === "dark" ? tint(accent, 0.65) : shade(accent, 0.12),
+    // On dark backgrounds (the Reader's included) accent-colored text is lifted, or selected labels get hard to read.
+    accentText:
+      resolvedMode === "dark" ? tint(accent, reader ? 0.5 : 0.65) : reader ? accent : shade(accent, 0.12),
     /** Small accent-colored text, such as links, that stays readable on dark backgrounds too. */
     linkText: resolvedMode === "dark" ? tint(accent, 0.45) : accent,
     onAccent: "#FFFFFF",
