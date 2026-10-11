@@ -1,3 +1,4 @@
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
@@ -137,7 +138,9 @@ describe("Read mode", () => {
     await dragTo(400);
     await act(async () => jest.advanceTimersByTime(2500));
     await waitFor(async () => {
-      const saved = JSON.parse((await AsyncStorage.getItem(LIBRARY_KEY)) || "[]");
+      const saved = JSON.parse(
+        (await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))) || "[]",
+      );
       expect(saved[0]).toMatchObject({ sentenceIndex: 4, wordIndex: 0 });
       expect(saved[0].progress).toBeCloseTo(8 / 23, 2);
     });

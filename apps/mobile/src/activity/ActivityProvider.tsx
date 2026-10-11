@@ -1,5 +1,15 @@
+import { useAccountData } from "../storage/AccountDataProvider";
+import { accountStorageKey } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
+import {
+  PropsWithChildren,
+  createContext,
+  useContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { AppState } from "react-native";
 import {
   ActivityKind,
@@ -29,8 +39,10 @@ type ActivityValue = {
 const ActivityContext = createContext<ActivityValue | null>(null);
 
 export function ActivityProvider({ children }: PropsWithChildren) {
+  const { uid, registerFlush } = useAccountData();
+  const storageKey = accountStorageKey(ACTIVITY_KEY, uid ?? "");
   const [log, setLog] = useState<ActivityLog>(() => emptyLog());
-  const [hydrated, setHydrated] = useState(false);
+  const [hydrated, setHydrated] = useState(!uid);
   const [sample, setSample] = useState<ActivityLog | null>(null);
   const latest = useRef(log);
   const dirty = useRef(false);
@@ -39,15 +51,20 @@ export function ActivityProvider({ children }: PropsWithChildren) {
   const pending = useRef<((current: ActivityLog) => ActivityLog)[]>([]);
   const hydratedRef = useRef(false);
 
-  function save() {
+  const saving = useRef<Promise<void>>(Promise.resolve());
+  const save = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    if (!dirty.current) return;
+    if (!dirty.current || !uid) return saving.current;
     dirty.current = false;
-    void AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(latest.current)).catch(() => {
-      dirty.current = true;
-    });
-  }
+    const snapshot = JSON.stringify(latest.current);
+    saving.current = saving.current
+      .then(() => AsyncStorage.setItem(storageKey, snapshot))
+      .catch(() => {
+        dirty.current = true;
+      });
+    return saving.current;
+  }, [uid, storageKey]);
   function change(update: (current: ActivityLog) => ActivityLog) {
     if (!hydratedRef.current) {
       pending.current.push(update);
@@ -61,7 +78,8 @@ export function ActivityProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     let mounted = true;
-    void AsyncStorage.getItem(ACTIVITY_KEY)
+    if (!uid) return;
+    void AsyncStorage.getItem(storageKey)
       .catch(() => null)
       .then((raw) => {
         if (!mounted) return;
@@ -85,7 +103,17 @@ export function ActivityProvider({ children }: PropsWithChildren) {
       subscription.remove();
       save();
     };
-  }, []);
+  }, [uid, storageKey, save]);
+
+  useEffect(
+    () =>
+      registerFlush(async () => {
+        if (!hydratedRef.current) throw new Error("Activity is still loading.");
+        await save();
+        if (dirty.current) throw new Error("Activity could not be saved.");
+      }),
+    [registerFlush, save],
+  );
 
   return (
     <ActivityContext.Provider

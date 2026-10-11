@@ -1,7 +1,8 @@
+import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, screen } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { AccessibilityInfo, Text } from "react-native";
 import { router } from "expo-router";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as backend from "../mocks/authBackend";
@@ -75,7 +76,7 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(backend.fakeAuth.calls).toEqual(["signOut"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await createDocumentStore().loadDocuments()).toEqual([doc]);
+    expect(await createDocumentStore("test-user").loadDocuments()).toEqual([doc]);
   });
   it("does not delete on the first tap, Cancel, Continue, or Keep account", async () => {
     await renderWithProviders(<Settings />);
@@ -100,7 +101,7 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await createDocumentStore().loadDocuments()).toEqual([doc]);
+    expect(await createDocumentStore("test-user").loadDocuments()).toEqual([doc]);
   });
   it.each([
     ["auth/requires-recent-login", /sign back in using your usual sign-in method/],
@@ -168,4 +169,43 @@ describe("Settings account management", () => {
     // With no account, there's no subscription to manage or restore.
     expect(screen.queryByRole("button", { name: "Votic Premium" })).toBeNull();
   });
+});
+
+it("recovers an older device library only after the owner confirms, keeping current documents", async () => {
+  const legacy = testDocument("legacy", "Older book", {
+    savedPassages: [
+      {
+        id: "p",
+        sentenceIndex: 0,
+        text: "Older text",
+        note: "Older private note",
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ],
+  });
+  await createDocumentStore().saveDocuments([legacy]);
+  function Probe() {
+    const { documents } = useDocumentLibrary();
+    return <Text testID="recovery-library">{documents.map((document) => document.title).join("|")}</Text>;
+  }
+  await renderWithProviders(
+    <>
+      <Settings />
+      <Probe />
+    </>,
+    { documents: [testDocument("current", "Current book")] },
+  );
+  expect(screen.getByTestId("recovery-library").props.children).toBe("Current book");
+  await fireEvent.press(await screen.findByRole("button", { name: "Recover older device library" }));
+  expect(screen.getByText(/Recover only if the older library/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.getByTestId("recovery-library").props.children).toBe("Current book");
+  await fireEvent.press(screen.getByRole("button", { name: "Recover older device library" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Recover my library" }));
+  await waitFor(() =>
+    expect(screen.getByTestId("recovery-library").props.children).toBe("Current book|Older book"),
+  );
+  expect(await createDocumentStore().loadDocuments()).toEqual([legacy]);
+  expect(screen.queryByRole("button", { name: "Recover older device library" })).toBeNull();
 });

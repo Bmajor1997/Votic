@@ -1,3 +1,4 @@
+import { loadAccountPreferences } from "../../src/onboarding/accountPreferences";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
@@ -162,5 +163,26 @@ describe("Settings", () => {
     await renderWithProviders(<SettingsDetailScreen category="help" />);
     expect(screen.getByText("LEARN VOTIC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Replay the Home walkthrough" })).toBeTruthy();
+  });
+});
+
+it("discards every personalization preview when editing is closed without Save", async () => {
+  await renderWithProviders(<SettingsDetailScreen category="personalization" />);
+  const original = await loadAccountPreferences("test-user");
+  await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
+  await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
+  await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+  await fireEvent.press(screen.getByLabelText("Larger text"));
+  await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+  await fireEvent.press(screen.getByLabelText("Detailed. The full picture, with context"));
+  await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
+  await fireEvent.press(screen.getByLabelText("2.0× speed"));
+  await fireEvent.press(screen.getByLabelText("No highlighting. Just listen"));
+  for (let step = 0; step < 4; step += 1) await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  await settle();
+  expect(await loadAccountPreferences("test-user")).toEqual(original);
+  expect(await AsyncStorage.getItem(PURPOSE_KEY)).toBeNull();
+  expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.accessibility.v1"))!)).toMatchObject({
+    textSize: "default",
   });
 });

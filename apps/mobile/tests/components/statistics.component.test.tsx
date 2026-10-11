@@ -1,3 +1,4 @@
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
@@ -16,7 +17,7 @@ async function seedActivity() {
   log = addInterval(log, "doc", "reading", first, first + 20 * 60_000);
   log = addInterval(log, "doc", "listening", first + 30 * 60_000, first + 40 * 60_000);
   log = addAskEvent(log, { at: first, category: "summary", newConversation: true });
-  await AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+  await AsyncStorage.setItem(accountStorageKey(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
   return log;
 }
 
@@ -32,7 +33,9 @@ describe("Statistics activity overview", () => {
     expect(screen.getByLabelText("Total time, 30 minutes")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Show as table" }));
     expect(screen.getByRole("button", { name: "Show chart" })).toBeTruthy();
-    expect(JSON.parse((await AsyncStorage.getItem(ACTIVITY_KEY))!)).toEqual(saved);
+    expect(JSON.parse((await AsyncStorage.getItem(accountStorageKey(ACTIVITY_KEY, "test-user")))!)).toEqual(
+      saved,
+    );
   });
 
   it("preserves period selection and carries the selected period into every detail route", async () => {
@@ -73,7 +76,7 @@ describe("Statistics activity overview", () => {
       const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 19).getTime();
       log = addInterval(log, "doc", "listening", at, at + 20 * 60_000);
     }
-    await AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+    await AsyncStorage.setItem(accountStorageKey(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
     searchParams.current = { kind: "all" };
     await renderWithProviders(<Statistics />);
     expect(screen.getByText("You read and listen most in the evening.")).toBeTruthy();

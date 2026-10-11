@@ -1,3 +1,7 @@
+import { useActivity } from "../../src/activity/ActivityProvider";
+import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { createDocumentStore, LIBRARY_KEY } from "../../src/documents/documentStorage";
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import { jest, it, expect } from "@jest/globals";
 import { act, screen } from "@testing-library/react-native";
 import { Text } from "react-native";
@@ -10,7 +14,7 @@ import { EMPTY_ANSWERS, newOnboardingState } from "../../src/onboarding/onboardi
 import { saveAccountSetup } from "../../src/onboarding/onboardingStorage";
 import * as subscriptions from "../mocks/subscriptionService";
 import { fakeAuth } from "../mocks/authBackend";
-import { renderWithProviders } from "../renderWithProviders";
+import { renderWithProviders, testDocument } from "../renderWithProviders";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 it("migrates old device preferences into the restored session without copying them into the next account", async () => {
@@ -151,4 +155,86 @@ it("restores each account's answers and effective preferences, including subsequ
   await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ saved: "simple", effective: "quick", highlight: "off", rate: 1.5 });
+});
+
+it("isolates documents, notes, collections and pending activity saves when accounts switch", async () => {
+  let library: ReturnType<typeof useDocumentLibrary>;
+  let activity: ReturnType<typeof useActivity>;
+  function Probe() {
+    library = useDocumentLibrary();
+    activity = useActivity();
+    return (
+      <Text testID="account-library">
+        {JSON.stringify({
+          titles: library.documents.map((document) => document.title),
+          collections: library.collections,
+          ask: activity.measuredLog.ask.length,
+        })}
+      </Text>
+    );
+  }
+  const read = () => JSON.parse(screen.getByTestId("account-library").props.children);
+  await renderWithProviders(<Probe />);
+  await act(async () => {
+    library!.addTextDocument("private.txt", "Account A text.");
+    library!.addCollection("Private collection");
+    library!.addQuickNote({
+      id: "private-note",
+      sentenceIndex: 0,
+      text: "",
+      note: "Account A note",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    activity!.recordAsk({ at: 1, category: "summary", newConversation: true });
+  });
+  const oldLibrary = library!;
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => {});
+  expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
+  await act(async () => oldLibrary.addTextDocument("stale.txt", "Stale text."));
+  await act(async () => jest.advanceTimersByTime(2500));
+  expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
+  expect(await createDocumentStore("B").loadDocuments()).toEqual([]);
+  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => {});
+  expect(read()).toEqual({ titles: ["Quick Notes", "private"], collections: ["Private collection"], ask: 1 });
+  expect((await createDocumentStore("test-user").loadDocuments())[0].savedPassages?.[0].note).toBe(
+    "Account A note",
+  );
+  await act(async () => fakeAuth.setUser(null));
+  expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
+});
+
+it("does not show the previous library while the new account's storage read is delayed", async () => {
+  await createDocumentStore("B").saveDocuments([testDocument("b", "B book")]);
+  let release: (value: string | null) => void = () => {};
+  const getItem = jest.mocked(AsyncStorage.getItem).getMockImplementation()!;
+  jest.spyOn(AsyncStorage, "getItem").mockImplementation((key) =>
+    key === accountStorageKey(LIBRARY_KEY, "B")
+      ? new Promise((resolve) => {
+          release = resolve;
+        })
+      : getItem(key),
+  );
+  function Probe() {
+    const { documents, loaded } = useDocumentLibrary();
+    return (
+      <Text testID="delayed-library">
+        {JSON.stringify({ titles: documents.map((document) => document.title), loaded })}
+      </Text>
+    );
+  }
+  await renderWithProviders(<Probe />, { documents: [testDocument("a", "A book")] });
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  expect(JSON.parse(screen.getByTestId("delayed-library").props.children)).toEqual({
+    titles: [],
+    loaded: false,
+  });
+  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => release(null));
+  expect(JSON.parse(screen.getByTestId("delayed-library").props.children)).toEqual({
+    titles: ["A book"],
+    loaded: true,
+  });
 });

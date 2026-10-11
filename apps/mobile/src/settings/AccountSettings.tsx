@@ -1,3 +1,4 @@
+import { useAccountData } from "../storage/AccountDataProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, Ref, useEffect, useRef, useState } from "react";
 import {
@@ -26,11 +27,12 @@ import { STORE_SUBSCRIPTIONS_URL, subscriptionStatus } from "../subscription/sub
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { removeWalkthroughState } from "../walkthrough/walkthroughState";
 
-type Step = "sign-out" | "deletion-info" | "deletion-final";
+type Step = "sign-out" | "deletion-info" | "deletion-final" | "recover-library";
 
 /** Uses the existing Firebase-backed provider. Never changes local library storage. */
 export function AccountSettings() {
   const auth = useAuth();
+  const accountData = useAccountData();
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const [step, setStep] = useState<Step | null>(null);
@@ -63,15 +65,17 @@ export function AccountSettings() {
     setError(null);
     requestAnimationFrame(() => focus(target));
   }
-  async function execute(action: "sign-out" | "delete") {
+  async function execute(action: "sign-out" | "delete" | "recover") {
     if (pending.current || !auth.user) return;
+    if (action === "recover" && step !== "recover-library") return;
     if (action === "delete" && (step !== "deletion-final" || !auth.configured)) return;
     if (action === "sign-out" && step !== "sign-out") return;
     pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      if (action === "sign-out") await auth.signOut();
+      if (action === "recover") await accountData.recover();
+      else if (action === "sign-out") await auth.signOut();
       else {
         const uid = auth.user.uid;
         await auth.deleteAccount();
@@ -86,13 +90,15 @@ export function AccountSettings() {
     } catch (failure) {
       const code = (failure as { code?: string } | null)?.code;
       const message =
-        code === "auth/requires-recent-login"
-          ? "Your account has not been deleted. For your security, cancel this request, sign out, and sign back in using your usual sign-in method. Then return to Settings to delete your account."
-          : code === "auth/network-request-failed" || code === "auth/too-many-requests"
-            ? authErrorMessage(failure)
-            : action === "delete"
-              ? "Votic couldn't delete your account. Please try again. If this continues, contact Votic support."
-              : "Votic couldn't sign you out. Please try again.";
+        action === "recover"
+          ? "Votic could not recover your older library. Its backup is unchanged. Please try again."
+          : code === "auth/requires-recent-login"
+            ? "Your account has not been deleted. For your security, cancel this request, sign out, and sign back in using your usual sign-in method. Then return to Settings to delete your account."
+            : code === "auth/network-request-failed" || code === "auth/too-many-requests"
+              ? authErrorMessage(failure)
+              : action === "delete"
+                ? "Votic couldn't delete your account. Please try again. If this continues, contact Votic support."
+                : "Votic couldn't sign you out. Please try again.";
       setError(message);
       AccessibilityInfo.announceForAccessibility(message);
     } finally {
@@ -102,11 +108,14 @@ export function AccountSettings() {
   }
   const final = step === "deletion-final";
   const signingOut = step === "sign-out";
-  const title = signingOut
-    ? "Sign out of Votic?"
-    : final
-      ? "Permanently delete account?"
-      : "Before you delete your account";
+  const recovering = step === "recover-library";
+  const title = recovering
+    ? "Recover your older library?"
+    : signingOut
+      ? "Sign out of Votic?"
+      : final
+        ? "Permanently delete account?"
+        : "Before you delete your account";
   return (
     <>
       <View
@@ -138,6 +147,15 @@ export function AccountSettings() {
             </View>
           </View>
         </Card>
+        {auth.user && accountData.canRecover ? (
+          <AccountRow
+            label="Recover older device library"
+            detail="Move your documents, notes, collections, and activity from an older Votic version into this account."
+            hint="Opens a confirmation before assigning the older library to this account"
+            icon="archive-outline"
+            onPress={() => open("recover-library")}
+          />
+        ) : null}
         {auth.user ? <PremiumRows /> : null}
         {auth.user ? (
           <>
@@ -194,7 +212,13 @@ export function AccountSettings() {
               {title}
             </Text>
             <Card>
-              {signingOut ? (
+              {recovering ? (
+                <Text style={[s.body, { color: theme.text }]}>
+                  Recover only if the older library on this device belongs to you. It will be assigned to this
+                  account and will not be available to other accounts. Your current library stays intact, and
+                  a backup of the older data is kept on this device.
+                </Text>
+              ) : signingOut ? (
                 <Text style={[s.body, { color: theme.text }]}>
                   This ends your current session. Your Votic account remains active and you can sign back in
                   later. Your documents and notes stored on this device will not be deleted.
@@ -237,7 +261,7 @@ export function AccountSettings() {
             ) : null}
             {busy ? (
               <Text accessibilityLiveRegion="polite" style={[s.body, { color: theme.mutedText }]}>
-                {signingOut ? "Signing out…" : "Deleting account…"}
+                {recovering ? "Recovering library…" : signingOut ? "Signing out…" : "Deleting account…"}
               </Text>
             ) : null}
             <Pressable
@@ -253,19 +277,29 @@ export function AccountSettings() {
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={signingOut ? "Sign out" : final ? "Delete account" : "Continue"}
+              accessibilityLabel={
+                recovering
+                  ? "Recover my library"
+                  : signingOut
+                    ? "Sign out"
+                    : final
+                      ? "Delete account"
+                      : "Continue"
+              }
               accessibilityHint={
-                signingOut
-                  ? "Ends this session and keeps your account and local library"
-                  : final
-                    ? "Destructive action. Permanently deletes your account and signs you out"
-                    : "Opens the final confirmation. Your account will not be deleted yet"
+                recovering
+                  ? "Assigns the older device library to this account while keeping a backup"
+                  : signingOut
+                    ? "Ends this session and keeps your account and local library"
+                    : final
+                      ? "Destructive action. Permanently deletes your account and signs you out"
+                      : "Opens the final confirmation. Your account will not be deleted yet"
               }
               accessibilityState={{ disabled: busy, busy }}
               disabled={busy}
               onPress={() => {
                 if (step === "deletion-info") setStep("deletion-final");
-                else void execute(signingOut ? "sign-out" : "delete");
+                else void execute(recovering ? "recover" : signingOut ? "sign-out" : "delete");
               }}
               style={[
                 s.button,
@@ -276,7 +310,13 @@ export function AccountSettings() {
               ]}
             >
               <Text style={[s.title, { color: final ? destructive : theme.onAccent }]}>
-                {signingOut ? "Sign out" : final ? "Delete account" : "Continue"}
+                {recovering
+                  ? "Recover my library"
+                  : signingOut
+                    ? "Sign out"
+                    : final
+                      ? "Delete account"
+                      : "Continue"}
               </Text>
             </Pressable>
           </ScrollView>

@@ -204,7 +204,7 @@ describe("Quick Notes", () => {
     await act(async () => {
       jest.advanceTimersByTime(1200);
     });
-    const saved = await createDocumentStore().loadDocuments();
+    const saved = await createDocumentStore("test-user").loadDocuments();
     const quick = saved.find((document) => document.notebookKind === "quick-notes");
     expect(quick?.savedPassages).toHaveLength(2);
     expect(quick?.plainText).toContain("A second independent thought.");

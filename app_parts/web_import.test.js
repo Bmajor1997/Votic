@@ -150,3 +150,28 @@ test("webpage cleanup closes gaps left by inline links before punctuation", () =
   const { text } = clean_webpage_html("<main><p>A system is called a <a href=\"#\">speech synthesizer</a>, and a text-to-speech (<a>TTS</a>) system <b>converts</b> text.</p></main>");
   assert.equal(text, "A system is called a speech synthesizer, and a text-to-speech (TTS) system converts text.");
 });
+
+test("webpage cleanup preserves article headers, short lists, short paragraphs and repeated instructions", () => {
+  const { text } = clean_webpage_html(`<article><header><h1>Safety checklist</h1><p>Read before starting</p></header>
+    <ul><li>Safety goggles</li><li>Protective gloves</li><li>First aid kit</li></ul>
+    <p>Stop the machine</p><p>Disconnect power</p><p>Call for help</p><p>Stop the machine</p></article>`);
+  for (const expected of ["Safety checklist", "Read before starting", "• Safety goggles", "• Protective gloves", "• First aid kit", "Stop the machine", "Disconnect power", "Call for help"])
+    assert.ok(text.includes(expected), `preserve ${expected}`);
+  assert.equal(text.match(/Stop the machine/g).length, 2);
+});
+
+test("webpage cleanup ignores fake article markup in scripts, comments and templates", () => {
+  const { text } = clean_webpage_html(`<script>const example="<article>Fake script content</article>";</script>
+    <!-- <article>Fake comment content</article> -->
+    <template><article>Fake template content</article></template>
+    <main><h1>Actual article</h1><p>The real article must be preserved.</p></main>`);
+  assert.equal(text, "Actual article\n\nThe real article must be preserved.");
+});
+
+test("webpage cleanup preserves linked punctuation and Unicode entities without damaging table cells", () => {
+  const { title, text } = clean_webpage_html(`<title>Safety &#x2014; guide</title><article><p><a>Run</a>, then stop.</p>
+    <table><tr><th>Item</th><th>Amount</th></tr><tr><td>Gloves</td><td>2</td></tr></table></article>`);
+  assert.equal(title, "Safety — guide");
+  assert.match(text, /^Run, then stop\./);
+  assert.match(text, /Gloves 2/);
+});

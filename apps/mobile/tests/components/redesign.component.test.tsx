@@ -1,3 +1,4 @@
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
@@ -46,7 +47,7 @@ const report = testDocument("doc-report", "q3_board-report_FINAL", {
 const guide = testDocument("doc-guide", "Field Guide", { progress: 1, lastOpenedAt: 2 });
 
 async function seedActivity(log: ActivityLog) {
-  await AsyncStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+  await AsyncStorage.setItem(accountStorageKey(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
 }
 
 describe("Home", () => {
@@ -222,7 +223,7 @@ describe("Reader measurement", () => {
     // Thirty seconds of narration, plus the two-second save delay.
     await act(async () => jest.advanceTimersByTime(32_500));
     await waitFor(async () => {
-      const saved = parseLog(await AsyncStorage.getItem(ACTIVITY_KEY));
+      const saved = parseLog(await AsyncStorage.getItem(accountStorageKey(ACTIVITY_KEY, "test-user")));
       const listening = Object.values(saved?.buckets ?? {}).reduce(
         (total, hour) => total + (hour[report.id]?.listening ?? 0),
         0,

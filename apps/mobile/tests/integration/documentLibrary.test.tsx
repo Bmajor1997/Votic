@@ -1,23 +1,25 @@
+import { AppProviders } from "../renderWithProviders";
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, renderHook, waitFor } from "@testing-library/react-native";
 import { documentTextKey, LIBRARY_KEY } from "../../src/documents/documentStorage";
-import { DocumentLibraryProvider, useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 
 async function renderLibrary() {
-  const hook = await renderHook(() => useDocumentLibrary(), { wrapper: DocumentLibraryProvider });
+  const hook = await renderHook(() => useDocumentLibrary(), { wrapper: AppProviders });
   await act(async () => {});
   return hook;
 }
 
 describe("document library persistence", () => {
   it("does not overwrite a library it could not read", async () => {
-    await AsyncStorage.setItem(LIBRARY_KEY, "{not json");
+    await AsyncStorage.setItem(accountStorageKey(LIBRARY_KEY, "test-user"), "{not json");
     const { result } = await renderLibrary();
     expect(result.current.persistenceError).toMatch(/Your stored data has not been overwritten/);
     await act(async () => result.current.addTextDocument("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(2000));
-    expect(await AsyncStorage.getItem(LIBRARY_KEY)).toBe("{not json");
+    expect(await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))).toBe("{not json");
   });
 
   it("shows an error when saving fails", async () => {
@@ -33,10 +35,12 @@ describe("document library persistence", () => {
   it("saves changes after the throttle interval", async () => {
     const { result } = await renderLibrary();
     await act(async () => result.current.addTextDocument("new.txt", "New text."));
-    expect(await AsyncStorage.getItem(LIBRARY_KEY)).toBeNull();
+    expect(await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))).toBeNull();
     // waitFor advances the fake timers until the throttled save has been written.
     await waitFor(async () =>
-      expect(JSON.parse((await AsyncStorage.getItem(LIBRARY_KEY)) || "[]")).toHaveLength(1),
+      expect(
+        JSON.parse((await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))) || "[]"),
+      ).toHaveLength(1),
     );
   });
 
@@ -49,7 +53,9 @@ describe("document library persistence", () => {
     await act(async () => result.current.addTextDocument("second.txt", "Second text."));
     await act(async () => jest.advanceTimersByTime(1500));
     expect(result.current.persistenceError).toBeNull();
-    expect(JSON.parse((await AsyncStorage.getItem(LIBRARY_KEY)) || "[]")).toHaveLength(2);
+    expect(
+      JSON.parse((await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))) || "[]"),
+    ).toHaveLength(2);
   });
 
   it("opens the rest of the library when one document's text cannot be read", async () => {
@@ -65,17 +71,19 @@ describe("document library persistence", () => {
       playbackRate: 1,
     });
     await AsyncStorage.setItem(
-      LIBRARY_KEY,
+      accountStorageKey(LIBRARY_KEY, "test-user"),
       JSON.stringify([stored("a", "Lost Book"), stored("b", "Kept Book")]),
     );
-    await AsyncStorage.setItem(documentTextKey("b"), "Kept text.");
+    await AsyncStorage.setItem(documentTextKey("b", 0, "test-user"), "Kept text.");
     const { result } = await renderLibrary();
     expect(result.current.documents.map((document) => document.title)).toEqual(["Kept Book"]);
     expect(result.current.persistenceError).toMatch(/“Lost Book” could not be opened/);
     // Library changes still save, and the unreadable document is kept.
     await act(async () => result.current.addTextDocument("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(1500));
-    const saved = JSON.parse((await AsyncStorage.getItem(LIBRARY_KEY)) || "[]");
+    const saved = JSON.parse(
+      (await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))) || "[]",
+    );
     expect(saved.map((document: { title: string }) => document.title)).toEqual([
       "new",
       "Kept Book",

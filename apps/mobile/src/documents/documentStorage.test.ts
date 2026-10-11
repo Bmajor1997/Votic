@@ -1,7 +1,19 @@
+import {
+  accountStorageKey,
+  legacyRecoveryAvailable,
+  recoverLegacyDeviceData,
+} from "../storage/accountStorage";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { VoticDocument } from "./types";
-import { createDocumentStore, documentTextKey, LIBRARY_KEY, TEXT_CHUNK_CHARS } from "./documentStorage";
+import {
+  createDocumentStore,
+  documentTextKey,
+  LIBRARY_KEY,
+  TEXT_CHUNK_CHARS,
+  loadCollections,
+  saveCollections,
+} from "./documentStorage";
 
 // vi.mock is hoisted above these imports, so documentStorage sees the in-memory AsyncStorage.
 
@@ -217,5 +229,104 @@ describe("document storage", () => {
     await vi.waitFor(() => expect(memory.has(documentTextKey("never-saved"))).toBe(false));
     expect(memory.has(documentTextKey("a", 1))).toBe(false);
     expect(memory.get(documentTextKey("a"))).toBe("Alpha text.");
+  });
+});
+
+describe("account library isolation and recovery", () => {
+  it("keeps text, notes, metadata and orphan cleanup separate for each account", async () => {
+    const note = {
+      id: "passage-0",
+      sentenceIndex: 0,
+      text: "Alpha.",
+      note: "Private note",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const a = createDocumentStore("A");
+    await a.saveDocuments([doc("same-id", "Alpha.", { savedPassages: [note] })]);
+    const b = createDocumentStore("B");
+    expect(await b.loadDocuments()).toEqual([]);
+    await b.saveDocuments([doc("same-id", "Beta.")]);
+    await b.loadDocuments();
+    await b.saveDocuments([]);
+    expect(await createDocumentStore("A").loadDocuments()).toEqual([
+      doc("same-id", "Alpha.", { savedPassages: [note] }),
+    ]);
+    expect(await createDocumentStore("B").loadDocuments()).toEqual([]);
+  });
+
+  it("quarantines the old library until its owner explicitly recovers it, retaining the backup", async () => {
+    await createDocumentStore().saveDocuments([doc("old", "Older private text.")]);
+    expect(await createDocumentStore("A").loadDocuments()).toEqual([]);
+    expect(await createDocumentStore("B").loadDocuments()).toEqual([]);
+    await recoverLegacyDeviceData("A");
+    expect(await createDocumentStore("A").loadDocuments()).toEqual([doc("old", "Older private text.")]);
+    expect(await createDocumentStore("B").loadDocuments()).toEqual([]);
+    expect(memory.get(documentTextKey("old"))).toBe("Older private text.");
+    await expect(recoverLegacyDeviceData("B")).rejects.toThrow(/another account/);
+    expect(await legacyRecoveryAvailable("B")).toBe(false);
+  });
+
+  it("recovers v1 libraries, collections and activity without replacing current account data", async () => {
+    memory.set(LEGACY_KEY, JSON.stringify([doc("old", "Legacy text.")]));
+    memory.set("votic.mobile.collections.v1", JSON.stringify(["Old collection"]));
+    memory.set(
+      "votic.mobile.activity.v1",
+      JSON.stringify({
+        version: 1,
+        trackingStartedAt: 1,
+        buckets: { "2026-10-11T09": { old: { reading: 60000, listening: 0 } } },
+        ask: [],
+      }),
+    );
+    await createDocumentStore("A").saveDocuments([doc("new", "Current text.")]);
+    await saveCollections(["Current collection"], "A");
+    await recoverLegacyDeviceData("A");
+    await recoverLegacyDeviceData("A");
+    expect((await createDocumentStore("A").loadDocuments()).map((document) => document.id)).toEqual([
+      "new",
+      "old",
+    ]);
+    expect(await loadCollections("A")).toEqual(["Current collection", "Old collection"]);
+    expect(await loadCollections("B")).toEqual([]);
+    expect(
+      JSON.parse(memory.get(accountStorageKey("votic.mobile.activity.v1", "A"))!).buckets["2026-10-11T09"].old
+        .reading,
+    ).toBe(60000);
+    expect(memory.has(LEGACY_KEY)).toBe(true);
+  });
+
+  it("retries interrupted recovery only for the original owner without deleting backup text", async () => {
+    await createDocumentStore().saveDocuments([doc("old", "Private text.")]);
+    vi.mocked(AsyncStorage.setItem)
+      .mockImplementationOnce(async (key, value) => {
+        memory.set(key, value);
+      })
+      .mockRejectedValueOnce(new Error("disk full"));
+    await expect(recoverLegacyDeviceData("A")).rejects.toThrow("disk full");
+    expect(await legacyRecoveryAvailable("A")).toBe(true);
+    expect(await legacyRecoveryAvailable("B")).toBe(false);
+    expect(memory.get(documentTextKey("old"))).toBe("Private text.");
+    await recoverLegacyDeviceData("A");
+    expect(await createDocumentStore("A").loadDocuments()).toEqual([doc("old", "Private text.")]);
+  });
+
+  it("preserves unreadable document metadata and notes during recovery", async () => {
+    const note = {
+      id: "p",
+      sentenceIndex: 0,
+      text: "Missing text.",
+      note: "Keep this note",
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    await createDocumentStore().saveDocuments([doc("missing", "Missing text.", { savedPassages: [note] })]);
+    memory.delete(documentTextKey("missing"));
+    await recoverLegacyDeviceData("A");
+    const store = createDocumentStore("A");
+    expect(await store.loadDocuments()).toEqual([]);
+    expect(store.unavailableDocuments()).toEqual(["missing"]);
+    await store.saveDocuments([]);
+    expect(JSON.parse(memory.get(accountStorageKey(LIBRARY_KEY, "A"))!)[0].savedPassages).toEqual([note]);
   });
 });

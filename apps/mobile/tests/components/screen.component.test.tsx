@@ -1,3 +1,4 @@
+import { accountStorageKey } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
@@ -23,7 +24,7 @@ describe("Screen", () => {
   });
 
   it("alerts when the saved library cannot be read", async () => {
-    await AsyncStorage.setItem(LIBRARY_KEY, "{not json");
+    await AsyncStorage.setItem(accountStorageKey(LIBRARY_KEY, "test-user"), "{not json");
     await renderWithProviders(<Screen title="Example" />);
     expect(screen.getByRole("alert")).toBeTruthy();
     expect(screen.getByText(/Your stored data has not been overwritten/)).toBeTruthy();

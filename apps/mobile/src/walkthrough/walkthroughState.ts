@@ -1,3 +1,4 @@
+import { accountStorageKey } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FLOWS, FlowId } from "./walkthroughFlows";
 
@@ -107,7 +108,7 @@ export async function loadWalkthroughState(
   const saved = parseWalkthroughState(await AsyncStorage.getItem(walkthroughKey(account.uid)));
   if (saved) return saved;
   const state = account.sessionRestored
-    ? await loadDeviceState(now)
+    ? await loadDeviceState(now, account.uid)
     : account.isNewAccount
       ? EMPTY_WALKTHROUGH
       : {
@@ -121,7 +122,7 @@ export async function loadWalkthroughState(
 }
 
 /** Progress recorded for the whole device, before it was kept per account; decides what existing users know. */
-async function loadDeviceState(now: number): Promise<WalkthroughState> {
+async function loadDeviceState(now: number, uid: string): Promise<WalkthroughState> {
   const saved = parseWalkthroughState(await AsyncStorage.getItem(WALKTHROUGH_KEY));
   if (saved) {
     // Progress saved before the welcome card existed means this person is already past it.
@@ -131,8 +132,8 @@ async function loadDeviceState(now: number): Promise<WalkthroughState> {
   const [[, history], [, onboarding], [, library], [, collections]] = await AsyncStorage.multiGet([
     DEVICE_HISTORY_KEY,
     ONBOARDING_KEY,
-    LIBRARY_KEY,
-    COLLECTIONS_KEY,
+    accountStorageKey(LIBRARY_KEY, uid),
+    accountStorageKey(COLLECTIONS_KEY, uid),
   ]);
   // Devices that ran a build from before the device history was recorded had already finished setup.
   const finishedSetupBefore = history === null && parseObject(onboarding)?.personalized === true;

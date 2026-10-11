@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { accountStorageKey } from "../storage/accountStorage";
 import { VoticDocument } from "./types";
 const LEGACY_KEY = "votic.mobile.documents.v1",
   COLLECTIONS_KEY = "votic.mobile.collections.v1";
@@ -8,22 +9,12 @@ const TEXT_KEY_PREFIX = "votic.mobile.document-text.v1:";
 // Android cannot read back a single stored value much over 2 MB, so long texts are split into chunks.
 // 500,000 characters is at most 1.5 MB of UTF-8.
 export const TEXT_CHUNK_CHARS = 500_000;
-export function documentTextKey(id: string, chunk = 0) {
-  return TEXT_KEY_PREFIX + id + (chunk ? ":" + chunk : "");
+export function documentTextKey(id: string, chunk = 0, uid?: string) {
+  return accountStorageKey(TEXT_KEY_PREFIX, uid) + id + (chunk ? ":" + chunk : "");
 }
 function chunkCount(text: string) {
   return Math.max(1, Math.ceil(text.length / TEXT_CHUNK_CHARS));
 }
-function textChunkKeys(id: string, chunks: number) {
-  return Array.from({ length: chunks }, (_, chunk) => documentTextKey(id, chunk));
-}
-function textEntries(document: VoticDocument): [string, string][] {
-  return textChunkKeys(document.id, chunkCount(document.plainText)).map((key, chunk) => [
-    key,
-    document.plainText.slice(chunk * TEXT_CHUNK_CHARS, (chunk + 1) * TEXT_CHUNK_CHARS),
-  ]);
-}
-
 // `textChunks` is omitted for single-chunk texts, which keeps their stored form unchanged.
 type StoredDocument = Omit<VoticDocument, "plainText"> & { textChunks?: number };
 function metadata({ plainText, ...document }: VoticDocument): StoredDocument {
@@ -44,26 +35,39 @@ function parseArray(raw: string | null, label: string) {
 }
 
 /** Loads and saves the document library, rewriting a document's text only when it changes. */
-export function createDocumentStore() {
+export function createDocumentStore(uid?: string) {
+  const libraryKey = accountStorageKey(LIBRARY_KEY, uid);
+  const legacyKey = accountStorageKey(LEGACY_KEY, uid);
+  const textPrefix = accountStorageKey(TEXT_KEY_PREFIX, uid);
+  function textChunkKeys(id: string, chunks: number) {
+    return Array.from({ length: chunks }, (_, chunk) => documentTextKey(id, chunk, uid));
+  }
+  function textEntries(document: VoticDocument): [string, string][] {
+    return textChunkKeys(document.id, chunkCount(document.plainText)).map((key, chunk) => [
+      key,
+      document.plainText.slice(chunk * TEXT_CHUNK_CHARS, (chunk + 1) * TEXT_CHUNK_CHARS),
+    ]);
+  }
+
   const persistedTexts = new Map<string, string>();
   // Documents whose text could not be read. Their metadata is written back unchanged on every save and
   // their text is never deleted, so a device or storage problem cannot turn into lost notes.
   let unavailable: StoredDocument[] = [];
 
   async function migrateLegacyDocuments() {
-    const value = parseArray(await AsyncStorage.getItem(LEGACY_KEY), "document");
+    const value = parseArray(await AsyncStorage.getItem(legacyKey), "document");
     const documents = value.filter(valid);
     if (documents.length !== value.length) throw new Error("Some saved document data is invalid.");
     if (!documents.length) return [];
     // Texts first, then metadata, then drop the legacy copy, so an interrupted migration never loses data.
     await AsyncStorage.multiSet(documents.flatMap(textEntries));
-    await AsyncStorage.setItem(LIBRARY_KEY, JSON.stringify(documents.map(metadata)));
-    await AsyncStorage.removeItem(LEGACY_KEY);
+    await AsyncStorage.setItem(libraryKey, JSON.stringify(documents.map(metadata)));
+    await AsyncStorage.removeItem(legacyKey);
     return documents;
   }
 
   async function loadDocuments(): Promise<VoticDocument[]> {
-    const raw = await AsyncStorage.getItem(LIBRARY_KEY);
+    const raw = await AsyncStorage.getItem(libraryKey);
     unavailable = [];
     const documents = raw === null ? await migrateLegacyDocuments() : await loadSplitDocuments(raw);
     persistedTexts.clear();
@@ -110,7 +114,7 @@ export function createDocumentStore() {
       const { textChunks: _chunks, ...rest } = document;
       documents.push({ ...rest, plainText: text } as VoticDocument);
     }
-    void AsyncStorage.removeItem(LEGACY_KEY).catch(() => {});
+    void AsyncStorage.removeItem(legacyKey).catch(() => {});
     // Finish snapshot-based cleanup before callers can save newly imported documents.
     await removeOrphanedTexts(stored).catch(() => {});
     return documents;
@@ -122,9 +126,9 @@ export function createDocumentStore() {
       stored.flatMap((document) => textChunkKeys(document.id, document.textChunks ?? 1)),
     );
     // An unreadable document keeps every key that could belong to it, in case its metadata is what is wrong.
-    const kept = new Set(unavailable.map((document) => documentTextKey(document.id)));
+    const kept = new Set(unavailable.map((document) => documentTextKey(document.id, 0, uid)));
     const orphaned = (await AsyncStorage.getAllKeys()).filter(
-      (key) => key.startsWith(TEXT_KEY_PREFIX) && !expected.has(key) && !kept.has(key.replace(/:\d+$/, "")),
+      (key) => key.startsWith(textPrefix) && !expected.has(key) && !kept.has(key.replace(/:\d+$/, "")),
     );
     if (orphaned.length) await AsyncStorage.multiRemove(orphaned);
   }
@@ -143,7 +147,7 @@ export function createDocumentStore() {
       for (const document of changed) persistedTexts.set(document.id, document.plainText);
     }
     await AsyncStorage.setItem(
-      LIBRARY_KEY,
+      libraryKey,
       JSON.stringify(
         documents
           .map(metadata)
@@ -166,14 +170,14 @@ export function createDocumentStore() {
   return { loadDocuments, saveDocuments, unavailableDocuments };
 }
 
-export async function loadCollections(): Promise<string[]> {
-  const value = parseArray(await AsyncStorage.getItem(COLLECTIONS_KEY), "collection");
+export async function loadCollections(uid?: string): Promise<string[]> {
+  const value = parseArray(await AsyncStorage.getItem(accountStorageKey(COLLECTIONS_KEY, uid)), "collection");
   if (value.some((item) => typeof item !== "string"))
     throw new Error("Some saved collection data is invalid.");
   return value.map((item) => (item as string).trim()).filter(Boolean);
 }
-export async function saveCollections(collections: string[]) {
-  await AsyncStorage.setItem(COLLECTIONS_KEY, JSON.stringify(collections));
+export async function saveCollections(collections: string[], uid?: string) {
+  await AsyncStorage.setItem(accountStorageKey(COLLECTIONS_KEY, uid), JSON.stringify(collections));
 }
 function validMetadata(value: any): value is StoredDocument {
   return (

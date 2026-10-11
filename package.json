@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "start": "node votic_server.js",
     "test": "node --test --test-isolation=none \"code_checks/**/*.test.js\" \"app_parts/**/*.test.js\" \"*.test.js\"",
@@ -22,6 +24,7 @@
     "jszip": "^3.10.1",
     "mammoth": "^1.12.3",
     "office-oxide": "^0.1.8",
+    "parse5": "7.3.0",
     "pdf-parse": "^2.4.5"
   }
 }

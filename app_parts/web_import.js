@@ -1,3 +1,4 @@
+import { parse } from "parse5";
 /* global Response */
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
@@ -63,61 +64,43 @@ export function fetch_public_page(url, options, addresses, requestImpl = url.pro
   });
 }
 
-function decodeEntities(text) {
-  return text.replace(/&nbsp;/gi," ").replace(/&amp;/gi,"&").replace(/&lt;/gi,"<").replace(/&gt;/gi,">").replace(/&quot;/gi,'"').replace(/&#39;|&apos;/gi,"'");
+const IGNORED_TAGS = new Set(["script", "style", "noscript", "svg", "canvas", "iframe", "form", "nav", "footer", "aside", "button", "select", "template"]);
+const BLOCK_TAGS = new Set(["p", "div", "section", "article", "main", "header", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "tr", "dd", "dt"]);
+function pageChrome(node) {
+  const attrs = new Map((node.attrs || []).map(({ name, value }) => [name, value]));
+  return IGNORED_TAGS.has(node.tagName) || attrs.get("role") === "navigation" ||
+    attrs.has("hidden") || attrs.get("aria-hidden") === "true" ||
+    /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
-/** The part of the page that holds the article: the first <article> … last </article>, else <main>, else <body>. */
-function contentRegion(html) {
-  for (const tag of ["article", "main", "body"]) {
-    const open = html.search(new RegExp(`<${tag}\\b`, "i"));
-    const close = html.toLowerCase().lastIndexOf(`</${tag}>`);
-    if (open !== -1 && close > open) return html.slice(open, close + tag.length + 3);
+function findTag(node, tag) {
+  if (node.tagName === tag) return node;
+  if (pageChrome(node)) return null;
+  for (const child of node.childNodes || []) {
+    const found = findTag(child, tag);
+    if (found) return found;
   }
-  return html;
+  return null;
 }
-const HEADING = "\u0001";
-/** A line that reads like a menu item: a few words with no sentence punctuation. */
-function menuLike(line) {
-  if (line.startsWith(HEADING)) return false;
-  const words = line.replace(/^• /, "").split(/\s+/).filter(Boolean);
-  return words.length <= 4 && !/[.!?:;,"”)]$/.test(line);
+function readableText(node) {
+  if (node.nodeName === "#text") return node.value;
+  if (pageChrome(node)) return "";
+  if (["br", "hr"].includes(node.tagName)) return "\n";
+  const text = (node.childNodes || []).map(readableText).join("");
+  if (node.tagName === "li") return `\n• ${text}\n`;
+  if (["td", "th"].includes(node.tagName)) return `${text} `;
+  return BLOCK_TAGS.has(node.tagName) ? `\n${text}\n` : text;
 }
 export function clean_webpage_html(html) {
-  const title = decodeEntities((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || "").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim()).slice(0,200);
-  let source = contentRegion(html)
-    .replace(/<!--[\s\S]*?-->/g," ")
-    .replace(/<(script|style|noscript|svg|canvas|iframe|form|nav|footer|aside|header|button|select)[^>]*>[\s\S]*?<\/\1>/gi," ")
-    .replace(/<(br|hr)\b[^>]*>/gi,"\n")
-    // Headings stand alone, so they are never mistaken for menu items below.
-    .replace(/<h[1-6]\b[^>]*>/gi,`\n${HEADING}`)
-    .replace(/<\/(p|div|section|article|main|h[1-6]|li|blockquote|tr|dd|dt)>/gi,"\n")
-    .replace(/<li\b[^>]*>/gi,"• ")
-    .replace(/<[^>]+>/g," ");
-  source = decodeEntities(source).replace(/\r/g,"").replace(/[ \t]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim()
-    // Removing inline tags leaves "synthesizer ," and "( TTS )"; close those gaps so text reads naturally.
-    .replace(/ +([.,;:!?%)\]])/g, "$1").replace(/([([]) +/g, "$1");
-  const lines = source.split("\n").map((line)=>line.trim()).filter((line)=>line.replace(HEADING, "").length > 1);
-  // Navigation, account links, language lists, tool menus, and tables of contents arrive as runs of short
-  // link labels. Drop any run of three or more; real headings and sentences break a run.
-  const filtered = [];
-  for (let index = 0; index < lines.length; ) {
-    if (!menuLike(lines[index])) { filtered.push(lines[index]); index += 1; continue; }
-    let end = index;
-    while (end < lines.length && menuLike(lines[end])) end += 1;
-    if (end - index < 3) filtered.push(...lines.slice(index, end));
-    index = end;
-  }
-  const seen = new Set(), kept = [];
-  for (const raw of filtered) {
-    const line = raw.replace(HEADING, "").trim();
-    if (!line) continue;
-    const key=line.toLocaleLowerCase();
-    if (seen.has(key) && line.length < 160) continue;
-    seen.add(key);
-    if (/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line)) continue;
-    kept.push(line);
-  }
-  return { title, text: kept.join("\n\n").slice(0,400_000) };
+  // Parse real elements: strings/comments inside scripts must never choose the article region.
+  const document = parse(html);
+  const titleNode = findTag(document, "title");
+  const title = (titleNode ? readableText(titleNode) : "").replace(/\s+/g, " ").trim().slice(0, 200);
+  const region = findTag(document, "article") || findTag(document, "main") || findTag(document, "body") || document;
+  const source = readableText(region).replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+  const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
+    .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
+  // Short lists, repeated steps, and article headers are content, regardless of word count.
+  return { title, text: kept.join("\n\n").slice(0, 400_000) };
 }
 export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000 } = {}) {
   let target = await resolvePublicUrl(value, lookupImpl);

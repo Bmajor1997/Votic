@@ -1,3 +1,11 @@
+class AiProviderError extends Error {
+  constructor(status, code) {
+    super("AI unavailable");
+    this.provider_status = status;
+    this.provider_code = typeof code === "string" ? code : null;
+  }
+}
+
 import { createHash } from "node:crypto";
 import { model_prices } from "./ai_usage.js";
 
@@ -55,10 +63,7 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
         finished = true;
         // Keep the provider's status and error code (never its message, which can echo part of the key).
         const body = await response.json().catch(() => null);
-        throw Object.assign(new Error("AI unavailable"), {
-          provider_status: response.status,
-          provider_code: typeof body?.error?.code === "string" ? body.error.code : typeof body?.error?.type === "string" ? body.error.type : null,
-        });
+        throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
       }
       const result = await response.json();
       const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";

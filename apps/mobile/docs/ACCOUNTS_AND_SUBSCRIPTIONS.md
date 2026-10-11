@@ -129,3 +129,20 @@ to sign out and back in first.
 
 Not yet done: revoking the Sign in with Apple token when an Apple account is deleted (Apple asks apps to do this).
 It needs a server endpoint with Apple's private key, so it belongs on the Votic server.
+
+## Local library account isolation
+
+Documents, document text chunks, saved notes, collections, and measured activity now use separate local
+storage namespaces for each Firebase UID. Signing out or switching accounts clears in-memory library,
+activity, navigation, and widget snapshots before the next account can render. Pending saves finish only
+in the account namespace that started them. Signing out still retains that account's local files.
+
+Older versions used a shared device library with no recorded owner. It is kept as a backup and never
+loaded automatically into a signed-in account. Its owner can choose **Settings → Account → Recover older
+device library**, confirm ownership, and merge it into the current account. Once assigned, another
+account cannot recover that backup. Recovery preserves current documents, notes on unreadable documents,
+and original device data; an interrupted recovery can be retried by the same owner.
+
+Explanation, listening, purpose, and reading-comfort previews in the personalization editor remain local
+to the editor until **Save**. Closing or backing out discards the draft. First-time setup still applies
+choices immediately and resumes where the person left off.

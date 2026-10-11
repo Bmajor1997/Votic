@@ -484,3 +484,21 @@ describe("Settings personalization and account", () => {
     expect(fakeAuth.calls).toContain("deleteAccount");
   });
 });
+
+it("does not start a delayed listening sample after leaving its step", async () => {
+  await renderWithProviders(<Personalize />, NOT_SET_UP);
+  for (let step = 0; step < 3; step += 1)
+    await fireEvent.press(screen.getByRole("button", { name: "Skip this step" }));
+  let release: () => void = () => {};
+  jest.mocked(Speech.stop).mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      }),
+  );
+  jest.mocked(Speech.speak).mockClear();
+  await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Back" }));
+  await act(async () => release());
+  expect(Speech.speak).not.toHaveBeenCalled();
+});

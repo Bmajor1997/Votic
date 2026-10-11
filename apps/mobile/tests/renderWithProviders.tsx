@@ -1,3 +1,4 @@
+import { AccountDataProvider } from "../src/storage/AccountDataProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, render } from "@testing-library/react-native";
 import { PropsWithChildren, ReactElement } from "react";
@@ -43,13 +44,15 @@ export function AppProviders({ children, measureNode }: PropsWithChildren<{ meas
               <AuthProvider>
                 <SubscriptionProvider>
                   <AccountSetupProvider>
-                    <ActivityProvider>
-                      <DocumentLibraryProvider>
-                        <DocumentTransitionProvider>
-                          <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
-                        </DocumentTransitionProvider>
-                      </DocumentLibraryProvider>
-                    </ActivityProvider>
+                    <AccountDataProvider>
+                      <ActivityProvider>
+                        <DocumentLibraryProvider>
+                          <DocumentTransitionProvider>
+                            <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
+                          </DocumentTransitionProvider>
+                        </DocumentLibraryProvider>
+                      </ActivityProvider>
+                    </AccountDataProvider>
                   </AccountSetupProvider>
                 </SubscriptionProvider>
               </AuthProvider>
@@ -110,7 +113,7 @@ export async function seedStorage({
     );
   if (reduceMotion)
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion }));
-  if (documents) await createDocumentStore().saveDocuments(documents);
+  if (documents && uid) await createDocumentStore(uid).saveDocuments(documents);
 }
 
 /** Renders a screen inside the app's providers, after seeding storage and letting providers load it. */

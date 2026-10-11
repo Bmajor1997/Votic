@@ -24,9 +24,39 @@ const STEPS = 4;
  * are saved together at the end, and going back from the first question (or Android's back button) closes.
  */
 export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edit"; onClose: () => void }) {
-  const setup = useAccountSetup();
-  const { purpose } = useVoticPurpose();
+  const access = useAccessibilityPreferences();
+  const purposePreferences = useVoticPurpose();
   const editing = props.mode === "edit";
+  const [preview, setPreview] = useState(() => ({ ...access }));
+  const [purposePreview, setPurposePreview] = useState(() => ({ ...purposePreferences }));
+  const a = editing
+    ? {
+        ...preview,
+        setTextSize: (textSize: typeof access.textSize) => setPreview((value) => ({ ...value, textSize })),
+        setReadingSpacing: (readingSpacing: typeof access.readingSpacing) =>
+          setPreview((value) => ({ ...value, readingSpacing })),
+        setReaderFont: (readerFont: typeof access.readerFont) =>
+          setPreview((value) => ({ ...value, readerFont })),
+        setTextSpacing: (textSpacing: typeof access.textSpacing) =>
+          setPreview((value) => ({ ...value, textSpacing })),
+        setReduceMotion: (reduceMotion: boolean) => setPreview((value) => ({ ...value, reduceMotion })),
+        setHighlightMode: (highlightMode: HighlightMode) =>
+          setPreview((value) => ({ ...value, highlightMode })),
+      }
+    : access;
+  const personalization = editing
+    ? {
+        ...purposePreview,
+        setPurpose: (purpose: NonNullable<typeof purposePreferences.purpose>) =>
+          setPurposePreview((value) => ({ ...value, purpose })),
+        setExplanationStyle: (explanationStyle: ExplanationStyle) =>
+          setPurposePreview((value) => ({ ...value, explanationStyle })),
+        setDefaultPlaybackRate: (defaultPlaybackRate: number) =>
+          setPurposePreview((value) => ({ ...value, defaultPlaybackRate })),
+      }
+    : purposePreferences;
+  const setup = useAccountSetup();
+  const { purpose } = personalization;
   const [draft, setDraft] = useState<PersonalizationAnswers>(() => setup.setup?.answers ?? EMPTY_ANSWERS);
   const [editStep, setEditStep] = useState(0);
   const answers = editing ? draft : (setup.setup?.answers ?? EMPTY_ANSWERS);
@@ -40,7 +70,17 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   function finish() {
     void Speech.stop();
     if (onClose) {
+      access.setTextSize(preview.textSize);
+      access.setReadingSpacing(preview.readingSpacing);
+      access.setReaderFont(preview.readerFont);
+      access.setTextSpacing(preview.textSpacing);
+      if (preview.reduceMotion !== access.reduceMotion) access.setReduceMotion(preview.reduceMotion);
+      if (purposePreview.purpose) purposePreferences.setPurpose(purposePreview.purpose);
       setup.savePersonalization(draft);
+      // Explicit choices (including "No highlighting") override older saved answers.
+      access.setHighlightMode(preview.highlightMode);
+      purposePreferences.setExplanationStyle(purposePreview.explanationStyle);
+      purposePreferences.setDefaultPlaybackRate(purposePreview.defaultPlaybackRate);
       onClose();
       return;
     }
@@ -66,6 +106,8 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   }, []);
 
   const stepProps = {
+    access: a,
+    personalization,
     step,
     onBack: back,
     onNext: next,
@@ -80,6 +122,8 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
 }
 
 type StepProps = {
+  access: ReturnType<typeof useAccessibilityPreferences>;
+  personalization: ReturnType<typeof useVoticPurpose>;
   step: number;
   onBack?: () => void;
   onNext: () => void;
@@ -89,8 +133,8 @@ type StepProps = {
   finishLabel: string;
 };
 
-function GoalStep({ step, onBack, onNext }: StepProps) {
-  const { purpose, setPurpose } = useVoticPurpose();
+function GoalStep({ step, onBack, onNext, personalization }: StepProps) {
+  const { purpose, setPurpose } = personalization;
   return (
     <StepScaffold
       step={step}
@@ -117,9 +161,8 @@ function GoalStep({ step, onBack, onNext }: StepProps) {
   );
 }
 
-function ComfortStep({ step, onBack, onNext }: StepProps) {
+function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
   const { theme } = useVoticTheme();
-  const a = useAccessibilityPreferences();
   // Each choice applies straight away, so the preview shows exactly what the Reader will look like.
   const choices = [
     {
@@ -198,10 +241,10 @@ const SAMPLE_ANSWERS: Record<ExplanationStyle, string> = {
   adaptive: "Votic keeps quick questions short and goes deeper when a question needs it.",
 };
 
-function ExplanationStep({ step, onBack, onNext, answers, setAnswers }: StepProps) {
+function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Shows this account's current style ("Adapt to the question" until something else is chosen).
-  const { explanationStyle, setExplanationStyle } = useVoticPurpose();
+  const { explanationStyle, setExplanationStyle } = personalization;
   function choose(value: ExplanationStyle) {
     setExplanationStyle(value);
     setAnswers({ ...answers, explanationStyle: value });
@@ -259,10 +302,18 @@ const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
 const LISTEN_SAMPLE = "This is how Votic sounds when it reads to you.";
 const LISTEN_WORDS = LISTEN_SAMPLE.split(" ");
 
-function ListeningStep({ step, onBack, onNext, answers, setAnswers, finishLabel }: StepProps) {
+function ListeningStep({
+  step,
+  onBack,
+  onNext,
+  answers,
+  setAnswers,
+  finishLabel,
+  access: a,
+  personalization,
+}: StepProps) {
   const { theme } = useVoticTheme();
-  const a = useAccessibilityPreferences();
-  const { defaultPlaybackRate, setDefaultPlaybackRate } = useVoticPurpose();
+  const { defaultPlaybackRate, setDefaultPlaybackRate } = personalization;
   const [playing, setPlaying] = useState(false);
   const [word, setWord] = useState(-1);
   const session = useRef(0);
@@ -284,21 +335,24 @@ function ListeningStep({ step, onBack, onNext, answers, setAnswers, finishLabel 
       setPlaying(false);
       setWord(-1);
     };
-    void Speech.stop().then(() =>
-      Speech.speak(LISTEN_SAMPLE, {
-        rate,
-        voice: a.voiceIdentifier || undefined,
-        onBoundary: (event: { charIndex?: number }) => {
-          if (session.current !== current) return;
-          const offset = Number(event?.charIndex);
-          if (!Number.isFinite(offset)) return;
-          setWord(LISTEN_SAMPLE.slice(0, offset).split(" ").length - 1);
-        },
-        onDone: done,
-        onStopped: done,
-        onError: done,
-      }),
-    );
+    void Speech.stop()
+      .then(() => {
+        if (session.current !== current) return;
+        Speech.speak(LISTEN_SAMPLE, {
+          rate,
+          voice: a.voiceIdentifier || undefined,
+          onBoundary: (event: { charIndex?: number }) => {
+            if (session.current !== current) return;
+            const offset = Number(event?.charIndex);
+            if (!Number.isFinite(offset)) return;
+            setWord(LISTEN_SAMPLE.slice(0, offset).split(" ").length - 1);
+          },
+          onDone: done,
+          onStopped: done,
+          onError: done,
+        });
+      })
+      .catch(done);
   }
   // Leaving this step (or setup) always stops the sample.
   useEffect(

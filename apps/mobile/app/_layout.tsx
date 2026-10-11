@@ -1,3 +1,4 @@
+import { AccountDataProvider } from "../src/storage/AccountDataProvider";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -123,9 +124,11 @@ export default function RootLayout() {
             <AuthProvider>
               <SubscriptionProvider>
                 <AccountSetupProvider>
-                  <ActivityProvider>
-                    <ThemedStack />
-                  </ActivityProvider>
+                  <AccountDataProvider>
+                    <ActivityProvider>
+                      <ThemedStack />
+                    </ActivityProvider>
+                  </AccountDataProvider>
                 </AccountSetupProvider>
               </SubscriptionProvider>
             </AuthProvider>

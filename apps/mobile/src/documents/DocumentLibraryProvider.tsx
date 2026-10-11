@@ -1,4 +1,5 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
+import { useAccountData } from "../storage/AccountDataProvider";
+import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { SavedPassage, VoticDocument } from "./types";
 import { createDocumentStore, loadCollections, saveCollections } from "./documentStorage";
@@ -54,30 +55,39 @@ function titleFrom(sourceName: string, text: string) {
 }
 
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
+  const { uid, registerFlush } = useAccountData();
   const [documents, setDocuments] = useState<VoticDocument[]>([]);
   const [collections, setCollections] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(!uid);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
-  const [store] = useState(createDocumentStore);
+  const [store] = useState(() => createDocumentStore(uid ?? ""));
   // A save error clears once a later save succeeds; other notices (such as unreadable documents) stay.
   const clearSaveError = (message: string) =>
     setPersistenceError((current) => (current === message ? null : current));
+  const [saveStatus] = useState(() => ({ failed: false }));
+  const collectionsFailed = useRef(false);
+  const collectionsSaved = useRef<Promise<void>>(Promise.resolve());
   const [librarySaver] = useState(() =>
     createThrottledSaver(
       async (value: VoticDocument[]) => {
         await store.saveDocuments(value);
+        saveStatus.failed = false;
         clearSaveError(LIBRARY_SAVE_ERROR);
       },
       LIBRARY_SAVE_INTERVAL_MS,
-      () => setPersistenceError(LIBRARY_SAVE_ERROR),
+      () => {
+        saveStatus.failed = true;
+        setPersistenceError(LIBRARY_SAVE_ERROR);
+      },
     ),
   );
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([store.loadDocuments(), loadCollections()])
+    if (!uid) return;
+    Promise.all([store.loadDocuments(), loadCollections(uid ?? "")])
       .then(([savedDocuments, savedCollections]) => {
         if (!mounted) return;
         setDocuments(savedDocuments);
@@ -99,8 +109,19 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, [store]);
+  }, [store, uid]);
 
+  useEffect(
+    () =>
+      registerFlush(async () => {
+        if (!hydrated) throw new Error("The library is not ready to recover older data.");
+        await librarySaver.flush();
+        await collectionsSaved.current;
+        if (saveStatus.failed || collectionsFailed.current)
+          throw new Error("Current library changes could not be saved.");
+      }),
+    [registerFlush, librarySaver, hydrated, saveStatus],
+  );
   useEffect(() => {
     if (hydrated) librarySaver.schedule(documents);
   }, [documents, hydrated, librarySaver]);
@@ -115,11 +136,17 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }, [librarySaver]);
   useEffect(() => {
     if (hydrated)
-      saveCollections(collections).then(
-        () => setPersistenceError((current) => (current === COLLECTIONS_SAVE_ERROR ? null : current)),
-        () => setPersistenceError(COLLECTIONS_SAVE_ERROR),
+      collectionsSaved.current = saveCollections(collections, uid ?? "").then(
+        () => {
+          collectionsFailed.current = false;
+          setPersistenceError((current) => (current === COLLECTIONS_SAVE_ERROR ? null : current));
+        },
+        () => {
+          collectionsFailed.current = true;
+          setPersistenceError(COLLECTIONS_SAVE_ERROR);
+        },
       );
-  }, [collections, hydrated]);
+  }, [collections, hydrated, uid]);
 
   const activeDocument = useMemo(
     () => documents.find((document) => document.id === activeId) || null,
