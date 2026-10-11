@@ -120,7 +120,14 @@ export default function ScanDocumentScreen() {
       {current ? (
         <Image source={{ uri: current.uri }} resizeMode="contain" style={StyleSheet.absoluteFill} />
       ) : (
-        <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing="back" enableTorch={torch} />
+        // No shutter animation: its full-screen flash is a photosensitivity risk (seizure safety).
+        <CameraView
+          ref={cameraRef}
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          enableTorch={torch}
+          animateShutter={false}
+        />
       )}
 
       <SafeAreaView style={s.overlay}>
