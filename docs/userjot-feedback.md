@@ -1,12 +1,12 @@
 # Votic feedback and GitHub issues
 
-The app's **Settings → Share feedback** and **Help → Share feedback** buttons open
+The app's **Settings → Share feedback** button opens
 <https://votic.userjot.com/?openFeedback> in the system browser. The app does not attach email,
 Firebase UID, document text, notes, or authentication tokens. UserJot controls guest submission and board login.
 
 ## Connection status
 
-The in-app buttons are implemented. GitHub issue mirroring is prepared but **not active**: UserJot's
+The in-app button is implemented. GitHub issue mirroring is prepared but **not active**: UserJot's
 live request schema and Votic board identifiers must be verified using an API token first. No recurring
 job, issue creation, UserJot comments, or status updates have been enabled.
 

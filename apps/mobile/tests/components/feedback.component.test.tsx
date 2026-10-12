@@ -15,12 +15,17 @@ describe("Votic feedback", () => {
     expect(open).toHaveBeenCalledWith(URL);
   });
 
-  it("is also available from Help and supports retry after a browser failure", async () => {
+  it("appears once, on the main Settings page, not again under Help", async () => {
+    await renderWithProviders(<SettingsDetailScreen category="help" />);
+    expect(screen.queryByRole("button", { name: "Share feedback" })).toBeNull();
+  });
+
+  it("can be retried after the browser fails to open", async () => {
     const open = jest
       .spyOn(Linking, "openURL")
       .mockRejectedValueOnce(new Error("browser unavailable"))
       .mockResolvedValue(true);
-    await renderWithProviders(<SettingsDetailScreen category="help" />);
+    await renderWithProviders(<Settings />);
     await fireEvent.press(screen.getByRole("button", { name: "Share feedback" }));
     expect(screen.getByRole("alert")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Share feedback" }));
