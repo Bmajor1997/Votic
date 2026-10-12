@@ -66,6 +66,9 @@ function answerNoteStamp() {
   const now = Date.now();
   return { now, id: "votic-note-" + now + "-" + Math.random().toString(36).slice(2, 7) };
 }
+/** How high a suggestion jumps on its way into the question box. */
+const JUMP_HEIGHT = 72;
+
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { theme } = useVoticTheme();
   const { explanationStyle } = useVoticPurpose();
@@ -178,8 +181,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
           requestAnimationFrame(() =>
             Animated.timing(flightProgress, {
               toValue: 1,
-              duration: 1050,
-              easing: Easing.inOut(Easing.cubic),
+              duration: 620,
+              easing: Easing.inOut(Easing.quad),
               useNativeDriver: true,
             }).start(() => {
               setFlight(null);
@@ -598,39 +601,53 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   left: flight.x,
                   top: flight.y,
                   opacity: flightProgress.interpolate({
-                    inputRange: [0, 0.88, 1],
-                    outputRange: [1, 1, 0.12],
+                    inputRange: [0, 0.92, 1],
+                    outputRange: [1, 1, 0.4],
                   }),
+                  // One jump: a quick crouch, an arc up and over, and a small landing squash in the box.
                   transform: [
                     {
                       translateX: flightProgress.interpolate({
-                        inputRange: [0, 0.2, 0.45, 0.72, 1],
-                        outputRange: [0, 64, -28, 52, flight.dx],
+                        inputRange: [0, 0.12, 1],
+                        outputRange: [0, 0, flight.dx],
                       }),
                     },
                     {
                       translateY: flightProgress.interpolate({
-                        inputRange: [0, 0.2, 0.45, 0.72, 1],
-                        outputRange: [0, flight.dy * 0.16, flight.dy * 0.43, flight.dy * 0.72, flight.dy],
+                        inputRange: [0, 0.12, 0.34, 0.56, 0.78, 1],
+                        outputRange: [
+                          0,
+                          4,
+                          flight.dy * 0.25 - JUMP_HEIGHT * 0.75,
+                          flight.dy * 0.5 - JUMP_HEIGHT,
+                          flight.dy * 0.75 - JUMP_HEIGHT * 0.75,
+                          flight.dy,
+                        ],
                       }),
                     },
                     {
                       rotate: flightProgress.interpolate({
-                        inputRange: [0, 0.2, 0.45, 0.72, 1],
-                        outputRange: ["0deg", "4deg", "-4deg", "3deg", "0deg"],
+                        inputRange: [0, 0.12, 0.5, 1],
+                        outputRange: ["0deg", "0deg", "-5deg", "0deg"],
                       }),
                     },
                     {
-                      scale: flightProgress.interpolate({
-                        inputRange: [0, 0.75, 1],
-                        outputRange: [1, 0.96, 0.9],
+                      scaleY: flightProgress.interpolate({
+                        inputRange: [0, 0.12, 0.3, 0.92, 1],
+                        outputRange: [1, 0.85, 1.06, 1, 0.88],
+                      }),
+                    },
+                    {
+                      scaleX: flightProgress.interpolate({
+                        inputRange: [0, 0.12, 0.3, 0.92, 1],
+                        outputRange: [1, 1.08, 0.96, 1, 1.06],
                       }),
                     },
                   ],
                 },
               ]}
             >
-              <Text numberOfLines={1} style={[s.flightText, { color: theme.accent }]}>
+              <Text numberOfLines={1} style={[s.flightText, { color: theme.accentText }]}>
                 {flight.label}
               </Text>
             </Animated.View>
