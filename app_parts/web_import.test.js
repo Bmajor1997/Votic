@@ -182,10 +182,10 @@ test("webpage cleanup drops unlabeled link menus but keeps checklists, steps and
     <main><h2>Safety checklist</h2>
       <ul><li>Safety goggles</li><li>Protective gloves</li><li>First aid kit</li></ul>
       <ol><li>Stop the machine</li><li>Disconnect power</li><li>Call for help</li></ol>
-      <h2>Sources</h2>
+      <h2>Related guides</h2>
       <ul><li><a href="/a">A practical guide to workshop safety for beginners</a></li><li><a href="/b">How protective equipment prevents common injuries</a></li><li><a href="/c">What to keep in a first aid kit at work</a></li></ul>
     </main></body>`);
-  for (const kept of ["Safety checklist", "• Safety goggles", "• Protective gloves", "• First aid kit", "• Stop the machine", "• Call for help", "Sources", "A practical guide to workshop safety"])
+  for (const kept of ["Safety checklist", "• Safety goggles", "• Protective gloves", "• First aid kit", "• Stop the machine", "• Call for help", "Related guides", "A practical guide to workshop safety"])
     assert.ok(text.includes(kept), `keep "${kept}"`);
   for (const menu of ["Home", "About", "Blog", "Contact"]) assert.ok(!text.includes(menu), `drop "${menu}"`);
 });
@@ -195,4 +195,28 @@ test("webpage cleanup reads the main article, not a shorter teaser before it, an
     <article><h1>The real story</h1><p>This&nbsp;article has the full text that people came to read, with several sentences of detail.</p></article></body>`);
   assert.match(text, /^The real story\n\nThis article has the full text/);
   assert.ok(!text.includes("teaser"));
+});
+
+test("webpage cleanup leaves out review boxes, short descriptions, navigation boxes and the references section", () => {
+  const { text } = clean_webpage_html(`<html><body><main id="content"><h1>Speech synthesis</h1>
+    <div id="mw-fr-revision-toggle" class="mw-fr-revision-toggle">Checked</div>
+    <div class="mw-fr-revision-details">Page version status<p>This is an accepted version of this page</p></div>
+    <div class="shortdescription nomobile noexcerpt noprint searchaux">Artificial production of human speech</div>
+    <p>Speech synthesis is the artificial production of human speech.</p>
+    <h2>History</h2><p>Early machines tried to imitate the human voice.</p>
+    <div class="mw-heading mw-heading2"><h2 id="References">References</h2><span class="mw-editsection">[edit]</span></div>
+    <div class="reflist"><ol class="references"><li>"AI-Generated Voice Firm". Vice. January 30, 2023.</li></ol></div>
+    <h2>External links</h2><ul><li>A longer external link description that would otherwise be kept</li></ul>
+    <div class="navbox"><a>Speech</a> <a>Synthesis</a> <a>Recognition</a></div>
+    <div id="catlinks" class="catlinks">Categories: Speech synthesis</div>
+  </main></body></html>`);
+  assert.equal(
+    text,
+    "Speech synthesis\n\nSpeech synthesis is the artificial production of human speech.\n\nHistory\n\nEarly machines tried to imitate the human voice.",
+  );
+});
+
+test("webpage cleanup keeps a page whose first heading is Notes", () => {
+  const { text } = clean_webpage_html(`<main><h2>Notes</h2><p>Meeting notes for Tuesday.</p></main>`);
+  assert.equal(text, "Notes\n\nMeeting notes for Tuesday.");
 });

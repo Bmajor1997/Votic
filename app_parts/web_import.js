@@ -70,7 +70,15 @@ function pageChrome(node) {
   const attrs = new Map((node.attrs || []).map(({ name, value }) => [name, value]));
   return IGNORED_TAGS.has(node.tagName) || attrs.get("role") === "navigation" ||
     attrs.has("hidden") || attrs.get("aria-hidden") === "true" ||
-    /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
+    /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`) ||
+    // Things a reader skips: citation lists, review/status boxes, short descriptions, navigation boxes,
+    // category links, and anything a site marks as not for print.
+    /(?:^|\s)(?:reflist|references|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
+}
+/** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
+const BACK_MATTER = /^(?:references|notes|citations|footnotes|sources|bibliography|works cited|further reading|external links)$/i;
+function backMatterHeading(node) {
+  return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(plainText(node).replace(/\[edit\]/gi, "").trim());
 }
 function findTags(node, tag, found = []) {
   if (node.tagName === tag) found.push(node);
@@ -98,11 +106,20 @@ function linkMenu(node) {
   const words = links.reduce((total, text) => total + text.split(/\s+/).length, 0);
   return linkChars >= visible(plainText(node)) * 0.8 && words / links.length <= 4;
 }
-function readableText(node) {
-  if (node.nodeName === "#text") return node.value;
+/** Text in reading order. Stops at the first back-matter heading (`state.ended`), once there's text to read. */
+function readableText(node, state = { ended: false, chars: 0 }) {
+  if (state.ended) return "";
+  if (node.nodeName === "#text") {
+    state.chars += node.value.trim().length;
+    return node.value;
+  }
   if (pageChrome(node) || linkMenu(node)) return "";
+  if (state.chars > 0 && backMatterHeading(node)) {
+    state.ended = true;
+    return "";
+  }
   if (["br", "hr"].includes(node.tagName)) return "\n";
-  const text = (node.childNodes || []).map(readableText).join("");
+  const text = (node.childNodes || []).map((child) => readableText(child, state)).join("");
   if (node.tagName === "li") return `\n• ${text}\n`;
   if (["td", "th"].includes(node.tagName)) return `${text} `;
   return BLOCK_TAGS.has(node.tagName) ? `\n${text}\n` : text;
