@@ -8,7 +8,6 @@
     "userInterfaceStyle": "automatic",
     "scheme": "votic",
     "plugins": [
-      "./plugins/withIconAliasIntentFilters",
       "expo-router",
       "@bacons/apple-targets",
       "expo-splash-screen",
@@ -52,75 +51,6 @@
             "multipleShareMimeTypes": []
           }
         }
-      ],
-      [
-        "expo-alternate-app-icons",
-        [
-          {
-            "name": "Orange",
-            "ios": "./assets/app-icons/icon-orange.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-orange.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Purple",
-            "ios": "./assets/app-icons/icon-purple.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-purple.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Red",
-            "ios": "./assets/app-icons/icon-red.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-red.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Teal",
-            "ios": "./assets/app-icons/icon-teal.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-teal.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Emerald",
-            "ios": "./assets/app-icons/icon-emerald.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-emerald.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Indigo",
-            "ios": "./assets/app-icons/icon-indigo.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-indigo.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Rose",
-            "ios": "./assets/app-icons/icon-rose.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-rose.png",
-              "backgroundColor": "#ffffff"
-            }
-          },
-          {
-            "name": "Amber",
-            "ios": "./assets/app-icons/icon-amber.png",
-            "android": {
-              "foregroundImage": "./assets/app-icons/foreground-amber.png",
-              "backgroundColor": "#ffffff"
-            }
-          }
-        ]
       ]
     ],
     "ios": {

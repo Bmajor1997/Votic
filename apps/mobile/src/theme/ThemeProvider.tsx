@@ -1,7 +1,6 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
 import { loadThemePreferences, saveThemePreferences } from "../preferences/preferenceStorage";
-import { matchAppIcon } from "./appIcon";
 export type AccentName =
   "blue" | "purple" | "orange" | "red" | "teal" | "emerald" | "indigo" | "rose" | "amber";
 export type AppearanceMode = "light" | "dark" | "system";
@@ -152,11 +151,6 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       setHydrated(true);
     });
   }, []);
-  // Keeps the home-screen icon matched after updating from a version without colored icons. Does nothing
-  // when it already matches, so it only ever changes once.
-  useEffect(() => {
-    if (hydrated) matchAppIcon(accentName);
-  }, [hydrated, accentName]);
   useEffect(() => {
     if (hydrated)
       saveThemePreferences({ accentName, accentChosen, appearanceMode, readerAppearanceMode }).catch(
