@@ -35,6 +35,17 @@ function tint(hex: string, amount: number) {
       .padStart(2, "0");
   return `#${channel(1)}${channel(3)}${channel(5)}`;
 }
+/** Blends two #RRGGBB colors: `amount` 0 is all `a`, 1 is all `b`. */
+function mix(a: string, b: string, amount: number) {
+  const channel = (start: number) =>
+    Math.round(
+      parseInt(a.slice(start, start + 2), 16) * (1 - amount) +
+        parseInt(b.slice(start, start + 2), 16) * amount,
+    )
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(1)}${channel(3)}${channel(5)}`;
+}
 /**
  * On sepia paper the standard accents fall just under 4.5:1 for small text, so Sepia uses a
  * slightly deeper step of the same accent (every accent then clears 5:1 on the page).
@@ -97,10 +108,12 @@ function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, r
     linkText: resolvedMode === "dark" ? tint(accent, 0.45) : accent,
     onAccent: "#FFFFFF",
     aiStatusText: resolvedMode === "dark" ? "#C4A7EA" : resolvedMode === "sepia" ? "#704795" : "#7653A6",
-    brandTint: resolvedMode === "dark" ? "#1B3458" : "#E5EEFF",
-    hero: resolvedMode === "dark" ? "#102B52" : "#DCE9FF",
-    heroText: resolvedMode === "dark" ? "#F2F6FF" : "#142F58",
-    heroMuted: resolvedMode === "dark" ? "#C0D4F2" : "#405C83",
+    // Soft backgrounds behind icons and highlighted cards, made from the chosen accent so they change with it
+    // (with blue they match Votic's original light blues and navies).
+    brandTint: resolvedMode === "dark" ? mix("#152238", accent, 0.25) : mix("#FFFFFF", accent, 0.12),
+    hero: resolvedMode === "dark" ? mix("#0B1220", accent, 0.3) : mix("#FFFFFF", accent, 0.16),
+    heroText: resolvedMode === "dark" ? "#F2F6FF" : shade(accent, 0.55),
+    heroMuted: resolvedMode === "dark" ? tint(accent, 0.7) : mix("#53637B", accent, 0.3),
     elevation: reader
       ? {}
       : {
