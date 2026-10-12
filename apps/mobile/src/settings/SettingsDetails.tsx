@@ -1,3 +1,4 @@
+import { FeedbackRow } from "../feedback/FeedbackRow";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { cleanLocalDocumentText } from "../documents/importDocument";
 import { openFrom } from "../documents/useDocumentImport";
@@ -368,6 +369,9 @@ function HelpSettings() {
         />
       </SettingsGroup>
       {/* Replays one walkthrough at a time: Home, Documents, Notes, or the Reader. */}
+      <SettingsGroup>
+        <FeedbackRow />
+      </SettingsGroup>
       <LearnVoticSettings />
     </>
   );

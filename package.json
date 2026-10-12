@@ -13,9 +13,11 @@
     "lint": "npx --yes eslint@9.39.5 .",
     "lint:html": "npx --yes html-validate@10.17.0 votic_home_page.html",
     "lint:css": "npx --yes stylelint@16.26.1 \"*.css\" --config .stylelintrc.json",
-    "quality": "npm run lint && npm run lint:html && npm run lint:css"
+    "quality": "npm run lint && npm run lint:html && npm run lint:css",
+    "userjot:inspect": "node integrations/userjot.js"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@playwright/test": "^1.63.0"
   },
   "dependencies": {

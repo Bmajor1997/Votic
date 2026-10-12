@@ -1,3 +1,4 @@
+import { FeedbackRow } from "../../src/feedback/FeedbackRow";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ComponentProps } from "react";
@@ -74,6 +75,7 @@ export default function Settings() {
       </SettingsGroup>
       <SettingsGroup title="SUPPORT & ACTIVITY">
         {category("help", "Walkthroughs, getting started, and activity insights", "help-circle-outline")}
+        <FeedbackRow separated />
       </SettingsGroup>
     </Screen>
   );
