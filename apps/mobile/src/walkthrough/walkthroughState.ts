@@ -129,12 +129,25 @@ async function loadDeviceState(now: number, uid: string): Promise<WalkthroughSta
     if (saved.flows.intro || !Object.keys(saved.flows).length) return saved;
     return { ...saved, flows: { ...saved.flows, intro: { status: "migrated", at: now } } };
   }
-  const [[, history], [, onboarding], [, library], [, collections]] = await AsyncStorage.multiGet([
+  const [
+    [, history],
+    [, onboarding],
+    [, accountLibrary],
+    [, accountCollections],
+    [, oldLibrary],
+    [, oldCollections],
+  ] = await AsyncStorage.multiGet([
     DEVICE_HISTORY_KEY,
     ONBOARDING_KEY,
     accountStorageKey(LIBRARY_KEY, uid),
     accountStorageKey(COLLECTIONS_KEY, uid),
+    LIBRARY_KEY,
+    COLLECTIONS_KEY,
   ]);
+  // This person's library from before it was kept per account counts too, so tours they've already learned
+  // don't play again even if it hasn't been moved into their account yet.
+  const library = accountLibrary ?? oldLibrary;
+  const collections = accountCollections ?? oldCollections;
   // Devices that ran a build from before the device history was recorded had already finished setup.
   const finishedSetupBefore = history === null && parseObject(onboarding)?.personalized === true;
   const learned = migratedFlows({

@@ -8,6 +8,13 @@ import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as backend from "../mocks/authBackend";
 import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
 import { createDocumentStore } from "../../src/documents/documentStorage";
+import { legacyRecoveryAvailable } from "../../src/storage/accountStorage";
+
+const AUTO_OWNER_KEY = "votic.mobile.legacy-library-auto-owner.v1";
+function LibraryProbe() {
+  const { documents } = useDocumentLibrary();
+  return <Text testID="library-titles">{documents.map((document) => document.title).join("|")}</Text>;
+}
 
 function Settings() {
   return <SettingsDetailScreen category="account" />;
@@ -185,6 +192,8 @@ it("recovers an older device library only after the owner confirms, keeping curr
     ],
   });
   await createDocumentStore().saveDocuments([legacy]);
+  // Nobody was signed in when this version first ran, so the older library waits for its owner to recover it.
+  await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: null }));
   function Probe() {
     const { documents } = useDocumentLibrary();
     return <Text testID="recovery-library">{documents.map((document) => document.title).join("|")}</Text>;
@@ -208,4 +217,27 @@ it("recovers an older device library only after the owner confirms, keeping curr
   );
   expect(await createDocumentStore().loadDocuments()).toEqual([legacy]);
   expect(screen.queryByRole("button", { name: "Recover older device library" })).toBeNull();
+  // The library reloads in place: Settings stays open instead of the whole app reloading.
+  expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
+});
+
+it("moves the older library automatically into the account that was signed in when Votic updated", async () => {
+  await createDocumentStore().saveDocuments([testDocument("legacy", "Older book")]);
+  await renderWithProviders(<LibraryProbe />, { documents: [testDocument("current", "Current book")] });
+  await waitFor(() =>
+    expect(screen.getByTestId("library-titles").props.children).toBe("Current book|Older book"),
+  );
+  // Claimed by this account, so another account can't take it.
+  expect(await legacyRecoveryAvailable("someone-else")).toBe(false);
+});
+
+it("lets the development account copy the older library without claiming it", async () => {
+  backend.fakeAuth.reset({ uid: "development", email: null, displayName: null });
+  await createDocumentStore().saveDocuments([testDocument("legacy", "Older book")]);
+  await renderWithProviders(<LibraryProbe />);
+  await waitFor(() => expect(screen.getByTestId("library-titles").props.children).toBe("Older book"));
+  // A real account can still recover it later, and the development account doesn't copy it twice.
+  await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: null }));
+  expect(await legacyRecoveryAvailable("real-account")).toBe(true);
+  expect(await legacyRecoveryAvailable("development")).toBe(false);
 });

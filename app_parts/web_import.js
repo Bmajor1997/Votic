@@ -72,18 +72,35 @@ function pageChrome(node) {
     attrs.has("hidden") || attrs.get("aria-hidden") === "true" ||
     /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
+function findTags(node, tag, found = []) {
+  if (node.tagName === tag) found.push(node);
+  else if (!pageChrome(node)) for (const child of node.childNodes || []) findTags(child, tag, found);
+  return found;
+}
 function findTag(node, tag) {
-  if (node.tagName === tag) return node;
-  if (pageChrome(node)) return null;
-  for (const child of node.childNodes || []) {
-    const found = findTag(child, tag);
-    if (found) return found;
-  }
-  return null;
+  return findTags(node, tag)[0] || null;
+}
+function plainText(node) {
+  if (node.nodeName === "#text") return node.value;
+  return (node.childNodes || []).map(plainText).join("");
+}
+const CONTAINERS = new Set(["article", "main", "body", "html"]);
+/**
+ * A block made almost entirely of short links: a site menu, language list, or table of contents. Judged by
+ * links, not by line length, so short lists of real content (a checklist, steps, headings) always stay.
+ */
+function linkMenu(node) {
+  if (!node.tagName || CONTAINERS.has(node.tagName)) return false;
+  const links = findTags(node, "a").map((link) => plainText(link).trim()).filter(Boolean);
+  if (links.length < 3) return false;
+  const visible = (text) => text.replace(/[\s•|·,]+/g, "").length;
+  const linkChars = links.reduce((total, text) => total + visible(text), 0);
+  const words = links.reduce((total, text) => total + text.split(/\s+/).length, 0);
+  return linkChars >= visible(plainText(node)) * 0.8 && words / links.length <= 4;
 }
 function readableText(node) {
   if (node.nodeName === "#text") return node.value;
-  if (pageChrome(node)) return "";
+  if (pageChrome(node) || linkMenu(node)) return "";
   if (["br", "hr"].includes(node.tagName)) return "\n";
   const text = (node.childNodes || []).map(readableText).join("");
   if (node.tagName === "li") return `\n• ${text}\n`;
@@ -95,11 +112,13 @@ export function clean_webpage_html(html) {
   const document = parse(html);
   const titleNode = findTag(document, "title");
   const title = (titleNode ? readableText(titleNode) : "").replace(/\s+/g, " ").trim().slice(0, 200);
-  const region = findTag(document, "article") || findTag(document, "main") || findTag(document, "body") || document;
-  const source = readableText(region).replace(/\r/g, "").replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+  // The longest article is the story; teasers and related posts are shorter.
+  const articles = findTags(document, "article").map((node) => [node, readableText(node).trim().length]);
+  const article = articles.sort((a, b) => b[1] - a[1])[0]?.[0];
+  const region = article || findTag(document, "main") || findTag(document, "body") || document;
+  const source = readableText(region).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
   const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
     .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
-  // Short lists, repeated steps, and article headers are content, regardless of word count.
   return { title, text: kept.join("\n\n").slice(0, 400_000) };
 }
 export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000 } = {}) {

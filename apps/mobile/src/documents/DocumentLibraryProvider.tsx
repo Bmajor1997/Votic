@@ -55,7 +55,7 @@ function titleFrom(sourceName: string, text: string) {
 }
 
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
-  const { uid, registerFlush } = useAccountData();
+  const { uid, registerFlush, registerReload } = useAccountData();
   const [documents, setDocuments] = useState<VoticDocument[]>([]);
   const [collections, setCollections] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -84,32 +84,45 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     ),
   );
 
-  useEffect(() => {
-    let mounted = true;
-    if (!uid) return;
-    Promise.all([store.loadDocuments(), loadCollections(uid ?? "")])
+  /** Reads this account's library; `reloading` keeps the open document, as after recovering older data. */
+  function load(isCurrent: () => boolean, reloading = false) {
+    return Promise.all([store.loadDocuments(), loadCollections(uid ?? "")])
       .then(([savedDocuments, savedCollections]) => {
-        if (!mounted) return;
+        if (!isCurrent()) return;
         setDocuments(savedDocuments);
         setCollections(savedCollections);
-        setActiveId(savedDocuments[0]?.id || null);
+        setActiveId((current) =>
+          reloading && savedDocuments.some((document) => document.id === current)
+            ? current
+            : savedDocuments[0]?.id || null,
+        );
         const unavailable = store.unavailableDocuments();
         setPersistenceError(unavailable.length ? unavailableMessage(unavailable) : null);
         setHydrated(true);
         setLoaded(true);
       })
       .catch(() => {
-        if (!mounted) return;
+        if (!isCurrent()) return;
         setPersistenceError(
           "Votic could not read its saved library. Your stored data has not been overwritten. Restart Votic and try again before making library changes.",
         );
         setHydrated(false);
         setLoaded(true);
       });
+  }
+  const loadRef = useRef(load);
+  useEffect(() => {
+    loadRef.current = load;
+  });
+  useEffect(() => {
+    let mounted = true;
+    if (!uid) return;
+    void loadRef.current(() => mounted);
     return () => {
       mounted = false;
     };
   }, [store, uid]);
+  useEffect(() => registerReload(() => loadRef.current(() => true, true)), [registerReload]);
 
   useEffect(
     () =>

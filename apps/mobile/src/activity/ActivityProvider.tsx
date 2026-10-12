@@ -39,7 +39,7 @@ type ActivityValue = {
 const ActivityContext = createContext<ActivityValue | null>(null);
 
 export function ActivityProvider({ children }: PropsWithChildren) {
-  const { uid, registerFlush } = useAccountData();
+  const { uid, registerFlush, registerReload } = useAccountData();
   const storageKey = accountStorageKey(ACTIVITY_KEY, uid ?? "");
   const [log, setLog] = useState<ActivityLog>(() => emptyLog());
   const [hydrated, setHydrated] = useState(!uid);
@@ -105,6 +105,22 @@ export function ActivityProvider({ children }: PropsWithChildren) {
     };
   }, [uid, storageKey, save]);
 
+  // After older activity is merged in, read it again in place; changes made meanwhile are kept.
+  useEffect(
+    () =>
+      registerReload(async () => {
+        if (!uid) return;
+        hydratedRef.current = false;
+        const saved = parseLog(await AsyncStorage.getItem(storageKey).catch(() => null));
+        let loaded = saved ?? latest.current;
+        for (const update of pending.current) loaded = update(loaded);
+        pending.current = [];
+        latest.current = loaded;
+        hydratedRef.current = true;
+        setLog(loaded);
+      }),
+    [registerReload, uid, storageKey],
+  );
   useEffect(
     () =>
       registerFlush(async () => {

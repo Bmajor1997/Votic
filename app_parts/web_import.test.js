@@ -175,3 +175,24 @@ test("webpage cleanup preserves linked punctuation and Unicode entities without 
   assert.match(text, /^Run, then stop\./);
   assert.match(text, /Gloves 2/);
 });
+
+test("webpage cleanup drops unlabeled link menus but keeps checklists, steps and linked references", () => {
+  const { text } = clean_webpage_html(`<body>
+    <div class="site-links"><a href="/">Home</a> | <a href="/about">About</a> | <a href="/blog">Blog</a> | <a href="/contact">Contact</a></div>
+    <main><h2>Safety checklist</h2>
+      <ul><li>Safety goggles</li><li>Protective gloves</li><li>First aid kit</li></ul>
+      <ol><li>Stop the machine</li><li>Disconnect power</li><li>Call for help</li></ol>
+      <h2>Sources</h2>
+      <ul><li><a href="/a">A practical guide to workshop safety for beginners</a></li><li><a href="/b">How protective equipment prevents common injuries</a></li><li><a href="/c">What to keep in a first aid kit at work</a></li></ul>
+    </main></body>`);
+  for (const kept of ["Safety checklist", "• Safety goggles", "• Protective gloves", "• First aid kit", "• Stop the machine", "• Call for help", "Sources", "A practical guide to workshop safety"])
+    assert.ok(text.includes(kept), `keep "${kept}"`);
+  for (const menu of ["Home", "About", "Blog", "Contact"]) assert.ok(!text.includes(menu), `drop "${menu}"`);
+});
+
+test("webpage cleanup reads the main article, not a shorter teaser before it, and normalizes non-breaking spaces", () => {
+  const { text } = clean_webpage_html(`<body><article><p>Related: a short teaser.</p></article>
+    <article><h1>The real story</h1><p>This&nbsp;article has the full text that people came to read, with several sentences of detail.</p></article></body>`);
+  assert.match(text, /^The real story\n\nThis article has the full text/);
+  assert.ok(!text.includes("teaser"));
+});
