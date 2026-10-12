@@ -76,10 +76,28 @@ function pageChrome(node) {
     /(?:^|\s)(?:reflist|references|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
 /** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
-// "Notes" and "Sources" also name substantive article sections; never discard them by title alone.
 const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited|further reading|external links)$/i;
+// "Notes", "Sources" and "See also" can be real sections (meeting notes, say), so they only count as back matter
+// when they run straight into one of the headings above, as on Wikipedia.
+const MAYBE_BACK_MATTER = /^(?:notes|sources|see also|notes and references)$/i;
+const headingTitle = (node) => plainText(node).replace(/\[edit\]/gi, "").trim();
 function backMatterHeading(node) {
-  return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(plainText(node).replace(/\[edit\]/gi, "").trim());
+  return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(headingTitle(node));
+}
+function sectionHeadings(node, found = []) {
+  if (["h2", "h3"].includes(node.tagName)) found.push(node);
+  else if (!pageChrome(node)) for (const child of node.childNodes || []) sectionHeadings(child, found);
+  return found;
+}
+/** Notes, Sources and See also headings that lead straight into back matter, so reading stops at them instead. */
+function backMatterRun(region) {
+  const headings = sectionHeadings(region), run = new Set();
+  headings.forEach((heading, index) => {
+    if (!backMatterHeading(heading)) return;
+    for (let before = index - 1; before >= 0 && MAYBE_BACK_MATTER.test(headingTitle(headings[before])); before -= 1)
+      run.add(headings[before]);
+  });
+  return run;
 }
 function findTags(node, tag, found = []) {
   if (node.tagName === tag) found.push(node);
@@ -108,14 +126,14 @@ function linkMenu(node) {
   return linkChars >= visible(plainText(node)) * 0.8 && words / links.length <= 4;
 }
 /** Text in reading order. Stops at the first back-matter heading (`state.ended`), once there's text to read. */
-function readableText(node, state = { ended: false, chars: 0 }) {
+function readableText(node, state = { ended: false, chars: 0, run: new Set() }) {
   if (state.ended) return "";
   if (node.nodeName === "#text") {
     state.chars += node.value.trim().length;
     return node.value;
   }
   if (pageChrome(node) || linkMenu(node)) return "";
-  if (state.chars > 0 && backMatterHeading(node)) {
+  if (state.chars > 0 && (backMatterHeading(node) || state.run.has(node))) {
     state.ended = true;
     return "";
   }
@@ -134,7 +152,7 @@ export function clean_webpage_html(html) {
   const articles = findTags(document, "article").map((node) => [node, readableText(node).trim().length]);
   const article = articles.sort((a, b) => b[1] - a[1])[0]?.[0];
   const region = article || findTag(document, "main") || findTag(document, "body") || document;
-  const source = readableText(region).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
+  const source = readableText(region, { ended: false, chars: 0, run: backMatterRun(region) }).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
   const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
     .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
   return { title, text: kept.join("\n\n").slice(0, 400_000) };

@@ -228,3 +228,12 @@ test("webpage cleanup preserves substantive Notes and Sources sections after an 
   for (const content of ["Decisions to retain.", "Interview findings.", "Schedule a follow-up."])
     assert.ok(text.includes(content));
 });
+
+test("webpage cleanup stops at Notes, Sources and See also that lead into References", () => {
+  const { text } = clean_webpage_html(`<main><h1>Topic</h1><p>Intro text.</p><h2>History</h2><p>Body.</p>
+    <h2>See also</h2><ul><li>Related one</li><li>Related two</li></ul>
+    <h2>Notes</h2><div class="reflist"><ol><li>Note a.</li></ol></div>
+    <h2>Sources</h2><ul><li>Smith, J. (2001). A Book. ISBN 978-0-00-000000-0.</li></ul>
+    <h2>References</h2><div class="reflist"><ol><li>Ref 1</li></ol></div></main>`);
+  assert.equal(text, "Topic\n\nIntro text.\n\nHistory\n\nBody.");
+});
