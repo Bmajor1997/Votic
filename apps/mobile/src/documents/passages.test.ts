@@ -38,6 +38,15 @@ describe("splitPassages", () => {
     ]);
   });
 
+  it("preserves paragraph boundaries in Windows line endings", () => {
+    expect(splitPassages("# Heading\r\n\r\nRead this sentence.")).toEqual(["Heading", "Read this sentence."]);
+  });
+
+  it("handles long passages containing many abbreviations", () => {
+    const text = "Dr. Lee and ".repeat(10000) + "colleagues arrived. Next.";
+    expect(splitPassages(text)).toEqual([text.slice(0, -6).trim(), "Next."]);
+  });
+
   it("leaves hashtags and numbers alone", () => {
     expect(splitPassages("Use #1 and #votic tags.")).toEqual(["Use #1 and #votic tags."]);
   });
