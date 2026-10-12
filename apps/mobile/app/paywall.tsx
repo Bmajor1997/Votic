@@ -59,7 +59,7 @@ export const PREMIUM_FEATURES: { icon: IconName; title: string; detail: string }
     icon: "chatbubble-ellipses-outline",
     title: "Ask Votic",
     detail:
-      "Type or record questions about your documents or selected notes. Save answers and Reader conversation summaries to Notes. AI tools need an internet connection.",
+      "Ask questions about your documents or selected notes. Save answers and Reader conversation summaries to Notes. AI tools need an internet connection.",
   },
   {
     icon: "bookmark-outline",
