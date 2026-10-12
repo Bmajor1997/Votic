@@ -76,7 +76,8 @@ function pageChrome(node) {
     /(?:^|\s)(?:reflist|references|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
 /** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
-const BACK_MATTER = /^(?:references|notes|citations|footnotes|sources|bibliography|works cited|further reading|external links)$/i;
+// "Notes" and "Sources" also name substantive article sections; never discard them by title alone.
+const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited|further reading|external links)$/i;
 function backMatterHeading(node) {
   return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(plainText(node).replace(/\[edit\]/gi, "").trim());
 }
