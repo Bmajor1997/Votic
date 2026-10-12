@@ -11,7 +11,7 @@ import {
   wordAtSpeechOffset,
   wordMatches,
 } from "./readerText";
-import { uniqueEnglishVoices, voticVoiceName, voticVoicePreview, deviceVoiceGender } from "./voices";
+import { uniqueEnglishVoices, voticVoiceNames, voticVoicePreview, deviceVoiceGender } from "./voices";
 
 // 3 + 2 + 5 = 10 words.
 const passages = ["One two three.", "Four five.", "Six seven eight nine ten."];
@@ -187,20 +187,41 @@ describe("Votic voices", () => {
     const male = { identifier: "engine-male-en", name: "Male", language: "en-US" };
     expect(deviceVoiceGender(female)).toBe("female");
     expect(deviceVoiceGender(male)).toBe("male");
+    const names = voticVoiceNames([male, female]);
     expect(["Mira", "Kaia", "Nyla", "Elara", "Clara", "Sofia", "Emma", "Lily"]).toContain(
-      voticVoiceName(female),
+      names[female.identifier],
     );
     expect(["Daniel", "Soren", "Kellan", "Oliver", "James", "Noah", "Henry", "Leo"]).toContain(
-      voticVoiceName(male),
+      names[male.identifier],
     );
-    expect(voticVoiceName(female, undefined, 0)).toBe(voticVoiceName(female, undefined, 20));
-    expect(voticVoicePreview(voticVoiceName(female))).toContain(voticVoiceName(female));
+    // The OS's list order doesn't change anyone's name.
+    expect(voticVoiceNames([female, male])).toEqual(names);
+    expect(voticVoicePreview(names[female.identifier])).toContain(names[female.identifier]);
   });
-  it("does not guess gender from opaque voice codes", () => {
-    const voice = { identifier: "en-us-x-tpf-local", name: "en-us-x-tpf-local", language: "en-US" };
-    expect(deviceVoiceGender(voice)).toBeUndefined();
-    expect(voticVoiceName(voice)).toBe("Device voice 1");
-    expect(voticVoiceName(voice, "female")).not.toBe(voticVoiceName(voice, "male"));
+  it("gives Android voices real, different names instead of their codes", () => {
+    const codes = [
+      "en-us-x-tpf-local",
+      "en-us-x-sfg-local",
+      "en-us-x-iom-local",
+      "en-gb-x-gba-local",
+      "en-us-x-tpd-network",
+    ];
+    const voices = codes.map((code) => ({ identifier: code, name: code, language: "en-US" }));
+    expect(deviceVoiceGender(voices[0])).toBeUndefined();
+    const names = Object.values(voticVoiceNames(voices));
+    expect(names).toHaveLength(codes.length);
+    expect(new Set(names).size).toBe(codes.length);
+    for (const name of names) expect(name).toMatch(/^[A-Z][a-z]+$/);
+  });
+  it("still names every voice when there are more voices than names", () => {
+    const voices = Array.from({ length: 20 }, (_, i) => ({
+      identifier: `v${i}`,
+      name: `v${i}`,
+      language: "en-US",
+    }));
+    const names = Object.values(voticVoiceNames(voices));
+    expect(new Set(names).size).toBe(20);
+    expect(names.every((name) => !/^v\d/.test(name))).toBe(true);
   });
   it("keeps one English voice per name", () => {
     const voices = [
