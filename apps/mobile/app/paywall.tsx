@@ -32,67 +32,40 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
-/** Benefits backed by the current import, Reader, Ask Votic, Notes, study, and widget workflows. */
+/**
+ * The six most marketable benefits, each backed by what Votic does today. Kept short on purpose: the paywall
+ * shows what people get, not every feature.
+ */
 export const PREMIUM_FEATURES: { icon: IconName; title: string; detail: string }[] = [
   {
     icon: "document-text-outline",
-    title: "Bring your documents together",
-    detail: "Import PDF, Word, PowerPoint, EPUB, and text files, including from other apps.",
-  },
-  {
-    icon: "scan-outline",
-    title: "Web articles and camera scans",
-    detail: "Import a webpage by link or scan one or more pages into a readable document.",
-  },
-  {
-    icon: "options-outline",
-    title: "Reading that fits you",
-    detail:
-      "Adjust text size, fonts, spacing, and focus settings, with light, dark, and sepia Reader themes.",
+    title: "Read anything",
+    detail: "PDFs, Word, PowerPoint, EPUB, web articles, and camera scans.",
   },
   {
     icon: "headset-outline",
     title: "Listen as it's read aloud",
-    detail: "Choose a device voice and speed, follow spoken-text highlights, and customize pronunciations.",
+    detail: "Your choice of voice and speed, with words highlighted as you go.",
   },
   {
     icon: "chatbubble-ellipses-outline",
     title: "Ask Votic",
-    detail:
-      "Ask questions about your documents or selected notes. Save answers and Reader conversation summaries to Notes. AI tools need an internet connection.",
+    detail: "Get answers from your documents, read aloud or saved to your notes.",
   },
   {
     icon: "bookmark-outline",
-    title: "Notes linked to the page",
-    detail:
-      "Save passages, write quick notes, and edit, tag, search, or share notes. Linked passages return you to their source.",
+    title: "Notes that help you study",
+    detail: "Save passages, then summarize them or quiz yourself.",
   },
   {
-    icon: "sparkles-outline",
-    title: "A workspace for every note",
-    detail:
-      "Read or listen to a note, then ask Votic to summarize, explain, suggest edits, or create study questions.",
-  },
-  {
-    icon: "school-outline",
-    title: "Review and check your understanding",
-    detail: "Reflect on a document and answer self-check questions based on the passages you've reached.",
-  },
-  {
-    icon: "folder-open-outline",
-    title: "An organized library",
-    detail: "Keep documents in collections and find them with search, filters, and sorting.",
+    icon: "options-outline",
+    title: "Reading that fits you",
+    detail: "Larger text, easier fonts, more spacing, and dark or sepia themes.",
   },
   {
     icon: "play-forward-outline",
     title: "Pick up where you left off",
-    detail:
-      "Resume your saved place in each document. Add Continue and This Week Home Screen widgets on iPhone or Android.",
-  },
-  {
-    icon: "stats-chart-outline",
-    title: "Reading statistics and weekly recaps",
-    detail: "See reading and listening time, document progress, and a recap of your week's activity.",
+    detail: "Votic keeps your place, with Home Screen widgets to jump back in.",
   },
 ];
 

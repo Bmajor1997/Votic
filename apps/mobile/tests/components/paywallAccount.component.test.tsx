@@ -1,6 +1,6 @@
 import { it, expect } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
-import Paywall from "../../app/paywall";
+import Paywall, { PREMIUM_FEATURES } from "../../app/paywall";
 import AccountManagement from "../../app/account";
 import { fakeAuth } from "../mocks/authBackend";
 import { entitlementOf, fakeSubscriptions } from "../mocks/subscriptionService";
@@ -24,4 +24,17 @@ it("an expired subscriber can reach account management from the paywall and dele
   expect(fakeAuth.calls).toContain("deleteAccount");
   expect(fakeAuth.user).toBeNull();
   expect(await loadAccountPreferences("test-user")).toBeNull();
+});
+
+it("keeps the Premium screen to six short benefits", async () => {
+  expect(PREMIUM_FEATURES).toHaveLength(6);
+  for (const feature of PREMIUM_FEATURES) expect(feature.detail.length).toBeLessThanOrEqual(80);
+  await renderWithProviders(<Paywall />);
+  for (const title of [
+    "Read anything",
+    "Listen as it's read aloud",
+    "Ask Votic",
+    "Pick up where you left off",
+  ])
+    expect(screen.getByText(title)).toBeTruthy();
 });
