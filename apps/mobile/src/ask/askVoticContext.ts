@@ -1,11 +1,11 @@
 import { SavedPassage, VoticDocument } from "../documents/types";
 import {
-  buildNotesAskSections,
-  notesAskScopeLabel,
-  notesForAskVotic,
+  build_notes_ask_sections,
+  notes_ask_scope_label,
+  notes_for_ask_votic,
   NotesAskScope,
 } from "../notes/askVoticNotesContext";
-import { AskLink, chunkDocument, LinkedSection, selectSections } from "./documentSections";
+import { AskLink, chunk_document, LinkedSection, select_sections } from "./documentSections";
 
 type Param = string | string[] | undefined;
 export type AskVoticParams = {
@@ -54,7 +54,7 @@ function single(value: Param) {
   return typeof text === "string" && text.trim() ? text : undefined;
 }
 
-export function notesScopeFromParams(params: AskVoticParams): NotesAskScope | null {
+export function notes_scope_from_params(params: AskVoticParams): NotesAskScope | null {
   const documentId = single(params.notesDocumentId);
   const passageId = single(params.notesPassageId);
   const passageIds = single(params.notesPassageIds)
@@ -65,22 +65,22 @@ export function notesScopeFromParams(params: AskVoticParams): NotesAskScope | nu
   return { documentId, passageId, passageIds: passageIds?.length ? passageIds : undefined };
 }
 
-export function initialQuestionFromParams(params: AskVoticParams) {
+export function initial_question_from_params(params: AskVoticParams) {
   return single(params.initialQuestion) || "";
 }
 
 /** Changes whenever Ask Votic is pointed at a different document, notes scope, or prefilled question. */
-export function askVoticContextKey(activeDocumentId: string | null | undefined, params: AskVoticParams) {
-  const scope = notesScopeFromParams(params);
+export function ask_votic_context_key(activeDocumentId: string | null | undefined, params: AskVoticParams) {
+  const scope = notes_scope_from_params(params);
   return JSON.stringify(
     scope
-      ? { notes: scope, question: initialQuestionFromParams(params) }
-      : { document: activeDocumentId || null, question: initialQuestionFromParams(params) },
+      ? { notes: scope, question: initial_question_from_params(params) }
+      : { document: activeDocumentId || null, question: initial_question_from_params(params) },
   );
 }
 
-function notesSaveSource(documents: VoticDocument[], scope: NotesAskScope): AskAnswerSource | null {
-  const notes = notesForAskVotic(documents, scope);
+function notes_save_source(documents: VoticDocument[], scope: NotesAskScope): AskAnswerSource | null {
+  const notes = notes_for_ask_votic(documents, scope);
   const document = notes[0]?.document;
   // Answers about notes from several documents have no single home, so they are not attached to any document.
   if (!document || notes.some((item) => item.document.id !== document.id)) return null;
@@ -92,21 +92,21 @@ function notesSaveSource(documents: VoticDocument[], scope: NotesAskScope): AskA
   };
 }
 
-export function resolveAskVoticContext(
+export function resolve_ask_votic_context(
   documents: VoticDocument[],
   activeDocument: VoticDocument | null,
   params: AskVoticParams,
 ): AskVoticContext {
-  const scope = notesScopeFromParams(params);
+  const scope = notes_scope_from_params(params);
   if (scope) {
-    const notes = buildNotesAskSections(documents, scope);
+    const notes = build_notes_ask_sections(documents, scope);
     if (!notes) return { kind: "notes-missing", label: "Notes unavailable" };
     return {
       kind: "notes",
       title: notes.title,
       sections: notes.sections,
-      label: notesAskScopeLabel(documents, scope),
-      saveSource: notesSaveSource(documents, scope),
+      label: notes_ask_scope_label(documents, scope),
+      saveSource: notes_save_source(documents, scope),
     };
   }
   if (activeDocument)
@@ -127,17 +127,17 @@ export function resolveAskVoticContext(
 }
 
 /** Conversation messages that count as history: fallback notices (limits, errors) are not answers. */
-export function conversationMessages<T extends ChatMessage>(messages: T[]) {
+export function conversation_messages<T extends ChatMessage>(messages: T[]) {
   return messages.filter((message) => !message.fallback);
 }
 
 /** The last few exchanges, so follow-up questions make sense. Excludes the question being asked. */
-export function recentHistory(
+export function recent_history(
   messages: ChatMessage[],
   question: string,
   limit: HistoryLimit = { messages: HISTORY_MESSAGES, chars: HISTORY_MESSAGE_CHARS },
 ): AskHistoryItem[] {
-  const conversation = conversationMessages(messages);
+  const conversation = conversation_messages(messages);
   const last = conversation[conversation.length - 1];
   const prior = last?.role === "user" && last.text === question ? conversation.slice(0, -1) : conversation;
   return prior.slice(-limit.messages).map((message) => ({
@@ -150,11 +150,11 @@ export function recentHistory(
  * Whether an answer came from the document or notes that were sent. When they could not be used
  * (daily limit, AI unavailable), the server still replies, but with a notice rather than an answer.
  */
-export function answeredFromContext(request: AskRequest, answer: { mode: string }) {
+export function answered_from_context(request: AskRequest, answer: { mode: string }) {
   return !request.document || answer.mode === "document-ai";
 }
 
-function toRequest(
+function to_request(
   title: string,
   selected: { items: LinkedSection[]; partial: boolean },
   history: AskHistoryItem[],
@@ -169,32 +169,32 @@ function toRequest(
   };
 }
 
-export function prepareAskRequest(
+export function prepare_ask_request(
   context: AskVoticContext,
   question: string,
   messages: ChatMessage[],
   historyLimit?: HistoryLimit,
 ): AskRequest {
-  const history = recentHistory(messages, question, historyLimit);
+  const history = recent_history(messages, question, historyLimit);
   if (context.kind === "notes")
-    return toRequest(context.title, selectSections(context.sections, question), history);
+    return to_request(context.title, select_sections(context.sections, question), history);
   if (context.kind === "document") {
-    const sections = chunkDocument(context.documentId, context.plainText);
+    const sections = chunk_document(context.documentId, context.plainText);
     const anchorIndex = sections.reduce(
       (found, item, index) => (item.link && item.link.sentenceIndex <= context.sentenceIndex ? index : found),
       0,
     );
-    return toRequest(context.title, selectSections(sections, question, { anchorIndex }), history);
+    return to_request(context.title, select_sections(sections, question, { anchorIndex }), history);
   }
   return { links: [], history };
 }
 
 /** Maps the section the answer points to back to a Reader location. */
-export function answerLink(request: AskRequest, sectionIndex: number | null): AskLink | null {
+export function answer_link(request: AskRequest, sectionIndex: number | null): AskLink | null {
   return sectionIndex === null ? null : (request.links[sectionIndex] ?? null);
 }
 
-export function answerNoteForSource(
+export function answer_note_for_source(
   documents: VoticDocument[],
   source: AskAnswerSource,
   answer: string,

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { useAuth } from "../src/auth/AuthProvider";
-import { authErrorMessage, looksLikeEmail } from "../src/auth/authErrors";
+import { auth_error_message, looks_like_email } from "../src/auth/authErrors";
 import {
   AccountScaffold,
   EmailDivider,
@@ -28,19 +28,19 @@ export default function SignIn() {
   const [triedSubmit, setTriedSubmit] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
-  const emailError = triedSubmit && !looksLikeEmail(email) ? "Enter a valid email address." : "";
+  const emailError = triedSubmit && !looks_like_email(email) ? "Enter a valid email address." : "";
   const passwordError = triedSubmit && !password ? "Enter your password." : "";
 
   async function submit() {
     setTriedSubmit(true);
     setError("");
-    if (!looksLikeEmail(email) || !password || busy || socialBusy) return;
+    if (!looks_like_email(email) || !password || busy || socialBusy) return;
     setBusy(true);
     try {
       await auth.signIn(email, password);
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
-      setError(authErrorMessage(failure));
+      setError(auth_error_message(failure));
       // Never keep a rejected password around.
       setPassword("");
     } finally {

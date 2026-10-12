@@ -33,6 +33,6 @@ export type VoticDocument = {
 };
 
 /** Documents to read or listen to. Quick Notes is a notebook, so it stays out of the library and Home. */
-export function readableDocuments<T extends Pick<VoticDocument, "notebookKind">>(documents: T[]) {
+export function readable_documents<T extends Pick<VoticDocument, "notebookKind">>(documents: T[]) {
   return documents.filter((document) => !document.notebookKind);
 }

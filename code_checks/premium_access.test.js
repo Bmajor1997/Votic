@@ -60,7 +60,7 @@ test("Premium verification deadlines cover a stalled response body, even if abor
   assert.equal(signal.aborted, true);
 });
 
-async function withServer(options, run) {
+async function with_server(options, run) {
   const server = create_votic_server({ env: { REVENUECAT_SECRET_API_KEY: "test-backend-key" },
     authorize: () => ({ uid: "unpaid-account" }), logger: { error() {}, warn() {} }, ...options });
   server.listen(0, "127.0.0.1"); await once(server, "listening");
@@ -70,7 +70,7 @@ async function withServer(options, run) {
 
 test("every Premium endpoint denies an authenticated unpaid account before processing or spending AI", async () => {
   let work = 0;
-  await withServer({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(undefined) }),
+  await with_server({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(undefined) }),
     fetchImpl: async () => { work++; throw new Error("must not send AI"); },
     extractDocument: async () => { work++; return "must not extract"; },
   }, async (base) => {
@@ -85,7 +85,7 @@ test("every Premium endpoint denies an authenticated unpaid account before proce
 
 test("Premium verification errors return curated 503; public pages and signed-out 401 remain independent", async () => {
   let checks = 0;
-  await withServer({ authorize: (request, path) => path.startsWith("/api/") ? (request.headers.authorization ? { uid: "user" } : false) : true,
+  await with_server({ authorize: (request, path) => path.startsWith("/api/") ? (request.headers.authorization ? { uid: "user" } : false) : true,
     revenueCatFetchImpl: async () => { checks++; throw new Error("private upstream detail"); },
   }, async (base) => {
     assert.equal((await fetch(base)).status, 200);
@@ -100,7 +100,7 @@ test("Premium verification errors return curated 503; public pages and signed-ou
 
 test("subscribed accounts retain API access and RevenueCat checks cannot spend the AI allowance", async () => {
   let checks = 0, ai = 0;
-  await withServer({ revenueCatFetchImpl: async () => { checks++; return { ok: true, json: async () => customer({ expires_date: null }) }; },
+  await with_server({ revenueCatFetchImpl: async () => { checks++; return { ok: true, json: async () => customer({ expires_date: null }) }; },
     fetchImpl: async () => { ai++; throw new Error("AI is not configured for this test"); },
   }, async (base) => {
     const response = await fetch(`${base}/api/help`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "How do I upload?" }) });

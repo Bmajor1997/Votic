@@ -30,7 +30,7 @@ function failure(code: string) {
   return Object.assign(new Error(code), { code });
 }
 
-export function createAuthBackend(): AuthBackend {
+export function create_auth_backend(): AuthBackend {
   return {
     configured: fakeAuth.configured,
     googleAvailable: true,

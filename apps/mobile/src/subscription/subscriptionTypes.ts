@@ -57,7 +57,7 @@ export interface SubscriptionService {
 
 export const UNKNOWN_ENTITLEMENT: Entitlement = { status: "unknown", expiresAt: null, managementUrl: null };
 
-export const unavailableSubscriptionService = (
+export const unavailable_subscription_service = (
   reason: SubscriptionUnavailableReason,
 ): SubscriptionService => ({
   unavailableReason: reason,

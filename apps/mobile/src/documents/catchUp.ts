@@ -1,8 +1,8 @@
-import { splitPassages } from "./passages";
+import { split_passages } from "./passages";
 import { VoticDocument } from "./types";
 
-export function catchUpContext(document: VoticDocument) {
-  const passages = splitPassages(document.plainText);
+export function catch_up_context(document: VoticDocument) {
+  const passages = split_passages(document.plainText);
   if (!passages.length) return "";
   const current = Math.max(0, Math.min(passages.length - 1, document.sentenceIndex || 0));
   const start = Math.max(0, current - 5);
@@ -11,7 +11,7 @@ export function catchUpContext(document: VoticDocument) {
     .join("\n\n")
     .slice(-12000);
 }
-export function catchUpPrompt(document: VoticDocument) {
+export function catch_up_prompt(document: VoticDocument) {
   const percent = Math.round((document.progress || 0) * 100);
   return (
     "Catch me up on what I have already covered in this document. I am about " +

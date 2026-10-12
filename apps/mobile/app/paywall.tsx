@@ -17,14 +17,14 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
-import { hasAccess } from "../src/subscription/entitlement";
+import { has_access } from "../src/subscription/entitlement";
 import {
-  billingSummary,
-  billingTerms,
-  offerTitle,
-  planName,
-  priceLabel,
-  primaryActionLabel,
+  billing_summary,
+  billing_terms,
+  offer_title,
+  plan_name,
+  price_label,
+  primary_action_label,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
 import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
@@ -78,7 +78,7 @@ const UNAVAILABLE_MESSAGES: Record<SubscriptionUnavailableReason, string> = {
 
 const STORE = Platform.OS === "ios" ? "App Store" : "Google Play";
 
-function formatLongDate(date: Date) {
+function format_long_date(date: Date) {
   return date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
@@ -145,7 +145,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     try {
       const outcome = await service.purchase(selected.id);
       if (outcome.kind === "purchased") {
-        if (hasAccess(outcome.entitlement.status)) subscription.setEntitlement(outcome.entitlement);
+        if (has_access(outcome.entitlement.status)) subscription.setEntitlement(outcome.entitlement);
         else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
@@ -169,7 +169,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     setMessage(null);
     try {
       const restored = await service.restore();
-      if (hasAccess(restored.status)) subscription.setEntitlement(restored);
+      if (has_access(restored.status)) subscription.setEntitlement(restored);
       else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
       else
@@ -207,7 +207,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           {!unavailable && selected?.trial ? (
             <View style={[s.trial, { backgroundColor: theme.surface }]}>
               <Ionicons name="gift-outline" size={20} color={theme.accentText} />
-              <Text style={[s.trialText, { color: theme.text }]}>{offerTitle(selected)}</Text>
+              <Text style={[s.trialText, { color: theme.text }]}>{offer_title(selected)}</Text>
             </View>
           ) : null}
         </View>
@@ -257,7 +257,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                 <Pressable
                   key={plan.id}
                   accessibilityRole="radio"
-                  accessibilityLabel={`${planName(plan)}, ${billingSummary(plan)}`}
+                  accessibilityLabel={`${plan_name(plan)}, ${billing_summary(plan)}`}
                   accessibilityState={{ checked: active }}
                   onPress={() => setSelectedId(plan.id)}
                   style={[
@@ -269,15 +269,15 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                   ]}
                 >
                   <View style={s.planTop}>
-                    <Text style={[s.benefitTitle, { color: theme.text }]}>{planName(plan)}</Text>
+                    <Text style={[s.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
                     <Ionicons
                       name={active ? "radio-button-on" : "radio-button-off"}
                       size={22}
                       color={active ? theme.accentText : theme.mutedText}
                     />
                   </View>
-                  <Text style={[s.price, { color: theme.text }]}>{priceLabel(plan)}</Text>
-                  <Text style={[s.detail, { color: theme.mutedText }]}>{billingSummary(plan)}</Text>
+                  <Text style={[s.price, { color: theme.text }]}>{price_label(plan)}</Text>
+                  <Text style={[s.detail, { color: theme.mutedText }]}>{billing_summary(plan)}</Text>
                 </Pressable>
               );
             })}
@@ -286,7 +286,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
 
         {selected ? (
           <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
-            {billingTerms(selected, { now: now(), store: STORE, formatDate: formatLongDate })}
+            {billing_terms(selected, { now: now(), store: STORE, formatDate: format_long_date })}
           </Text>
         ) : null}
 
@@ -333,13 +333,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ) : (
           <>
             {selected ? (
-              <Text style={[s.summary, { color: theme.mutedText }]}>{billingSummary(selected)}</Text>
+              <Text style={[s.summary, { color: theme.mutedText }]}>{billing_summary(selected)}</Text>
             ) : null}
             <PrimaryButton
-              label={primaryActionLabel(selected)}
+              label={primary_action_label(selected)}
               busy={purchasing}
               disabled={!selected || restoring}
-              accessibilityHint={selected ? billingSummary(selected) : undefined}
+              accessibilityHint={selected ? billing_summary(selected) : undefined}
               onPress={() => void purchase()}
             />
           </>

@@ -3,7 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import { screen, waitFor } from "@testing-library/react-native";
 import { AskVoticEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { accentColors } from "../../src/theme/ThemeProvider";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
 describe("Ask Votic mascot", () => {
   it("colors its wings with the accent chosen in Settings", async () => {
@@ -11,7 +11,7 @@ describe("Ask Votic mascot", () => {
       "votic.mobile.theme.v1",
       JSON.stringify({ accentName: "purple", accentChosen: true, appearanceMode: "light" }),
     );
-    await renderWithProviders(<AskVoticEmptyAnimation />);
+    await render_with_providers(<AskVoticEmptyAnimation />);
     await waitFor(() =>
       expect(screen.getByTestId("ask-mascot-wings").props.tintColor).toBe(accentColors.purple),
     );
@@ -19,7 +19,7 @@ describe("Ask Votic mascot", () => {
   });
 
   it("uses Votic blue by default", async () => {
-    await renderWithProviders(<AskVoticEmptyAnimation />);
+    await render_with_providers(<AskVoticEmptyAnimation />);
     expect(screen.getByTestId("ask-mascot-wings").props.tintColor).toBe(accentColors.blue);
   });
 });

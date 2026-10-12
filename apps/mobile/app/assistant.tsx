@@ -16,7 +16,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { askVotic } from "../src/api/voticApi";
+import { ask_votic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
@@ -30,25 +30,25 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { AskVoticEmptyAnimation } from "../src/components/EmptyStateIllustrations";
 import {
-  answeredFromContext,
-  answerLink,
-  answerNoteForSource,
+  answered_from_context,
+  answer_link,
+  answer_note_for_source,
   AskAnswerSource,
-  askVoticContextKey,
+  ask_votic_context_key,
   AskVoticParams,
-  initialQuestionFromParams,
+  initial_question_from_params,
   MISSING_NOTES_MESSAGE,
-  prepareAskRequest,
-  resolveAskVoticContext,
+  prepare_ask_request,
+  resolve_ask_votic_context,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
 import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { useActivity } from "../src/activity/ActivityProvider";
-import { askEventFor } from "../src/activity/askCategories";
+import { ask_event_for } from "../src/activity/askCategories";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
-import { askSuggestions } from "../src/personalization/suggestions";
+import { ask_suggestions } from "../src/personalization/suggestions";
 import { usePersonalization } from "../src/personalization/usePersonalization";
 
 type Message = {
@@ -62,7 +62,7 @@ type Message = {
 };
 type PromptFlight = { label: string; x: number; y: number; dx: number; dy: number };
 /** Timestamp and unique id for a note saved from an answer (called only from the Save button). */
-function answerNoteStamp() {
+function answer_note_stamp() {
   const now = Date.now();
   return { now, id: "votic-note-" + now + "-" + Math.random().toString(36).slice(2, 7) };
 }
@@ -77,13 +77,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { recordAsk } = useActivity();
   const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
-  const context = resolveAskVoticContext(documents, activeDocument, params);
-  const contextKey = askVoticContextKey(activeDocument?.id, params);
-  const initialQuestion = initialQuestionFromParams(params);
+  const context = resolve_ask_votic_context(documents, activeDocument, params);
+  const contextKey = ask_votic_context_key(activeDocument?.id, params);
+  const initialQuestion = initial_question_from_params(params);
   const notesScopeLabel = context.kind === "notes" || context.kind === "notes-missing" ? context.label : "";
   const { reduceMotion } = useAccessibilityPreferences();
   // Chosen from the person's personalization answers, or the purpose chosen in earlier versions.
-  const suggestedPrompts = askSuggestions(personalization.answers, personalization.purpose);
+  const suggestedPrompts = ask_suggestions(personalization.answers, personalization.purpose);
   const [question, setQuestion] = useState(initialQuestion);
   const [voiceReveal, setVoiceReveal] = useState<TextRevealFrame | null>(null);
   const [voicePhase, setVoicePhase] = useState<VoiceInputPhase>("idle");
@@ -131,7 +131,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setLaunching(false);
     setFlight(null);
   }, [contextKey, initialQuestion]);
-  function settlePrompt(label: string) {
+  function settle_prompt(label: string) {
     setQuestion(label);
     promptEntry.setValue(0);
     sendBounce.setValue(0);
@@ -159,7 +159,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       ]),
     ]).start();
   }
-  function choosePrompt(label: string) {
+  function choose_prompt(label: string) {
     if (reduceMotion) {
       setQuestion(label);
       return;
@@ -168,7 +168,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     const target = composerTargetRef.current;
     const root = rootRef.current;
     if (!source || !target || !root) {
-      settlePrompt(label);
+      settle_prompt(label);
       return;
     }
     root.measureInWindow((rootX, rootY) =>
@@ -186,14 +186,14 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               useNativeDriver: true,
             }).start(() => {
               setFlight(null);
-              settlePrompt(label);
+              settle_prompt(label);
             }),
           );
         }),
       ),
     );
   }
-  function launchArrow() {
+  function launch_arrow() {
     if (reduceMotion) return Promise.resolve();
     sendSpin.setValue(0);
     sendLaunch.setValue(0);
@@ -234,7 +234,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     if (retry) setRetrying(true);
     else {
       setLaunching(true);
-      await launchArrow();
+      await launch_arrow();
       if (!current()) return;
       setLaunching(false);
       setQuestion("");
@@ -242,7 +242,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       lastQuestion.current = clean;
       // Retries resend the same question, so only first attempts are counted.
       recordAsk(
-        askEventFor(clean, {
+        ask_event_for(clean, {
           newConversation: messages.length === 0,
           builtInPrompts: [...suggestedPrompts, initialQuestion].filter(Boolean),
         }),
@@ -256,9 +256,9 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     if (!retry) setError("");
     setSending(true);
     try {
-      const request = prepareAskRequest(askContext, clean, messages);
-      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
-      const grounded = answeredFromContext(request, answer);
+      const request = prepare_ask_request(askContext, clean, messages);
+      const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
+      const grounded = answered_from_context(request, answer);
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (!current()) return;
@@ -270,7 +270,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               role: "votic",
               text: answer.answer,
               source: askContext.kind === "general" ? undefined : (askContext.saveSource ?? undefined),
-              link: answerLink(request, answer.sectionIndex) ?? undefined,
+              link: answer_link(request, answer.sectionIndex) ?? undefined,
             }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
@@ -283,26 +283,26 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       }
     }
   }
-  function openAnswerLink(link: AskLink) {
+  function open_answer_link(link: AskLink) {
     if (!documents.some((document) => document.id === link.documentId)) return;
     openDocument(link.documentId, link.sentenceIndex);
     router.push("/reader");
   }
-  function canSaveAnswer(message: Message) {
+  function can_save_answer(message: Message) {
     return Boolean(
       message.source && documents.some((document) => document.id === message.source?.documentId),
     );
   }
-  function saveAnswerToNotes(index: number) {
+  function save_answer_to_notes(index: number) {
     const message = messages[index];
     if (!message || message.role !== "votic" || message.saved || !message.source) return;
-    const { now, id } = answerNoteStamp();
-    const note = answerNoteForSource(documents, message.source, message.text, now, id);
+    const { now, id } = answer_note_stamp();
+    const note = answer_note_for_source(documents, message.source, message.text, now, id);
     if (!note) return;
     savePassage(note.documentId, note.passage);
     setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
   }
-  function animateRetry(toValue: number) {
+  function animate_retry(toValue: number) {
     if (reduceMotion) {
       retryScale.setValue(1);
       return;
@@ -366,7 +366,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                         promptRefs.current[label] = node;
                       }}
                       key={label}
-                      onPress={() => choosePrompt(label)}
+                      onPress={() => choose_prompt(label)}
                       style={({ pressed }) => [
                         s.prompt,
                         { backgroundColor: theme.surfaceMuted, opacity: pressed ? 0.68 : 1 },
@@ -425,13 +425,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                                 ? {
                                     label: `Passage ${link.sentenceIndex + 1} · ${target.title}`,
                                     accessibilityLabel: `Open ${target.title} at passage ${link.sentenceIndex + 1} in Reader`,
-                                    onPress: () => openAnswerLink(link),
+                                    onPress: () => open_answer_link(link),
                                   }
                                 : null
                             }
                             save={
-                              canSaveAnswer(m)
-                                ? { saved: Boolean(m.saved), onPress: () => saveAnswerToNotes(i) }
+                              can_save_answer(m)
+                                ? { saved: Boolean(m.saved), onPress: () => save_answer_to_notes(i) }
                                 : null
                             }
                           />
@@ -451,8 +451,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                     accessibilityLabel="Retry question"
                     accessibilityState={{ busy: retrying, disabled: sending }}
                     disabled={sending}
-                    onPressIn={() => animateRetry(0.97)}
-                    onPressOut={() => animateRetry(1)}
+                    onPressIn={() => animate_retry(0.97)}
+                    onPressOut={() => animate_retry(1)}
                     onPress={() => void send(lastQuestion.current)}
                     style={({ pressed }) => [s.retry, { opacity: sending ? 0.55 : pressed ? 0.72 : 1 }]}
                   >

@@ -16,16 +16,16 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useAuth } from "../auth/AuthProvider";
-import { authErrorMessage } from "../auth/authErrors";
+import { auth_error_message } from "../auth/authErrors";
 import { Card } from "../components/Card";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { removeAccountSetup } from "../onboarding/onboardingStorage";
-import { removeAccountPreferences } from "../onboarding/accountPreferences";
-import { hasAccess } from "../subscription/entitlement";
+import { remove_account_setup } from "../onboarding/onboardingStorage";
+import { remove_account_preferences } from "../onboarding/accountPreferences";
+import { has_access } from "../subscription/entitlement";
 import { useSubscription } from "../subscription/SubscriptionProvider";
-import { STORE_SUBSCRIPTIONS_URL, subscriptionStatus } from "../subscription/subscriptionStatus";
+import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { removeWalkthroughState } from "../walkthrough/walkthroughState";
+import { remove_walkthrough_state } from "../walkthrough/walkthroughState";
 
 type Step = "sign-out" | "deletion-info" | "deletion-final" | "recover-library";
 
@@ -81,9 +81,9 @@ export function AccountSettings() {
         await auth.deleteAccount();
         // This device's setup, preferences, and walkthrough progress go with the deleted account.
         await Promise.all([
-          removeAccountSetup(uid),
-          removeAccountPreferences(uid),
-          removeWalkthroughState(uid),
+          remove_account_setup(uid),
+          remove_account_preferences(uid),
+          remove_walkthrough_state(uid),
         ]).catch(() => {});
       }
       setStep(null);
@@ -95,7 +95,7 @@ export function AccountSettings() {
           : code === "auth/requires-recent-login"
             ? "Your account has not been deleted. For your security, cancel this request, sign out, and sign back in using your usual sign-in method. Then return to Settings to delete your account."
             : code === "auth/network-request-failed" || code === "auth/too-many-requests"
-              ? authErrorMessage(failure)
+              ? auth_error_message(failure)
               : action === "delete"
                 ? "Votic couldn't delete your account. Please try again. If this continues, contact Votic support."
                 : "Votic couldn't sign you out. Please try again.";
@@ -335,7 +335,7 @@ function PremiumRows() {
   async function restore() {
     setRestoreMessage("");
     const restored = await subscription.service.restore();
-    if (hasAccess(restored.status)) {
+    if (has_access(restored.status)) {
       subscription.setEntitlement(restored);
       setRestoreMessage("Your Votic Premium subscription is active.");
     } else if (restored.status === "unknown")
@@ -346,7 +346,7 @@ function PremiumRows() {
     <>
       <AccountRow
         label="Votic Premium"
-        detail={subscriptionStatus(subscription.entitlement)}
+        detail={subscription_status(subscription.entitlement)}
         hint="Opens your store account to manage the subscription"
         icon="sparkles-outline"
         onPress={() =>

@@ -6,21 +6,21 @@ import {
 } from "../accessibility/AccessibilityProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { AccountPurposePreferences, useVoticPurpose } from "../personalization/PurposeProvider";
-import { normalizePlaybackRate } from "../playback/rates";
+import { normalize_playback_rate } from "../playback/rates";
 import {
   AccountPreferences,
   DEFAULT_ACCOUNT_PREFERENCES,
-  loadAccountPreferences,
-  saveAccountPreferences,
+  load_account_preferences,
+  save_account_preferences,
 } from "./accountPreferences";
 import {
-  highlightModeFor,
-  newOnboardingState,
+  highlight_mode_for,
+  new_onboarding_state,
   OnboardingState,
   PersonalizationAnswers,
   QUESTIONS,
 } from "./onboardingModel";
-import { loadAccountSetup, saveAccountSetup } from "./onboardingStorage";
+import { load_account_setup, save_account_setup } from "./onboardingStorage";
 import { useOnboarding } from "./OnboardingProvider";
 
 type AccountSetupValue = {
@@ -77,8 +77,8 @@ export function AccountSetupProvider({
     if (!uid || !deviceAccessibility.hydrated || !devicePurpose.hydrated) return;
     let current = true;
     void Promise.all([
-      loadAccountSetup(uid).catch(() => null),
-      loadAccountPreferences(uid).catch(() => null),
+      load_account_setup(uid).catch(() => null),
+      load_account_preferences(uid).catch(() => null),
     ]).then(async ([saved, savedPreferences]) => {
       let state = saved;
       if (!state) {
@@ -89,13 +89,13 @@ export function AccountSetupProvider({
         const time = now();
         state = done
           ? {
-              ...newOnboardingState(),
+              ...new_onboarding_state(),
               personalizationCompletedAt: time,
               personalizationSkipped: true,
               completedAt: time,
             }
-          : newOnboardingState();
-        await saveAccountSetup(uid, state).catch(() => {});
+          : new_onboarding_state();
+        await save_account_setup(uid, state).catch(() => {});
       }
       if (!current) return;
       // Migrate legacy device preferences only into the restored account. A different/new account
@@ -110,9 +110,9 @@ export function AccountSetupProvider({
       const value = savedPreferences ?? {
         ...baseline,
         explanationStyle: state.answers.explanationStyle ?? baseline.explanationStyle,
-        highlightMode: highlightModeFor(state.answers.listening) ?? baseline.highlightMode,
+        highlightMode: highlight_mode_for(state.answers.listening) ?? baseline.highlightMode,
       };
-      if (!savedPreferences) void saveAccountPreferences(uid, value).catch(() => {});
+      if (!savedPreferences) void save_account_preferences(uid, value).catch(() => {});
       setPreferences({ uid, value });
       setStored({ uid, state });
     });
@@ -123,12 +123,12 @@ export function AccountSetupProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid, deviceAccessibility.hydrated, devicePurpose.hydrated]);
 
-  function changePreferences(change: Partial<AccountPreferences>) {
+  function change_preferences(change: Partial<AccountPreferences>) {
     if (!uid) return;
     setPreferences((previous) => {
       if (previous?.uid !== uid) return previous;
       const value = { ...previous.value, ...change };
-      void saveAccountPreferences(uid, value).catch(() => {});
+      void save_account_preferences(uid, value).catch(() => {});
       return { uid, value };
     });
   }
@@ -139,7 +139,7 @@ export function AccountSetupProvider({
       setStored((previous) => {
         if (previous?.uid !== uid) return previous;
         const next = change(previous.state);
-        void saveAccountSetup(uid, next).catch(() => {});
+        void save_account_setup(uid, next).catch(() => {});
         return { uid, state: next };
       });
     },
@@ -147,8 +147,8 @@ export function AccountSetupProvider({
   );
 
   function apply(answers: PersonalizationAnswers) {
-    const highlight = highlightModeFor(answers.listening);
-    changePreferences({
+    const highlight = highlight_mode_for(answers.listening);
+    change_preferences({
       ...(highlight ? { highlightMode: highlight } : {}),
       ...(answers.explanationStyle ? { explanationStyle: answers.explanationStyle } : {}),
     });
@@ -189,15 +189,15 @@ export function AccountSetupProvider({
     <AccountSetupContext.Provider value={value}>
       <AccountPurposePreferences
         explanationStyle={effective.explanationStyle}
-        setExplanationStyle={(explanationStyle) => changePreferences({ explanationStyle })}
+        setExplanationStyle={(explanationStyle) => change_preferences({ explanationStyle })}
         defaultPlaybackRate={effective.defaultPlaybackRate}
         setDefaultPlaybackRate={(rate) =>
-          changePreferences({ defaultPlaybackRate: normalizePlaybackRate(rate) })
+          change_preferences({ defaultPlaybackRate: normalize_playback_rate(rate) })
         }
       >
         <AccountHighlightPreferences
           highlightMode={effective.highlightMode}
-          setHighlightMode={(highlightMode) => changePreferences({ highlightMode })}
+          setHighlightMode={(highlightMode) => change_preferences({ highlightMode })}
         >
           {children}
         </AccountHighlightPreferences>

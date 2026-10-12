@@ -6,13 +6,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AccessibilityProvider } from "../src/accessibility/AccessibilityProvider";
 import { ActivityProvider } from "../src/activity/ActivityProvider";
 import { AuthProvider } from "../src/auth/AuthProvider";
-import { createDocumentStore } from "../src/documents/documentStorage";
+import { create_document_store } from "../src/documents/documentStorage";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { VoticDocument } from "../src/documents/types";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { AccountSetupProvider } from "../src/onboarding/AccountSetupProvider";
-import { OnboardingState as AccountSetupState, newOnboardingState } from "../src/onboarding/onboardingModel";
-import { saveAccountSetup } from "../src/onboarding/onboardingStorage";
+import {
+  OnboardingState as AccountSetupState,
+  new_onboarding_state,
+} from "../src/onboarding/onboardingModel";
+import { save_account_setup } from "../src/onboarding/onboardingStorage";
 import {
   DEVICE_HISTORY_KEY,
   ONBOARDING_KEY,
@@ -25,7 +28,7 @@ import { SubscriptionProvider } from "../src/subscription/SubscriptionProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 import { FLOWS } from "../src/walkthrough/walkthroughFlows";
 import { MeasureNode, WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
-import { walkthroughKey } from "../src/walkthrough/walkthroughState";
+import { walkthrough_key } from "../src/walkthrough/walkthroughState";
 import { fakeAuth } from "./mocks/authBackend";
 
 const metrics = {
@@ -77,7 +80,7 @@ type Setup = {
 };
 
 /** Stores data the way the app does, so providers load it on mount. */
-export async function seedStorage({
+export async function seed_storage({
   documents,
   reduceMotion,
   onboarding,
@@ -97,15 +100,15 @@ export async function seedStorage({
     await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "new");
   const uid = fakeAuth.user?.uid;
   if (uid && accountSetup !== "none")
-    await saveAccountSetup(uid, {
-      ...newOnboardingState(),
+    await save_account_setup(uid, {
+      ...new_onboarding_state(),
       personalizationCompletedAt: 1,
       completedAt: 1,
       ...accountSetup,
     });
   if (walkthrough === "finished" && uid)
     await AsyncStorage.setItem(
-      walkthroughKey(uid),
+      walkthrough_key(uid),
       JSON.stringify({
         version: 1,
         flows: Object.fromEntries(Object.keys(FLOWS).map((id) => [id, { status: "completed", at: 1 }])),
@@ -113,19 +116,19 @@ export async function seedStorage({
     );
   if (reduceMotion)
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion }));
-  if (documents && uid) await createDocumentStore(uid).saveDocuments(documents);
+  if (documents && uid) await create_document_store(uid).saveDocuments(documents);
 }
 
 /** Renders a screen inside the app's providers, after seeding storage and letting providers load it. */
-export async function renderWithProviders(ui: ReactElement, setup: Setup = {}) {
-  await seedStorage(setup);
+export async function render_with_providers(ui: ReactElement, setup: Setup = {}) {
+  await seed_storage(setup);
   // React Native Testing Library 14: render, act, and fireEvent are async and must be awaited.
   const result = await render(<AppProviders measureNode={setup.measureNode}>{ui}</AppProviders>);
   await act(async () => {});
   return result;
 }
 
-export function testDocument(id: string, title: string, extra: Partial<VoticDocument> = {}): VoticDocument {
+export function test_document(id: string, title: string, extra: Partial<VoticDocument> = {}): VoticDocument {
   return {
     id,
     title,

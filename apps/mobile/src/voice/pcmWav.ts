@@ -1,5 +1,5 @@
 /** Build a mono/stereo 16-bit PCM WAV from little-endian PCM stream chunks. */
-export function pcm16ToWav(chunks: ArrayBuffer[], sampleRate: number, channels: number): ArrayBuffer {
+export function pcm16_to_wav(chunks: ArrayBuffer[], sampleRate: number, channels: number): ArrayBuffer {
   const dataLength = chunks.reduce((total, chunk) => total + chunk.byteLength, 0);
   const buffer = new ArrayBuffer(44 + dataLength);
   const view = new DataView(buffer);

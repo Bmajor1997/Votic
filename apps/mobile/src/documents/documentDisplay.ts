@@ -1,19 +1,19 @@
-import { estimatedMinutesRemaining } from "./insights";
-import { splitPassages } from "./passages";
+import { estimated_minutes_remaining } from "./insights";
+import { split_passages } from "./passages";
 import { VoticDocument } from "./types";
 
 /**
  * A readable title for display. Filenames like "q3_board-report_FINAL" become "q3 board report
  * FINAL"; titles that already read as words are left alone. The original filename stays available.
  */
-export function readableTitle(title: string) {
+export function readable_title(title: string) {
   const trimmed = title.trim();
   const looksLikeFilename = /[_]/.test(trimmed) || (!/\s/.test(trimmed) && /[-.]/.test(trimmed));
   const clean = looksLikeFilename ? trimmed.replace(/[_]+/g, " ").replace(/(\w)[-.](?=\w)/g, "$1 ") : trimmed;
   return clean.replace(/\s+/g, " ").trim() || "Untitled document";
 }
 
-export function fileTypeLabel(sourceName: string) {
+export function file_type_label(sourceName: string) {
   const name = sourceName.toLowerCase();
   if (name.endsWith(".pdf")) return "PDF";
   if (/\.docx?$/.test(name)) return "Word";
@@ -24,21 +24,21 @@ export function fileTypeLabel(sourceName: string) {
 }
 
 /** "Passage 12 of 80" from the saved reading position. */
-export function positionLabel(document: VoticDocument) {
-  const total = splitPassages(document.plainText).length;
+export function position_label(document: VoticDocument) {
+  const total = split_passages(document.plainText).length;
   if (!total) return "Empty document";
   return `Passage ${Math.min(total, document.sentenceIndex + 1)} of ${total}`;
 }
 
-export function progressLabel(document: VoticDocument) {
+export function progress_label(document: VoticDocument) {
   if (document.progress >= 1) return "Finished";
   if (!document.progress) return "Not started";
-  const minutes = estimatedMinutesRemaining(document);
+  const minutes = estimated_minutes_remaining(document);
   return `${Math.round(document.progress * 100)}% · about ${minutes} min left`;
 }
 
 /** The first few words of the document, used for its text cover. */
-export function coverExcerpt(document: VoticDocument, words = 28) {
+export function cover_excerpt(document: VoticDocument, words = 28) {
   return document.plainText
     .replace(/^#+\s*/gm, "")
     .replace(/\s+/g, " ")
@@ -56,11 +56,11 @@ export const SORTS: { value: Sort; label: string }[] = [
   { value: "progress", label: "Progress" },
 ];
 
-export function sortDocuments(documents: VoticDocument[], sort: Sort) {
+export function sort_documents(documents: VoticDocument[], sort: Sort) {
   const sorted = [...documents];
   if (sort === "added") return sorted.sort((a, b) => b.importedAt - a.importedAt);
   if (sort === "title")
-    return sorted.sort((a, b) => readableTitle(a.title).localeCompare(readableTitle(b.title)));
+    return sorted.sort((a, b) => readable_title(a.title).localeCompare(readable_title(b.title)));
   if (sort === "progress") return sorted.sort((a, b) => b.progress - a.progress);
   return sorted.sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt));
 }

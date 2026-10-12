@@ -19,7 +19,7 @@ function Probe() {
     </>
   );
 }
-async function renderTheme() {
+async function render_theme() {
   await render(
     <ThemeProvider>
       <Probe />
@@ -32,13 +32,13 @@ const saved = async () => JSON.parse((await AsyncStorage.getItem(THEME_KEY)) || 
 
 describe("Votic's color", () => {
   it("is blue by default", async () => {
-    await renderTheme();
+    await render_theme();
     expect(accent()).toBe(`blue ${accentColors.blue}`);
   });
 
   it("moves the old automatic orange to blue", async () => {
     await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ accentName: "orange", appearanceMode: "dark" }));
-    await renderTheme();
+    await render_theme();
     expect(accent()).toBe(`blue ${accentColors.blue}`);
     await waitFor(async () =>
       expect(await saved()).toMatchObject({ accentName: "blue", accentChosen: false }),
@@ -47,14 +47,14 @@ describe("Votic's color", () => {
 
   it("keeps a color picked in Settings, orange included", async () => {
     await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ accentName: "purple", appearanceMode: "light" }));
-    await renderTheme();
+    await render_theme();
     expect(accent()).toBe(`purple ${accentColors.purple}`);
     await fireEvent.press(screen.getByRole("button", { name: "Pick orange" }));
     await waitFor(async () =>
       expect(await saved()).toMatchObject({ accentName: "orange", accentChosen: true }),
     );
     screen.unmount();
-    await renderTheme();
+    await render_theme();
     await waitFor(() => expect(accent()).toBe(`orange ${accentColors.orange}`));
   });
 });

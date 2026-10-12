@@ -5,10 +5,10 @@ export const PLAYBACK_RATES = Array.from(
   { length: Math.round((MAX_PLAYBACK_RATE - MIN_PLAYBACK_RATE) / PLAYBACK_RATE_STEP) + 1 },
   (_, index) => Number((MIN_PLAYBACK_RATE + index * PLAYBACK_RATE_STEP).toFixed(1)),
 );
-export function normalizePlaybackRate(value: number) {
+export function normalize_playback_rate(value: number) {
   const clamped = Math.min(MAX_PLAYBACK_RATE, Math.max(MIN_PLAYBACK_RATE, Number(value) || 1));
   return Number((Math.round(clamped / PLAYBACK_RATE_STEP) * PLAYBACK_RATE_STEP).toFixed(1));
 }
-export function formatPlaybackRate(value: number) {
-  return normalizePlaybackRate(value).toFixed(1) + "×";
+export function format_playback_rate(value: number) {
+  return normalize_playback_rate(value).toFixed(1) + "×";
 }

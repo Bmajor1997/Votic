@@ -19,7 +19,7 @@ export type WidgetLinkTarget =
   | { kind: "documents" }
   | { kind: "home" };
 
-export function widgetLinkTarget(
+export function widget_link_target(
   params: { open?: string | string[]; id?: string | string[] },
   documents: Pick<VoticDocument, "id">[],
 ): WidgetLinkTarget {

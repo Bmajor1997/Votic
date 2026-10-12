@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react-native";
 import { useState } from "react";
 import { FlatList, Pressable, Text } from "react-native";
 import { ReadingPages } from "../../src/reader/components/ReadingPages";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 const passages = ["Alpha beta gamma delta epsilon zeta"];
 function Harness() {
   const [word, setWord] = useState(0);
@@ -34,7 +34,7 @@ function Harness() {
 }
 it("keeps a swiped page through saved-location echoes and background renders, while allowing external seeks", async () => {
   const scroll = jest.spyOn(FlatList.prototype, "scrollToOffset");
-  await renderWithProviders(<Harness />);
+  await render_with_providers(<Harness />);
   await fireEvent(screen.getByTestId("reading-pages"), "layout", {
     nativeEvent: { layout: { width: 390, height: 232 } },
   });
@@ -58,7 +58,7 @@ it("keeps a swiped page through saved-location echoes and background renders, wh
 });
 
 it("opens a saved spot on its own page, so the page shown matches the page label", async () => {
-  await renderWithProviders(
+  await render_with_providers(
     <ReadingPages
       passages={passages}
       index={0}

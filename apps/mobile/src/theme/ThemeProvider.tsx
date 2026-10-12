@@ -1,6 +1,6 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
-import { loadThemePreferences, saveThemePreferences } from "../preferences/preferenceStorage";
+import { load_theme_preferences, save_theme_preferences } from "../preferences/preferenceStorage";
 export type AccentName =
   "blue" | "purple" | "orange" | "red" | "teal" | "emerald" | "indigo" | "rose" | "amber";
 export type AppearanceMode = "light" | "dark" | "system";
@@ -16,7 +16,7 @@ export const accentColors: Record<AccentName, string> = {
   rose: "#BE185D",
   amber: "#A16207",
 };
-function withAlpha(hex: string, alpha: string) {
+function with_alpha(hex: string, alpha: string) {
   return `${hex}${alpha}`;
 }
 /** Darkens a #RRGGBB color by `amount` (0–1). */
@@ -96,7 +96,7 @@ const navigationPalettes = {
     border: "#314461",
   },
 };
-function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, reader = false) {
+function make_theme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, reader = false) {
   const accent =
     resolvedMode === "sepia" ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE) : accentColors[accentName];
   return {
@@ -127,8 +127,8 @@ function makeTheme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, r
     logoWing: accent,
     playButton: accent,
     playIcon: "#FFFFFF",
-    sentenceHighlight: withAlpha(accent, resolvedMode === "dark" ? "33" : "1F"),
-    wordHighlight: withAlpha(accent, resolvedMode === "dark" ? "80" : "55"),
+    sentenceHighlight: with_alpha(accent, resolvedMode === "dark" ? "33" : "1F"),
+    wordHighlight: with_alpha(accent, resolvedMode === "dark" ? "80" : "55"),
     mode: resolvedMode,
     isDark: resolvedMode === "dark",
   };
@@ -145,7 +145,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const [readerAppearanceMode, setReaderAppearanceMode] = useState<ReaderAppearanceMode | null>(null);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
-    loadThemePreferences().then((saved) => {
+    load_theme_preferences().then((saved) => {
       // Earlier versions saved their orange default without anyone choosing it. Only a color that was
       // actually picked in Settings (or any color other than that old default) is kept.
       const chosen = saved?.accentChosen === true || (saved?.accentName && saved.accentName !== "orange");
@@ -166,22 +166,22 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   }, []);
   useEffect(() => {
     if (hydrated)
-      saveThemePreferences({ accentName, accentChosen, appearanceMode, readerAppearanceMode }).catch(
+      save_theme_preferences({ accentName, accentChosen, appearanceMode, readerAppearanceMode }).catch(
         () => {},
       );
   }, [accentName, accentChosen, appearanceMode, readerAppearanceMode, hydrated]);
-  function chooseAccent(value: AccentName) {
+  function choose_accent(value: AccentName) {
     setAccentName(value);
     setAccentChosen(true);
   }
   const resolvedMode =
     appearanceMode === "system" ? (systemMode === "dark" ? "dark" : "light") : appearanceMode;
-  const theme = useMemo(() => makeTheme(accentName, resolvedMode), [accentName, resolvedMode]);
+  const theme = useMemo(() => make_theme(accentName, resolvedMode), [accentName, resolvedMode]);
   return (
     <C.Provider
       value={{
         accentName,
-        setAccentName: chooseAccent,
+        setAccentName: choose_accent,
         appearanceMode,
         setAppearanceMode,
         resolvedMode,
@@ -218,8 +218,8 @@ export function SetupAccent({ active, children }: PropsWithChildren<{ active: bo
         onAccent: SETUP_ON_ACCENT,
         playButton: SETUP_ACCENT,
         playIcon: SETUP_ON_ACCENT,
-        sentenceHighlight: withAlpha(SETUP_ACCENT, dark ? "33" : "24"),
-        wordHighlight: withAlpha(SETUP_ACCENT, dark ? "80" : "66"),
+        sentenceHighlight: with_alpha(SETUP_ACCENT, dark ? "33" : "24"),
+        wordHighlight: with_alpha(SETUP_ACCENT, dark ? "80" : "66"),
       },
     };
   }, [active, parent]);
@@ -236,7 +236,7 @@ export function useVoticTheme() {
 export function ReaderThemeProvider({ children }: PropsWithChildren) {
   const app = useVoticTheme();
   const resolvedMode = app.readerAppearanceMode ?? app.resolvedMode;
-  const theme = useMemo(() => makeTheme(app.accentName, resolvedMode, true), [app.accentName, resolvedMode]);
+  const theme = useMemo(() => make_theme(app.accentName, resolvedMode, true), [app.accentName, resolvedMode]);
   return (
     <C.Provider
       value={{

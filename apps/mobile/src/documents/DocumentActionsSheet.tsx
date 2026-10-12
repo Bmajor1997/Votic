@@ -16,7 +16,7 @@ import { DocumentCover } from "../components/DocumentCover";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { sheetStyles } from "../reader/components/sheetStyles";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { fileTypeLabel, positionLabel, progressLabel, readableTitle } from "./documentDisplay";
+import { file_type_label, position_label, progress_label, readable_title } from "./documentDisplay";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
 import { VoticDocument } from "./types";
 
@@ -45,11 +45,11 @@ export function DocumentActionsSheet({
     setNewCollection("");
     onClose();
   }
-  function confirmDelete(target: VoticDocument) {
+  function confirm_delete(target: VoticDocument) {
     close();
     Alert.alert(
       "Delete document?",
-      `Remove “${readableTitle(target.title)}” and its notes from Votic? This can't be undone.`,
+      `Remove “${readable_title(target.title)}” and its notes from Votic? This can't be undone.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: () => removeDocument(target.id) },
@@ -61,7 +61,7 @@ export function DocumentActionsSheet({
     setDocumentCollection(document.id, collection);
     close();
   }
-  function createAndMove() {
+  function create_and_move() {
     const clean = newCollection.trim();
     if (!clean || !document) return;
     addCollection(clean);
@@ -108,14 +108,14 @@ export function DocumentActionsSheet({
                   )}
                   <View style={s.headerCopy}>
                     <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-                      {heading ?? readableTitle(document.title)}
+                      {heading ?? readable_title(document.title)}
                     </Text>
                     {heading ? (
                       <Text numberOfLines={2} style={[s.subtitle, { color: theme.mutedText }]}>
-                        {readableTitle(document.title)}
+                        {readable_title(document.title)}
                       </Text>
                     ) : (
-                      <Text style={[s.subtitle, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
+                      <Text style={[s.subtitle, { color: theme.mutedText }]}>{progress_label(document)}</Text>
                     )}
                   </View>
                 </View>
@@ -134,7 +134,7 @@ export function DocumentActionsSheet({
                       icon="create-outline"
                       label="Rename"
                       onPress={() => {
-                        setTitle(readableTitle(document.title));
+                        setTitle(readable_title(document.title));
                         setView("rename");
                       }}
                     />
@@ -153,7 +153,7 @@ export function DocumentActionsSheet({
                       icon="trash-outline"
                       label="Delete"
                       destructive
-                      onPress={() => confirmDelete(document)}
+                      onPress={() => confirm_delete(document)}
                     />
                   </View>
                 ) : null}
@@ -230,7 +230,7 @@ export function DocumentActionsSheet({
                         placeholderTextColor={theme.mutedText}
                         maxLength={40}
                         returnKeyType="done"
-                        onSubmitEditing={createAndMove}
+                        onSubmitEditing={create_and_move}
                         style={[
                           s.input,
                           s.newInput,
@@ -242,7 +242,7 @@ export function DocumentActionsSheet({
                         accessibilityLabel="Create collection and move document"
                         accessibilityState={{ disabled: !newCollection.trim() }}
                         disabled={!newCollection.trim()}
-                        onPress={createAndMove}
+                        onPress={create_and_move}
                         style={[
                           s.addButton,
                           { borderColor: theme.border, opacity: newCollection.trim() ? 1 : 0.5 },
@@ -257,9 +257,9 @@ export function DocumentActionsSheet({
                 {view === "details" ? (
                   <View style={s.details}>
                     <Detail label="File name" value={document.sourceName} />
-                    <Detail label="Type" value={fileTypeLabel(document.sourceName)} />
-                    <Detail label="Position" value={positionLabel(document)} />
-                    <Detail label="Progress" value={progressLabel(document)} />
+                    <Detail label="Type" value={file_type_label(document.sourceName)} />
+                    <Detail label="Position" value={position_label(document)} />
+                    <Detail label="Progress" value={progress_label(document)} />
                     <Detail label="Added" value={new Date(document.importedAt).toLocaleDateString()} />
                     <Detail label="Collection" value={document.collection || "Unfiled"} />
                     <Detail

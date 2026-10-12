@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { useActivity } from "./ActivityProvider";
-import { TICK_MS, createSessionTracker } from "./sessionTracker";
+import { TICK_MS, create_session_tracker } from "./sessionTracker";
 
-type Tracker = ReturnType<typeof createSessionTracker>;
+type Tracker = ReturnType<typeof create_session_tracker>;
 
 /**
  * Measures reading and listening while the Reader is open. Returns `engaged`, which the Reader
@@ -24,7 +24,7 @@ export function useReaderActivity(documentId: string | null | undefined, playing
   useEffect(() => {
     // Per-document "time spent" (Reader summary, review) keeps whole seconds; carry the rest.
     const carry = new Map<string, number>();
-    const created = createSessionTracker((id, kind, start, end) => {
+    const created = create_session_tracker((id, kind, start, end) => {
       recorders.current.recordTime(id, kind, start, end);
       const ms = end - start + (carry.get(id) ?? 0);
       const seconds = Math.floor(ms / 1000);

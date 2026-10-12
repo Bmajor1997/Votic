@@ -9,7 +9,7 @@ function plain(value) {
   return value.replace(/@/g, "@\u200b").replace(/<!--/g, "&lt;!--");
 }
 /** Input is the canonical public request shape; live API mapping is verified during connection setup. */
-export function feedbackIssue(request) {
+export function feedback_issue(request) {
   if (!request || typeof request.id !== "string" || !request.id || typeof request.title !== "string" ||
       !request.title.trim() || typeof request.body !== "string") throw new Error("Invalid UserJot request.");
   const url = new URL(request.url);
@@ -24,11 +24,11 @@ export function feedbackIssue(request) {
 }
 
 /** One-way mirroring: no assignees, customer emails, votes, private messages, or status updates are copied. */
-export async function mirrorFeedbackToGitHub({ requests, token, dryRun = true, fetchImpl = fetch }) {
+export async function mirror_feedback_to_github({ requests, token, dryRun = true, fetchImpl = fetch }) {
   if (!Array.isArray(requests) || requests.length > 50) throw new Error("Feedback batches must contain at most 50 requests.");
   if (typeof token !== "string" || !token.trim()) throw new Error("A GitHub issues token is required.");
   // Validate the entire batch before making any GitHub changes.
-  const issues = requests.map(feedbackIssue);
+  const issues = requests.map(feedback_issue);
   const headers = { Authorization: `Bearer ${token.trim()}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Votic-UserJot", "Content-Type": "application/json" };
   async function request(url, options = {}) {
     try {

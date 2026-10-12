@@ -20,7 +20,7 @@ export const TWO_WEEK_TRIAL_PLAN: SubscriptionPlan = {
   trial: { count: 2, unit: "week" },
 };
 
-export function entitlementOf(status: Entitlement["status"], extra: Partial<Entitlement> = {}): Entitlement {
+export function entitlement_of(status: Entitlement["status"], extra: Partial<Entitlement> = {}): Entitlement {
   return { status, expiresAt: null, managementUrl: null, ...extra };
 }
 
@@ -39,7 +39,7 @@ export const fakeSubscriptions = {
   unavailableReason: null as SubscriptionUnavailableReason | null,
   plans: [TWO_WEEK_TRIAL_PLAN] as SubscriptionPlan[] | Error,
   /** What an account without a stored subscription has. */
-  defaultEntitlement: entitlementOf("active") as Entitlement,
+  defaultEntitlement: entitlement_of("active") as Entitlement,
   /** How the next purchase ends; by default it starts the trial. */
   nextPurchase: null as PurchaseOutcome | null,
   restoreResult: null as Entitlement | null,
@@ -52,7 +52,7 @@ export const fakeSubscriptions = {
     fakeSubscriptions.calls.length = 0;
     fakeSubscriptions.unavailableReason = options.unavailableReason ?? null;
     fakeSubscriptions.plans = options.plans ?? [TWO_WEEK_TRIAL_PLAN];
-    fakeSubscriptions.defaultEntitlement = options.defaultEntitlement ?? entitlementOf("active");
+    fakeSubscriptions.defaultEntitlement = options.defaultEntitlement ?? entitlement_of("active");
     fakeSubscriptions.legal = options.legal ?? { termsUrl: null, privacyUrl: null };
     fakeSubscriptions.nextPurchase = null;
     fakeSubscriptions.restoreResult = null;
@@ -67,7 +67,7 @@ export const fakeSubscriptions = {
   },
 };
 
-export function createSubscriptionService(): SubscriptionService {
+export function create_subscription_service(): SubscriptionService {
   const read = () => (currentUser ? fakeSubscriptions.entitlementFor(currentUser) : UNKNOWN_ENTITLEMENT);
   return {
     get unavailableReason() {
@@ -94,7 +94,7 @@ export function createSubscriptionService(): SubscriptionService {
       fakeSubscriptions.calls.push("purchase:" + planId);
       const outcome = fakeSubscriptions.nextPurchase ?? {
         kind: "purchased",
-        entitlement: entitlementOf("trial", { expiresAt: Date.UTC(2026, 9, 15) }),
+        entitlement: entitlement_of("trial", { expiresAt: Date.UTC(2026, 9, 15) }),
       };
       fakeSubscriptions.nextPurchase = null;
       if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
@@ -113,6 +113,6 @@ export function createSubscriptionService(): SubscriptionService {
   };
 }
 
-export function legalLinks(): LegalLinks {
+export function legal_links(): LegalLinks {
   return fakeSubscriptions.legal;
 }

@@ -1,30 +1,30 @@
-import { accountStorageKey } from "../../src/storage/accountStorage";
+import { account_storage_key } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
 import Statistics from "../../app/statistics";
 import { ACTIVITY_KEY } from "../../src/activity/ActivityProvider";
-import { addAskEvent, addInterval, emptyLog, periodFor } from "../../src/activity/activityModel";
+import { add_ask_event, add_interval, empty_log, period_for } from "../../src/activity/activityModel";
 import { router, searchParams } from "../mocks/expoRouter";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
-async function seedActivity() {
+async function seed_activity() {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 60).getTime();
-  let log = emptyLog(start);
-  const period = periodFor("week", 0, now, start);
+  let log = empty_log(start);
+  const period = period_for("week", 0, now, start);
   const first = period.start.getTime() + 9 * 60 * 60_000;
-  log = addInterval(log, "doc", "reading", first, first + 20 * 60_000);
-  log = addInterval(log, "doc", "listening", first + 30 * 60_000, first + 40 * 60_000);
-  log = addAskEvent(log, { at: first, category: "summary", newConversation: true });
-  await AsyncStorage.setItem(accountStorageKey(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
+  log = add_interval(log, "doc", "reading", first, first + 20 * 60_000);
+  log = add_interval(log, "doc", "listening", first + 30 * 60_000, first + 40 * 60_000);
+  log = add_ask_event(log, { at: first, category: "summary", newConversation: true });
+  await AsyncStorage.setItem(account_storage_key(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
   return log;
 }
 
 describe("Statistics activity overview", () => {
   it("shows accurate accessible totals and keeps the chart table available", async () => {
-    const saved = await seedActivity();
-    await renderWithProviders(<Statistics />);
+    const saved = await seed_activity();
+    await render_with_providers(<Statistics />);
     expect(screen.getByRole("header", { name: "Your Votic activity" })).toBeTruthy();
     expect(screen.getByLabelText("Reading, 20 minutes")).toBeTruthy();
     expect(screen.getByLabelText("Listening, 10 minutes")).toBeTruthy();
@@ -33,14 +33,14 @@ describe("Statistics activity overview", () => {
     expect(screen.getByLabelText("Total time, 30 minutes")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Show as table" }));
     expect(screen.getByRole("button", { name: "Show chart" })).toBeTruthy();
-    expect(JSON.parse((await AsyncStorage.getItem(accountStorageKey(ACTIVITY_KEY, "test-user")))!)).toEqual(
+    expect(JSON.parse((await AsyncStorage.getItem(account_storage_key(ACTIVITY_KEY, "test-user")))!)).toEqual(
       saved,
     );
   });
 
   it("preserves period selection and carries the selected period into every detail route", async () => {
-    await seedActivity();
-    await renderWithProviders(<Statistics />);
+    await seed_activity();
+    await render_with_providers(<Statistics />);
     await fireEvent.press(screen.getByRole("radio", { name: "Month" }));
     expect(screen.getByRole("radio", { name: "Month", checked: true })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Previous month" }));
@@ -62,7 +62,7 @@ describe("Statistics activity overview", () => {
   });
 
   it("offers an honest empty state instead of invented insights", async () => {
-    await renderWithProviders(<Statistics />, { reduceMotion: true });
+    await render_with_providers(<Statistics />, { reduceMotion: true });
     expect(screen.getByText("Start with a document. Your activity will appear here.")).toBeTruthy();
     expect(screen.getByText(/Your personal insights take shape after/)).toBeTruthy();
     expect(screen.queryByText(/You read and listen most in/)).toBeNull();
@@ -71,21 +71,21 @@ describe("Statistics activity overview", () => {
 
   it("shows a measured observation once the existing insight threshold is met", async () => {
     const now = new Date();
-    let log = emptyLog(new Date(now.getFullYear(), now.getMonth() - 2, 1).getTime());
+    let log = empty_log(new Date(now.getFullYear(), now.getMonth() - 2, 1).getTime());
     for (let offset = 1; offset <= 3; offset++) {
       const at = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset, 19).getTime();
-      log = addInterval(log, "doc", "listening", at, at + 20 * 60_000);
+      log = add_interval(log, "doc", "listening", at, at + 20 * 60_000);
     }
-    await AsyncStorage.setItem(accountStorageKey(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
+    await AsyncStorage.setItem(account_storage_key(ACTIVITY_KEY, "test-user"), JSON.stringify(log));
     searchParams.current = { kind: "all" };
-    await renderWithProviders(<Statistics />);
+    await render_with_providers(<Statistics />);
     expect(screen.getByText("You read and listen most in the evening.")).toBeTruthy();
   });
 
   it.each(["ask", "activity", "documents", "insights"])("preserves the %s detail screen", async (section) => {
-    await seedActivity();
+    await seed_activity();
     searchParams.current = { section };
-    await renderWithProviders(<Statistics />);
+    await render_with_providers(<Statistics />);
     expect(screen.queryByRole("header", { name: "Your Votic activity" })).toBeNull();
     expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Week", checked: true })).toBeTruthy();

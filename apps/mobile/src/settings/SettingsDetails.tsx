@@ -1,6 +1,6 @@
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
-import { cleanLocalDocumentText } from "../documents/importDocument";
-import { openFrom } from "../documents/useDocumentImport";
+import { clean_local_document_text } from "../documents/importDocument";
+import { open_from } from "../documents/useDocumentImport";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../onboarding/voticGuide";
 import { Ionicons } from "@expo/vector-icons";
@@ -318,14 +318,18 @@ function HelpSettings() {
               const existing = library.documents.find(
                 (document) =>
                   document.sourceName === VOTIC_GUIDE_SOURCE_NAME &&
-                  document.plainText === cleanLocalDocumentText(VOTIC_GUIDE_TEXT),
+                  document.plainText === clean_local_document_text(VOTIC_GUIDE_TEXT),
               );
               if (existing) library.openDocument(existing.id);
               else
-                library.addTextDocument(VOTIC_GUIDE_SOURCE_NAME, cleanLocalDocumentText(VOTIC_GUIDE_TEXT), {
-                  playbackRate: defaultPlaybackRate,
-                });
-              openFrom(guideRef, transition, { mode: "listen" });
+                library.addTextDocument(
+                  VOTIC_GUIDE_SOURCE_NAME,
+                  clean_local_document_text(VOTIC_GUIDE_TEXT),
+                  {
+                    playbackRate: defaultPlaybackRate,
+                  },
+                );
+              open_from(guideRef, transition, { mode: "listen" });
             }}
           />
         </View>

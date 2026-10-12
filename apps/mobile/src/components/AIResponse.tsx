@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } fro
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ShimmerText } from "./ShimmerText";
 import { RevealingText } from "./RevealingText";
-import { revealCompletedText, type TextRevealFrame } from "./textReveal";
+import { reveal_completed_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
@@ -30,7 +30,7 @@ export function AIResponse({
   const complete = reduceMotion || !animate || skipped || (frame.text === text && frame.complete);
   useEffect(() => {
     if (reduceMotion || !animate || skipped) return;
-    return revealCompletedText(text, { onFrame: setFrame, onComplete: () => {} });
+    return reveal_completed_text(text, { onFrame: setFrame, onComplete: () => {} });
   }, [text, reduceMotion, animate, skipped]);
   return (
     <View style={s.response}>

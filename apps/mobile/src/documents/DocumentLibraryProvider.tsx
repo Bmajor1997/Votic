@@ -2,15 +2,15 @@ import { useAccountData } from "../storage/AccountDataProvider";
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { SavedPassage, VoticDocument } from "./types";
-import { createDocumentStore, loadCollections, saveCollections } from "./documentStorage";
-import { createThrottledSaver } from "./throttledSaver";
+import { create_document_store, load_collections, save_collections } from "./documentStorage";
+import { create_throttled_saver } from "./throttledSaver";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
 const LIBRARY_SAVE_ERROR =
   "Votic could not save your library changes. Keep Votic open and try the change again.";
 const COLLECTIONS_SAVE_ERROR =
   "Votic could not save your collection changes. Keep Votic open and try the change again.";
-function unavailableMessage(titles: string[]) {
+function unavailable_message(titles: string[]) {
   const which =
     titles.length === 1
       ? `“${titles[0]}” could not be opened`
@@ -43,7 +43,7 @@ type Library = {
 
 const C = createContext<Library | null>(null);
 
-function titleFrom(sourceName: string, text: string) {
+function title_from(sourceName: string, text: string) {
   const fileTitle = sourceName.replace(/\.(txt|md)$/i, "").trim();
   const first = text
     .split(/\r?\n/)
@@ -62,19 +62,19 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
   const [loaded, setLoaded] = useState(!uid);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
-  const [store] = useState(() => createDocumentStore(uid ?? ""));
+  const [store] = useState(() => create_document_store(uid ?? ""));
   // A save error clears once a later save succeeds; other notices (such as unreadable documents) stay.
-  const clearSaveError = (message: string) =>
+  const clear_save_error = (message: string) =>
     setPersistenceError((current) => (current === message ? null : current));
   const [saveStatus] = useState(() => ({ failed: false }));
   const collectionsFailed = useRef(false);
   const collectionsSaved = useRef<Promise<void>>(Promise.resolve());
   const [librarySaver] = useState(() =>
-    createThrottledSaver(
+    create_throttled_saver(
       async (value: VoticDocument[]) => {
         await store.saveDocuments(value);
         saveStatus.failed = false;
-        clearSaveError(LIBRARY_SAVE_ERROR);
+        clear_save_error(LIBRARY_SAVE_ERROR);
       },
       LIBRARY_SAVE_INTERVAL_MS,
       () => {
@@ -86,7 +86,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   /** Reads this account's library; `reloading` keeps the open document, as after recovering older data. */
   function load(isCurrent: () => boolean, reloading = false) {
-    return Promise.all([store.loadDocuments(), loadCollections(uid ?? "")])
+    return Promise.all([store.loadDocuments(), load_collections(uid ?? "")])
       .then(([savedDocuments, savedCollections]) => {
         if (!isCurrent()) return;
         setDocuments(savedDocuments);
@@ -97,7 +97,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
             : savedDocuments[0]?.id || null,
         );
         const unavailable = store.unavailableDocuments();
-        setPersistenceError(unavailable.length ? unavailableMessage(unavailable) : null);
+        setPersistenceError(unavailable.length ? unavailable_message(unavailable) : null);
         setHydrated(true);
         setLoaded(true);
       })
@@ -149,7 +149,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }, [librarySaver]);
   useEffect(() => {
     if (hydrated)
-      collectionsSaved.current = saveCollections(collections, uid ?? "").then(
+      collectionsSaved.current = save_collections(collections, uid ?? "").then(
         () => {
           collectionsFailed.current = false;
           setPersistenceError((current) => (current === COLLECTIONS_SAVE_ERROR ? null : current));
@@ -166,11 +166,11 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     [documents, activeId],
   );
 
-  function addTextDocument(sourceName: string, text: string, options: { playbackRate?: number } = {}) {
+  function add_text_document(sourceName: string, text: string, options: { playbackRate?: number } = {}) {
     const now = Date.now();
     const document: VoticDocument = {
       id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
-      title: titleFrom(sourceName, text),
+      title: title_from(sourceName, text),
       sourceName,
       plainText: text.trim(),
       importedAt: now,
@@ -188,7 +188,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     return document;
   }
 
-  function openDocument(id: string, sentenceIndex?: number) {
+  function open_document(id: string, sentenceIndex?: number) {
     setActiveId(id);
     setDocuments((current) =>
       current.map((document) =>
@@ -204,7 +204,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function addCollection(name: string) {
+  function add_collection(name: string) {
     const clean = name.trim();
     if (!clean) return;
     setCollections((current) =>
@@ -214,7 +214,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function setDocumentCollection(id: string, collection?: string) {
+  function set_document_collection(id: string, collection?: string) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === id
@@ -225,7 +225,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   /** Changes the title Votic shows. The original filename stays in sourceName. */
-  function renameDocument(id: string, title: string) {
+  function rename_document(id: string, title: string) {
     const clean = title.trim().slice(0, 200);
     if (!clean) return;
     setDocuments((current) =>
@@ -235,12 +235,12 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function removeDocument(id: string) {
+  function remove_document(id: string) {
     setDocuments((current) => current.filter((document) => document.id !== id));
     setActiveId((current) => (current === id ? null : current));
   }
 
-  function addQuickNote(passage: SavedPassage) {
+  function add_quick_note(passage: SavedPassage) {
     setDocuments((current) => {
       const existing = current.find((document) => document.notebookKind === "quick-notes");
       if (existing)
@@ -275,7 +275,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     });
   }
 
-  function savePassage(documentId: string, passage: SavedPassage) {
+  function save_passage(documentId: string, passage: SavedPassage) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === documentId
@@ -302,7 +302,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function removePassage(documentId: string, passageId: string) {
+  function remove_passage(documentId: string, passageId: string) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === documentId
@@ -324,7 +324,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function updateProgress(id: string, progress: number, sentenceIndex = 0, wordIndex = 0) {
+  function update_progress(id: string, progress: number, sentenceIndex = 0, wordIndex = 0) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === id
@@ -340,7 +340,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function updatePlaybackRate(id: string, rate: number) {
+  function update_playback_rate(id: string, rate: number) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === id ? { ...document, playbackRate: rate, updatedAt: Date.now() } : document,
@@ -348,7 +348,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function updateReviewResponses(id: string, responses: Record<string, string>) {
+  function update_review_responses(id: string, responses: Record<string, string>) {
     setDocuments((current) =>
       current.map((document) =>
         document.id === id ? { ...document, reviewResponses: responses, updatedAt: Date.now() } : document,
@@ -356,7 +356,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function recordActivity(id: string, readingSeconds: number, listeningSeconds: number) {
+  function record_activity(id: string, readingSeconds: number, listeningSeconds: number) {
     const now = new Date();
     const day = [
       now.getFullYear(),
@@ -381,7 +381,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function completeDocument(id: string, sentenceIndex: number, wordIndex: number) {
+  function complete_document(id: string, sentenceIndex: number, wordIndex: number) {
     const now = Date.now();
     setDocuments((current) =>
       current.map((document) =>
@@ -407,20 +407,20 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         activeDocument,
         persistenceError,
         loaded,
-        renameDocument,
-        addTextDocument,
-        openDocument,
-        addCollection,
-        setDocumentCollection,
-        removeDocument,
-        addQuickNote,
-        savePassage,
-        removePassage,
-        updateProgress,
-        recordActivity,
-        completeDocument,
-        updatePlaybackRate,
-        updateReviewResponses,
+        renameDocument: rename_document,
+        addTextDocument: add_text_document,
+        openDocument: open_document,
+        addCollection: add_collection,
+        setDocumentCollection: set_document_collection,
+        removeDocument: remove_document,
+        addQuickNote: add_quick_note,
+        savePassage: save_passage,
+        removePassage: remove_passage,
+        updateProgress: update_progress,
+        recordActivity: record_activity,
+        completeDocument: complete_document,
+        updatePlaybackRate: update_playback_rate,
+        updateReviewResponses: update_review_responses,
       }}
     >
       {children}

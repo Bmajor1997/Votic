@@ -4,9 +4,9 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing, typography } from "../../design/tokens";
-import { readerType } from "../../reader/readerText";
+import { reader_type } from "../../reader/readerText";
 import { useVoticTheme } from "../../theme/ThemeProvider";
-import { automaticNoteTitle, noteTypeLabel } from "../noteMetadata";
+import { automatic_note_title, note_type_label } from "../noteMetadata";
 import { NoteItem } from "../notesList";
 import { useNoteListening } from "../useNoteListening";
 
@@ -67,7 +67,7 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
   const hasNote = Boolean(item.passage.note.trim());
   const content = hasNote ? item.passage.note : item.passage.text;
   const { playing, error, toggle } = useNoteListening(content, item.document.playbackRate);
-  const readingStyle = readerType(
+  const readingStyle = reader_type(
     accessibility.textSize,
     accessibility.readingSpacing,
     accessibility.readerFont,
@@ -86,7 +86,7 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
           <Ionicons name="arrow-back" size={24} color={theme.text} />
         </Pressable>
         <Text numberOfLines={1} style={[s.headerTitle, { color: theme.text }]}>
-          {automaticNoteTitle(item.passage)}
+          {automatic_note_title(item.passage)}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -100,10 +100,10 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
       <ScrollView contentContainerStyle={s.content}>
         <View style={[s.hero, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
           <Text style={[s.eyebrow, { color: theme.heroMuted }]}>
-            {hasNote ? noteTypeLabel(item.passage.noteType).toUpperCase() : "PASSAGE"}
+            {hasNote ? note_type_label(item.passage.noteType).toUpperCase() : "PASSAGE"}
           </Text>
           <Text accessibilityRole="header" style={[s.title, { color: theme.heroText }]}>
-            {automaticNoteTitle(item.passage)}
+            {automatic_note_title(item.passage)}
           </Text>
           <Text style={[s.metadata, { color: theme.heroMuted }]}>{item.document.title}</Text>
           <Text style={[s.metadata, { color: theme.heroMuted }]}>

@@ -4,7 +4,7 @@ import { useAccessibilityPreferences } from "../../accessibility/AccessibilityPr
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
 import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
-import { DeviceVoice, voticVoiceNames } from "../voices";
+import { DeviceVoice, votic_voice_names } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
 
@@ -39,7 +39,7 @@ export function ReaderSettingsSheet({
 }) {
   const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
-  const voiceNames = voticVoiceNames(voices);
+  const voiceNames = votic_voice_names(voices);
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
     <Modal

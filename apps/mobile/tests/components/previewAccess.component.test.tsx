@@ -5,7 +5,7 @@ import { Pressable, Text } from "react-native";
 import Welcome from "../../app/welcome";
 import { useAuth } from "../../src/auth/AuthProvider";
 import * as backend from "../mocks/authBackend";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -40,33 +40,33 @@ function Session() {
   );
 }
 
-function setPreview(value: unknown) {
+function set_preview(value: unknown) {
   Constants.expoConfig!.extra!.previewTesting = value;
 }
 
-function withoutFirebase() {
-  const create = backend.createAuthBackend;
-  jest.spyOn(backend, "createAuthBackend").mockImplementation(() => ({ ...create(), configured: false }));
+function without_firebase() {
+  const create = backend.create_auth_backend;
+  jest.spyOn(backend, "create_auth_backend").mockImplementation(() => ({ ...create(), configured: false }));
 }
 
 beforeEach(() => {
   Object.defineProperty(globalThis, "__DEV__", { value: false, configurable: true, writable: true });
-  setPreview(false);
+  set_preview(false);
   backend.fakeAuth.reset(null);
 });
 
 afterEach(() => {
   Object.defineProperty(globalThis, "__DEV__", { value: originalDev, configurable: true, writable: true });
-  setPreview(false);
+  set_preview(false);
   if (originalProfile === undefined) delete process.env.EAS_BUILD_PROFILE;
   else process.env.EAS_BUILD_PROFILE = originalProfile;
 });
 
 describe("Preview testing entry", () => {
   it("offers an accessible entry in a standalone preview and ends the testing session on sign out", async () => {
-    setPreview(true);
-    withoutFirebase();
-    await renderWithProviders(
+    set_preview(true);
+    without_firebase();
+    await render_with_providers(
       <>
         <Welcome />
         <Session />
@@ -85,9 +85,9 @@ describe("Preview testing entry", () => {
   it.each([false, undefined, "true"])(
     "blocks release entry when the preview marker is %s",
     async (marker) => {
-      setPreview(marker);
-      withoutFirebase();
-      await renderWithProviders(
+      set_preview(marker);
+      without_firebase();
+      await render_with_providers(
         <>
           <Welcome />
           <Session />
@@ -100,8 +100,8 @@ describe("Preview testing entry", () => {
   );
 
   it("never bypasses configured Firebase, even in a preview", async () => {
-    setPreview(true);
-    await renderWithProviders(
+    set_preview(true);
+    await render_with_providers(
       <>
         <Welcome />
         <Session />
@@ -114,8 +114,8 @@ describe("Preview testing entry", () => {
 
   it("preserves entry in local development without Firebase", async () => {
     Object.defineProperty(globalThis, "__DEV__", { value: true });
-    withoutFirebase();
-    await renderWithProviders(<Welcome />);
+    without_firebase();
+    await render_with_providers(<Welcome />);
     expect(screen.getByRole("button", { name: "Explore Votic without an account" })).toBeTruthy();
   });
 

@@ -4,7 +4,7 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AppState, type AppStateStatus } from "react-native";
 import { useAnswerListening } from "../../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../../src/ask/AskAnswerFooter";
-import { AppProviders, renderWithProviders } from "../renderWithProviders";
+import { AppProviders, render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -38,7 +38,7 @@ function Answers({ context = "book", enabled = true, first = "**First** answer."
 }
 
 it("reads only on demand, replaces the previous answer, and ignores its late callbacks", async () => {
-  await renderWithProviders(<Answers />);
+  await render_with_providers(<Answers />);
   expect(speak).not.toHaveBeenCalled();
   await fireEvent.press(screen.getAllByRole("button", { name: "Read answer aloud" })[0]);
   expect(speak).toHaveBeenLastCalledWith("First answer.", expect.objectContaining({ rate: 1.2 }));
@@ -53,7 +53,7 @@ it("reads only on demand, replaces the previous answer, and ignores its late cal
 });
 
 it("does not start after a pending native stop resolves following cancellation", async () => {
-  await renderWithProviders(<Answers />);
+  await render_with_providers(<Answers />);
   let resolve!: () => void;
   stop.mockImplementationOnce(
     () =>
@@ -68,7 +68,7 @@ it("does not start after a pending native stop resolves following cancellation",
 });
 
 it("bounds long utterances and offers retry after a speech failure", async () => {
-  await renderWithProviders(<Answers first={"A ".repeat(160)} />);
+  await render_with_providers(<Answers first={"A ".repeat(160)} />);
   await fireEvent.press(screen.getAllByRole("button", { name: "Read answer aloud" })[0]);
   expect(speak.mock.calls[0][0].length).toBeLessThanOrEqual(100);
   await act(async () => speak.mock.calls[0][1]?.onDone?.());
@@ -87,7 +87,7 @@ it("stops on background, context changes, recording, and leaving the screen", as
     changes.push(listener);
     return { remove };
   });
-  const result = await renderWithProviders(<Answers />);
+  const result = await render_with_providers(<Answers />);
   await fireEvent.press(screen.getAllByRole("button", { name: "Read answer aloud" })[0]);
   await act(async () => changes.forEach((change) => change("background")));
   await act(async () => jest.advanceTimersByTime(20));

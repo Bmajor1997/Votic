@@ -130,10 +130,10 @@ const dark = {
     onStrong: "#213F4B",
   },
 } as const;
-export function widgetPalette(isDark: boolean, tone: WidgetTone) {
+export function widget_palette(isDark: boolean, tone: WidgetTone) {
   return (isDark ? dark : light)[tone];
 }
-export function documentWidgetTone(sourceName: string): WidgetTone {
+export function document_widget_tone(sourceName: string): WidgetTone {
   if (/\.pdf$/i.test(sourceName)) return "pdf";
   if (/\.pptx?$/i.test(sourceName)) return "slides";
   if (/\.epub$/i.test(sourceName)) return "book";

@@ -2,9 +2,9 @@ import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { splitPassages } from "../documents/passages";
-import { normalizePlaybackRate } from "../playback/rates";
-import { applyPronunciations, loadPronunciations } from "../reader/pronunciationDictionary";
+import { split_passages } from "../documents/passages";
+import { normalize_playback_rate } from "../playback/rates";
+import { apply_pronunciations, load_pronunciations } from "../reader/pronunciationDictionary";
 
 /** A note owns audio only while its workspace is open; it never changes document progress. */
 export function useNoteListening(text: string, playbackRate: number) {
@@ -42,11 +42,11 @@ export function useNoteListening(text: string, playbackRate: number) {
     ownsAudio.current = true;
     try {
       await Speech.stop();
-      const pronunciations = await loadPronunciations();
+      const pronunciations = await load_pronunciations();
       if (!current()) return;
       // Use Reader passage splitting; bound utterances for native engine length limits.
-      const chunks = splitPassages(text).flatMap((passage) => {
-        const spoken = applyPronunciations(passage, pronunciations);
+      const chunks = split_passages(text).flatMap((passage) => {
+        const spoken = apply_pronunciations(passage, pronunciations);
         const limit = Math.max(1, Math.min(3000, Speech.maxSpeechInputLength || 3000));
         return spoken.match(new RegExp(`[\\s\\S]{1,${limit}}`, "g")) || [];
       });
@@ -59,7 +59,7 @@ export function useNoteListening(text: string, playbackRate: number) {
         }
         Speech.speak(chunks[index], {
           voice: voiceIdentifier || undefined,
-          rate: normalizePlaybackRate(playbackRate),
+          rate: normalize_playback_rate(playbackRate),
           onDone: () => speak(index + 1),
           onStopped: () => {
             if (current()) {

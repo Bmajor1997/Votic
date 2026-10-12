@@ -1,14 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentCover } from "../../components/DocumentCover";
-import { documentTypeColor } from "../../components/DocumentTypeIcon";
-import { readableTitle } from "../../documents/documentDisplay";
+import { document_type_color } from "../../components/DocumentTypeIcon";
+import { readable_title } from "../../documents/documentDisplay";
 import { controlSizes, radii, spacing } from "../../design/tokens";
 import { SavedPassage, VoticDocument } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
-import { noteSelectionId } from "../askVoticNotesContext";
-import { automaticNoteTitle, noteTypeLabel } from "../noteMetadata";
-import { dateLabel, NoteItem } from "../notesList";
+import { note_selection_id } from "../askVoticNotesContext";
+import { automatic_note_title, note_type_label } from "../noteMetadata";
+import { date_label, NoteItem } from "../notesList";
 
 /** One document's notes and saved passages in the Notes list. */
 export function NoteGroupCard({
@@ -37,10 +37,10 @@ export function NoteGroupCard({
   previewLimit?: number;
 }) {
   const { theme } = useVoticTheme();
-  const color = documentTypeColor(document.sourceName);
+  const color = document_type_color(document.sourceName);
   const noteCount = passages.filter((passage) => passage.note.trim()).length;
   const savedCount = passages.length - noteCount;
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const shown = previewLimit ? passages.slice(0, previewLimit) : passages;
   const hidden = passages.length - shown.length;
   return (
@@ -74,7 +74,7 @@ export function NoteGroupCard({
         </Pressable>
       ) : null}
       {shown.map((passage) => {
-        const selectionId = noteSelectionId(document.id, passage.id);
+        const selectionId = note_selection_id(document.id, passage.id);
         const selected = selectedIds.includes(selectionId);
         const hasNote = Boolean(passage.note.trim());
         return (
@@ -122,13 +122,14 @@ export function NoteGroupCard({
               style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
             >
               <Text style={[s.meta, { color: theme.mutedText }]}>
-                {hasNote ? noteTypeLabel(passage.noteType) : "Saved passage"} · {dateLabel(passage.updatedAt)}
+                {hasNote ? note_type_label(passage.noteType) : "Saved passage"} ·{" "}
+                {date_label(passage.updatedAt)}
                 {passage.pinned ? " · Pinned" : ""}
               </Text>
               {hasNote ? (
                 <View style={s.titleRow}>
                   <Text numberOfLines={1} style={[s.title, { color: theme.text }]}>
-                    {automaticNoteTitle(passage)}
+                    {automatic_note_title(passage)}
                   </Text>
                   {passage.tags?.includes("votic") ? (
                     <View style={[s.voticBadge, { backgroundColor: theme.sentenceHighlight }]}>

@@ -5,7 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
-import { documentTimeSpent } from "../src/documents/insights";
+import { document_time_spent } from "../src/documents/insights";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 const PROMPTS = [
@@ -84,7 +84,7 @@ export default function Review() {
           </Text>
         </View>
         <View style={[s.summary, { backgroundColor: theme.surfaceMuted }]}>
-          <Summary value={duration(documentTimeSpent(activeDocument))} label="Time spent" />
+          <Summary value={duration(document_time_spent(activeDocument))} label="Time spent" />
           <View style={[s.summaryDivider, { backgroundColor: theme.border }]} />
           <Summary value={String(activeDocument?.savedPassages?.length || 0)} label="Saved passages" />
         </View>

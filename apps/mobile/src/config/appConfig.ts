@@ -19,7 +19,7 @@ function clean(value: string | undefined) {
   return text ? text : null;
 }
 
-export function revenueCatConfigFrom(env: Env): RevenueCatConfig {
+export function revenue_cat_config_from(env: Env): RevenueCatConfig {
   return {
     iosApiKey: clean(env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY),
     androidApiKey: clean(env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY),
@@ -28,7 +28,7 @@ export function revenueCatConfigFrom(env: Env): RevenueCatConfig {
 }
 
 /** Only HTTPS links are shown; anything else is treated as not configured rather than guessed. */
-export function legalLinksFrom(env: Env): LegalLinks {
+export function legal_links_from(env: Env): LegalLinks {
   const https = (value: string | undefined) => {
     const url = clean(value);
     return url && /^https:\/\//i.test(url) ? url : null;
@@ -40,7 +40,7 @@ export function legalLinksFrom(env: Env): LegalLinks {
 }
 
 /** The app's environment, read with literal expressions so Expo can inline them at build time. */
-export function appEnv(): Env {
+export function app_env(): Env {
   return {
     EXPO_PUBLIC_REVENUECAT_IOS_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
     EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY,

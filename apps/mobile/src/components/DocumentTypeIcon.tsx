@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, View } from "react-native";
 
-export function documentTypeColor(sourceName: string) {
+export function document_type_color(sourceName: string) {
   const name = sourceName.toLowerCase();
   if (name.endsWith(".pdf")) return "#DC2626";
   if (/\.(doc|docx)$/.test(name)) return "#2563EB";
@@ -11,7 +11,7 @@ export function documentTypeColor(sourceName: string) {
 }
 
 export function DocumentTypeIcon({ sourceName, size = 44 }: { sourceName: string; size?: number }) {
-  const color = documentTypeColor(sourceName);
+  const color = document_type_color(sourceName);
   return (
     <View
       style={[

@@ -11,7 +11,7 @@ export type ReaderSourceTransform = {
  * The Reader opens from the tapped document card: at transition progress 0 it is scaled and moved onto
  * the card's rectangle, and at 1 it fills the window. Without a source card it simply fills the window.
  */
-export function readerSourceTransform(
+export function reader_source_transform(
   source: DocumentSourceRect | null,
   window: { width: number; height: number },
 ): ReaderSourceTransform {

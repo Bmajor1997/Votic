@@ -1,9 +1,9 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import {
-  formatPlaybackRate,
+  format_playback_rate,
   MAX_PLAYBACK_RATE,
   MIN_PLAYBACK_RATE,
-  normalizePlaybackRate,
+  normalize_playback_rate,
   PLAYBACK_RATE_STEP,
 } from "../playback/rates";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -13,7 +13,7 @@ const PRESETS = [0.75, 1, 1.5, 2] as const;
 export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChange: (rate: number) => void }) {
   const { theme } = useVoticTheme();
   function step(delta: number) {
-    onChange(normalizePlaybackRate(rate + delta));
+    onChange(normalize_playback_rate(rate + delta));
   }
   return (
     <View>
@@ -34,9 +34,9 @@ export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChang
           <Text style={[s.stepSymbol, { color: theme.text }]}>−</Text>
         </Pressable>
         <View accessibilityLiveRegion="polite" style={s.value}>
-          <Text style={[s.valueText, { color: theme.text }]}>{formatPlaybackRate(rate)}</Text>
+          <Text style={[s.valueText, { color: theme.text }]}>{format_playback_rate(rate)}</Text>
           <Text style={[s.range, { color: theme.mutedText }]}>
-            {formatPlaybackRate(MIN_PLAYBACK_RATE)}–{formatPlaybackRate(MAX_PLAYBACK_RATE)}
+            {format_playback_rate(MIN_PLAYBACK_RATE)}–{format_playback_rate(MAX_PLAYBACK_RATE)}
           </Text>
         </View>
         <Pressable
@@ -62,7 +62,7 @@ export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChang
             key={value}
             accessibilityRole="radio"
             accessibilityState={{ checked: rate === value }}
-            accessibilityLabel={formatPlaybackRate(value)}
+            accessibilityLabel={format_playback_rate(value)}
             onPress={() => onChange(value)}
             style={({ pressed }) => [
               s.preset,
@@ -74,7 +74,7 @@ export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChang
             ]}
           >
             <Text style={[typography.control, { color: rate === value ? theme.accentText : theme.text }]}>
-              {formatPlaybackRate(value)}
+              {format_playback_rate(value)}
             </Text>
           </Pressable>
         ))}

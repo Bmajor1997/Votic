@@ -64,7 +64,7 @@ const has = (answers: PersonalizationAnswers, { key, value }: Answer) =>
 const NEUTRAL = new Set(["decide-as-i-go", "organize-myself"]);
 
 /** Whether the person told personalization anything Ask Votic or Notes can act on. */
-export function hasSuggestionPreferences(answers: PersonalizationAnswers | null | undefined) {
+export function has_suggestion_preferences(answers: PersonalizationAnswers | null | undefined) {
   if (!answers) return false;
   return [...answers.goals, ...answers.readingHelp, ...answers.keepingTrack].some(
     (value) => !NEUTRAL.has(value),
@@ -72,7 +72,7 @@ export function hasSuggestionPreferences(answers: PersonalizationAnswers | null 
 }
 
 /** Whether explanations should be in plain language, from either answer that asks for it. */
-export function wantsSimpleExplanations(answers: PersonalizationAnswers) {
+export function wants_simple_explanations(answers: PersonalizationAnswers) {
   return answers.explanationStyle === "simple" || answers.readingHelp.includes("simpler-language");
 }
 
@@ -108,13 +108,13 @@ const ASK_RULES: { when: Answer[]; suggestion: string }[] = [
   },
 ];
 
-export function askSuggestions(
+export function ask_suggestions(
   answers: PersonalizationAnswers | null | undefined,
   purpose: VoticPurpose | null,
 ) {
-  if (!answers || !hasSuggestionPreferences(answers))
+  if (!answers || !has_suggestion_preferences(answers))
     return purpose ? LEGACY_ASK_SUGGESTIONS[purpose] : DEFAULT_ASK_SUGGESTIONS;
-  const simple = wantsSimpleExplanations(answers);
+  const simple = wants_simple_explanations(answers);
   const chosen = ASK_RULES.filter((rule) => rule.when.some((answer) => has(answers, answer))).map((rule) =>
     rule.suggestion === "Explain this section" && simple ? "Explain this section simply" : rule.suggestion,
   );
@@ -154,23 +154,23 @@ const LEGACY_STUDY_ACTIONS: Partial<Record<VoticPurpose, NotebookStudyAction>> =
 };
 
 /** The notebook's third action, and whether its Explain button says "Explain key ideas". */
-export function notebookActions(
+export function notebook_actions(
   answers: PersonalizationAnswers | null | undefined,
   purpose: VoticPurpose | null,
 ) {
-  if (!answers || !hasSuggestionPreferences(answers))
+  if (!answers || !has_suggestion_preferences(answers))
     return {
       studyAction: (purpose && LEGACY_STUDY_ACTIONS[purpose]) || KEY_POINTS,
       explainLabel: purpose === "learning" ? "Explain key ideas" : "Explain",
     };
   // No personalization answer asks for quizzes, action items, or findings, so the study action is the
   // default "Key points". The Explain button says what it does for people who asked for explanations.
-  const wantsExplaining = answers.goals.includes("explain-difficult") || wantsSimpleExplanations(answers);
+  const wantsExplaining = answers.goals.includes("explain-difficult") || wants_simple_explanations(answers);
   return { studyAction: KEY_POINTS, explainLabel: wantsExplaining ? "Explain key ideas" : "Explain" };
 }
 
 /** The explanation style sent with Ask Votic questions; "adaptive" (the default) adds no instruction. */
-export function explanationStyleToSend(
+export function explanation_style_to_send(
   answers: PersonalizationAnswers | null | undefined,
 ): Exclude<ExplanationStyle, "adaptive"> | undefined {
   const style = answers?.explanationStyle;
@@ -178,7 +178,7 @@ export function explanationStyleToSend(
 }
 
 /** The extra argument for askVotic: the style when there is one, nothing otherwise (so calls stay unchanged). */
-export function explanationStyleArgs(answers: PersonalizationAnswers | null | undefined) {
-  const style = explanationStyleToSend(answers);
+export function explanation_style_args(answers: PersonalizationAnswers | null | undefined) {
+  const style = explanation_style_to_send(answers);
   return style ? ([style] as const) : ([] as const);
 }

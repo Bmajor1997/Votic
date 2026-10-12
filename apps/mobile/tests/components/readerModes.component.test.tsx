@@ -1,4 +1,4 @@
-import { accountStorageKey } from "../../src/storage/accountStorage";
+import { account_storage_key } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
@@ -10,14 +10,14 @@ import { LIBRARY_KEY } from "../../src/documents/documentStorage";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { ReaderThemeProvider, useVoticTheme } from "../../src/theme/ThemeProvider";
 import { searchParams } from "../mocks/expoRouter";
-import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
+import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
   stop: jest.fn(async () => {}),
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
-jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
 const speak = jest.mocked(Speech.speak);
 
 function OpenedReader() {
@@ -26,12 +26,12 @@ function OpenedReader() {
 }
 
 // Twelve passages of two words each: 24 words in all.
-const long = testDocument("doc-long", "Long Read", {
+const long = test_document("doc-long", "Long Read", {
   plainText: Array.from({ length: 12 }, (_, index) => `Passage ${index + 1}.`).join(" "),
 });
 
 /** Lays out each passage as 100 points tall in a 300-point viewport, as a device would report. */
-async function layOut(passages = 12) {
+async function lay_out(passages = 12) {
   const layout = (y: number, height: number) => ({
     nativeEvent: { layout: { x: 0, y, width: 390, height } },
   });
@@ -59,7 +59,7 @@ async function layOut(passages = 12) {
 }
 
 /** A finger drag to `offset`, then release. */
-async function dragTo(offset: number) {
+async function drag_to(offset: number) {
   if (screen.queryByTestId("reading-pages")) {
     const turns = offset === 900 ? 5 : 2;
     for (let at = 0; at < turns; at += 1)
@@ -79,9 +79,9 @@ async function dragTo(offset: number) {
   await fireEvent(scroll, "scrollEndDrag", event);
 }
 
-async function openIn(mode: "read" | "listen" | null, document = long) {
+async function open_in(mode: "read" | "listen" | null, document = long) {
   searchParams.current = mode ? { mode } : {};
-  await renderWithProviders(<OpenedReader />, { documents: [document], reduceMotion: true });
+  await render_with_providers(<OpenedReader />, { documents: [document], reduceMotion: true });
 }
 
 beforeEach(() => {
@@ -90,7 +90,7 @@ beforeEach(() => {
 
 describe("Read mode", () => {
   it("shows Ask Votic and More, with no Play button and no audio controls", async () => {
-    await openIn("read");
+    await open_in("read");
     expect(screen.getByRole("button", { name: "Ask Votic about this page" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Show reading tools" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
@@ -98,13 +98,13 @@ describe("Read mode", () => {
   });
 
   it("is how a document opens when no mode is given", async () => {
-    await openIn(null);
+    await open_in(null);
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
     expect(screen.getByRole("button", { name: "Show reading tools" })).toBeTruthy();
   });
 
   it("keeps reading tools in More, without the listening-only ones", async () => {
-    await openIn("read");
+    await open_in("read");
     await fireEvent.press(screen.getByRole("button", { name: "Show reading tools" }));
     expect(screen.getByRole("button", { name: "Text" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Color" })).toBeTruthy();
@@ -118,28 +118,28 @@ describe("Read mode", () => {
   });
 
   it("moves the saved text position when turning pages", async () => {
-    await openIn("read");
-    await layOut();
+    await open_in("read");
+    await lay_out();
     expect(screen.getByText("0% read")).toBeTruthy();
     // Offset 400 puts the reading line at 400 + 135 = 535: 35% into passage 6, its first word → 10 of 23.
-    await dragTo(400);
+    await drag_to(400);
     expect(screen.getByText("35% read")).toBeTruthy();
     expect(screen.getByText("Page 3 of 6")).toBeTruthy();
     expect(speak).not.toHaveBeenCalled();
     // The end of the document reads as 100%.
-    await dragTo(900);
+    await drag_to(900);
     expect(screen.getByText("87% read")).toBeTruthy();
     expect(screen.getByText("Page 6 of 6")).toBeTruthy();
   });
 
   it("saves the page's first word through the existing document progress", async () => {
-    await openIn("read");
-    await layOut();
-    await dragTo(400);
+    await open_in("read");
+    await lay_out();
+    await drag_to(400);
     await act(async () => jest.advanceTimersByTime(2500));
     await waitFor(async () => {
       const saved = JSON.parse(
-        (await AsyncStorage.getItem(accountStorageKey(LIBRARY_KEY, "test-user"))) || "[]",
+        (await AsyncStorage.getItem(account_storage_key(LIBRARY_KEY, "test-user"))) || "[]",
       );
       expect(saved[0]).toMatchObject({ sentenceIndex: 4, wordIndex: 0 });
       expect(saved[0].progress).toBeCloseTo(8 / 23, 2);
@@ -147,26 +147,26 @@ describe("Read mode", () => {
   });
 
   it("resumes at the saved position", async () => {
-    await openIn("read", { ...long, sentenceIndex: 5, wordIndex: 0, progress: 10 / 23 });
+    await open_in("read", { ...long, sentenceIndex: 5, wordIndex: 0, progress: 10 / 23 });
     expect(screen.getByText("43% read")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
-    await layOut();
+    await lay_out();
     expect(screen.getByText("Page 3 of 6")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Previous page" }));
     expect(screen.getByText("Page 2 of 6")).toBeTruthy();
   });
 
   it("does not highlight passages, since nothing is being read aloud", async () => {
-    await openIn("read");
-    await layOut();
+    await open_in("read");
+    await lay_out();
     // The current passage renders as plain text rather than word-by-word spans.
     expect(screen.getByText(/Passage 1\.\s+Passage 2\./)).toBeTruthy();
   });
 
   it("keeps narration unavailable after reading to a new position", async () => {
-    await openIn("read");
-    await layOut();
-    await dragTo(400);
+    await open_in("read");
+    await lay_out();
+    await drag_to(400);
     await fireEvent.press(screen.getByRole("button", { name: "Show reading tools" }));
     expect(screen.queryByRole("button", { name: "Switch to listening" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
@@ -177,8 +177,8 @@ describe("Read mode", () => {
 
   it("honors explicit Read even when an autoplay parameter is present", async () => {
     searchParams.current = { mode: "read", autoplay: "1" };
-    await renderWithProviders(<OpenedReader />, { documents: [long], reduceMotion: true });
-    await layOut();
+    await render_with_providers(<OpenedReader />, { documents: [long], reduceMotion: true });
+    await lay_out();
     await act(async () => jest.advanceTimersByTime(500));
     expect(screen.queryByRole("button", { name: "Play" })).toBeNull();
     expect(speak).not.toHaveBeenCalled();
@@ -187,7 +187,7 @@ describe("Read mode", () => {
 
   it("stops narration on a reused route and ignores a late completed-utterance callback", async () => {
     searchParams.current = { mode: "listen" };
-    const view = await renderWithProviders(<OpenedReader />, { documents: [long], reduceMotion: true });
+    const view = await render_with_providers(<OpenedReader />, { documents: [long], reduceMotion: true });
     await fireEvent.press(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(speak).toHaveBeenCalled());
     const options = speak.mock.calls.at(-1)?.[1] as Speech.SpeechOptions;
@@ -207,7 +207,7 @@ describe("Read mode", () => {
   });
 
   it("opens Ask Votic without leaving Read mode", async () => {
-    await openIn("read");
+    await open_in("read");
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
     expect(screen.getByTestId("ask-votic-panel")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
@@ -219,14 +219,14 @@ describe("Read mode", () => {
 
 describe("Listen mode", () => {
   it("shows Ask Votic, Play, and More", async () => {
-    await openIn("listen");
+    await open_in("listen");
     expect(screen.getByRole("button", { name: "Ask Votic about this page" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Expand listening controls" })).toBeTruthy();
   });
 
   it("keeps the listening tools in More", async () => {
-    await openIn("listen");
+    await open_in("listen");
     await fireEvent.press(screen.getByRole("button", { name: "Expand listening controls" }));
     expect(screen.getByRole("button", { name: "Previous passage" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Playback speed/ })).toBeTruthy();
@@ -235,8 +235,8 @@ describe("Listen mode", () => {
   });
 
   it("moves progress with the spoken word", async () => {
-    await openIn("listen");
-    await layOut();
+    await open_in("listen");
+    await lay_out();
     await fireEvent.press(screen.getByRole("button", { name: "Play" }));
     await waitFor(() => expect(speak).toHaveBeenCalled());
     const options = speak.mock.calls.at(-1)?.[1] as Speech.SpeechOptions;
@@ -247,7 +247,7 @@ describe("Listen mode", () => {
   });
 
   it("opens Ask Votic without leaving Listen mode", async () => {
-    await openIn("listen");
+    await open_in("listen");
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
     expect(screen.getByTestId("ask-votic-panel")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
@@ -258,7 +258,7 @@ describe("Listen mode", () => {
 
 describe("One progress bar", () => {
   it.each(["read", "listen"] as const)("shows a single document progress bar in %s mode", async (mode) => {
-    await openIn(mode);
+    await open_in(mode);
     expect(screen.getAllByLabelText("Document playback position")).toHaveLength(1);
     await fireEvent.press(
       screen.getByRole("button", {
@@ -296,7 +296,7 @@ function ThemeScopes() {
 
 describe("Appearance", () => {
   it("offers Light, Dark, and System for the app without Sepia", async () => {
-    await renderWithProviders(<SettingsDetailScreen category="appearance" />);
+    await render_with_providers(<SettingsDetailScreen category="appearance" />);
     for (const name of ["Light", "Dark", "System"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Sepia" })).toBeNull();
     await fireEvent.press(screen.getByRole("radio", { name: "System" }));
@@ -316,7 +316,7 @@ describe("Appearance", () => {
       "votic.mobile.theme.v1",
       JSON.stringify({ accentName: "blue", appearanceMode: "light", readerAppearanceMode: mode }),
     );
-    await renderWithProviders(<ThemeScopes />);
+    await render_with_providers(<ThemeScopes />);
     const theme = JSON.parse(screen.getByTestId("reader-theme").props.children);
     expect(theme).toMatchObject({ background, text, mode, isDark: mode === "dark" });
     expect(theme.accent.toUpperCase()).toBe(mode === "sepia" ? "#2157CF" : "#2563EB");
@@ -328,7 +328,7 @@ describe("Appearance", () => {
 
   it("saves Reader Sepia without changing app Dark", async () => {
     await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: "dark" }));
-    await renderWithProviders(<ThemeScopes />);
+    await render_with_providers(<ThemeScopes />);
     await fireEvent.press(screen.getByRole("button", { name: "Sepia reader-theme" }));
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "dark",
@@ -346,7 +346,7 @@ describe("Appearance", () => {
 
   it("migrates legacy Sepia to Reader-only", async () => {
     await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: "sepia" }));
-    await renderWithProviders(<ThemeScopes />);
+    await render_with_providers(<ThemeScopes />);
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({ mode: "light" });
     expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({ mode: "sepia" });
   });

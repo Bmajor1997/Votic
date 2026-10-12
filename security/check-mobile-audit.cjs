@@ -3,7 +3,7 @@ const HIGH = new Set(["high", "critical"]);
 // The existing exceptions stay scoped to their original advisories.
 const ALLOWED = new Set(["GHSA-vfj7-8cjw-p6xm", "GHSA-86w9-cpqp-85rv"]);
 
-function blockingMobileFindings(audit) {
+function blocking_mobile_findings(audit) {
   if (audit?.error || !audit?.vulnerabilities || typeof audit.vulnerabilities !== "object" || Array.isArray(audit.vulnerabilities))
     throw new Error("The mobile dependency audit did not produce a valid vulnerability report.");
   const vulnerabilities = audit.vulnerabilities;
@@ -36,9 +36,9 @@ function blockingMobileFindings(audit) {
   }
   return blocking;
 }
-module.exports = { blockingMobileFindings };
+module.exports = { blocking_mobile_findings };
 if (require.main === module) {
-  const blocking = blockingMobileFindings(JSON.parse(fs.readFileSync(process.argv[2], "utf8")));
+  const blocking = blocking_mobile_findings(JSON.parse(fs.readFileSync(process.argv[2], "utf8")));
   if (blocking.length) {
     console.error("Blocking high/critical dependency vulnerabilities:");
     blocking.forEach((item) => console.error(`- ${item}`));

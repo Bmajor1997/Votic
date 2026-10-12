@@ -1,4 +1,4 @@
-import { loadAccountPreferences } from "../../src/onboarding/accountPreferences";
+import { load_account_preferences } from "../../src/onboarding/accountPreferences";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
@@ -6,12 +6,12 @@ import Notes from "../../app/(tabs)/notes";
 import Settings from "../../app/(tabs)/settings";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { AskVotic } from "../../app/assistant";
-import { askVotic } from "../../src/api/voticApi";
+import { ask_votic } from "../../src/api/voticApi";
 import { EMPTY_ANSWERS, PersonalizationAnswers } from "../../src/onboarding/onboardingModel";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { render_with_providers, test_document } from "../renderWithProviders";
 
-jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
-const askVoticMock = jest.mocked(askVotic);
+jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
+const askVoticMock = jest.mocked(ask_votic);
 
 const PURPOSE_KEY = "votic.mobile.purpose.v1";
 
@@ -50,7 +50,7 @@ async function settle() {
 
 describe("Ask Votic suggestions", () => {
   it("come from the person's personalization answers", async () => {
-    await renderWithProviders(<AskVotic />, answered({ goals: ["find-quickly", "understand-reading"] }));
+    await render_with_providers(<AskVotic />, answered({ goals: ["find-quickly", "understand-reading"] }));
     expect(suggestions()).toEqual([
       "Help me understand this passage",
       "Find information",
@@ -63,19 +63,19 @@ describe("Ask Votic suggestions", () => {
 
   it("keep a legacy purpose working for people without answers", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "work");
-    await renderWithProviders(<AskVotic />);
+    await render_with_providers(<AskVotic />);
     expect(suggestions()).toContain("Find action items");
   });
 
   it("prefer personalization answers over a legacy purpose", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "work");
-    await renderWithProviders(<AskVotic />, answered({ readingHelp: ["simpler-language"] }));
+    await render_with_providers(<AskVotic />, answered({ readingHelp: ["simpler-language"] }));
     expect(suggestions()[0]).toBe("Explain this section simply");
     expect(suggestions()).not.toContain("Find action items");
   });
 
   it("work with neither answers nor a purpose", async () => {
-    await renderWithProviders(<AskVotic />);
+    await render_with_providers(<AskVotic />);
     expect(suggestions()).toEqual([
       "Summarize this document",
       "Explain this section",
@@ -88,7 +88,7 @@ describe("Ask Votic suggestions", () => {
 
   it("send the explanation style chosen in personalization with each question", async () => {
     askVoticMock.mockResolvedValue({ answer: "Short.", mode: "ai", sectionIndex: null, sectionTitle: null });
-    await renderWithProviders(<SettingsDetailScreen category="personalization" />, { reduceMotion: true });
+    await render_with_providers(<SettingsDetailScreen category="personalization" />, { reduceMotion: true });
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
     await fireEvent.press(screen.getByLabelText("Personal reading. Read and listen at your own pace"));
     for (let step = 0; step < 2; step += 1)
@@ -98,7 +98,7 @@ describe("Ask Votic suggestions", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
     screen.unmount();
-    await renderWithProviders(<AskVotic />, { reduceMotion: true, accountSetup: "none" });
+    await render_with_providers(<AskVotic />, { reduceMotion: true, accountSetup: "none" });
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "What is ATP?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, [], "quick");
@@ -107,21 +107,21 @@ describe("Ask Votic suggestions", () => {
 
 describe("Notes notebook actions", () => {
   const documents = [
-    testDocument("d1", "Biology", {
+    test_document("d1", "Biology", {
       savedPassages: [
         { id: "passage-0", sentenceIndex: 0, text: "Cells.", note: "Mitosis", createdAt: 1, updatedAt: 1 },
       ],
     }),
   ];
-  async function openNotebook(setup: Parameters<typeof renderWithProviders>[1] = {}) {
-    await renderWithProviders(<Notes />, { documents, ...setup });
+  async function open_notebook(setup: Parameters<typeof render_with_providers>[1] = {}) {
+    await render_with_providers(<Notes />, { documents, ...setup });
     await fireEvent.press(screen.getByRole("button", { name: "Open Biology notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "Notebook tools" }));
   }
 
   it("follow the person's personalization answers", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "learning");
-    await openNotebook(answered({ goals: ["explain-difficult"] }));
+    await open_notebook(answered({ goals: ["explain-difficult"] }));
     // The answers replace the School purpose's "Quiz me".
     expect(screen.getByRole("button", { name: "Key points" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Explain key ideas" })).toBeTruthy();
@@ -129,11 +129,11 @@ describe("Notes notebook actions", () => {
 
   it("keep a legacy purpose working, and work without one", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "research");
-    await openNotebook();
+    await open_notebook();
     expect(screen.getByRole("button", { name: "Key findings" })).toBeTruthy();
     screen.unmount();
     await AsyncStorage.removeItem(PURPOSE_KEY);
-    await openNotebook();
+    await open_notebook();
     expect(screen.getByRole("button", { name: "Key points" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Explain" })).toBeTruthy();
   });
@@ -141,7 +141,7 @@ describe("Notes notebook actions", () => {
 
 describe("Settings", () => {
   it("edits personalization with the same four questions as setup, and saves it", async () => {
-    await renderWithProviders(<SettingsDetailScreen category="personalization" />, answered({}));
+    await render_with_providers(<SettingsDetailScreen category="personalization" />, answered({}));
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
     expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
     await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
@@ -155,20 +155,20 @@ describe("Settings", () => {
   });
 
   it("offers Learn Votic and Personalization separately, without the old app tour", async () => {
-    await renderWithProviders(<Settings />);
+    await render_with_providers(<Settings />);
     expect(screen.queryByText("Replay app tour")).toBeNull();
     expect(screen.getByRole("button", { name: "Personalization" })).toBeTruthy();
     screen.unmount();
     // Learn Votic lives under Help.
-    await renderWithProviders(<SettingsDetailScreen category="help" />);
+    await render_with_providers(<SettingsDetailScreen category="help" />);
     expect(screen.getByText("LEARN VOTIC")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Replay the Home walkthrough" })).toBeTruthy();
   });
 });
 
 it("discards every personalization preview when editing is closed without Save", async () => {
-  await renderWithProviders(<SettingsDetailScreen category="personalization" />);
-  const original = await loadAccountPreferences("test-user");
+  await render_with_providers(<SettingsDetailScreen category="personalization" />);
+  const original = await load_account_preferences("test-user");
   await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
   await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
@@ -180,7 +180,7 @@ it("discards every personalization preview when editing is closed without Save",
   await fireEvent.press(screen.getByLabelText("No highlighting. Just listen"));
   for (let step = 0; step < 4; step += 1) await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   await settle();
-  expect(await loadAccountPreferences("test-user")).toEqual(original);
+  expect(await load_account_preferences("test-user")).toEqual(original);
   expect(await AsyncStorage.getItem(PURPOSE_KEY)).toBeNull();
   expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.accessibility.v1"))!)).toMatchObject({
     textSize: "default",

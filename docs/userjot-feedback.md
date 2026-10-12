@@ -22,7 +22,7 @@ job, issue creation, UserJot comments, or status updates have been enabled.
    are never printed. The job needs only GitHub `contents: read` permission.
 4. After this authenticated check succeeds, verify Votic's board/project identifiers and the request
    response fields. Map only public Votic requests to `{ id, title, body, url }`, then run a dry preview
-   with `mirrorFeedbackToGitHub`. Enable a worker only after confirming this source mapping and preview.
+   with `mirror_feedback_to_github`. Enable a worker only after confirming this source mapping and preview.
    Scheduled GitHub Actions run from the default branch; this feature branch does not change `main`.
 
 For local inspection with a token already stored in an ignored environment file:

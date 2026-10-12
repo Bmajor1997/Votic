@@ -19,10 +19,10 @@ import {
   TRIGGER_DELAY_MS,
   useWalkthrough,
 } from "../../src/walkthrough/WalkthroughProvider";
-import { WALKTHROUGH_KEY as DEVICE_KEY, walkthroughKey } from "../../src/walkthrough/walkthroughState";
+import { WALKTHROUGH_KEY as DEVICE_KEY, walkthrough_key } from "../../src/walkthrough/walkthroughState";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { render_with_providers, test_document } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn(async () => ({ canceled: true })) }));
 jest.mock("expo-speech", () => ({
@@ -32,11 +32,11 @@ jest.mock("expo-speech", () => ({
 }));
 
 /** Walkthrough progress for the signed-in test account. */
-const ACCOUNT_KEY = walkthroughKey("test-user");
+const ACCOUNT_KEY = walkthrough_key("test-user");
 
 /** Which real controls the walkthrough measured, by accessibility label. */
 let measured: string[] = [];
-const measureNode: MeasureNode = async (node) => {
+const measure_node: MeasureNode = async (node) => {
   const label = (node as { props?: { accessibilityLabel?: string } } | null)?.props?.accessibilityLabel;
   if (label) measured.push(label);
   return { x: 20, y: 300, width: 120, height: 44 };
@@ -62,24 +62,24 @@ async function settle() {
   for (let i = 0; i < 5; i += 1) await act(async () => {});
 }
 /** Lets the screen's trigger delay and the overlay's measuring finish. */
-async function waitForWalkthrough() {
+async function wait_for_walkthrough() {
   await settle();
   await act(async () => jest.advanceTimersByTime(TRIGGER_DELAY_MS + 350));
   await settle();
 }
-async function renderTab(
+async function render_tab(
   ui: React.ReactElement,
-  setup: { documents?: ReturnType<typeof testDocument>[] } = {},
+  setup: { documents?: ReturnType<typeof test_document>[] } = {},
 ) {
-  const result = await renderWithProviders(
+  const result = await render_with_providers(
     <>
       {ui}
       <TabTargets />
       <WalkthroughOverlay host="tabs" />
     </>,
-    { walkthrough: "fresh", measureNode, ...setup },
+    { walkthrough: "fresh", measureNode: measure_node, ...setup },
   );
-  await waitForWalkthrough();
+  await wait_for_walkthrough();
   return result;
 }
 async function press(name: string) {
@@ -91,9 +91,9 @@ async function saved(): Promise<Partial<Record<FlowId, { status: string }>>> {
 }
 const card = () => screen.queryByTestId("walkthrough-card");
 /** Text inside the walkthrough card (the screen itself may say the same thing). */
-const inCard = (text: string) => within(screen.getByTestId("walkthrough-card")).getByText(text);
+const in_card = (text: string) => within(screen.getByTestId("walkthrough-card")).getByText(text);
 const WITH_NOTES = [
-  testDocument("d1", "Biology", {
+  test_document("d1", "Biology", {
     savedPassages: [
       { id: "passage-0", sentenceIndex: 0, text: "Cells.", note: "Mitosis", createdAt: 1, updatedAt: 1 },
     ],
@@ -110,13 +110,13 @@ beforeEach(async () => {
 });
 
 describe("Let's show you around", () => {
-  async function brandNew() {
+  async function brand_new() {
     await AsyncStorage.removeItem(ACCOUNT_KEY);
-    await renderTab(<Home />);
+    await render_tab(<Home />);
   }
 
   it("comes before any Home coaching for a brand-new person", async () => {
-    await brandNew();
+    await brand_new();
     expect(screen.getByText("Let's show you around")).toBeTruthy();
     expect(
       screen.getByText("We'll show you around as you explore, so you can learn Votic as you use it."),
@@ -127,33 +127,33 @@ describe("Let's show you around", () => {
   });
 
   it("'Show me around' leads into the Home walkthrough, and the welcome shows only once", async () => {
-    await brandNew();
+    await brand_new();
     await press("Show me around");
     expect(screen.queryByText("Let's show you around")).toBeNull();
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
     expect((await saved()).intro?.status).toBe("completed");
     // Documents, Notes, and the Reader still wait until they're reached.
     expect((await saved()).documents).toBeUndefined();
     screen.unmount();
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(screen.queryByText("Let's show you around")).toBeNull();
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
   });
 
   it("'I'll explore on my own' turns off automatic coaching without marking anything learned", async () => {
-    await brandNew();
+    await brand_new();
     await press("I'll explore on my own");
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(card()).toBeNull();
     expect(await saved()).toEqual({ intro: expect.objectContaining({ status: "skipped" }) });
     screen.unmount();
-    await renderTab(<Documents />);
+    await render_tab(<Documents />);
     expect(card()).toBeNull();
     screen.unmount();
-    await renderTab(<Notes />, { documents: WITH_NOTES });
+    await render_tab(<Notes />, { documents: WITH_NOTES });
     await press("Select notes");
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(card()).toBeNull();
   });
 
@@ -169,10 +169,10 @@ describe("Let's show you around", () => {
       }, []);
       return onDocuments ? <Documents /> : <LearnVoticSettings />;
     }
-    await renderTab(<SettingsThenDocuments />);
+    await render_tab(<SettingsThenDocuments />);
     await press("Replay the Documents walkthrough");
-    await waitForWalkthrough();
-    expect(inCard("Add your first document")).toBeTruthy();
+    await wait_for_walkthrough();
+    expect(in_card("Add your first document")).toBeTruthy();
   });
 
   it("isn't shown to people whose walkthrough progress was saved before it existed", async () => {
@@ -182,30 +182,30 @@ describe("Let's show you around", () => {
       DEVICE_KEY,
       JSON.stringify({ version: 1, flows: { home: { status: "completed", at: 1 } } }),
     );
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(card()).toBeNull();
     expect((await saved()).intro?.status).toBe("migrated");
   });
 
   it("comes back with 'Show all walkthroughs and tips again'", async () => {
-    await renderWithProviders(<LearnVoticSettings />);
+    await render_with_providers(<LearnVoticSettings />);
     await settle();
     await press("Show all walkthroughs and tips again");
     expect(await saved()).toEqual({});
     screen.unmount();
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(screen.getByText("Let's show you around")).toBeTruthy();
   });
 });
 
 describe("Home walkthrough", () => {
   it("orients a new person on their first visit, then stays finished", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
     expect(screen.getByText("Start here. Add a document, and Votic opens it in the Reader.")).toBeTruthy();
     expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
     await press("Next");
-    expect(inCard("Your week")).toBeTruthy();
+    expect(in_card("Your week")).toBeTruthy();
     expect(
       screen.getByText(
         "Your reading and listening time will show here once you start. Statistics has the full picture.",
@@ -226,20 +226,20 @@ describe("Home walkthrough", () => {
     });
 
     screen.unmount();
-    await renderWithProviders(
+    await render_with_providers(
       <>
         <Home />
         <WalkthroughOverlay host="tabs" />
       </>,
-      { walkthrough: "fresh", measureNode },
+      { walkthrough: "fresh", measureNode: measure_node },
     );
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(card()).toBeNull();
   });
 
   it("starts with Continue Reading when there's a document in progress", async () => {
-    await renderTab(<Home />, {
-      documents: [testDocument("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 })],
+    await render_tab(<Home />, {
+      documents: [test_document("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 })],
     });
     expect(
       screen.getByText(
@@ -252,10 +252,10 @@ describe("Home walkthrough", () => {
   });
 
   it("covers the Recent shelf and notes when Home has them", async () => {
-    await renderTab(<Home />, {
+    await render_tab(<Home />, {
       documents: [
-        testDocument("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 }),
-        testDocument("d2", "Field Guide", {
+        test_document("d1", "Biology", { progress: 0.3, lastOpenedAt: 5 }),
+        test_document("d2", "Field Guide", {
           lastOpenedAt: 2,
           savedPassages: [
             {
@@ -291,7 +291,7 @@ describe("Home walkthrough", () => {
   });
 
   it("skipping Home leaves Documents, Notes, and the Reader to be taught later", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     await press("Skip walkthrough");
     expect(card()).toBeNull();
     expect(await saved()).toEqual({
@@ -299,18 +299,18 @@ describe("Home walkthrough", () => {
       home: expect.objectContaining({ status: "skipped" }),
     });
     screen.unmount();
-    await renderTab(<Documents />);
-    expect(inCard("Add your first document")).toBeTruthy();
+    await render_tab(<Documents />);
+    expect(in_card("Add your first document")).toBeTruthy();
   });
 });
 
 describe("Documents walkthrough", () => {
   it("waits until Documents is visited, and points at the real Upload button", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(screen.queryByText("Add your first document")).toBeNull();
     screen.unmount();
-    await renderTab(<Documents />);
-    expect(inCard("Add your first document")).toBeTruthy();
+    await render_tab(<Documents />);
+    expect(in_card("Add your first document")).toBeTruthy();
     expect(measured).toContain("Add document");
     // Upload can be used for real through the spotlight.
     expect(
@@ -321,7 +321,7 @@ describe("Documents walkthrough", () => {
   });
 
   it("shows search and sorting once there are documents", async () => {
-    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     // It starts with the person's own document.
     expect(screen.getByText("Your library")).toBeTruthy();
     await press("Next");
@@ -340,7 +340,7 @@ describe("Documents walkthrough", () => {
   });
 
   it("finishes when the person taps Add", async () => {
-    await renderTab(<Documents />);
+    await render_tab(<Documents />);
     await press("Add document");
     expect(card()).toBeNull();
     expect((await saved()).documents?.status).toBe("completed");
@@ -350,11 +350,11 @@ describe("Documents walkthrough", () => {
   });
 
   it("shows again from the start if the person leaves before finishing", async () => {
-    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     await press("Next");
     screen.unmount();
     expect((await saved()).documents).toBeUndefined();
-    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     expect(screen.getByText("Your library")).toBeTruthy();
   });
 
@@ -363,7 +363,7 @@ describe("Documents walkthrough", () => {
       ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { documents: { status: "completed", at: 1 } } }),
     );
-    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     expect(screen.getByText("Organize with collections")).toBeTruthy();
     expect(measured).toContain("New collection");
     await press("Next");
@@ -378,10 +378,10 @@ describe("Documents walkthrough", () => {
 
 describe("Notes walkthrough", () => {
   it("waits until Notes is visited and explains where notes come from", async () => {
-    await renderTab(<Documents />);
+    await render_tab(<Documents />);
     expect(screen.queryByText("Notes start in the Reader")).toBeNull();
     screen.unmount();
-    await renderTab(<Notes />);
+    await render_tab(<Notes />);
     expect(screen.getByText("Notes start in the Reader")).toBeTruthy();
     await press("Got it");
     expect(Object.keys(await saved()).sort()).toEqual(["intro", "notes"]);
@@ -389,13 +389,13 @@ describe("Notes walkthrough", () => {
 
   it("explains source-linked notes when there are notes", async () => {
     const documents = [
-      testDocument("d1", "Biology", {
+      test_document("d1", "Biology", {
         savedPassages: [
           { id: "passage-0", sentenceIndex: 0, text: "Cells.", note: "Mitosis", createdAt: 1, updatedAt: 1 },
         ],
       }),
     ];
-    await renderTab(<Notes />, { documents });
+    await render_tab(<Notes />, { documents });
     expect(screen.getByText("Notes stay with their source")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Find a note")).toBeTruthy();
@@ -410,19 +410,19 @@ describe("Notes walkthrough", () => {
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
     );
     const documents = [
-      testDocument("d1", "Biology", {
+      test_document("d1", "Biology", {
         savedPassages: [
           { id: "passage-0", sentenceIndex: 0, text: "Cells.", note: "Mitosis", createdAt: 1, updatedAt: 1 },
         ],
       }),
     ];
-    await renderTab(<Notes />, { documents });
+    await render_tab(<Notes />, { documents });
     expect(card()).toBeNull();
     // Notes live in their document's notebook.
     await press("Open Biology notebook");
     await press("More options for note");
     await fireEvent.press(screen.getByText("Pin note"));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(
       screen.getByText("Pinned notes stay easy to find. Choose Pinned in Filters to see only them."),
     ).toBeTruthy();
@@ -433,9 +433,9 @@ describe("Notes walkthrough", () => {
       ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
     );
-    await renderTab(<Notes />, { documents: WITH_NOTES });
+    await render_tab(<Notes />, { documents: WITH_NOTES });
     await press("Select notes");
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Ask about your notes")).toBeTruthy();
     expect(
       screen.getByText(
@@ -445,7 +445,7 @@ describe("Notes walkthrough", () => {
     await press("Got it");
     await press("Cancel note selection");
     await press("Select notes");
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(card()).toBeNull();
   });
 });
@@ -455,18 +455,18 @@ function OpenedReader() {
   const { activeDocument } = useDocumentLibrary();
   return activeDocument ? <Reader /> : null;
 }
-async function renderReader(
+async function render_reader(
   flows: Partial<Record<FlowId, { status: string; at: number }>> = {},
   mode: "read" | "listen" = "listen",
 ) {
   // How the document was opened decides the Reader's controls: Listen has audio controls, Read doesn't.
   searchParams.current = { mode };
   await AsyncStorage.setItem(ACCOUNT_KEY, JSON.stringify({ version: 1, flows }));
-  await renderWithProviders(<OpenedReader />, {
+  await render_with_providers(<OpenedReader />, {
     walkthrough: "fresh",
-    measureNode,
+    measureNode: measure_node,
     documents: [
-      testDocument("doc-book", "Field Guide", { plainText: "First passage here. Second passage there." }),
+      test_document("doc-book", "Field Guide", { plainText: "First passage here. Second passage there." }),
     ],
   });
   await settle();
@@ -496,18 +496,18 @@ async function renderReader(
     });
   }
   await act(async () => jest.advanceTimersByTime(50));
-  await waitForWalkthrough();
+  await wait_for_walkthrough();
 }
 
 describe("Reader walkthrough", () => {
   it("waits until a document is opened", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     await press("Skip walkthrough");
     expect((await saved()).reader).toBeUndefined();
   });
 
   it("follows the real Reader: document, progress, Ask Votic, Play, More, tools, Close", async () => {
-    await renderReader();
+    await render_reader();
     const titles: string[] = [];
     titles.push(screen.getByRole("header").props.children);
     for (let step = 0; step < 4; step += 1) {
@@ -528,7 +528,7 @@ describe("Reader walkthrough", () => {
     // Using More for real opens the extra controls and moves on to them.
     await press("Expand listening controls");
     await act(async () => jest.advanceTimersByTime(200));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Make it yours")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
@@ -538,7 +538,7 @@ describe("Reader walkthrough", () => {
   });
 
   it("matches Read mode, which has no Play button until listening is chosen", async () => {
-    await renderReader({}, "read");
+    await render_reader({}, "read");
     const titles: string[] = [screen.getByRole("header").props.children];
     for (let step = 0; step < 3; step += 1) {
       await press("Next");
@@ -548,7 +548,7 @@ describe("Reader walkthrough", () => {
     expect(screen.getByText("Tap More for reading tools: text, color, and bookmarks.")).toBeTruthy();
     await press("Show reading tools");
     await act(async () => jest.advanceTimersByTime(200));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(
       screen.getByText(
         "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes. Once you've read some, Catch up recaps it.",
@@ -557,13 +557,13 @@ describe("Reader walkthrough", () => {
   });
 
   it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
-    await renderReader({ intro: { status: "completed", at: 1 }, home: { status: "completed", at: 1 } });
+    await render_reader({ intro: { status: "completed", at: 1 }, home: { status: "completed", at: 1 } });
     for (let i = 0; i < 5; i += 1) await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
     await press("Got it");
     expect(screen.queryByText("You're all set")).toBeNull();
     await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("You're all set")).toBeTruthy();
     expect(
       screen.getByText(
@@ -575,22 +575,22 @@ describe("Reader walkthrough", () => {
     // Contextual tips still appear later.
     await press("Ask Votic about this page");
     await act(async () => jest.advanceTimersByTime(1000));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Ask about this document")).toBeTruthy();
   });
 
   it("waits to say 'You're all set' until Home has been covered too", async () => {
     // The first document was opened straight from "Votic is ready for you", before the Home tour.
-    await renderReader({});
+    await render_reader({});
     for (let i = 0; i < 5; i += 1) await press("Next");
     await press("Got it");
     await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.queryByText("You're all set")).toBeNull();
     expect((await saved()).allSet).toBeUndefined();
     // After the Home tour, the next time a document opens.
     screen.unmount();
-    await renderReader({
+    await render_reader({
       intro: { status: "completed", at: 1 },
       home: { status: "completed", at: 1 },
       reader: { status: "completed", at: 1 },
@@ -599,35 +599,35 @@ describe("Reader walkthrough", () => {
   });
 
   it("doesn't say 'You're all set' when the Reader walkthrough is skipped", async () => {
-    await renderReader({ intro: { status: "completed", at: 1 } });
+    await render_reader({ intro: { status: "completed", at: 1 } });
     await press("Skip walkthrough");
     await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.queryByText("You're all set")).toBeNull();
     expect((await saved()).allSet).toBeUndefined();
   });
 
   it("skips the tools step when More wasn't opened", async () => {
-    await renderReader();
+    await render_reader();
     for (let i = 0; i < 5; i += 1) await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
   });
 
   it("connects a saved passage to Notes the first time one is saved", async () => {
-    await renderReader({ reader: { status: "completed", at: 1 } });
+    await render_reader({ reader: { status: "completed", at: 1 } });
     expect(card()).toBeNull();
     await press("Save current passage");
     await press("Save passage");
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Saved to Notes")).toBeTruthy();
     expect(measured).toContain("Edit saved passage");
   });
 
   it("coaches the compact Ask Votic panel the first time it opens", async () => {
-    await renderReader({ reader: { status: "completed", at: 1 } });
+    await render_reader({ reader: { status: "completed", at: 1 } });
     await press("Ask Votic about this page");
     await act(async () => jest.advanceTimersByTime(1000));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
     expect(screen.getByText("Ask about this document")).toBeTruthy();
     expect(screen.getByTestId("ask-votic-panel")).toBeTruthy();
   });
@@ -644,7 +644,7 @@ describe("Replay and accessibility", () => {
         flows: { home: { status: "completed", at: 1 }, documents: { status: "skipped", at: 1 } },
       }),
     );
-    await renderWithProviders(<LearnVoticSettings />, { walkthrough: "fresh" });
+    await render_with_providers(<LearnVoticSettings />, { walkthrough: "fresh" });
     await settle();
     await press("Replay the Documents walkthrough");
     expect(router.push).toHaveBeenCalledWith("/documents");
@@ -656,7 +656,7 @@ describe("Replay and accessibility", () => {
 
   it("keeps controls reachable for screen reader users", async () => {
     jest.spyOn(AccessibilityInfo, "isScreenReaderEnabled").mockResolvedValue(true);
-    await renderTab(<Documents />, { documents: [testDocument("d1", "Biology")] });
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     expect(screen.getByText("Your library")).toBeTruthy();
     expect(screen.queryAllByTestId("walkthrough-dim", { includeHiddenElements: true })).toHaveLength(0);
     await press("Next");
@@ -672,8 +672,8 @@ describe("Existing Votic users", () => {
   it("aren't shown walkthroughs for areas they already use", async () => {
     await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "existing");
     await AsyncStorage.removeItem(ACCOUNT_KEY);
-    const documents = [testDocument("d1", "Biology", { progress: 0.5, lastOpenedAt: 3 })];
-    await renderTab(<Home />, { documents });
+    const documents = [test_document("d1", "Biology", { progress: 0.5, lastOpenedAt: 3 })];
+    await render_tab(<Home />, { documents });
     // renderTab starts "fresh", so this is the first launch with walkthroughs on an existing install.
     expect(card()).toBeNull();
     const flows = await saved();
@@ -687,37 +687,37 @@ describe("Existing Votic users", () => {
     ]);
     expect(flows.notes).toBeUndefined();
     screen.unmount();
-    await renderTab(<Notes />, { documents });
+    await render_tab(<Notes />, { documents });
     expect(screen.getByText("Notes start in the Reader")).toBeTruthy();
   });
 });
 
 describe("Walkthrough progress belongs to the account", () => {
   /** Another account signs in while Votic is open, as after signing out. */
-  async function signInAs(user: NonNullable<typeof fakeAuth.user>) {
+  async function sign_in_as(user: NonNullable<typeof fakeAuth.user>) {
     await act(async () => fakeAuth.setUser(null));
     await act(async () => fakeAuth.setUser(user));
-    await waitForWalkthrough();
+    await wait_for_walkthrough();
   }
 
   it("is kept separately for each account on the device", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     await press("Skip walkthrough");
     expect((await saved()).home?.status).toBe("skipped");
     // A brand-new account signs in on the same phone and gets its own walkthrough.
-    await signInAs({ uid: "second", email: "b@example.com", displayName: null, isNewAccount: true });
-    expect(inCard("Let's show you around")).toBeTruthy();
-    expect(JSON.parse((await AsyncStorage.getItem(walkthroughKey("second"))) || "{}").flows).toEqual({});
+    await sign_in_as({ uid: "second", email: "b@example.com", displayName: null, isNewAccount: true });
+    expect(in_card("Let's show you around")).toBeTruthy();
+    expect(JSON.parse((await AsyncStorage.getItem(walkthrough_key("second"))) || "{}").flows).toEqual({});
     // The first account's progress is untouched.
     expect((await saved()).home?.status).toBe("skipped");
   });
 
   it("isn't shown again to an existing account signing in on another phone", async () => {
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(card()).not.toBeNull();
-    await signInAs({ uid: "returning", email: "r@example.com", displayName: null });
+    await sign_in_as({ uid: "returning", email: "r@example.com", displayName: null });
     expect(card()).toBeNull();
-    const flows = JSON.parse((await AsyncStorage.getItem(walkthroughKey("returning"))) || "{}").flows;
+    const flows = JSON.parse((await AsyncStorage.getItem(walkthrough_key("returning"))) || "{}").flows;
     expect(Object.keys(flows).sort()).toEqual(Object.keys(FLOWS).sort());
   });
 
@@ -730,7 +730,7 @@ describe("Walkthrough progress belongs to the account", () => {
         flows: { intro: { status: "completed", at: 1 }, home: { status: "skipped", at: 1 } },
       }),
     );
-    await renderTab(<Home />);
+    await render_tab(<Home />);
     expect(Object.keys(await saved()).sort()).toEqual(["home", "intro"]);
   });
 });

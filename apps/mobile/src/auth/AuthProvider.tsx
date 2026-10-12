@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
-import { setAuthTokenProvider } from "../api/authToken";
-import { AuthBackend, VoticUser, createAuthBackend } from "./authBackend";
+import { set_auth_token_provider } from "../api/authToken";
+import { AuthBackend, VoticUser, create_auth_backend } from "./authBackend";
 
 type AuthValue = {
   user: VoticUser | null;
@@ -36,7 +36,7 @@ const DEVELOPMENT_USER: VoticUser = {
 };
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [backend] = useState(createAuthBackend);
+  const [backend] = useState(create_auth_backend);
   const [user, setUser] = useState<VoticUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [sessionRestored, setSessionRestored] = useState(false);
@@ -89,8 +89,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [backend]);
   // Votic's server checks this token when it requires accounts.
   useEffect(() => {
-    setAuthTokenProvider(() => backend.idToken());
-    return () => setAuthTokenProvider(null);
+    set_auth_token_provider(() => backend.idToken());
+    return () => set_auth_token_provider(null);
   }, [backend]);
 
   return (

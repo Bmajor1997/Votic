@@ -3,8 +3,8 @@ import { AppState } from "react-native";
 import { useActivity } from "../activity/ActivityProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
-import { publishWidgetSnapshot } from "./widgetBridge";
-import { buildWidgetSnapshot } from "./widgetSnapshot";
+import { publish_widget_snapshot } from "./widgetBridge";
+import { build_widget_snapshot } from "./widgetSnapshot";
 
 /** Waits for a burst of changes (progress while reading, time while listening) to settle. */
 export const WIDGET_PUBLISH_DELAY_MS = 2000;
@@ -16,7 +16,7 @@ export const WIDGET_PUBLISH_DELAY_MS = 2000;
  * empty library while Votic starts. Signing out clears the widgets right away. Unchanged snapshots aren't
  * resent, and a pending update is sent before Votic goes to the background.
  */
-export function WidgetSync({ publish = publishWidgetSnapshot }: { publish?: (snapshot: string) => void }) {
+export function WidgetSync({ publish = publish_widget_snapshot }: { publish?: (snapshot: string) => void }) {
   const { documents, loaded } = useDocumentLibrary();
   const { measuredLog, hydrated } = useActivity();
   const { user, hydrated: authKnown } = useAuth();
@@ -29,7 +29,7 @@ export function WidgetSync({ publish = publishWidgetSnapshot }: { publish?: (sna
     if (!authKnown || (signedIn && (!loaded || !hydrated))) return;
     const send = () => {
       pending.current = null;
-      const snapshot = JSON.stringify(buildWidgetSnapshot({ documents, log: measuredLog, signedIn }));
+      const snapshot = JSON.stringify(build_widget_snapshot({ documents, log: measuredLog, signedIn }));
       if (snapshot === lastSent.current) return;
       lastSent.current = snapshot;
       publish(snapshot);

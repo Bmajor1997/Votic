@@ -16,7 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
-import { SignInCancelled, authErrorMessage } from "../auth/authErrors";
+import { SignInCancelled, auth_error_message } from "../auth/authErrors";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -82,7 +82,7 @@ export function SocialSignIn({
   const [busy, setBusy] = useState<Provider | null>(null);
   if (!auth.appleAvailable && !auth.googleAvailable) return null;
 
-  async function continueWith(provider: Provider) {
+  async function continue_with(provider: Provider) {
     if (busy || disabled) return;
     onError("");
     setBusy(provider);
@@ -92,7 +92,7 @@ export function SocialSignIn({
       else await auth.signInWithGoogle();
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
-      if (!(failure instanceof SignInCancelled)) onError(authErrorMessage(failure));
+      if (!(failure instanceof SignInCancelled)) onError(auth_error_message(failure));
     } finally {
       setBusy(null);
       onBusyChange?.(false);
@@ -111,7 +111,7 @@ export function SocialSignIn({
           }
           cornerRadius={radii.md}
           style={s.appleButton}
-          onPress={() => void continueWith("apple")}
+          onPress={() => void continue_with("apple")}
         />
       ) : null}
       {auth.googleAvailable ? (
@@ -120,7 +120,7 @@ export function SocialSignIn({
           busy={busy === "google"}
           disabled={busy !== null || disabled}
           icon={<Ionicons name="logo-google" size={19} color={theme.text} />}
-          onPress={() => void continueWith("google")}
+          onPress={() => void continue_with("google")}
         />
       ) : null}
     </View>

@@ -12,8 +12,8 @@ import {
 } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import { LegalLinks } from "../config/appConfig";
-import { hasAccess } from "./entitlement";
-import { createSubscriptionService, legalLinks } from "./subscriptionService";
+import { has_access } from "./entitlement";
+import { create_subscription_service, legal_links } from "./subscriptionService";
 import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
 
 /** Development and marked preview builds only: lets testers past the paywall when the build can't make real purchases. */
@@ -44,8 +44,8 @@ export function SubscriptionProvider({
   // builds made with the "preview" profile. Production and unmarked release builds never qualify.
   isDevelopment = __DEV__ || Constants.expoConfig?.extra?.previewTesting === true,
 }: PropsWithChildren<{ isDevelopment?: boolean }>) {
-  const [service] = useState(createSubscriptionService);
-  const [legal] = useState(legalLinks);
+  const [service] = useState(create_subscription_service);
+  const [legal] = useState(legal_links);
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
@@ -98,7 +98,7 @@ export function SubscriptionProvider({
   }, [uid, service]);
 
   // Purchase/restore/refresh callbacks retain the account that started them.
-  const setEntitlement = useCallback(
+  const set_entitlement = useCallback(
     (next: Entitlement) => {
       if (uid && uidRef.current === uid && settled.current === uid) setChecked({ uid, entitlement: next });
     },
@@ -121,17 +121,17 @@ export function SubscriptionProvider({
     legal,
     entitlement,
     checking,
-    access: hasAccess(entitlement.status) || (canBypass && bypassed),
+    access: has_access(entitlement.status) || (canBypass && bypassed),
     canBypass,
     bypass() {
       if (!canBypass) return;
       setBypassed(true);
       void AsyncStorage.setItem(DEVELOPMENT_BYPASS_KEY, "yes").catch(() => {});
     },
-    setEntitlement,
+    setEntitlement: set_entitlement,
     async refresh() {
       const next = await service.refresh();
-      setEntitlement(next);
+      set_entitlement(next);
       return next;
     },
   };

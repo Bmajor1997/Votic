@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 import { useWebAutoGrow } from "../../src/components/useWebAutoGrow";
 
 /** A stand-in for the web's text box: its scroll height is its text's height, or its own height if taller. */
-function textBox(lines: () => number) {
+function text_box(lines: () => number) {
   const node = {
     style: { height: "" },
     get scrollHeight() {
@@ -19,7 +19,7 @@ describe("useWebAutoGrow", () => {
   it("grows a line at a time up to the limit, and shrinks again as text is removed", async () => {
     const platform = jest.replaceProperty(Platform, "OS", "web");
     let lines = 1;
-    const ref = { current: textBox(() => lines) };
+    const ref = { current: text_box(() => lines) };
     const view = await renderHook(({ value }: { value: string }) => useWebAutoGrow(ref, value, 46, 146), {
       initialProps: { value: "a" },
     });
@@ -41,7 +41,7 @@ describe("useWebAutoGrow", () => {
   });
 
   it("leaves phones to grow the box by themselves", async () => {
-    const ref = { current: textBox(() => 4) };
+    const ref = { current: text_box(() => 4) };
     await renderHook(() => useWebAutoGrow(ref, "four lines", 46, 146));
     expect(ref.current.style.height).toBe("");
   });

@@ -16,7 +16,7 @@ export const SETTINGS_CATEGORIES = {
 } as const;
 export type SettingsCategory = keyof typeof SETTINGS_CATEGORIES;
 
-export function isSettingsCategory(value: unknown): value is SettingsCategory {
+export function is_settings_category(value: unknown): value is SettingsCategory {
   return typeof value === "string" && Object.hasOwn(SETTINGS_CATEGORIES, value);
 }
 

@@ -3,12 +3,12 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { Keyboard, StyleSheet } from "react-native";
 import { AskVotic } from "../../app/assistant";
-import { askVotic, VoticAnswer } from "../../src/api/voticApi";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { ask_votic, VoticAnswer } from "../../src/api/voticApi";
+import { render_with_providers, test_document } from "../renderWithProviders";
 
-jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
 jest.mock("expo-speech", () => ({ speak: jest.fn(), stop: jest.fn(async () => {}) }));
-const askVoticMock = jest.mocked(askVotic);
+const askVoticMock = jest.mocked(ask_votic);
 const CONNECTION_ERROR = "Votic could not connect. Check your connection and try again.";
 
 async function ask(question: string) {
@@ -19,7 +19,7 @@ async function ask(question: string) {
 describe("Ask Votic retry", () => {
   it("keeps a failed question and retries the same question", async () => {
     askVoticMock.mockRejectedValueOnce(new Error(CONNECTION_ERROR));
-    await renderWithProviders(<AskVotic />, { reduceMotion: true });
+    await render_with_providers(<AskVotic />, { reduceMotion: true });
     const dismissKeyboard = jest.spyOn(Keyboard, "dismiss");
     await ask("What is ATP?");
     expect(dismissKeyboard).toHaveBeenCalled();
@@ -47,8 +47,8 @@ describe("Ask Votic retry", () => {
 
 describe("Ask Votic answers", () => {
   it("does not offer to save a notice that replaced a document answer", async () => {
-    const book = testDocument("doc-book", "Field Guide", { plainText: "Focus matters. Rest helps." });
-    await renderWithProviders(<AskVotic />, { documents: [book], reduceMotion: true });
+    const book = test_document("doc-book", "Field Guide", { plainText: "Focus matters. Rest helps." });
+    await render_with_providers(<AskVotic />, { documents: [book], reduceMotion: true });
     askVoticMock.mockResolvedValueOnce({
       answer: "Real answer.",
       mode: "document-ai",
@@ -74,7 +74,7 @@ describe("Ask Votic answers", () => {
 
 describe("Ask Votic question box", () => {
   it("starts at one line and allows up to six before scrolling", async () => {
-    await renderWithProviders(<AskVotic />);
+    await render_with_providers(<AskVotic />);
     expect(StyleSheet.flatten(screen.getByLabelText("Ask Votic a question").props.style)).toMatchObject({
       minHeight: 48,
       maxHeight: 168,
@@ -90,7 +90,7 @@ it("offers opt-in read aloud below an Ask answer", async () => {
     sectionIndex: null,
     sectionTitle: null,
   });
-  await renderWithProviders(<AskVotic />, { reduceMotion: true });
+  await render_with_providers(<AskVotic />, { reduceMotion: true });
   await ask("What is ATP?");
   expect(Speech.speak).not.toHaveBeenCalled();
   await fireEvent.press(screen.getByRole("button", { name: "Read answer aloud" }));

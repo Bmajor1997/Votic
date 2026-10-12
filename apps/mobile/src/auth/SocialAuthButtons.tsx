@@ -3,7 +3,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "./AuthProvider";
-import { SignInCancelled, authErrorMessage } from "./authErrors";
+import { SignInCancelled, auth_error_message } from "./authErrors";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 export type SocialProvider = "apple" | "google";
@@ -13,7 +13,7 @@ export function useSocialAuth() {
   const inFlight = useRef(false);
   const [busy, setBusy] = useState<SocialProvider | null>(null);
   const [error, setError] = useState("");
-  async function continueWith(provider: SocialProvider) {
+  async function continue_with(provider: SocialProvider) {
     if (inFlight.current) return;
     inFlight.current = true;
     setError("");
@@ -22,13 +22,13 @@ export function useSocialAuth() {
       if (provider === "apple") await auth.signInWithApple();
       else await auth.signInWithGoogle();
     } catch (failure) {
-      if (!(failure instanceof SignInCancelled)) setError(authErrorMessage(failure));
+      if (!(failure instanceof SignInCancelled)) setError(auth_error_message(failure));
     } finally {
       inFlight.current = false;
       setBusy(null);
     }
   }
-  return { busy, error, setError, continueWith };
+  return { busy, error, setError, continueWith: continue_with };
 }
 
 export function SocialAuthButtons({

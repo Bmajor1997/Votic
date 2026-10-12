@@ -8,11 +8,11 @@ import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { SETTINGS_CATEGORIES, SettingsCategory } from "../../src/settings/SettingsNavigation";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
-import { AppProviders, renderWithProviders } from "../renderWithProviders";
+import { AppProviders, render_with_providers } from "../renderWithProviders";
 
 describe("Settings categories", () => {
   it("shows account identity and accessible category rows without expanded controls", async () => {
-    await renderWithProviders(<Settings />);
+    await render_with_providers(<Settings />);
     expect(screen.getByText("reader@example.com")).toBeTruthy();
     expect(screen.queryAllByRole("radio")).toEqual([]);
     expect(screen.queryAllByRole("switch")).toEqual([]);
@@ -37,7 +37,7 @@ describe("Settings categories", () => {
   it.each(Object.entries(SETTINGS_CATEGORIES) as [SettingsCategory, string][])(
     "opens the %s category through its accessible row",
     async (category, title) => {
-      const rendered = await renderWithProviders(<Settings />);
+      const rendered = await render_with_providers(<Settings />);
       await fireEvent.press(screen.getByRole("button", { name: title }));
       expect(router.push).toHaveBeenCalledWith({ pathname: "/settings/[category]", params: { category } });
       searchParams.current = { category };
@@ -54,7 +54,7 @@ describe("Settings categories", () => {
 
   it("returns a directly opened detail screen to Settings without navigation history", async () => {
     router.canGoBack.mockReturnValue(false);
-    await renderWithProviders(<SettingsDetailScreen category="appearance" />);
+    await render_with_providers(<SettingsDetailScreen category="appearance" />);
     await fireEvent.press(screen.getByRole("button", { name: "Back to Settings" }));
     expect(router.replace).toHaveBeenCalledWith("/(tabs)/settings");
     expect(router.back).not.toHaveBeenCalled();
@@ -62,7 +62,7 @@ describe("Settings categories", () => {
 
   it("handles an unknown category without exposing account actions", async () => {
     searchParams.current = { category: "toString" };
-    await renderWithProviders(<SettingsDetailRoute />);
+    await render_with_providers(<SettingsDetailRoute />);
     expect(screen.getByText(/This settings category is unavailable/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
     expect(screen.getByRole("button", { name: "Back to Settings" })).toBeTruthy();
@@ -70,7 +70,7 @@ describe("Settings categories", () => {
 
   it("preserves the account entry when signed out, without store actions for a missing account", async () => {
     fakeAuth.reset(null);
-    const rendered = await renderWithProviders(<Settings />);
+    const rendered = await render_with_providers(<Settings />);
     expect(screen.getByRole("button", { name: "Account & Membership" })).toBeTruthy();
     await rendered.rerender(
       <AppProviders>
@@ -85,7 +85,7 @@ describe("Settings categories", () => {
 describe("Settings preferences", () => {
   it("updates appearance and accent immediately, persists them, and refreshes the overview summary", async () => {
     const announcement = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
-    const rendered = await renderWithProviders(<SettingsDetailScreen category="appearance" />);
+    const rendered = await render_with_providers(<SettingsDetailScreen category="appearance" />);
     await fireEvent.press(screen.getByRole("radio", { name: "Dark" }));
     await fireEvent.press(screen.getByRole("radio", { name: "purple accent color" }));
     expect(await screen.findByRole("radio", { name: "Dark", checked: true })).toBeTruthy();
@@ -104,14 +104,14 @@ describe("Settings preferences", () => {
       "Dark mode · Purple accent",
     );
     await rendered.unmount();
-    await renderWithProviders(<SettingsDetailScreen category="appearance" />);
+    await render_with_providers(<SettingsDetailScreen category="appearance" />);
     expect(await screen.findByRole("radio", { name: "Dark", checked: true })).toBeTruthy();
     expect(await screen.findByRole("radio", { name: "purple accent color", checked: true })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: "Sepia" })).toBeNull();
   });
 
   it("persists text, spacing, emphasis, and motion using the existing preferences", async () => {
-    const rendered = await renderWithProviders(<SettingsDetailScreen category="reading" />);
+    const rendered = await render_with_providers(<SettingsDetailScreen category="reading" />);
     await fireEvent.press(screen.getByRole("radio", { name: "Extra large text size" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Extra" }));
     await fireEvent(screen.getByRole("switch", { name: "Emphasize current word" }), "valueChange", false);
@@ -128,7 +128,7 @@ describe("Settings preferences", () => {
       reduceMotion: true,
     });
     await rendered.unmount();
-    const restored = await renderWithProviders(<SettingsDetailScreen category="reading" />);
+    const restored = await render_with_providers(<SettingsDetailScreen category="reading" />);
     expect(await screen.findByRole("radio", { name: "Extra large text size", checked: true })).toBeTruthy();
     expect(screen.getByRole("radio", { name: "Extra", checked: true })).toBeTruthy();
     expect(screen.getByRole("switch", { name: "Emphasize current word", checked: false })).toBeTruthy();
@@ -141,7 +141,7 @@ describe("Settings preferences", () => {
   });
 
   it("retains personalization choices after remount", async () => {
-    const rendered = await renderWithProviders(<SettingsDetailScreen category="personalization" />);
+    const rendered = await render_with_providers(<SettingsDetailScreen category="personalization" />);
     // The setup answers are edited from here; the old single focus choice is gone.
     expect(screen.getByRole("button", { name: "Your answers" })).toBeTruthy();
     expect(screen.queryByRole("radio", { name: /^Research\./ })).toBeNull();
@@ -150,12 +150,12 @@ describe("Settings preferences", () => {
       JSON.parse((await AsyncStorage.getItem("votic.mobile.personalization-preferences.v1:test-user"))!),
     ).toMatchObject({ explanationStyle: "simple" });
     await rendered.unmount();
-    await renderWithProviders(<SettingsDetailScreen category="personalization" />);
+    await render_with_providers(<SettingsDetailScreen category="personalization" />);
     expect(await screen.findByRole("radio", { name: "Simple", checked: true })).toBeTruthy();
   });
 
   it("keeps Statistics available from Help", async () => {
-    await renderWithProviders(<SettingsDetailScreen category="help" />);
+    await render_with_providers(<SettingsDetailScreen category="help" />);
     await fireEvent.press(screen.getByRole("button", { name: "Statistics" }));
     expect(router.push).toHaveBeenCalledWith("/statistics");
   });

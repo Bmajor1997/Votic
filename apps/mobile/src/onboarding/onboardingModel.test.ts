@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  highlightModeFor,
-  isAnswered,
-  newOnboardingState,
+  highlight_mode_for,
+  is_answered,
+  new_onboarding_state,
   ONBOARDING_VERSION,
-  parseOnboardingState,
+  parse_onboarding_state,
   QUESTIONS,
-  toggleMultiple,
+  toggle_multiple,
 } from "./onboardingModel";
 
 describe("personalization questions", () => {
@@ -30,35 +30,35 @@ describe("personalization questions", () => {
 describe("multiple choice", () => {
   const question = QUESTIONS[1];
   it("adds and removes options", () => {
-    let selected = toggleMultiple(question, [], "key-points");
-    selected = toggleMultiple(question, selected, "read-aloud");
+    let selected = toggle_multiple(question, [], "key-points");
+    selected = toggle_multiple(question, selected, "read-aloud");
     expect(selected).toEqual(["key-points", "read-aloud"]);
-    expect(toggleMultiple(question, selected, "key-points")).toEqual(["read-aloud"]);
+    expect(toggle_multiple(question, selected, "key-points")).toEqual(["read-aloud"]);
   });
   it("keeps 'I'll decide as I go' on its own", () => {
-    const decided = toggleMultiple(question, ["key-points", "read-aloud"], "decide-as-i-go");
+    const decided = toggle_multiple(question, ["key-points", "read-aloud"], "decide-as-i-go");
     expect(decided).toEqual(["decide-as-i-go"]);
-    expect(toggleMultiple(question, decided, "key-points")).toEqual(["key-points"]);
+    expect(toggle_multiple(question, decided, "key-points")).toEqual(["key-points"]);
   });
   it("tracks whether a question has been answered", () => {
-    const answers = newOnboardingState().answers;
-    expect(isAnswered(QUESTIONS[0], answers)).toBe(false);
-    expect(isAnswered(QUESTIONS[2], { ...answers, explanationStyle: "simple" })).toBe(true);
+    const answers = new_onboarding_state().answers;
+    expect(is_answered(QUESTIONS[0], answers)).toBe(false);
+    expect(is_answered(QUESTIONS[2], { ...answers, explanationStyle: "simple" })).toBe(true);
   });
 });
 
 describe("saved onboarding", () => {
   it("starts at version 1 on the first question", () => {
-    expect(newOnboardingState()).toMatchObject({
+    expect(new_onboarding_state()).toMatchObject({
       version: ONBOARDING_VERSION,
       currentStep: 0,
       completedAt: null,
     });
   });
   it("survives damaged or unexpected data", () => {
-    expect(parseOnboardingState("not json")).toBeNull();
+    expect(parse_onboarding_state("not json")).toBeNull();
     expect(
-      parseOnboardingState(
+      parse_onboarding_state(
         JSON.stringify({
           currentStep: 99,
           answers: { goals: ["summarize", "hacked", "summarize"], explanationStyle: "loud" },
@@ -73,12 +73,12 @@ describe("saved onboarding", () => {
 
 describe("listening answers", () => {
   it("map to the Reader's existing highlight setting", () => {
-    expect(highlightModeFor(["highlight-words", "highlight-sentence"])).toBe("both");
-    expect(highlightModeFor(["highlight-words"])).toBe("word");
-    expect(highlightModeFor(["highlight-sentence", "change-speed"])).toBe("sentence");
+    expect(highlight_mode_for(["highlight-words", "highlight-sentence"])).toBe("both");
+    expect(highlight_mode_for(["highlight-words"])).toBe("word");
+    expect(highlight_mode_for(["highlight-sentence", "change-speed"])).toBe("sentence");
   });
   it("leave the setting alone otherwise, and never turn listening off", () => {
-    expect(highlightModeFor(["mainly-read"])).toBeNull();
-    expect(highlightModeFor([])).toBeNull();
+    expect(highlight_mode_for(["mainly-read"])).toBeNull();
+    expect(highlight_mode_for([])).toBeNull();
   });
 });

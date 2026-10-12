@@ -61,7 +61,7 @@ function unavailable(message: string) {
   return error;
 }
 
-function toVoticUser(user: User | null): VoticUser | null {
+function to_votic_user(user: User | null): VoticUser | null {
   if (!user) return null;
   // Firebase sets both times on the sign-in that creates an account; any later sign-in moves lastSignInTime.
   const { creationTime, lastSignInTime } = user.metadata;
@@ -74,7 +74,7 @@ function toVoticUser(user: User | null): VoticUser | null {
 }
 
 let cachedAuth: Auth | null = null;
-function firebaseAuth(): Auth {
+function firebase_auth(): Auth {
   if (cachedAuth) return cachedAuth;
   const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
   // The React Native build of @firebase/auth exports getReactNativePersistence, but its public typings omit it.
@@ -93,7 +93,7 @@ function firebaseAuth(): Auth {
 }
 
 /** Native modules are loaded on use, so Expo Go and tests (which lack them) still start. */
-function loadAppleModule() {
+function load_apple_module() {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("expo-apple-authentication") as typeof import("expo-apple-authentication");
@@ -101,7 +101,7 @@ function loadAppleModule() {
     return null;
   }
 }
-function loadGoogleModule() {
+function load_google_module() {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require("@react-native-google-signin/google-signin") as typeof import("@react-native-google-signin/google-signin");
@@ -110,31 +110,31 @@ function loadGoogleModule() {
   }
 }
 
-function createFirebaseBackend(): AuthBackend {
+function create_firebase_backend(): AuthBackend {
   let googleConfigured = false;
   return {
     configured: true,
     googleAvailable: Boolean(googleWebClientId) && Platform.OS !== "web",
     async appleAvailable() {
       if (Platform.OS !== "ios") return false;
-      const apple = loadAppleModule();
+      const apple = load_apple_module();
       return apple ? apple.isAvailableAsync().catch(() => false) : false;
     },
     subscribe(listener) {
       // onIdTokenChanged also fires when a profile name is added after Apple sign-in.
-      return onIdTokenChanged(firebaseAuth(), (user) => listener(toVoticUser(user)));
+      return onIdTokenChanged(firebase_auth(), (user) => listener(to_votic_user(user)));
     },
     async createAccount(email, password) {
-      await createUserWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+      await createUserWithEmailAndPassword(firebase_auth(), email.trim(), password);
     },
     async signIn(email, password) {
-      await signInWithEmailAndPassword(firebaseAuth(), email.trim(), password);
+      await signInWithEmailAndPassword(firebase_auth(), email.trim(), password);
     },
     async sendPasswordReset(email) {
-      await sendPasswordResetEmail(firebaseAuth(), email.trim());
+      await sendPasswordResetEmail(firebase_auth(), email.trim());
     },
     async signInWithApple() {
-      const apple = loadAppleModule();
+      const apple = load_apple_module();
       if (!apple || !(await apple.isAvailableAsync().catch(() => false)))
         throw unavailable("Sign in with Apple isn't available on this device.");
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -157,13 +157,13 @@ function createFirebaseBackend(): AuthBackend {
         idToken: result.identityToken,
         rawNonce,
       });
-      const signedIn = await signInWithCredential(firebaseAuth(), credential);
+      const signedIn = await signInWithCredential(firebase_auth(), credential);
       // Apple shares the name only on the first sign-in, so keep it when it arrives.
       const name = [result.fullName?.givenName, result.fullName?.familyName].filter(Boolean).join(" ");
       if (name && !signedIn.user.displayName) await updateProfile(signedIn.user, { displayName: name });
     },
     async signInWithGoogle() {
-      const google = loadGoogleModule();
+      const google = load_google_module();
       if (!google || !googleWebClientId)
         throw unavailable("Google sign-in needs the Votic app build. It isn't available in Expo Go.");
       if (!googleConfigured) {
@@ -183,33 +183,33 @@ function createFirebaseBackend(): AuthBackend {
       if (!google.isSuccessResponse(response)) throw new SignInCancelled();
       const idToken = response.data.idToken;
       if (!idToken) throw unavailable("Google didn't return a sign-in token. Please try again.");
-      await signInWithCredential(firebaseAuth(), GoogleAuthProvider.credential(idToken));
+      await signInWithCredential(firebase_auth(), GoogleAuthProvider.credential(idToken));
     },
     async signOut() {
-      await firebaseSignOut(firebaseAuth());
+      await firebaseSignOut(firebase_auth());
       // Also forget the Google account, so the next Google sign-in offers the account picker again.
       if (googleConfigured)
-        await loadGoogleModule()
+        await load_google_module()
           ?.GoogleSignin.signOut()
           .catch(() => null);
     },
     async deleteAccount() {
-      const user = firebaseAuth().currentUser;
+      const user = firebase_auth().currentUser;
       if (!user) return;
       await deleteUser(user);
       if (googleConfigured)
-        await loadGoogleModule()
+        await load_google_module()
           ?.GoogleSignin.signOut()
           .catch(() => null);
     },
     async idToken() {
-      return (await firebaseAuth().currentUser?.getIdToken()) ?? null;
+      return (await firebase_auth().currentUser?.getIdToken()) ?? null;
     },
   };
 }
 
-function createUnconfiguredBackend(): AuthBackend {
-  const notSetUp = () => Promise.reject(unavailable("Sign-in isn't set up in this build of Votic yet."));
+function create_unconfigured_backend(): AuthBackend {
+  const not_set_up = () => Promise.reject(unavailable("Sign-in isn't set up in this build of Votic yet."));
   return {
     configured: false,
     googleAvailable: false,
@@ -218,18 +218,18 @@ function createUnconfiguredBackend(): AuthBackend {
       listener(null);
       return () => {};
     },
-    createAccount: notSetUp,
-    signIn: notSetUp,
-    sendPasswordReset: notSetUp,
-    signInWithApple: notSetUp,
-    signInWithGoogle: notSetUp,
+    createAccount: not_set_up,
+    signIn: not_set_up,
+    sendPasswordReset: not_set_up,
+    signInWithApple: not_set_up,
+    signInWithGoogle: not_set_up,
     signOut: async () => {},
     deleteAccount: async () => {},
     idToken: async () => null,
   };
 }
 
-export function createAuthBackend(): AuthBackend {
+export function create_auth_backend(): AuthBackend {
   const configured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.appId);
-  return configured ? createFirebaseBackend() : createUnconfiguredBackend();
+  return configured ? create_firebase_backend() : create_unconfigured_backend();
 }

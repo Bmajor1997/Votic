@@ -7,13 +7,13 @@ export const STORE_SUBSCRIPTIONS_URL =
     ? "https://apps.apple.com/account/subscriptions"
     : "https://play.google.com/store/account/subscriptions";
 
-function formatDate(time: number) {
+function format_date(time: number) {
   return new Date(time).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
 /** The subscription as the store reports it, in plain words. */
-export function subscriptionStatus(entitlement: Entitlement) {
-  const until = entitlement.expiresAt ? formatDate(entitlement.expiresAt) : null;
+export function subscription_status(entitlement: Entitlement) {
+  const until = entitlement.expiresAt ? format_date(entitlement.expiresAt) : null;
   switch (entitlement.status) {
     case "trial":
       return until ? `Free trial · ends ${until}` : "Free trial";

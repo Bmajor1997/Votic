@@ -1,6 +1,10 @@
 import { Platform } from "react-native";
 import type { CustomerInfo, PurchasesPackage } from "react-native-purchases";
-import { entitlementFromCustomerInfo, planFromStoreProduct, purchaseOutcomeFromError } from "./entitlement";
+import {
+  entitlement_from_customer_info,
+  plan_from_store_product,
+  purchase_outcome_from_error,
+} from "./entitlement";
 import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
 
 type Sdk = typeof import("react-native-purchases").default;
@@ -10,7 +14,7 @@ type Sdk = typeof import("react-native-purchases").default;
  * Votic never sees card details. Access is read from RevenueCat's entitlement, which RevenueCat verifies
  * with the store, so it survives reinstalls and follows the account to other devices.
  */
-export function createRevenueCatService(apiKey: string, entitlementId: string): SubscriptionService {
+export function create_revenue_cat_service(apiKey: string, entitlementId: string): SubscriptionService {
   let sdkPromise: Promise<Sdk> | null = null;
   const packages = new Map<string, PurchasesPackage>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
@@ -19,7 +23,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
   let identifiedUser: string | null = null;
   let identityQueue: Promise<void> = Promise.resolve();
   // Identity mutations must finish in order: a slow logout must not sign out the next account.
-  function serializeIdentity<T>(operation: () => Promise<T>): Promise<T> {
+  function serialize_identity<T>(operation: () => Promise<T>): Promise<T> {
     const result = identityQueue.then(operation);
     identityQueue = result.then(
       () => {},
@@ -27,7 +31,8 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
     );
     return result;
   }
-  const toEntitlement = (info: CustomerInfo): Entitlement => entitlementFromCustomerInfo(info, entitlementId);
+  const to_entitlement = (info: CustomerInfo): Entitlement =>
+    entitlement_from_customer_info(info, entitlementId);
   // RevenueCat is started on first use (normally identify, with the signed-in account's id), so it never
   // creates an anonymous customer just because the app opened.
   function load(userId?: string) {
@@ -49,7 +54,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
               return;
             const info = await Purchases.getCustomerInfo();
             if (token !== generation || owner !== identifiedUser) return;
-            const entitlement = toEntitlement(info);
+            const entitlement = to_entitlement(info);
             listeners.forEach((listener) => listener(entitlement, owner));
           })
           .catch(() => {});
@@ -67,7 +72,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       // A temporary login failure must not make Retry and Restore permanently unavailable.
       // Serialize recovery with account changes, and never retry an account that has signed out.
       if (identifiedUser !== owner) {
-        await serializeIdentity(async () => {
+        await serialize_identity(async () => {
           if (token !== generation || owner !== intendedUser || identifiedUser === owner) return;
           const sdk = await load(owner);
           if (token !== generation || owner !== intendedUser) return;
@@ -79,7 +84,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       const sdk = await load();
       if ((await sdk.getAppUserID()) !== owner) return UNKNOWN_ENTITLEMENT;
       const info = await read(sdk);
-      return token === generation && owner === identifiedUser ? toEntitlement(info) : UNKNOWN_ENTITLEMENT;
+      return token === generation && owner === identifiedUser ? to_entitlement(info) : UNKNOWN_ENTITLEMENT;
     } catch {
       return UNKNOWN_ENTITLEMENT;
     }
@@ -92,13 +97,13 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       intendedUser = userId;
       identifiedUser = null;
       packages.clear();
-      return serializeIdentity(async () => {
+      return serialize_identity(async () => {
         try {
           const sdk = await load(userId);
           const info = (await sdk.logIn(userId)).customerInfo;
           if (token !== generation) return UNKNOWN_ENTITLEMENT;
           identifiedUser = userId;
-          return toEntitlement(info);
+          return to_entitlement(info);
         } catch {
           return UNKNOWN_ENTITLEMENT;
         }
@@ -109,7 +114,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       intendedUser = null;
       identifiedUser = null;
       packages.clear();
-      await serializeIdentity(async () => {
+      await serialize_identity(async () => {
         try {
           const sdk = await load();
           if (!(await sdk.isAnonymous())) await sdk.logOut();
@@ -143,7 +148,7 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
       }
       return available.map((item) => {
         packages.set(item.identifier, item);
-        const plan = planFromStoreProduct(item.identifier, {
+        const plan = plan_from_store_product(item.identifier, {
           ...item.product,
           freePhase: item.product.defaultOption?.freePhase ?? null,
         });
@@ -162,9 +167,9 @@ export function createRevenueCatService(apiKey: string, entitlementId: string): 
         if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
         const { customerInfo } = await sdk.purchasePackage(item);
         if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
-        return { kind: "purchased", entitlement: toEntitlement(customerInfo) };
+        return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
       } catch (error) {
-        return purchaseOutcomeFromError(error);
+        return purchase_outcome_from_error(error);
       }
     },
     async restore() {

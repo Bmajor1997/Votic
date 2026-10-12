@@ -1,5 +1,5 @@
-import { publishWidgetSnapshot } from "../widgets/widgetBridge";
-import { signedOutSnapshot } from "../widgets/widgetSnapshot";
+import { publish_widget_snapshot } from "../widgets/widgetBridge";
+import { signed_out_snapshot } from "../widgets/widgetSnapshot";
 import {
   createContext,
   PropsWithChildren,
@@ -11,9 +11,9 @@ import {
 } from "react";
 import { useAuth } from "../auth/AuthProvider";
 import {
-  legacyAutoRecoveryEligible,
-  legacyRecoveryAvailable,
-  recoverLegacyDeviceData,
+  legacy_auto_recovery_eligible,
+  legacy_recovery_available,
+  recover_legacy_device_data,
 } from "./accountStorage";
 
 type Value = {
@@ -55,19 +55,20 @@ function AccountDataSession({
   const mounted = useRef(true);
   // Widgets are cleared only when this account goes away (sign-out or a switch), never on every launch:
   // WidgetSync sends the new account's snapshot once its data has loaded.
-  useLayoutEffect(() => () => publishWidgetSnapshot(JSON.stringify(signedOutSnapshot())), []);
+  useLayoutEffect(() => () => publish_widget_snapshot(JSON.stringify(signed_out_snapshot())), []);
   useEffect(() => {
     mounted.current = true;
     if (uid)
       void (async () => {
         try {
-          if (await legacyAutoRecoveryEligible(uid, sessionRestored)) await recoverLegacyDeviceData(uid);
+          if (await legacy_auto_recovery_eligible(uid, sessionRestored))
+            await recover_legacy_device_data(uid);
         } catch {
           // Settings still offers recovery; the backup is unchanged.
         }
         if (!mounted.current) return;
         setReady(true);
-        setCanRecover(await legacyRecoveryAvailable(uid).catch(() => false));
+        setCanRecover(await legacy_recovery_available(uid).catch(() => false));
       })();
     return () => {
       mounted.current = false;
@@ -90,7 +91,7 @@ function AccountDataSession({
           if (pending.current) return pending.current;
           pending.current = (async () => {
             await Promise.all([...flushers].map((flush) => flush()));
-            await recoverLegacyDeviceData(uid);
+            await recover_legacy_device_data(uid);
             await Promise.all([...reloaders].map((reload) => reload()));
             if (mounted.current) setCanRecover(false);
           })().finally(() => {

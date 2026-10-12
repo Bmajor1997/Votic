@@ -65,19 +65,19 @@ export function SeekableProgress({
   const [draft, setDraft] = useState<number | null>(null);
   const width = useRef(1);
   const shown = draft ?? value;
-  function valueFromEvent(event: GestureResponderEvent) {
+  function value_from_event(event: GestureResponderEvent) {
     return Math.max(0, Math.min(1, event.nativeEvent.locationX / width.current));
   }
   function begin(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
+    const next = value_from_event(event);
     onSeekStart();
     setDraft(next);
   }
   function move(event: GestureResponderEvent) {
-    setDraft(valueFromEvent(event));
+    setDraft(value_from_event(event));
   }
   function finish(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
+    const next = value_from_event(event);
     setDraft(null);
     onSeek(next);
   }

@@ -10,11 +10,11 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { formatDuration, spokenDuration } from "../activity/activityModel";
+import { format_duration, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { DocumentCover } from "../components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { positionLabel, progressLabel, readableTitle } from "../documents/documentDisplay";
+import { position_label, progress_label, readable_title } from "../documents/documentDisplay";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -22,16 +22,16 @@ import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
 import {
   NoteItem,
   ResumeMode,
-  changeLabel,
-  homeInsight,
-  lastSession,
-  relativeDay,
-  resumeModeFor,
-  weekActivity,
+  change_label,
+  home_insight,
+  last_session,
+  relative_day,
+  resume_mode_for,
+  week_activity,
 } from "./homeModel";
 
 import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
-import { documentWidgetTone, widgetPalette } from "./widgetDesign";
+import { document_widget_tone, widget_palette } from "./widgetDesign";
 
 type Target = (node: View | null) => void;
 
@@ -86,15 +86,15 @@ export function ContinueWidget({
   const cardRef = useRef<View>(null);
   const listenRef = useRef<View>(null);
   const readRef = useRef<View>(null);
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
   const started = document.progress > 0;
-  const mode = hydrated ? resumeModeFor(log, document.id) : "read";
-  const last = hydrated ? lastSession(log, document.id) : null;
+  const mode = hydrated ? resume_mode_for(log, document.id) : "read";
+  const last = hydrated ? last_session(log, document.id) : null;
   // The card already says "Continue", so the buttons stay short; screen readers hear the full action.
   const listenLabel = started ? "Resume listening" : "Listen";
   const readLabel = started ? "Resume reading" : "Read";
-  const lastLine = last ? `${last.mode === "listen" ? "Listened" : "Read"} ${whenPhrase(last.at)}` : null;
+  const lastLine = last ? `${last.mode === "listen" ? "Listened" : "Read"} ${when_phrase(last.at)}` : null;
 
   const listen = (
     <ResumeButton
@@ -141,7 +141,7 @@ export function ContinueWidget({
             {title}
           </Text>
           <Text style={[s.meta, { color: theme.mutedText }]}>
-            {lastLine ? `${positionLabel(document)} · ${lastLine}` : positionLabel(document)}
+            {lastLine ? `${position_label(document)} · ${lastLine}` : position_label(document)}
           </Text>
           {started ? (
             <View
@@ -154,7 +154,7 @@ export function ContinueWidget({
               <View style={[s.fill, { backgroundColor: theme.accent, width: `${Math.max(2, percent)}%` }]} />
             </View>
           ) : null}
-          <Text style={[s.meta, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
+          <Text style={[s.meta, { color: theme.mutedText }]}>{progress_label(document)}</Text>
         </View>
       </Pressable>
       <View style={s.continueActions}>{mode === "listen" ? [listen, read] : [read, listen]}</View>
@@ -163,8 +163,8 @@ export function ContinueWidget({
 }
 
 /** "today", "yesterday", "3 days ago", or "on Sep 27". */
-function whenPhrase(time: number) {
-  const day = relativeDay(time);
+function when_phrase(time: number) {
+  const day = relative_day(time);
   if (day === "Today" || day === "Yesterday") return day.toLowerCase();
   return day.endsWith("ago") ? day : `on ${day}`;
 }
@@ -237,7 +237,7 @@ export function EmptyContinueWidget({
   targetRef?: Target;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, "chapter");
+  const colors = widget_palette(theme.isDark, "chapter");
   return (
     <View
       ref={targetRef}
@@ -314,21 +314,21 @@ function EmptyPanel({
  */
 export function WeekWidget() {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, "activity");
+  const colors = widget_palette(theme.isDark, "activity");
   const { log, hydrated } = useActivity();
   const { documents } = useDocumentLibrary();
   const weekTarget = useWalkthroughTarget("home.week");
   // Until the log has loaded, nothing is shown rather than a misleading "0 min".
   if (!hydrated) return null;
-  const week = weekActivity(log);
-  const insight = homeInsight(log, documents);
+  const week = week_activity(log);
+  const insight = home_insight(log, documents);
   const peak = Math.max(...week.days.map((day) => day.total), 1);
   const listeningShare = week.total ? week.listening / week.total : 0;
   const spoken = week.total
     ? [
-        `This week: ${spokenDuration(week.total)}`,
-        `reading ${spokenDuration(week.reading)}, listening ${spokenDuration(week.listening)}`,
-        week.change !== null ? changeLabel(week.change) : null,
+        `This week: ${spoken_duration(week.total)}`,
+        `reading ${spoken_duration(week.reading)}, listening ${spoken_duration(week.listening)}`,
+        week.change !== null ? change_label(week.change) : null,
         insight,
         "Open Statistics.",
       ]
@@ -372,9 +372,9 @@ export function WeekWidget() {
         <View style={s.grow}>
           {week.total ? (
             <>
-              <Text style={[s.weekTotal, { color: colors.ink }]}>{formatDuration(week.total)}</Text>
+              <Text style={[s.weekTotal, { color: colors.ink }]}>{format_duration(week.total)}</Text>
               {week.change !== null ? (
-                <Text style={[s.meta, { color: colors.detail }]}>{changeLabel(week.change)}</Text>
+                <Text style={[s.meta, { color: colors.detail }]}>{change_label(week.change)}</Text>
               ) : null}
             </>
           ) : (
@@ -427,8 +427,10 @@ export function WeekWidget() {
             />
           </View>
           <View style={s.splitLabels}>
-            <Text style={[s.meta, { color: colors.detail }]}>Reading {formatDuration(week.reading)}</Text>
-            <Text style={[s.meta, { color: colors.detail }]}>Listening {formatDuration(week.listening)}</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>Reading {format_duration(week.reading)}</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>
+              Listening {format_duration(week.listening)}
+            </Text>
           </View>
         </View>
       ) : null}
@@ -464,7 +466,7 @@ export function RecentShelf({
           icon="time-outline"
           title="Your shelf starts here"
           message="Everything you open lines up here, so you can jump back in anytime."
-          color={widgetPalette(theme.isDark, "chapter")}
+          color={widget_palette(theme.isDark, "chapter")}
         />
       </View>
     );
@@ -502,10 +504,10 @@ function RecentCard({
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, documentWidgetTone(document.sourceName));
+  const colors = widget_palette(theme.isDark, document_widget_tone(document.sourceName));
   const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
   return (
     <View
@@ -525,7 +527,7 @@ function RecentCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
-        accessibilityHint={progressLabel(document)}
+        accessibilityHint={progress_label(document)}
         onPress={() => onOpen(ref)}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
@@ -574,7 +576,7 @@ function RecentCard({
  */
 export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, "notes");
+  const colors = widget_palette(theme.isDark, "notes");
   const { fontScale } = useWindowDimensions();
   const notesTarget = useWalkthroughTarget("home.notes");
   return (
@@ -599,13 +601,13 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
           const [heading, body = ""] = [passage.title, passage.note, passage.text]
             .map((part) => part?.trim())
             .filter((part): part is string => Boolean(part));
-          const source = readableTitle(document.title);
+          const source = readable_title(document.title);
           return (
             <Pressable
               key={document.id + passage.id}
               testID="home-note-card"
               accessibilityRole="button"
-              accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relativeDay(passage.updatedAt)}.`}
+              accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relative_day(passage.updatedAt)}.`}
               accessibilityHint="Opens the document at this passage"
               onPress={() => onOpen(item)}
               style={({ pressed }) => [
@@ -650,7 +652,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
                 numberOfLines={fontScale > 1.2 ? undefined : 1}
                 style={[s.noteSource, { color: colors.detail }]}
               >
-                {source} · {relativeDay(passage.updatedAt)}
+                {source} · {relative_day(passage.updatedAt)}
               </Text>
             </Pressable>
           );

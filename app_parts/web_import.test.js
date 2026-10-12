@@ -15,15 +15,15 @@ test("web importer rejects private-network targets", async () => {
   await assert.rejects(()=>validate_public_url("http://example.test",async()=>[{address:"127.0.0.1",family:4}]),/not public/);
 });
 test("web importer validates redirects before following them", async () => {
-  const lookupImpl=async(host)=>host==="public.test"?[{address:"203.0.113.10",family:4}]:[{address:"10.0.0.2",family:4}];
-  const fetchImpl=async()=>new Response("",{status:302,headers:{location:"http://private.test/secret"}});
-  await assert.rejects(()=>import_public_webpage("https://public.test/article",{fetchImpl,lookupImpl}),/not public/);
+  const lookup_impl=async(host)=>host==="public.test"?[{address:"203.0.113.10",family:4}]:[{address:"10.0.0.2",family:4}];
+  const fetch_impl=async()=>new Response("",{status:302,headers:{location:"http://private.test/secret"}});
+  await assert.rejects(()=>import_public_webpage("https://public.test/article",{fetchImpl: fetch_impl,lookupImpl: lookup_impl}),/not public/);
 });
 test("web importer returns cleaned readable text", async () => {
-  const lookupImpl=async()=>[{address:"203.0.113.10",family:4}];
+  const lookup_impl=async()=>[{address:"203.0.113.10",family:4}];
   const html="<title>Story</title><article><h1>Story</h1><p>This is a long public article paragraph with useful information for a Votic reader.</p><p>Another paragraph makes the page long enough to be accepted by the importer.</p></article>";
-  const fetchImpl=async()=>new Response(html,{status:200,headers:{"content-type":"text/html"}});
-  const page=await import_public_webpage("https://public.test/story",{fetchImpl,lookupImpl});
+  const fetch_impl=async()=>new Response(html,{status:200,headers:{"content-type":"text/html"}});
+  const page=await import_public_webpage("https://public.test/story",{fetchImpl: fetch_impl,lookupImpl: lookup_impl});
   assert.equal(page.title,"Story"); assert.match(page.text,/long public article/);
 });
 
@@ -38,7 +38,7 @@ test("web importer rejects mapped IPv4, private IPv6 and non-public IPv4 targets
 test("public webpage transport pins DNS while preserving the HTTPS hostname", async () => {
   const url = new URL("https://public.test/article");
   let connection;
-  const requestImpl = (target, options, onResponse) => {
+  const request_impl = (target, options, onResponse) => {
     assert.equal(target.hostname, "public.test");
     assert.equal(options.autoSelectFamily, false);
     options.lookup("public.test", {}, (error, address, family) => { connection = { error, address, family }; });
@@ -51,7 +51,7 @@ test("public webpage transport pins DNS while preserving the HTTPS hostname", as
     };
     return request;
   };
-  const response = await fetch_public_page(url, {}, [{ address: "203.0.113.10", family: 4 }], requestImpl);
+  const response = await fetch_public_page(url, {}, [{ address: "203.0.113.10", family: 4 }], request_impl);
   assert.deepEqual(connection, { error: null, address: "203.0.113.10", family: 4 });
   assert.equal(await response.text(), "body");
 });

@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ActivityLog, parseLog } from "../activity/activityModel";
+import { ActivityLog, parse_log } from "../activity/activityModel";
 
 /** Undefined is used only for legacy storage/migration. App providers always pass their account. */
-export function accountStorageKey(key: string, uid?: string) {
+export function account_storage_key(key: string, uid?: string) {
   return uid === undefined ? key : `votic.mobile.account:${encodeURIComponent(uid)}:${key}`;
 }
 const OWNER_KEY = "votic.mobile.legacy-library-owner.v1";
@@ -30,12 +30,12 @@ async function owner(): Promise<Owner | null> {
     throw new Error("Votic could not read the older library's ownership record.");
   return value;
 }
-export async function legacyRecoveryAvailable(uid: string) {
+export async function legacy_recovery_available(uid: string) {
   const assigned = await owner();
   if (uid === DEVELOPMENT_UID) {
     // Never copies a library a real account has already claimed, and never copies twice.
     if (assigned?.complete) return false;
-    if ((await AsyncStorage.getItem(accountStorageKey(DEVELOPMENT_COPY_KEY, uid))) !== null) return false;
+    if ((await AsyncStorage.getItem(account_storage_key(DEVELOPMENT_COPY_KEY, uid))) !== null) return false;
   } else if (assigned && (assigned.uid !== uid || assigned.complete)) return false;
   const values = await AsyncStorage.multiGet([
     LIBRARY_KEY,
@@ -50,7 +50,7 @@ function array(raw: string | null): any[] {
   if (!Array.isArray(value)) throw new Error("The older library could not be read. Its backup is unchanged.");
   return value;
 }
-function mergeActivity(current: ActivityLog | null, legacy: ActivityLog): ActivityLog {
+function merge_activity(current: ActivityLog | null, legacy: ActivityLog): ActivityLog {
   if (!current) return legacy;
   const buckets = { ...current.buckets };
   for (const [hour, documents] of Object.entries(legacy.buckets)) {
@@ -79,7 +79,7 @@ function mergeActivity(current: ActivityLog | null, legacy: ActivityLog): Activi
  * signed in when this version first ran (the person who was using Votic on this device), or the development
  * account, which copies without claiming. Anyone else can still recover it from Settings.
  */
-export async function legacyAutoRecoveryEligible(uid: string, sessionRestored: boolean) {
+export async function legacy_auto_recovery_eligible(uid: string, sessionRestored: boolean) {
   if (uid !== DEVELOPMENT_UID) {
     const raw = await AsyncStorage.getItem(AUTO_OWNER_KEY);
     let decided: string | null;
@@ -89,11 +89,11 @@ export async function legacyAutoRecoveryEligible(uid: string, sessionRestored: b
     } else decided = JSON.parse(raw)?.uid ?? null;
     if (decided !== uid) return false;
   }
-  return legacyRecoveryAvailable(uid);
+  return legacy_recovery_available(uid);
 }
 
 /** Original device data is always retained as a backup. */
-export function recoverLegacyDeviceData(uid: string) {
+export function recover_legacy_device_data(uid: string) {
   const claims = uid !== DEVELOPMENT_UID;
   const recover = async () => {
     const assigned = await owner();
@@ -102,7 +102,7 @@ export function recoverLegacyDeviceData(uid: string) {
     if (assigned?.complete) return;
     // The development account copies without becoming the owner, so a real account can still claim it later.
     if (claims) await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: false }));
-    const key = (name: string) => accountStorageKey(name, uid);
+    const key = (name: string) => account_storage_key(name, uid);
     const splitRaw = await AsyncStorage.getItem(LIBRARY_KEY);
     const legacy = array(splitRaw ?? (await AsyncStorage.getItem(OLD_LIBRARY_KEY)));
     const current = array(await AsyncStorage.getItem(key(LIBRARY_KEY)));
@@ -148,18 +148,18 @@ export function recoverLegacyDeviceData(uid: string) {
     await AsyncStorage.setItem(key(COLLECTIONS_KEY), JSON.stringify([...new Set(collections)]));
     const activityRaw = await AsyncStorage.getItem(LEGACY_ACTIVITY_KEY);
     if (activityRaw !== null) {
-      const legacyActivity = parseLog(activityRaw);
+      const legacyActivity = parse_log(activityRaw);
       const currentRaw = await AsyncStorage.getItem(key(LEGACY_ACTIVITY_KEY));
-      const currentActivity = parseLog(currentRaw);
+      const currentActivity = parse_log(currentRaw);
       if (!legacyActivity || (currentRaw !== null && !currentActivity))
         throw new Error("The saved activity could not be read. Its backup is unchanged.");
       await AsyncStorage.setItem(
         key(LEGACY_ACTIVITY_KEY),
-        JSON.stringify(mergeActivity(currentActivity, legacyActivity)),
+        JSON.stringify(merge_activity(currentActivity, legacyActivity)),
       );
     }
     if (claims) await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: true }));
-    else await AsyncStorage.setItem(accountStorageKey(DEVELOPMENT_COPY_KEY, uid), "1");
+    else await AsyncStorage.setItem(account_storage_key(DEVELOPMENT_COPY_KEY, uid), "1");
   };
   const result = recoveryQueue.then(recover);
   recoveryQueue = result.catch(() => {});

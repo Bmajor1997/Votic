@@ -2,7 +2,7 @@
  * Markdown marks that should never be shown or spoken: heading hashes, bold/underline markers, and quote
  * markers. None contain sentence punctuation, so removing them never moves passage numbers.
  */
-function withoutMarkdownMarks(text: string) {
+function without_markdown_marks(text: string) {
   return text
     .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "")
     .replace(/^[ \t]{0,3}>[ \t]?/gm, "")
@@ -27,7 +27,7 @@ const ABBREVIATIONS = new Set([
   "no",
   "approx",
 ]);
-function endsWithAbbreviation(text: string, end: number) {
+function ends_with_abbreviation(text: string, end: number) {
   // Inspect only the preceding word, rather than rescanning the entire passage for each period.
   let start = end;
   while (start > 0 && !/\s/.test(text[start - 1])) start -= 1;
@@ -41,17 +41,17 @@ function endsWithAbbreviation(text: string, end: number) {
  * A passage ends at a blank line (so a heading stands on its own) or at sentence punctuation followed by a
  * space, so "Vice.com", "2.5", and dates like "12.10.26" stay in one passage.
  */
-export function splitPassages(text: string) {
+export function split_passages(text: string) {
   const passages: string[] = [];
   const add = (value: string) => {
     const clean = value.trim();
     if (clean) passages.push(clean);
   };
-  for (const paragraph of withoutMarkdownMarks(text.replace(/\r\n?/g, "\n")).split(/\n[ \t]*\n/)) {
+  for (const paragraph of without_markdown_marks(text.replace(/\r\n?/g, "\n")).split(/\n[ \t]*\n/)) {
     const ending = /[.!?]+[\]"')\u2019\u201d]*(?=\s|$)/g;
     let start = 0;
     for (let match = ending.exec(paragraph); match; match = ending.exec(paragraph)) {
-      if (match[0].startsWith(".") && match[0].length === 1 && endsWithAbbreviation(paragraph, match.index))
+      if (match[0].startsWith(".") && match[0].length === 1 && ends_with_abbreviation(paragraph, match.index))
         continue;
       const end = match.index + match[0].length;
       add(paragraph.slice(start, end));

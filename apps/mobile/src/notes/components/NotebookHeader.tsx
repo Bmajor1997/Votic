@@ -3,9 +3,9 @@ import { ComponentProps, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentTypeIcon } from "../../components/DocumentTypeIcon";
 import { radii, spacing } from "../../design/tokens";
-import { readableTitle } from "../../documents/documentDisplay";
+import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
-import { notebookActions } from "../../personalization/suggestions";
+import { notebook_actions } from "../../personalization/suggestions";
 import { usePersonalization } from "../../personalization/usePersonalization";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 
@@ -29,7 +29,7 @@ export function NotebookHeader({
   const notes = passages.filter((passage) => passage.note.trim()).length;
   const saved = passages.length - notes;
   // Chosen from the person's personalization answers, or their legacy purpose if they have none.
-  const { studyAction, explainLabel } = notebookActions(personalization.answers, personalization.purpose);
+  const { studyAction, explainLabel } = notebook_actions(personalization.answers, personalization.purpose);
   return (
     <View style={s.container}>
       <Pressable
@@ -46,7 +46,7 @@ export function NotebookHeader({
           <DocumentTypeIcon sourceName={notebook.sourceName} size={44} />
           <View style={s.copy}>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              {readableTitle(notebook.title)}
+              {readable_title(notebook.title)}
             </Text>
             <Text style={[s.counts, { color: theme.mutedText }]}>
               {notes} {notes === 1 ? "note" : "notes"} · {saved} saved {saved === 1 ? "passage" : "passages"}

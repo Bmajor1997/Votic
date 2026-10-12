@@ -6,10 +6,10 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
-  estimatedMinutesRemaining,
-  mostRecentIncomplete,
-  recentWeekActivity,
-  weeklyComparison,
+  estimated_minutes_remaining,
+  most_recent_incomplete,
+  recent_week_activity,
+  weekly_comparison,
 } from "../src/documents/insights";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -20,9 +20,9 @@ function minutes(value: number) {
 export default function Recap() {
   const { theme } = useVoticTheme();
   const { documents, openDocument } = useDocumentLibrary();
-  const { current, change } = weeklyComparison(documents);
-  const weeks = recentWeekActivity(documents);
-  const recent = mostRecentIncomplete(documents);
+  const { current, change } = weekly_comparison(documents);
+  const weeks = recent_week_activity(documents);
+  const recent = most_recent_incomplete(documents);
   const maxMinutes = Math.max(1, ...weeks.map((week) => week.readingMinutes));
   const comparison =
     change === null
@@ -170,7 +170,7 @@ export default function Recap() {
                 {recent.title}
               </Text>
               <Text style={[s.rowDetail, { color: theme.mutedText }]}>
-                About {minutes(estimatedMinutesRemaining(recent))} remaining
+                About {minutes(estimated_minutes_remaining(recent))} remaining
               </Text>
             </View>
             <Pressable

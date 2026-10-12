@@ -17,15 +17,15 @@ import {
   SectionId,
   TargetId,
   WalkthroughStep,
-  applicableSteps,
+  applicable_steps,
 } from "./walkthroughFlows";
 import { Rect } from "./placement";
 import {
   EMPTY_WALKTHROUGH,
   FlowStatus,
   WalkthroughState,
-  loadWalkthroughState,
-  saveWalkthroughState,
+  load_walkthrough_state,
+  save_walkthrough_state,
 } from "./walkthroughState";
 import { useAuth } from "../auth/AuthProvider";
 
@@ -55,7 +55,7 @@ type WalkthroughContextValue = {
 
 const WalkthroughContext = createContext<WalkthroughContextValue | null>(null);
 
-const measureInWindow: MeasureNode = (node) =>
+const measure_in_window: MeasureNode = (node) =>
   new Promise((resolve) => {
     const view = node as {
       measureInWindow?: (callback: (x: number, y: number, width: number, height: number) => void) => void;
@@ -72,7 +72,7 @@ const measureInWindow: MeasureNode = (node) =>
  */
 export function WalkthroughProvider({
   children,
-  measureNode = measureInWindow,
+  measureNode = measure_in_window,
   now = Date.now,
 }: PropsWithChildren<{ measureNode?: MeasureNode; now?: () => number }>) {
   // Progress belongs to the signed-in account. It's kept with the account it was loaded for, so another
@@ -93,16 +93,16 @@ export function WalkthroughProvider({
     stateRef.current = state;
     uidRef.current = uid;
   });
-  const setActive = useCallback((flow: ActiveFlow | null) => {
+  const set_active = useCallback((flow: ActiveFlow | null) => {
     const owner = uidRef.current;
     setShown(flow && owner ? { uid: owner, flow } : null);
   }, []);
   /** Changes and saves the signed-in account's progress. */
-  const setState = useCallback((change: (previous: WalkthroughState) => WalkthroughState) => {
+  const set_state = useCallback((change: (previous: WalkthroughState) => WalkthroughState) => {
     setLoaded((previous) => {
       if (!previous || previous.uid !== uidRef.current) return previous;
       const next = change(previous.state);
-      void saveWalkthroughState(previous.uid, next).catch(() => {});
+      void save_walkthrough_state(previous.uid, next).catch(() => {});
       return { uid: previous.uid, state: next };
     });
   }, []);
@@ -113,7 +113,7 @@ export function WalkthroughProvider({
   useEffect(() => {
     if (!uid) return;
     let current = true;
-    void loadWalkthroughState({ uid, isNewAccount, sessionRestored }, now())
+    void load_walkthrough_state({ uid, isNewAccount, sessionRestored }, now())
       .catch(() => EMPTY_WALKTHROUGH)
       .then((progress) => {
         if (!current) return;
@@ -131,7 +131,7 @@ export function WalkthroughProvider({
 
   const record = useCallback(
     (id: FlowId, status: FlowStatus) => {
-      setState((previous) => {
+      set_state((previous) => {
         const next: WalkthroughState = {
           ...previous,
           flows: { ...previous.flows, [id]: { status, at: now() } },
@@ -140,11 +140,11 @@ export function WalkthroughProvider({
         return next;
       });
     },
-    [now, setState],
+    [now, set_state],
   );
 
   /** The first step at or after `from` whose control is on screen (or that needs no control). */
-  const firstShowable = useCallback((steps: WalkthroughStep[], from: number) => {
+  const first_showable = useCallback((steps: WalkthroughStep[], from: number) => {
     for (let index = from; index < steps.length; index += 1) {
       const target = steps[index].target;
       if (!target || targets.current.has(target)) return index;
@@ -158,7 +158,7 @@ export function WalkthroughProvider({
       const current = activeRef.current;
       if (!current) return;
       activeRef.current = null;
-      setActive(null);
+      set_active(null);
       replaying.current.delete(current.id);
       record(current.id, status);
       // A one-time "You're all set" after the Reader walkthrough is completed (not skipped), but only once
@@ -166,18 +166,18 @@ export function WalkthroughProvider({
       if (current.id === "reader" && status === "completed" && stateRef.current.flows.home)
         setTimeout(() => requestRef.current("allSet"), ALL_SET_DELAY_MS);
     },
-    [record, setActive],
+    [record, set_active],
   );
 
   const advance = useCallback(() => {
     const current = activeRef.current;
     if (!current) return;
-    const index = firstShowable(current.steps, current.index + 1);
+    const index = first_showable(current.steps, current.index + 1);
     if (index < 0) return finish("completed");
     const next = { ...current, index };
     activeRef.current = next;
-    setActive(next);
-  }, [finish, firstShowable, setActive]);
+    set_active(next);
+  }, [finish, first_showable, set_active]);
 
   // Stable actions (they only read refs), so screens can depend on them without re-running effects.
   const hydratedRef = useRef(hydrated);
@@ -190,15 +190,15 @@ export function WalkthroughProvider({
       // "I'll explore on my own" turns off automatic coaching; replays from Settings still show.
       if (stateRef.current.flows.intro?.status === "skipped" && id !== "intro" && !replaying.current.has(id))
         return false;
-      const steps = applicableSteps(FLOWS[id], context);
-      const index = firstShowable(steps, 0);
+      const steps = applicable_steps(FLOWS[id], context);
+      const index = first_showable(steps, 0);
       if (index < 0) return false;
       const flow = { id, context, steps, index };
       activeRef.current = flow;
-      setActive(flow);
+      set_active(flow);
       return true;
     },
-    [firstShowable, setActive],
+    [first_showable, set_active],
   );
   useEffect(() => {
     requestRef.current = request;
@@ -208,9 +208,9 @@ export function WalkthroughProvider({
     (id: FlowId) => {
       if (activeRef.current?.id !== id) return;
       activeRef.current = null;
-      setActive(null);
+      set_active(null);
     },
-    [setActive],
+    [set_active],
   );
   const pressed = useCallback(
     (target: TargetId) => {
@@ -230,9 +230,9 @@ export function WalkthroughProvider({
       else replaying.current.add(id);
       if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
         activeRef.current = null;
-        setActive(null);
+        set_active(null);
       }
-      setState((previous) => {
+      set_state((previous) => {
         const flows = { ...previous.flows };
         if (id === "all") for (const key of Object.keys(flows)) delete flows[key as FlowId];
         else delete flows[id];
@@ -241,13 +241,13 @@ export function WalkthroughProvider({
         return next;
       });
     },
-    [setActive, setState],
+    [set_active, set_state],
   );
-  const registerTarget = useCallback((id: TargetId, measure: Measure | null) => {
+  const register_target = useCallback((id: TargetId, measure: Measure | null) => {
     if (measure) targets.current.set(id, measure);
     else targets.current.delete(id);
   }, []);
-  const measureTarget = useCallback(
+  const measure_target = useCallback(
     (id: TargetId) => targets.current.get(id)?.() ?? Promise.resolve(null),
     [],
   );
@@ -264,8 +264,8 @@ export function WalkthroughProvider({
       pressed,
       isDone: (id) => Boolean(state.flows[id]),
       reset,
-      registerTarget,
-      measureTarget,
+      registerTarget: register_target,
+      measureTarget: measure_target,
       measureNode,
     }),
     [
@@ -278,8 +278,8 @@ export function WalkthroughProvider({
       dismiss,
       pressed,
       reset,
-      registerTarget,
-      measureTarget,
+      register_target,
+      measure_target,
       measureNode,
     ],
   );
@@ -324,7 +324,7 @@ export function useWalkthroughTrigger(
   const focused = useRef(false);
   const shown = useRef<FlowId | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const showNext = useCallback(() => {
+  const show_next = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => {
       const { candidates: options, context: facts, flows } = latest.current;
@@ -336,14 +336,14 @@ export function useWalkthroughTrigger(
     useCallback(() => {
       if (!hydrated) return;
       focused.current = true;
-      showNext();
+      show_next();
       return () => {
         focused.current = false;
         if (timer.current) clearTimeout(timer.current);
         if (shown.current) dismiss(shown.current);
         shown.current = null;
       };
-    }, [hydrated, showNext, dismiss]),
+    }, [hydrated, show_next, dismiss]),
   );
   // "Show me around" leads straight into the coaching for the screen the person is on (Home).
   const introStatus = state.flows.intro?.status;
@@ -351,8 +351,8 @@ export function useWalkthroughTrigger(
   useEffect(() => {
     const before = previousIntro.current;
     previousIntro.current = introStatus;
-    if (!before && introStatus === "completed" && focused.current) showNext();
-  }, [introStatus, showNext]);
+    if (!before && introStatus === "completed" && focused.current) show_next();
+  }, [introStatus, show_next]);
 }
 
 export { SECTIONS };

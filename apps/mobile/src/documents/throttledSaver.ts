@@ -2,7 +2,7 @@
  * Saves the latest value at most once per interval. Unlike a debounce, a steady stream of changes
  * (such as word-by-word reading progress) still saves on schedule. Saves run one at a time, in order.
  */
-export function createThrottledSaver<T>(
+export function create_throttled_saver<T>(
   save: (value: T) => Promise<void> | void,
   intervalMs: number,
   onError: (error: unknown) => void = () => {},

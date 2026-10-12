@@ -23,7 +23,7 @@ type EntitlementInfoLike = {
   billingIssueDetectedAt: string | null;
 };
 
-export function entitlementFromCustomerInfo(info: CustomerInfoLike, entitlementId: string): Entitlement {
+export function entitlement_from_customer_info(info: CustomerInfoLike, entitlementId: string): Entitlement {
   const active = info.entitlements.active[entitlementId];
   const any = active || info.entitlements.all[entitlementId];
   let status: EntitlementStatus;
@@ -37,7 +37,7 @@ export function entitlementFromCustomerInfo(info: CustomerInfoLike, entitlementI
 }
 
 /** Only these states let someone into paid Votic. "unknown" never does. */
-export function hasAccess(status: EntitlementStatus) {
+export function has_access(status: EntitlementStatus) {
   return (
     status === "trial" || status === "active" || status === "cancelled-active" || status === "billing-issue"
   );
@@ -49,7 +49,7 @@ const CANCELLED = "1",
   NETWORK = "10",
   PENDING = "20";
 
-export function purchaseOutcomeFromError(error: unknown): PurchaseOutcome {
+export function purchase_outcome_from_error(error: unknown): PurchaseOutcome {
   const { code, userCancelled } = (error || {}) as { code?: string; userCancelled?: boolean | null };
   if (userCancelled || code === CANCELLED) return { kind: "cancelled" };
   if (code === PENDING) return { kind: "pending" };
@@ -82,7 +82,7 @@ const UNITS: Record<string, PeriodUnit> = {
 };
 
 /** Parses ISO 8601 store periods such as "P1M", "P7D", "P2W", or "P1Y". */
-export function parseIsoPeriod(value: string | null | undefined): Period | null {
+export function parse_iso_period(value: string | null | undefined): Period | null {
   const match = /^P(\d+)([DWMY])$/i.exec(value?.trim() || "");
   if (!match) return null;
   const count = Number(match[1]);
@@ -102,7 +102,7 @@ export type StoreProductLike = {
  * Reads the free trial from the store product. iOS reports it as a free introductory price; Google Play
  * reports it as a free pricing phase. Anything that isn't free (e.g. a discounted first month) is not a trial.
  */
-export function planFromStoreProduct(packageId: string, product: StoreProductLike): SubscriptionPlan {
+export function plan_from_store_product(packageId: string, product: StoreProductLike): SubscriptionPlan {
   let trial: Period | null = null;
   const intro = product.introPrice;
   if (intro && intro.price === 0 && UNITS[intro.periodUnit] && intro.periodNumberOfUnits > 0)
@@ -119,7 +119,7 @@ export function planFromStoreProduct(packageId: string, product: StoreProductLik
   return {
     id: packageId,
     priceString: product.priceString,
-    billingPeriod: parseIsoPeriod(product.subscriptionPeriod),
+    billingPeriod: parse_iso_period(product.subscriptionPeriod),
     trial,
   };
 }

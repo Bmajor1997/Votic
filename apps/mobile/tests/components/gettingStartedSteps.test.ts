@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { gettingStartedSteps } from "../../src/onboarding/GettingStartedCard";
+import { getting_started_steps } from "../../src/onboarding/GettingStartedCard";
 import { SavedPassage, VoticDocument } from "../../src/documents/types";
 
 function passage(extra: Partial<SavedPassage> = {}): SavedPassage {
@@ -21,9 +21,9 @@ function doc(extra: Partial<VoticDocument> = {}): VoticDocument {
   };
 }
 const done = (documents: VoticDocument[], asked = false) =>
-  Object.fromEntries(gettingStartedSteps(documents, asked).map((step) => [step.label, step.done]));
+  Object.fromEntries(getting_started_steps(documents, asked).map((step) => [step.label, step.done]));
 
-describe("gettingStartedSteps", () => {
+describe("getting_started_steps", () => {
   it("doesn't count Quick Notes as a document or as a saved passage", () => {
     const quick = doc({ id: "q", notebookKind: "quick-notes", savedPassages: [passage({ note: "Idea" })] });
     expect(done([quick])).toMatchObject({ "Add a document": false, "Save a passage": false });

@@ -5,7 +5,7 @@ import { Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing, typography } from "../../design/tokens";
 import { useVoticTheme } from "../../theme/ThemeProvider";
-import { timeSpentLabel } from "../readerText";
+import { time_spent_label } from "../readerText";
 
 /** Shown when the listener finishes a document, with the next useful places to go. */
 export function CompletionModal({
@@ -64,7 +64,7 @@ export function CompletionModal({
           </Text>
           <View style={s.stats}>
             <View style={s.stat}>
-              <Text style={[s.value, { color: theme.text }]}>{timeSpentLabel(timeSpentSeconds)}</Text>
+              <Text style={[s.value, { color: theme.text }]}>{time_spent_label(timeSpentSeconds)}</Text>
               <Text style={[s.label, { color: theme.mutedText }]}>Time spent</Text>
             </View>
             <View style={[s.divider, { backgroundColor: theme.border }]} />

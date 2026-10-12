@@ -9,10 +9,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { ActivityIndicator, Alert, AppState, Keyboard, Pressable, StyleSheet, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { checkVoiceQuestionAvailability, transcribeVoiceQuestion } from "../api/voticApi";
+import { check_voice_question_availability, transcribe_voice_question } from "../api/voticApi";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { revealCompletedText, type TextRevealFrame } from "./textReveal";
-import { pcm16ToWav } from "../voice/pcmWav";
+import { reveal_completed_text, type TextRevealFrame } from "./textReveal";
+import { pcm16_to_wav } from "../voice/pcmWav";
 
 export type VoiceInputPhase = "idle" | "starting" | "recording" | "transcribing" | "reviewing" | "error";
 const MAX_RECORDING_MS = 60_000;
@@ -100,25 +100,25 @@ export function KeyboardDictationButton({
     },
   });
   const stream = useRef(streamResult.stream);
-  const cancelAction = useRef(cancelRecording);
+  const cancelAction = useRef(cancel_recording);
   useEffect(() => {
     stream.current = streamResult.stream;
-    cancelAction.current = cancelRecording;
+    cancelAction.current = cancel_recording;
   });
 
-  function changePhase(next: VoiceInputPhase) {
+  function change_phase(next: VoiceInputPhase) {
     phaseRef.current = next;
     if (!mounted.current) return;
     setPhase(next);
     onPhaseChange?.(next);
   }
 
-  function clearTimer() {
+  function clear_timer() {
     if (stopTimer.current) clearTimeout(stopTimer.current);
     stopTimer.current = null;
   }
 
-  function releaseMicrophone() {
+  function release_microphone() {
     try {
       if (stream.current.isStreaming) stream.current.stop();
     } catch {
@@ -129,10 +129,10 @@ export function KeyboardDictationButton({
     return audioRelease.current;
   }
 
-  function cancelRecording() {
+  function cancel_recording() {
     if (phaseRef.current === "idle" && !startingOperation.current) return;
     session.current += 1;
-    clearTimer();
+    clear_timer();
     requestController.current?.abort();
     if (phaseRef.current === "reviewing" && mounted.current) onChangeText(baseText.current);
     revealCancel.current?.();
@@ -141,12 +141,12 @@ export function KeyboardDictationButton({
     chunks.current = [];
     savedAudio.current = null;
     pendingTranscript.current = null;
-    void releaseMicrophone();
+    void release_microphone();
     if (mounted.current) {
       onRevealChange?.(null);
       onErrorChange?.("");
       onLevelChange?.(0);
-      changePhase("idle");
+      change_phase("idle");
     }
   }
 
@@ -189,7 +189,7 @@ export function KeyboardDictationButton({
     onRevealChange?.(null);
   }, [reduceMotion, phase, onChangeText, onRevealChange]);
 
-  async function revealTranscript(transcript: string) {
+  async function reveal_transcript(transcript: string) {
     if (!mounted.current) return;
     const prefix = baseText.current;
     const separator = prefix && !/\s$/.test(prefix) ? " " : "";
@@ -203,9 +203,9 @@ export function KeyboardDictationButton({
       return;
     }
     pendingTranscript.current = text;
-    changePhase("reviewing");
+    change_phase("reviewing");
     await new Promise<void>((resolve) => {
-      const cancel = revealCompletedText(text, {
+      const cancel = reveal_completed_text(text, {
         startAt: Math.min(text.length, prefix.length + separator.length),
         onFrame: (frame) => {
           if (!mounted.current) return;
@@ -224,15 +224,15 @@ export function KeyboardDictationButton({
     if (mounted.current) onRevealChange?.(null);
   }
 
-  async function stopAndTranscribe() {
+  async function stop_and_transcribe() {
     if (!["recording", "error"].includes(phaseRef.current)) return;
     const retry = phaseRef.current === "error";
     if (retry) baseText.current = value;
     if (retry && !savedAudio.current) return;
     const currentSession = session.current;
     const current = () => mounted.current && currentSession === session.current;
-    clearTimer();
-    changePhase("transcribing");
+    clear_timer();
+    change_phase("transcribing");
     onErrorChange?.("");
     try {
       if (!retry) {
@@ -245,29 +245,32 @@ export function KeyboardDictationButton({
         if (captureError.current) throw new Error(captureError.current);
         if (!chunks.current.length)
           throw new Error("No audio was captured. Please try again or type your question.");
-        savedAudio.current = pcm16ToWav(chunks.current, format.current.sampleRate, format.current.channels);
+        savedAudio.current = pcm16_to_wav(chunks.current, format.current.sampleRate, format.current.channels);
         chunks.current = [];
       }
       requestController.current = new AbortController();
-      const transcript = await transcribeVoiceQuestion(savedAudio.current!, requestController.current.signal);
+      const transcript = await transcribe_voice_question(
+        savedAudio.current!,
+        requestController.current.signal,
+      );
       if (!current()) return;
       if (!transcript.trim())
         throw new Error("No words were detected. Please try again or type your question.");
-      await revealTranscript(transcript);
+      await reveal_transcript(transcript);
       if (!current()) return;
       savedAudio.current = null;
-      changePhase("idle");
+      change_phase("idle");
     } catch (error) {
       if (current()) {
         const message = error instanceof Error ? error.message : "Votic could not transcribe that recording.";
         onErrorChange?.(message);
-        changePhase(savedAudio.current ? "error" : "idle");
+        change_phase(savedAudio.current ? "error" : "idle");
         Alert.alert("Voice question", message);
       }
     } finally {
       if (!current()) return;
       chunks.current = [];
-      await releaseMicrophone();
+      await release_microphone();
       // Restore the question field before focusing it.
       if (current())
         focusFrame.current = requestAnimationFrame(() => {
@@ -277,13 +280,13 @@ export function KeyboardDictationButton({
     }
   }
 
-  async function startRecording() {
+  async function start_recording() {
     if (disabled || !active || startingOperation.current || phaseRef.current !== "idle") return;
     startingOperation.current = true;
     leftWhileStarting.current = false;
     const currentSession = ++session.current;
     const current = () => mounted.current && currentSession === session.current;
-    changePhase("starting");
+    change_phase("starting");
     onErrorChange?.("");
     try {
       await audioRelease.current;
@@ -291,7 +294,7 @@ export function KeyboardDictationButton({
       // Checked first, so someone who can't use voice questions (a guest who needs to sign in, or someone
       // at today's limit) hears why before being asked for the microphone.
       requestController.current = new AbortController();
-      await checkVoiceQuestionAvailability(requestController.current.signal);
+      await check_voice_question_availability(requestController.current.signal);
       if (!current()) return;
       const permission = await requestRecordingPermissionsAsync();
       if (!current()) return;
@@ -300,7 +303,7 @@ export function KeyboardDictationButton({
           "Microphone permission needed",
           "Allow microphone access to ask Votic a question with your voice. You can still type instead.",
         );
-        changePhase("idle");
+        change_phase("idle");
         return;
       }
       // The app went to the background while starting and has not come back: never open the mic there.
@@ -328,12 +331,12 @@ export function KeyboardDictationButton({
         await setAudioModeAsync({ allowsRecording: false });
         return;
       }
-      changePhase("recording");
-      stopTimer.current = setTimeout(() => void stopAndTranscribe(), MAX_RECORDING_MS);
+      change_phase("recording");
+      stopTimer.current = setTimeout(() => void stop_and_transcribe(), MAX_RECORDING_MS);
     } catch (error) {
-      await releaseMicrophone();
+      await release_microphone();
       if (!current()) return;
-      changePhase("idle");
+      change_phase("idle");
       if (current()) {
         const message =
           error instanceof Error ? error.message : "Votic could not start the microphone. Please try again.";
@@ -355,7 +358,7 @@ export function KeyboardDictationButton({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Discard voice recording"
-        onPress={cancelRecording}
+        onPress={cancel_recording}
         style={({ pressed }) => [s.button, { opacity: pressed ? 0.6 : 1 }]}
       >
         <Ionicons name="trash-outline" size={20} color={theme.mutedText} />
@@ -388,7 +391,7 @@ export function KeyboardDictationButton({
         }
         accessibilityState={{ disabled: disabled || busy, selected: recording, busy }}
         disabled={disabled || busy}
-        onPress={() => void (recording || failed ? stopAndTranscribe() : startRecording())}
+        onPress={() => void (recording || failed ? stop_and_transcribe() : start_recording())}
         style={({ pressed }) => [
           s.button,
           recording && s.stop,

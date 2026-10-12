@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 export const USERJOT_MCP_URL = "https://api.userjot.com/v1/mcp";
 
 /** Discover the actual API contract before mapping requests. Never read feedback or call write tools here. */
-export async function inspectUserJot({ token, makeClient = () => new Client({ name: "votic-feedback-bridge", version: "1.0.0" }), makeTransport = (url, options) => new StreamableHTTPClientTransport(url, options) }) {
+export async function inspect_user_jot({ token, makeClient = () => new Client({ name: "votic-feedback-bridge", version: "1.0.0" }), makeTransport = (url, options) => new StreamableHTTPClientTransport(url, options) }) {
   if (typeof token !== "string" || !token.trim()) throw new Error("USERJOT_API_TOKEN is required.");
   const client = makeClient();
   const transport = makeTransport(new URL(USERJOT_MCP_URL), {
@@ -44,7 +44,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (!process.env.USERJOT_API_TOKEN) {
     console.log("UserJot connection is not configured. Add the USERJOT_API_TOKEN repository secret, then rerun this check.");
   } else {
-    try { console.log(JSON.stringify(await inspectUserJot({ token: process.env.USERJOT_API_TOKEN }), null, 2)); }
+    try { console.log(JSON.stringify(await inspect_user_jot({ token: process.env.USERJOT_API_TOKEN }), null, 2)); }
     catch { console.error("UserJot connection check failed. Verify API access and the USERJOT_API_TOKEN repository secret."); process.exitCode = 1; }
   }
 }

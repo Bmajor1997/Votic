@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import { useAuth } from "../src/auth/AuthProvider";
-import { authErrorMessage, looksLikeEmail } from "../src/auth/authErrors";
+import { auth_error_message, looks_like_email } from "../src/auth/authErrors";
 import {
   AccountScaffold,
   EmailInput,
@@ -20,12 +20,12 @@ export default function ForgotPassword() {
   const [error, setError] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [triedSubmit, setTriedSubmit] = useState(false);
-  const emailError = triedSubmit && !looksLikeEmail(email) ? "Enter a valid email address." : "";
+  const emailError = triedSubmit && !looks_like_email(email) ? "Enter a valid email address." : "";
 
   async function send() {
     setTriedSubmit(true);
     setError("");
-    if (!looksLikeEmail(email) || busy) return;
+    if (!looks_like_email(email) || busy) return;
     setBusy(true);
     try {
       await auth.sendPasswordReset(email);
@@ -33,7 +33,7 @@ export default function ForgotPassword() {
     } catch (failure) {
       // An unknown email gets the same answer as a known one, so this screen never reveals who has an account.
       if ((failure as { code?: string })?.code === "auth/user-not-found") setSentTo(email.trim());
-      else setError(authErrorMessage(failure));
+      else setError(auth_error_message(failure));
     } finally {
       setBusy(false);
     }

@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
-import { widgetLinkTarget } from "../src/widgets/widgetLinks";
+import { widget_link_target } from "../src/widgets/widgetLinks";
 
 /**
  * Opened by a tap on a home-screen widget (votic://widget?...). Puts Home underneath, then shows what the
@@ -18,7 +18,7 @@ export default function WidgetLink() {
   useEffect(() => {
     if (!loaded || handled.current) return;
     handled.current = true;
-    const target = widgetLinkTarget(params, documents);
+    const target = widget_link_target(params, documents);
     router.replace("/");
     if (target.kind === "document") {
       openDocument(target.id);

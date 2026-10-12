@@ -16,7 +16,7 @@ import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { NoteType } from "../../src/documents/types";
-import { noteSelectionId } from "../../src/notes/askVoticNotesContext";
+import { note_selection_id } from "../../src/notes/askVoticNotesContext";
 import { NotebookCard } from "../../src/notes/components/NotebookCard";
 import { NotebookHeader } from "../../src/notes/components/NotebookHeader";
 import { NoteDraft, NoteEditor } from "../../src/notes/components/NoteEditor";
@@ -24,18 +24,18 @@ import { NoteGroupCard } from "../../src/notes/components/NoteGroupCard";
 import { NoteOptionsMenu } from "../../src/notes/components/NoteOptionsMenu";
 import { NotesFilterSheet } from "../../src/notes/components/NotesFilterSheet";
 import { NoteViewer } from "../../src/notes/components/NoteViewer";
-import { automaticNoteTitle, cleanTags, noteTypeLabel } from "../../src/notes/noteMetadata";
+import { automatic_note_title, clean_tags, note_type_label } from "../../src/notes/noteMetadata";
 import {
-  advancedFilterCount,
-  availableTags,
+  advanced_filter_count,
+  available_tags,
   DateFilter,
-  dateFilterLabel,
-  isAdvancedFilter,
-  noteGroups,
+  date_filter_label,
+  is_advanced_filter,
+  note_groups,
   NoteItem,
   NotesFilter,
-  notesSummary,
-  shareText,
+  notes_summary,
+  share_text,
 } from "../../src/notes/notesList";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import {
@@ -60,10 +60,10 @@ export default function Notes() {
   const [viewing, setViewing] = useState<NoteItem | null>(null);
   const [menuItem, setMenuItem] = useState<NoteItem | null>(null);
   const notebook = notebookId ? documents.find((document) => document.id === notebookId) : undefined;
-  const activeFilterCount = advancedFilterCount({ filter, dateFilter, tagFilter });
-  const tags = useMemo(() => availableTags(documents), [documents]);
+  const activeFilterCount = advanced_filter_count({ filter, dateFilter, tagFilter });
+  const tags = useMemo(() => available_tags(documents), [documents]);
   const groups = useMemo(
-    () => noteGroups(documents, { query, filter, dateFilter, tagFilter, notebookId }),
+    () => note_groups(documents, { query, filter, dateFilter, tagFilter, notebookId }),
     [documents, query, filter, notebookId, dateFilter, tagFilter],
   );
   const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
@@ -75,7 +75,7 @@ export default function Notes() {
   const selectTarget = useWalkthroughTarget("notes.select");
   useWalkthroughTrigger([{ id: "notes" }], { hasNotes });
   /** The first time someone starts choosing notes, explains what they can do with them. */
-  function startSelecting() {
+  function start_selecting() {
     setSelecting(true);
     setSelectedIds([]);
     setTimeout(() => walkthrough.request("notes.askSelected"), 300);
@@ -103,27 +103,27 @@ export default function Notes() {
       });
   }, [documents, groups, browsing, filter, dateFilter, tagFilter, query]);
 
-  async function shareItems(items: NoteItem[], title: string) {
+  async function share_items(items: NoteItem[], title: string) {
     if (!items.length) return;
     try {
-      await Share.share({ title, message: shareText(items, title) });
+      await Share.share({ title, message: share_text(items, title) });
     } catch {
       Alert.alert("Couldn’t share notes", "Please try sharing again.");
     }
   }
-  function toggleSelected(id: string) {
+  function toggle_selected(id: string) {
     setSelectedIds((current) =>
       current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
     );
   }
-  function selectedItems() {
+  function selected_items() {
     return groups.flatMap((group) =>
       group.passages
-        .filter((passage) => selectedIds.includes(noteSelectionId(group.document.id, passage.id)))
+        .filter((passage) => selectedIds.includes(note_selection_id(group.document.id, passage.id)))
         .map((passage) => ({ document: group.document, passage })),
     );
   }
-  function askSelected() {
+  function ask_selected() {
     if (!selectedIds.length) return;
     router.push({
       pathname: "/assistant",
@@ -133,12 +133,12 @@ export default function Notes() {
       },
     });
   }
-  function openInReader({ document, passage }: NoteItem) {
+  function open_in_reader({ document, passage }: NoteItem) {
     setViewing(null);
     openDocument(document.id, passage.sentenceIndex);
     router.push("/reader");
   }
-  function askAboutNotes(documentId: string, passageId?: string, initialQuestion?: string) {
+  function ask_about_notes(documentId: string, passageId?: string, initialQuestion?: string) {
     setViewing(null);
     setMenuItem(null);
     router.push({
@@ -150,7 +150,7 @@ export default function Notes() {
       },
     });
   }
-  function startQuickNote() {
+  function start_quick_note() {
     const now = Date.now();
     const document = notebook || {
       id: "new-quick-note",
@@ -176,7 +176,7 @@ export default function Notes() {
       },
     });
   }
-  function saveNote({ document, passage }: NoteItem, draft: NoteDraft) {
+  function save_note({ document, passage }: NoteItem, draft: NoteDraft) {
     if (!passage.text && !draft.note.trim()) return;
     if (document.id === "new-quick-note") {
       addQuickNote({
@@ -184,12 +184,12 @@ export default function Notes() {
         note: draft.note.trim(),
         title: draft.title.trim() || undefined,
         noteType: draft.noteType,
-        tags: cleanTags(draft.tags),
+        tags: clean_tags(draft.tags),
         updatedAt: Date.now(),
       });
       setEditing(null);
       setQuery("");
-      clearFilters();
+      clear_filters();
       return;
     }
     savePassage(document.id, {
@@ -197,23 +197,23 @@ export default function Notes() {
       note: draft.note.trim(),
       title: draft.title.trim() || undefined,
       noteType: draft.noteType,
-      tags: cleanTags(draft.tags),
+      tags: clean_tags(draft.tags),
       updatedAt: Date.now(),
     });
     setEditing(null);
   }
-  function togglePin({ document, passage }: NoteItem) {
+  function toggle_pin({ document, passage }: NoteItem) {
     savePassage(document.id, { ...passage, pinned: !passage.pinned, updatedAt: Date.now() });
     // Shown after the options menu has closed, the first time something is pinned.
     if (!passage.pinned) setTimeout(() => walkthrough.request("notes.pinned"), 400);
   }
-  function confirmRemove({ document, passage }: NoteItem) {
+  function confirm_remove({ document, passage }: NoteItem) {
     Alert.alert("Remove from Notes?", "This note and its saved passage will be removed from Votic.", [
       { text: "Cancel", style: "cancel" },
       { text: "Remove", style: "destructive", onPress: () => removePassage(document.id, passage.id) },
     ]);
   }
-  function clearFilters() {
+  function clear_filters() {
     setFilter("all");
     setDateFilter("all");
     setTagFilter(null);
@@ -226,7 +226,7 @@ export default function Notes() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Quick Note"
-          onPress={startQuickNote}
+          onPress={start_quick_note}
           style={({ pressed }) => [
             s.askSelected,
             { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
@@ -251,9 +251,9 @@ export default function Notes() {
         <NotebookHeader
           notebook={notebook}
           onBack={() => setNotebookId(null)}
-          onAsk={(initialQuestion) => askAboutNotes(notebook.id, undefined, initialQuestion)}
+          onAsk={(initialQuestion) => ask_about_notes(notebook.id, undefined, initialQuestion)}
           onShare={() =>
-            shareItems(
+            share_items(
               (notebook.savedPassages || []).map((passage) => ({ document: notebook, passage })),
               `${notebook.title} — Votic Notebook`,
             )
@@ -313,17 +313,17 @@ export default function Notes() {
           </View>
           {activeFilterCount ? (
             <View style={s.activeFilters}>
-              {isAdvancedFilter(filter) ? (
-                <ActiveFilter label={filterLabel(filter)} onPress={() => setFilter("all")} />
+              {is_advanced_filter(filter) ? (
+                <ActiveFilter label={filter_label(filter)} onPress={() => setFilter("all")} />
               ) : null}
               {dateFilter !== "all" ? (
-                <ActiveFilter label={dateFilterLabel(dateFilter)} onPress={() => setDateFilter("all")} />
+                <ActiveFilter label={date_filter_label(dateFilter)} onPress={() => setDateFilter("all")} />
               ) : null}
               {tagFilter ? <ActiveFilter label={`#${tagFilter}`} onPress={() => setTagFilter(null)} /> : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Clear all filters"
-                onPress={clearFilters}
+                onPress={clear_filters}
                 style={s.clearFilters}
               >
                 <Text style={[s.clearFiltersText, { color: theme.accentText }]}>Clear</Text>
@@ -346,7 +346,7 @@ export default function Notes() {
                       accessibilityRole="button"
                       accessibilityLabel={`Share ${selectedIds.length} selected notes`}
                       onPress={() =>
-                        shareItems(selectedItems(), `${selectedIds.length} selected Votic notes`)
+                        share_items(selected_items(), `${selectedIds.length} selected Votic notes`)
                       }
                       style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                     >
@@ -356,7 +356,7 @@ export default function Notes() {
                     <Pressable
                       accessibilityRole="button"
                       accessibilityLabel={`Ask Votic about ${selectedIds.length} selected notes`}
-                      onPress={askSelected}
+                      onPress={ask_selected}
                       style={[s.askSelected, { backgroundColor: theme.accent }]}
                     >
                       <Ionicons name="sparkles-outline" size={16} color="#FFF" />
@@ -379,14 +379,14 @@ export default function Notes() {
             </View>
           ) : groups.length || !browsing ? (
             <View style={s.summaryRow}>
-              <Text style={[s.summary, { color: theme.mutedText }]}>{notesSummary(groups)}</Text>
+              <Text style={[s.summary, { color: theme.mutedText }]}>{notes_summary(groups)}</Text>
               {groups.length && !notebook ? (
                 <Pressable
                   ref={askTarget}
                   accessibilityRole="button"
                   accessibilityLabel="Ask Votic about notes"
                   accessibilityHint="Choose which notes to ask about"
-                  onPress={startSelecting}
+                  onPress={start_selecting}
                   style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
                   <Ionicons name="sparkles-outline" size={16} color={theme.accentText} />
@@ -397,7 +397,7 @@ export default function Notes() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Select notes"
-                  onPress={startSelecting}
+                  onPress={start_selecting}
                   style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
                   <Ionicons name="checkmark-circle-outline" size={17} color={theme.accentText} />
@@ -435,7 +435,7 @@ export default function Notes() {
                 selecting={selecting}
                 selectedIds={selectedIds}
                 onOpenNotebook={() => setNotebookId(document.id)}
-                onToggleSelected={toggleSelected}
+                onToggleSelected={toggle_selected}
                 onView={setViewing}
                 onMore={setMenuItem}
               />
@@ -484,12 +484,12 @@ export default function Notes() {
             : null
         }
         onClose={() => setViewing(null)}
-        onAsk={(item, question) => askAboutNotes(item.document.id, item.passage.id, question)}
+        onAsk={(item, question) => ask_about_notes(item.document.id, item.passage.id, question)}
         onEdit={setEditing}
         onMore={setMenuItem}
         onOpenInReader={(item) => {
           setViewing(null);
-          openInReader(item);
+          open_in_reader(item);
         }}
       />
       <NotesFilterSheet
@@ -502,27 +502,27 @@ export default function Notes() {
         tagFilter={tagFilter}
         onTagFilterChange={setTagFilter}
         tags={tags}
-        onReset={clearFilters}
+        onReset={clear_filters}
       />
       <NoteOptionsMenu
         item={menuItem}
         onClose={() => setMenuItem(null)}
         onEdit={setEditing}
-        onTogglePin={togglePin}
-        onOpenInReader={openInReader}
-        onShare={(item) => void shareItems([item], automaticNoteTitle(item.passage))}
-        onRemove={confirmRemove}
+        onTogglePin={toggle_pin}
+        onOpenInReader={open_in_reader}
+        onShare={(item) => void share_items([item], automatic_note_title(item.passage))}
+        onRemove={confirm_remove}
       />
-      <NoteEditor item={editing} onClose={() => setEditing(null)} onSave={saveNote} />
+      <NoteEditor item={editing} onClose={() => setEditing(null)} onSave={save_note} />
     </Screen>
   );
 }
 
-function filterLabel(filter: NotesFilter) {
+function filter_label(filter: NotesFilter) {
   if (filter === "notes") return "Notes";
   if (filter === "saved") return "Saved passages";
   if (filter === "pinned") return "Pinned";
-  return noteTypeLabel(filter as NoteType);
+  return note_type_label(filter as NoteType);
 }
 
 function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }) {

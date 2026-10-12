@@ -24,18 +24,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { useActivity } from "../src/activity/ActivityProvider";
-import { askEventFor } from "../src/activity/askCategories";
+import { ask_event_for } from "../src/activity/askCategories";
 import { useReaderActivity } from "../src/activity/useReaderActivity";
-import { askVotic } from "../src/api/voticApi";
+import { ask_votic } from "../src/api/voticApi";
 import {
-  answeredFromContext,
-  answerLink,
-  answerNoteForSource,
+  answered_from_context,
+  answer_link,
+  answer_note_for_source,
   AskAnswerSource,
-  conversationMessages,
+  conversation_messages,
   FULL_HISTORY,
-  prepareAskRequest,
-  resolveAskVoticContext,
+  prepare_ask_request,
+  resolve_ask_votic_context,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
 import { RevealingText } from "../src/components/RevealingText";
@@ -50,16 +50,16 @@ import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskC
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
-import { documentTimeSpent } from "../src/documents/insights";
-import { splitPassages } from "../src/documents/passages";
-import { catchUpContext, catchUpPrompt } from "../src/documents/catchUp";
-import { createThrottledSaver } from "../src/documents/throttledSaver";
+import { document_time_spent } from "../src/documents/insights";
+import { split_passages } from "../src/documents/passages";
+import { catch_up_context, catch_up_prompt } from "../src/documents/catchUp";
+import { create_throttled_saver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
-import { readerSourceTransform } from "../src/navigation/readerTransform";
-import { cleanTags } from "../src/notes/noteMetadata";
-import { formatPlaybackRate, normalizePlaybackRate } from "../src/playback/rates";
+import { reader_source_transform } from "../src/navigation/readerTransform";
+import { clean_tags } from "../src/notes/noteMetadata";
+import { format_playback_rate, normalize_playback_rate } from "../src/playback/rates";
 import { CompletionModal } from "../src/reader/components/CompletionModal";
 import { ReadingPages } from "../src/reader/components/ReadingPages";
 import { SeekableProgress, ToolButton } from "../src/reader/components/ReaderControls";
@@ -67,22 +67,22 @@ import { ReaderSettingsSheet, ReaderSheet } from "../src/reader/components/Reade
 import { PassageDraft, SavePassageSheet } from "../src/reader/components/SavePassageSheet";
 import { sheetStyles } from "../src/reader/components/sheetStyles";
 import {
-  clockLabel,
-  locationAtScroll,
-  locationForProgress,
-  passageTokens,
-  progressForLocation,
-  readerType,
-  speechSegment,
-  wordAtSpeechOffset,
-  wordMatches,
+  clock_label,
+  location_at_scroll,
+  location_for_progress,
+  passage_tokens,
+  progress_for_location,
+  reader_type,
+  speech_segment,
+  word_at_speech_offset,
+  word_matches,
 } from "../src/reader/readerText";
-import { DeviceVoice, uniqueEnglishVoices, voticVoicePreview } from "../src/reader/voices";
+import { DeviceVoice, unique_english_voices, votic_voice_preview } from "../src/reader/voices";
 import {
-  applyPronunciations,
-  loadPronunciations,
+  apply_pronunciations,
+  load_pronunciations,
   PronunciationEntry,
-  sourceWordAtSpokenOffset,
+  source_word_at_spoken_offset,
 } from "../src/reader/pronunciationDictionary";
 import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
@@ -157,10 +157,13 @@ function ReaderContent() {
     updatePlaybackRate,
   } = useDocumentLibrary();
   const activeId = activeDocument?.id;
-  const passages = useMemo(() => splitPassages(activeDocument?.plainText || ""), [activeDocument?.plainText]);
+  const passages = useMemo(
+    () => split_passages(activeDocument?.plainText || ""),
+    [activeDocument?.plainText],
+  );
   const [index, setIndex] = useState(activeDocument?.sentenceIndex || 0);
   const [wordIndex, setWordIndex] = useState(activeDocument?.wordIndex || 0);
-  const [rate, setRate] = useState(normalizePlaybackRate(activeDocument?.playbackRate || 1));
+  const [rate, setRate] = useState(normalize_playback_rate(activeDocument?.playbackRate || 1));
   const [playing, setPlaying] = useState(false);
   const walkthrough = useWalkthrough();
   const documentTarget = useWalkthroughTarget("reader.document");
@@ -249,14 +252,14 @@ function ReaderContent() {
           label: conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes",
           icon: "bookmark-outline",
           done: conversationSaved,
-          onPress: saveConversationToNotes,
+          onPress: save_conversation_to_notes,
         },
         ...(documentAnswers >= 2 && !conversationSummary && !summarizing && !askSending
           ? [
               {
                 label: "Summarize conversation",
                 icon: "sparkles-outline" as const,
-                onPress: () => void summarizeConversation(),
+                onPress: () => void summarize_conversation(),
               },
             ]
           : []),
@@ -275,48 +278,48 @@ function ReaderContent() {
     : Math.max(ASK_COMPOSER_HEIGHT, minimumAskHeight);
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
-    createThrottledSaver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
+    create_throttled_saver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
       if (!completedRef.current) updateProgress(value.id, value.progress, value.index, value.wordIndex);
     }, PROGRESS_SYNC_INTERVAL_MS),
   );
-  const readingType = readerType(
+  const readingType = reader_type(
     accessibility.textSize,
     accessibility.readingSpacing,
     accessibility.readerFont,
     accessibility.textSpacing,
   );
   const progress = useMemo(
-    () => progressForLocation(passages, index, wordIndex),
+    () => progress_for_location(passages, index, wordIndex),
     [passages, index, wordIndex],
   );
 
   // Effect events read the latest render's functions without restarting the effects that call them.
   const onHardwareBack = useEffectEvent(() => {
     // With Ask Votic open, Back closes it (the same way as its X) and the Reader stays open.
-    if (askOpen) closeAskVotic();
-    else void closeReader();
+    if (askOpen) close_ask_votic();
+    else void close_reader();
     return true;
   });
   const onAskSettled = useEffectEvent((opened: boolean) => {
     if (opened) setAskPhase("open");
-    else finishAskClose();
+    else finish_ask_close();
   });
-  const onAskClosed = useEffectEvent(() => finishAskClose());
+  const onAskClosed = useEffectEvent(() => finish_ask_close());
   // Listen mode keeps the spoken word in view. In Read mode the reader's own scrolling sets the
   // position, so the page only moves for an explicit jump such as a seek.
   const onPositionChange = useEffectEvent(() => {
-    if (listening) followActiveWord();
+    if (listening) follow_active_word();
     else if (scrollToPosition.current) {
       scrollToPosition.current = false;
-      followActiveWord(true);
+      follow_active_word(true);
     }
   });
 
   useEffect(() => {
     void Speech.getAvailableVoicesAsync()
-      .then((available) => setVoices(uniqueEnglishVoices(available)))
+      .then((available) => setVoices(unique_english_voices(available)))
       .catch(() => setVoices([]));
-    void loadPronunciations().then(setPronunciations);
+    void load_pronunciations().then(setPronunciations);
   }, []);
   useEffect(
     () => () => {
@@ -413,7 +416,7 @@ function ReaderContent() {
     return () => animation.stop();
   }, [askPhase, askProgress]);
 
-  function openAskVotic() {
+  function open_ask_votic() {
     if (askPhase === "opening" || askPhase === "open") return;
     onboarding.markTipSeen("reader-ask");
     void stop();
@@ -426,18 +429,18 @@ function ReaderContent() {
     setAskPhase("opening");
   }
   /** The X, Android Back, and answer links all close Ask Votic here. Narration and position are left alone. */
-  function closeAskVotic() {
+  function close_ask_votic() {
     void answerListening.stop();
     setAskMessages((messages) => messages.map((message) => ({ ...message, revealed: true })));
     if (!askOpen || askClosing) return;
     Keyboard.dismiss();
     if (accessibility.reduceMotion) {
-      finishAskClose();
+      finish_ask_close();
       return;
     }
     setAskPhase("closing");
   }
-  function finishAskClose() {
+  function finish_ask_close() {
     askProgress.stopAnimation();
     askProgress.setValue(0);
     setAskPhase("closed");
@@ -446,22 +449,22 @@ function ReaderContent() {
     setAskVoiceError("");
   }
 
-  async function sendAskVotic() {
+  async function send_ask_votic() {
     const clean = askQuestion.trim();
     if (!clean || askSending || askVoiceBusy || !activeDocument) return;
     Keyboard.dismiss();
     const generation = askGeneration.current;
-    const context = resolveAskVoticContext(documents, activeDocument, {});
+    const context = resolve_ask_votic_context(documents, activeDocument, {});
     const history = askMessages;
-    recordAsk(askEventFor(clean, { newConversation: history.length === 0 }));
+    recordAsk(ask_event_for(clean, { newConversation: history.length === 0 }));
     setAskQuestion("");
     setAskError("");
     setAskMessages((current) => [...current, { role: "user", text: clean }]);
     setAskSending(true);
     try {
-      const request = prepareAskRequest(context, clean, history);
-      const answer = await askVotic(clean, request.document, request.history, explanationStyle);
-      const grounded = answeredFromContext(request, answer);
+      const request = prepare_ask_request(context, clean, history);
+      const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
+      const grounded = answered_from_context(request, answer);
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;
@@ -475,7 +478,7 @@ function ReaderContent() {
                 context.kind === "document" || context.kind === "notes"
                   ? (context.saveSource ?? undefined)
                   : undefined,
-              link: answerLink(request, answer.sectionIndex) ?? undefined,
+              link: answer_link(request, answer.sectionIndex) ?? undefined,
             }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
@@ -487,17 +490,17 @@ function ReaderContent() {
     }
   }
 
-  async function sendCatchUp() {
+  async function send_catch_up() {
     if (!activeDocument || askSending || activeDocument.progress <= 0) return;
     Keyboard.dismiss();
-    const question = catchUpPrompt(activeDocument);
-    const covered = catchUpContext(activeDocument);
-    openAskVotic();
+    const question = catch_up_prompt(activeDocument);
+    const covered = catch_up_context(activeDocument);
+    open_ask_votic();
     setAskError("");
     setAskMessages((current) => [...current, { role: "user", text: "Catch me up" }]);
     setAskSending(true);
     try {
-      const answer = await askVotic(
+      const answer = await ask_votic(
         question,
         {
           title: activeDocument.title,
@@ -521,11 +524,11 @@ function ReaderContent() {
     }
   }
 
-  function saveAskAnswer(messageIndex: number) {
+  function save_ask_answer(messageIndex: number) {
     const message = askMessages[messageIndex];
     if (!message?.source || message.role !== "votic" || message.saved) return;
     const now = Date.now();
-    const note = answerNoteForSource(
+    const note = answer_note_for_source(
       documents,
       message.source,
       message.text,
@@ -539,7 +542,7 @@ function ReaderContent() {
     );
   }
 
-  async function summarizeConversation() {
+  async function summarize_conversation() {
     if (
       !activeDocument ||
       summarizing ||
@@ -548,20 +551,20 @@ function ReaderContent() {
     )
       return;
     const generation = askGeneration.current;
-    const context = resolveAskVoticContext(documents, activeDocument, {});
+    const context = resolve_ask_votic_context(documents, activeDocument, {});
     setSummarizing(true);
     setAskError("");
     try {
-      const request = prepareAskRequest(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
-      const answer = await askVotic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
+      const request = prepare_ask_request(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
+      const answer = await ask_votic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
-      if (!answeredFromContext(request, answer)) {
+      if (!answered_from_context(request, answer)) {
         setAskError(answer.answer);
         return;
       }
       setConversationSummary({
-        partial: conversationMessages(askMessages).length > FULL_HISTORY.messages,
+        partial: conversation_messages(askMessages).length > FULL_HISTORY.messages,
         text: answer.answer,
         source:
           context.kind === "document" || context.kind === "notes"
@@ -576,10 +579,10 @@ function ReaderContent() {
     }
   }
 
-  function saveConversationSummary() {
+  function save_conversation_summary() {
     if (!conversationSummary?.source || conversationSummary.saved) return;
     const now = Date.now();
-    const note = answerNoteForSource(
+    const note = answer_note_for_source(
       documents,
       conversationSummary.source,
       conversationSummary.text,
@@ -596,17 +599,17 @@ function ReaderContent() {
     setConversationSummary((current) => (current ? { ...current, saved: true } : current));
   }
 
-  function saveConversationToNotes() {
+  function save_conversation_to_notes() {
     if (conversationSaved || !activeDocument) return;
-    const messages = conversationMessages(askMessages);
+    const messages = conversation_messages(askMessages);
     if (!messages.some((message) => message.role === "votic")) return;
-    const context = resolveAskVoticContext(documents, activeDocument, {});
+    const context = resolve_ask_votic_context(documents, activeDocument, {});
     if ((context.kind !== "document" && context.kind !== "notes") || !context.saveSource) return;
     const now = Date.now();
     const transcript = messages
       .map((message) => `${message.role === "user" ? "You" : "Votic"}: ${message.text}`)
       .join("\n\n");
-    const note = answerNoteForSource(
+    const note = answer_note_for_source(
       documents,
       context.saveSource,
       transcript,
@@ -623,7 +626,7 @@ function ReaderContent() {
     setConversationSaved(true);
   }
 
-  function openAskAnswerLink(link: AskLink) {
+  function open_ask_answer_link(link: AskLink) {
     if (!documents.some((document) => document.id === link.documentId)) return;
     openDocument(link.documentId, link.sentenceIndex);
     // The Reader keeps its own position, so a link into the open document has to move it here too.
@@ -631,27 +634,27 @@ function ReaderContent() {
       setIndex(link.sentenceIndex);
       setWordIndex(0);
     }
-    closeAskVotic();
+    close_ask_votic();
   }
 
-  async function closeReader() {
+  async function close_reader() {
     if (closing.current) return;
     closing.current = true;
     await stop();
     transition.closeReader(() => router.back());
   }
-  function prepareReader() {
+  function prepare_reader() {
     if (readerPrepared.current || !viewportHeight.current) return;
     if (passages.length && sentenceLayout.current[index] === undefined) return;
     readerPrepared.current = true;
-    followActiveWord(true, false);
+    follow_active_word(true, false);
     requestAnimationFrame(() => {
       setReaderReady(true);
       transition.beginReader();
     });
   }
   /** Keeps narration focused without changing the Reader's layout when its dock changes mode. */
-  function followActiveWord(
+  function follow_active_word(
     force = false,
     animated = !accessibility.reduceMotion,
     viewport = viewportHeight.current,
@@ -659,7 +662,7 @@ function ReaderContent() {
     if (manuallyScrolling.current && !force) return;
     const layout = sentenceLayout.current[index];
     if (!layout || !viewport) return;
-    const words = Math.max(1, wordMatches(passages[index] || "").length);
+    const words = Math.max(1, word_matches(passages[index] || "").length);
     const wordFraction = Math.max(0, Math.min(1, wordIndex / words));
     const estimatedY = layout.y + layout.height * wordFraction;
     const top = scrollOffset.current + 24;
@@ -667,22 +670,22 @@ function ReaderContent() {
     if (force || estimatedY < top || estimatedY > bottom)
       scrollRef.current?.scrollTo({ y: Math.max(0, estimatedY - viewport * 0.45), animated });
   }
-  function measureSentence(sentenceIndex: number, event: LayoutChangeEvent) {
+  function measure_sentence(sentenceIndex: number, event: LayoutChangeEvent) {
     const { y, height } = event.nativeEvent.layout;
     sentenceLayout.current[sentenceIndex] = { y, height };
-    if (sentenceIndex === index) prepareReader();
+    if (sentenceIndex === index) prepare_reader();
   }
-  function trackScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+  function track_scroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     engaged();
     scrollOffset.current = event.nativeEvent.contentOffset.y;
     if (event.nativeEvent.contentSize?.height) contentHeight.current = event.nativeEvent.contentSize.height;
     // Only the reader's own scrolling moves the reading position, never the Reader's programmatic scrolls.
-    if (manuallyScrolling.current) syncReadingPosition();
+    if (manuallyScrolling.current) sync_reading_position();
   }
   /** Read mode: the document position follows the reading line as the person scrolls. */
-  function syncReadingPosition() {
+  function sync_reading_position() {
     if (listening || completedRef.current) return;
-    const location = locationAtScroll(passages, sentenceLayout.current, {
+    const location = location_at_scroll(passages, sentenceLayout.current, {
       offset: scrollOffset.current,
       viewport: viewportHeight.current,
       contentHeight: contentHeight.current,
@@ -699,7 +702,7 @@ function ReaderContent() {
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
   }
-  async function previewVoice(voice: DeviceVoice, name: string) {
+  async function preview_voice(voice: DeviceVoice, name: string) {
     await answerListening.stop();
     if (!listening) return;
     const session = ++speechSession.current;
@@ -707,14 +710,14 @@ function ReaderContent() {
     await Speech.stop();
     if (session !== speechSession.current) return;
     setPreviewVoiceIdentifier(voice.identifier);
-    const clearPreview = () =>
+    const clear_preview = () =>
       setPreviewVoiceIdentifier((current) => (current === voice.identifier ? null : current));
-    Speech.speak(voticVoicePreview(name), {
+    Speech.speak(votic_voice_preview(name), {
       voice: voice.identifier,
       rate: 1,
-      onDone: clearPreview,
-      onStopped: clearPreview,
-      onError: clearPreview,
+      onDone: clear_preview,
+      onStopped: clear_preview,
+      onError: clear_preview,
     });
   }
   function speak(at = index, startWord = at === index ? wordIndex : 0) {
@@ -722,9 +725,9 @@ function ReaderContent() {
     if (!listening) return;
     const session = speechSession.current + 1;
     speechSession.current = session;
-    void beginSpeech(at, startWord, session, true);
+    void begin_speech(at, startWord, session, true);
   }
-  async function beginSpeech(
+  async function begin_speech(
     at: number,
     startWord: number,
     session: number,
@@ -735,12 +738,12 @@ function ReaderContent() {
     if (clearQueue) await Speech.stop();
     if (session !== speechSession.current) return;
     const passage = passages[at];
-    const segment = speechSegment(passage, startWord);
-    const spokenText = applyPronunciations(segment.text, pronunciations);
+    const segment = speech_segment(passage, startWord);
+    const spokenText = apply_pronunciations(segment.text, pronunciations);
     // Keep each passage continuous so the voice retains sentence rhythm and pronunciation.
     // Each utterance has its own token: late callbacks from a finished passage are stale.
     const utterance = ++speechUtterance.current;
-    const isCurrent = () => session === speechSession.current && utterance === speechUtterance.current;
+    const is_current = () => session === speechSession.current && utterance === speechUtterance.current;
     setIndex(at);
     setWordIndex(segment.startWord);
     setPlaying(true);
@@ -749,30 +752,30 @@ function ReaderContent() {
       rate: playbackRate,
       voice: accessibility.voiceIdentifier || undefined,
       onStart: () => {
-        if (!isCurrent()) return;
+        if (!is_current()) return;
         setIndex(at);
         setWordIndex(segment.startWord);
       },
       onBoundary: (event: any) => {
-        if (!isCurrent() || (event?.name && event.name !== "word")) return;
+        if (!is_current() || (event?.name && event.name !== "word")) return;
         // Follow the native boundary directly: it fires as the word is spoken, so the highlight stays with the audio.
         const boundary = Number(event?.charIndex);
         const next =
           spokenText === segment.text
-            ? wordAtSpeechOffset(segment, boundary)
-            : segment.startWord + sourceWordAtSpokenOffset(segment.text, spokenText, boundary);
+            ? word_at_speech_offset(segment, boundary)
+            : segment.startWord + source_word_at_spoken_offset(segment.text, spokenText, boundary);
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {
-        if (!isCurrent()) return;
-        if (at < passages.length - 1) void beginSpeech(at + 1, 0, session, false, playbackRate);
-        else finishDocument(false);
+        if (!is_current()) return;
+        if (at < passages.length - 1) void begin_speech(at + 1, 0, session, false, playbackRate);
+        else finish_document(false);
       },
       onStopped: () => {
-        if (isCurrent()) setPlaying(false);
+        if (is_current()) setPlaying(false);
       },
       onError: () => {
-        if (isCurrent()) setPlaying(false);
+        if (is_current()) setPlaying(false);
       },
     });
   }
@@ -788,18 +791,18 @@ function ReaderContent() {
     setIndex(target);
     if (resume && target !== index) speak(target, 0);
   }
-  function beginSeek() {
+  function begin_seek() {
     engaged();
     seekWasPlaying.current = playing;
     speechSession.current += 1;
     setPlaying(false);
     void Speech.stop();
   }
-  async function seekTo(value: number) {
+  async function seek_to(value: number) {
     if (!activeDocument || !passages.length) return;
     const resume = seekWasPlaying.current;
     seekWasPlaying.current = false;
-    const location = locationForProgress(passages, value);
+    const location = location_for_progress(passages, value);
     speechSession.current += 1;
     await Speech.stop();
     scrollToPosition.current = true;
@@ -810,11 +813,11 @@ function ReaderContent() {
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
-      void beginSpeech(location.sentenceIndex, location.wordIndex, session, false);
+      void begin_speech(location.sentenceIndex, location.wordIndex, session, false);
     }
   }
-  async function changeRate(value: number) {
-    const nextRate = normalizePlaybackRate(value);
+  async function change_rate(value: number) {
+    const nextRate = normalize_playback_rate(value);
     const resume = playing;
     const resumeAt = { index, wordIndex };
     if (resume) await stop();
@@ -823,14 +826,14 @@ function ReaderContent() {
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
-      void beginSpeech(resumeAt.index, resumeAt.wordIndex, session, false, nextRate);
+      void begin_speech(resumeAt.index, resumeAt.wordIndex, session, false, nextRate);
     }
   }
-  function finishDocument(stopSpeech = true) {
+  function finish_document(stopSpeech = true) {
     if (!activeDocument || !passages.length) return;
     if (stopSpeech) void stop();
     const finalIndex = passages.length - 1;
-    const finalWord = Math.max(0, wordMatches(passages[finalIndex]).length - 1);
+    const finalWord = Math.max(0, word_matches(passages[finalIndex]).length - 1);
     completedRef.current = true;
     setPlaying(false);
     setIndex(finalIndex);
@@ -839,7 +842,7 @@ function ReaderContent() {
     setCompletionOpen(true);
   }
   const totalWords = useMemo(
-    () => wordMatches(activeDocument?.plainText || "").length,
+    () => word_matches(activeDocument?.plainText || "").length,
     [activeDocument?.plainText],
   );
   const totalSeconds = totalWords / Math.max(0.1, 2.6 * rate);
@@ -849,7 +852,7 @@ function ReaderContent() {
   const wordHighlight = accessibility.highlightMode === "word" || accessibility.highlightMode === "both";
   const passageId = "passage-" + index;
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
-  function openSavePassage() {
+  function open_save_passage() {
     onboarding.markTipSeen("reader-bookmark");
     void stop();
     setSaveOpen(true);
@@ -869,7 +872,7 @@ function ReaderContent() {
   useEffect(() => {
     if (askPhase === "open") requestWalkthrough("reader.ask");
   }, [askPhase, requestWalkthrough]);
-  function confirmSavePassage(draft: PassageDraft) {
+  function confirm_save_passage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
     savePassage(activeDocument.id, {
@@ -879,7 +882,7 @@ function ReaderContent() {
       note: draft.note.trim(),
       title: draft.title.trim() || undefined,
       noteType: draft.noteType,
-      tags: cleanTags(draft.tags),
+      tags: clean_tags(draft.tags),
       pinned: savedPassage?.pinned,
       createdAt: savedPassage?.createdAt || now,
       updatedAt: now,
@@ -888,7 +891,7 @@ function ReaderContent() {
     // After the save sheet has closed, the first time a passage is saved from the Reader.
     if (!savedPassage) setTimeout(() => walkthrough.request("reader.saved"), 400);
   }
-  function confirmRemovePassage() {
+  function confirm_remove_passage() {
     if (!activeDocument || !savedPassage) return;
     removePassage(activeDocument.id, savedPassage.id);
     setSaveOpen(false);
@@ -899,7 +902,7 @@ function ReaderContent() {
     scaleY: sourceScaleY,
     translateX: sourceTranslateX,
     translateY: sourceTranslateY,
-  } = readerSourceTransform(transition.sourceRect, window);
+  } = reader_source_transform(transition.sourceRect, window);
   // The panel starts just below the screen and slides up into place.
   const askPanelSlide = askProgress.interpolate({ inputRange: [0, 1], outputRange: [askPanelHeight, 0] });
   // The Reader dock follows the inverse path, leaving and returning on the same curve as Ask Votic.
@@ -966,7 +969,7 @@ function ReaderContent() {
                     accessibilityRole="button"
                     accessibilityLabel="Close reader"
                     onPress={() => {
-                      void closeReader();
+                      void close_reader();
                     }}
                     style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                   >
@@ -985,7 +988,7 @@ function ReaderContent() {
                       accessibilityRole="button"
                       accessibilityLabel={savedPassage ? "Edit saved passage" : "Save current passage"}
                       accessibilityState={{ selected: Boolean(savedPassage) }}
-                      onPress={openSavePassage}
+                      onPress={open_save_passage}
                       style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                     >
                       <Ionicons
@@ -1014,8 +1017,8 @@ function ReaderContent() {
                   </View>
                   <SeekableProgress
                     value={progress}
-                    onSeekStart={beginSeek}
-                    onSeek={(value) => void seekTo(value)}
+                    onSeekStart={begin_seek}
+                    onSeek={(value) => void seek_to(value)}
                   />
                 </View>
                 {!listening ? (
@@ -1037,7 +1040,7 @@ function ReaderContent() {
                         setIndex(at);
                         setWordIndex(word);
                         if (activeId)
-                          updateProgress(activeId, progressForLocation(passages, at, word), at, word);
+                          updateProgress(activeId, progress_for_location(passages, at, word), at, word);
                       }}
                     />
                   </View>
@@ -1053,9 +1056,9 @@ function ReaderContent() {
                     scrollEventThrottle={16}
                     onLayout={(event) => {
                       viewportHeight.current = event.nativeEvent.layout.height;
-                      prepareReader();
+                      prepare_reader();
                     }}
-                    onScroll={trackScroll}
+                    onScroll={track_scroll}
                     onContentSizeChange={(_width, height) => {
                       contentHeight.current = height;
                     }}
@@ -1066,22 +1069,22 @@ function ReaderContent() {
                       manuallyScrolling.current = true;
                     }}
                     onScrollEndDrag={() => {
-                      syncReadingPosition();
+                      sync_reading_position();
                       manuallyScrolling.current = false;
                     }}
                     onMomentumScrollEnd={() => {
-                      syncReadingPosition();
+                      sync_reading_position();
                       manuallyScrolling.current = false;
                     }}
                   >
                     <View testID="reader-document" style={s.passages}>
                       {passages.map((passage, passageIndex) => {
                         const current = passageIndex === index;
-                        const tokens = current && listening ? passageTokens(passage) : [];
+                        const tokens = current && listening ? passage_tokens(passage) : [];
                         return (
                           <Text
                             key={passageIndex}
-                            onLayout={(event) => measureSentence(passageIndex, event)}
+                            onLayout={(event) => measure_sentence(passageIndex, event)}
                             style={[
                               s.sentence,
                               readingType,
@@ -1137,7 +1140,7 @@ function ReaderContent() {
                         ref={askTarget}
                         accessibilityRole="button"
                         accessibilityLabel="Ask Votic about this page"
-                        onPress={openAskVotic}
+                        onPress={open_ask_votic}
                         style={({ pressed }) => [
                           s.readingAsk,
                           { backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
@@ -1228,7 +1231,7 @@ function ReaderContent() {
                           accessibilityLabel={
                             index >= passages.length - 1 ? "Finish document" : "Next passage"
                           }
-                          onPress={() => (index >= passages.length - 1 ? finishDocument() : jump(1))}
+                          onPress={() => (index >= passages.length - 1 ? finish_document() : jump(1))}
                           style={({ pressed }) => [
                             s.control,
                             { opacity: !passages.length ? 0.3 : pressed ? 0.55 : 1 },
@@ -1245,16 +1248,16 @@ function ReaderContent() {
                     {listening && listenExpanded ? (
                       <View style={s.playbackMeta}>
                         <Text maxFontSizeMultiplier={1.15} style={[s.timeText, { color: theme.mutedText }]}>
-                          {clockLabel(elapsedSeconds)} / {clockLabel(totalSeconds)}
+                          {clock_label(elapsedSeconds)} / {clock_label(totalSeconds)}
                         </Text>
                         <Pressable
                           accessibilityRole="button"
-                          accessibilityLabel={`Playback speed ${formatPlaybackRate(rate)}`}
+                          accessibilityLabel={`Playback speed ${format_playback_rate(rate)}`}
                           onPress={() => setSheet("listen")}
                           style={s.rateButton}
                         >
                           <Text maxFontSizeMultiplier={1.15} style={[s.rateText, { color: theme.mutedText }]}>
-                            {formatPlaybackRate(rate)}
+                            {format_playback_rate(rate)}
                           </Text>
                           <Ionicons name="speedometer-outline" size={15} color={theme.mutedText} />
                         </Pressable>
@@ -1292,14 +1295,14 @@ function ReaderContent() {
                             icon="sparkles-outline"
                             label="Catch up"
                             active={askOpen}
-                            onPress={() => void sendCatchUp()}
+                            onPress={() => void send_catch_up()}
                           />
                         ) : null}
                         <ToolButton
                           icon={savedPassage ? "bookmark" : "bookmark-outline"}
                           label="Bookmark"
                           active={saveOpen}
-                          onPress={openSavePassage}
+                          onPress={open_save_passage}
                         />
                         {listening ? (
                           // Reading focus only adjusts the spoken-text highlight, so it belongs to Listen mode.
@@ -1340,7 +1343,7 @@ function ReaderContent() {
                           <Pressable
                             accessibilityRole="button"
                             accessibilityLabel="Close Ask Votic"
-                            onPress={closeAskVotic}
+                            onPress={close_ask_votic}
                             style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                           >
                             <Ionicons name="close" size={24} color={theme.text} />
@@ -1405,7 +1408,7 @@ function ReaderContent() {
                                     ? {
                                         label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
                                         accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
-                                        onPress: () => openAskAnswerLink(message.link!),
+                                        onPress: () => open_ask_answer_link(message.link!),
                                       }
                                     : null
                                 }
@@ -1413,7 +1416,7 @@ function ReaderContent() {
                                   message.source
                                     ? {
                                         saved: Boolean(message.saved),
-                                        onPress: () => saveAskAnswer(messageIndex),
+                                        onPress: () => save_ask_answer(messageIndex),
                                       }
                                     : null
                                 }
@@ -1457,7 +1460,7 @@ function ReaderContent() {
                                 conversationSummary.source
                                   ? {
                                       saved: Boolean(conversationSummary.saved),
-                                      onPress: saveConversationSummary,
+                                      onPress: save_conversation_summary,
                                       label: "Save conversation summary to Notes",
                                       savedLabel: "Conversation summary saved to Notes",
                                     }
@@ -1549,7 +1552,7 @@ function ReaderContent() {
                             askVoicePhase === "error" && s.askRecordingText,
                             { color: theme.text },
                           ]}
-                          onSubmitEditing={() => void sendAskVotic()}
+                          onSubmitEditing={() => void send_ask_votic()}
                         />
                       )}
                       <KeyboardDictationButton
@@ -1576,7 +1579,7 @@ function ReaderContent() {
                           accessibilityLabel="Send question"
                           disabled={!askQuestion.trim() || askSending || askVoiceBusy}
                           accessibilityState={{ disabled: !askQuestion.trim() || askSending || askVoiceBusy }}
-                          onPress={() => void sendAskVotic()}
+                          onPress={() => void send_ask_votic()}
                           style={[
                             s.askSend,
                             {
@@ -1596,7 +1599,7 @@ function ReaderContent() {
                         <Pressable
                           accessibilityRole="button"
                           accessibilityLabel="Close Ask Votic"
-                          onPress={closeAskVotic}
+                          onPress={close_ask_votic}
                           style={({ pressed }) => [s.askComposerClose, { opacity: pressed ? 0.55 : 1 }]}
                         >
                           <Ionicons name="close" size={22} color={theme.text} />
@@ -1612,12 +1615,12 @@ function ReaderContent() {
               sheet={sheet}
               onClose={() => setSheet(null)}
               rate={rate}
-              onRateChange={changeRate}
+              onRateChange={change_rate}
               voices={voices}
               previewVoiceIdentifier={previewVoiceIdentifier}
               onPreviewVoice={(voice, name) => {
                 if (previewVoiceIdentifier === voice.identifier) void stop();
-                else void previewVoice(voice, name);
+                else void preview_voice(voice, name);
               }}
               onSelectVoice={(voice) => {
                 void stop();
@@ -1628,7 +1631,7 @@ function ReaderContent() {
               visible={completionOpen}
               onClose={() => setCompletionOpen(false)}
               title={activeDocument?.title}
-              timeSpentSeconds={documentTimeSpent(activeDocument)}
+              timeSpentSeconds={document_time_spent(activeDocument)}
               passageCount={passages.length}
             />
             <SavePassageSheet
@@ -1636,8 +1639,8 @@ function ReaderContent() {
               passageText={passages[index] || ""}
               savedPassage={savedPassage}
               onClose={() => setSaveOpen(false)}
-              onSave={confirmSavePassage}
-              onRemove={confirmRemovePassage}
+              onSave={confirm_save_passage}
+              onRemove={confirm_remove_passage}
             />
           </SafeAreaView>
         </Animated.View>

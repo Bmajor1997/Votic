@@ -38,7 +38,7 @@ const EXISTING_INSTALL: OnboardingState = {
   askedVotic: false,
 };
 
-export function parseOnboardingState(raw: string | null): OnboardingState | null {
+export function parse_onboarding_state(raw: string | null): OnboardingState | null {
   if (!raw) return null;
   try {
     const saved = JSON.parse(raw);
@@ -55,8 +55,8 @@ export function parseOnboardingState(raw: string | null): OnboardingState | null
 }
 
 /** Reads the saved state, or decides whether this is a new or existing install the first time v2 runs. */
-export async function loadOnboardingState(): Promise<OnboardingState> {
-  const saved = parseOnboardingState(await AsyncStorage.getItem(ONBOARDING_KEY));
+export async function load_onboarding_state(): Promise<OnboardingState> {
+  const saved = parse_onboarding_state(await AsyncStorage.getItem(ONBOARDING_KEY));
   if (saved) return saved;
   const existing = (await AsyncStorage.multiGet(EXISTING_INSTALL_KEYS)).some(([, value]) => value !== null);
   const state = existing ? EXISTING_INSTALL : NEW_INSTALL;
@@ -81,7 +81,7 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<OnboardingState | null>(null);
   useEffect(() => {
     let mounted = true;
-    loadOnboardingState()
+    load_onboarding_state()
       .catch(() => NEW_INSTALL)
       .then((loaded) => {
         if (mounted) setState(loaded);
@@ -128,7 +128,7 @@ export function useOnboarding() {
 }
 
 /** The first tip, in order, that is unseen and whose moment has come. Only one tip shows at a time. */
-export function nextTip(order: { id: TipId; ready: boolean }[], seen: TipId[]): TipId | null {
+export function next_tip(order: { id: TipId; ready: boolean }[], seen: TipId[]): TipId | null {
   for (const tip of order) {
     if (seen.includes(tip.id)) continue;
     // Tips teach in sequence, so a later tip waits for the earlier ones.

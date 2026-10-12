@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 import { radii, spacing } from "../design/tokens";
-import { fileTypeLabel, readableTitle } from "../documents/documentDisplay";
+import { file_type_label, readable_title } from "../documents/documentDisplay";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { documentWidgetTone, widgetPalette } from "./widgetDesign";
+import { document_widget_tone, widget_palette } from "./widgetDesign";
 
 /** Home's stylized cover is decorative; the adjacent document title and actions carry its meaning. */
 export function HomeDocumentArtwork({
@@ -15,8 +15,8 @@ export function HomeDocumentArtwork({
   featured?: boolean;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, documentWidgetTone(document.sourceName));
-  const monogram = readableTitle(document.title)
+  const colors = widget_palette(theme.isDark, document_widget_tone(document.sourceName));
+  const monogram = readable_title(document.title)
     .split(/\s+/)
     .slice(0, 2)
     .map((word) => word[0])
@@ -41,7 +41,7 @@ export function HomeDocumentArtwork({
         <View style={s.coverFooter}>
           <Ionicons name="document-text-outline" size={14} color={colors.onStrong} />
           <Text allowFontScaling={false} style={[s.type, { color: colors.onStrong }]}>
-            {fileTypeLabel(document.sourceName)}
+            {file_type_label(document.sourceName)}
           </Text>
         </View>
       </View>

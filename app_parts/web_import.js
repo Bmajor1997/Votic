@@ -10,7 +10,7 @@ import { createGunzip, createInflate, createBrotliDecompress } from "node:zlib";
 const MAX_HTML_BYTES = 2_000_000;
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
 export class WebImportError extends Error {}
-function privateIp(address) {
+function private_ip(address) {
   const family = isIP(address);
   if (!family) return true;
   if (family === 6) {
@@ -26,7 +26,7 @@ function privateIp(address) {
     (a === 172 && b >= 16 && b <= 31) || (a === 100 && b >= 64 && b <= 127) ||
     (a === 198 && [18, 19].includes(b));
 }
-async function resolvePublicUrl(value, lookupImpl) {
+async function resolve_public_url(value, lookupImpl) {
   let url;
   try { url = new URL(value); } catch { throw new WebImportError("Enter a valid webpage address."); }
   if (!["http:", "https:"].includes(url.protocol)) throw new WebImportError("Only http and https webpage links are supported.");
@@ -35,11 +35,11 @@ async function resolvePublicUrl(value, lookupImpl) {
   if (BLOCKED_HOSTS.has(hostname) || hostname.endsWith(".local")) throw new WebImportError("That webpage address is not public.");
   const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] :
     await lookupImpl(hostname, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some((item) => privateIp(item.address))) throw new WebImportError("That webpage address is not public.");
+  if (!addresses.length || addresses.some((item) => private_ip(item.address))) throw new WebImportError("That webpage address is not public.");
   return { url, addresses };
 }
 export async function validate_public_url(value, lookupImpl = lookup) {
-  return (await resolvePublicUrl(value, lookupImpl)).url;
+  return (await resolve_public_url(value, lookupImpl)).url;
 }
 
 /** Keep the hostname for TLS verification/Host, but connect only to an address already validated. */
@@ -66,7 +66,7 @@ export function fetch_public_page(url, options, addresses, requestImpl = url.pro
 
 const IGNORED_TAGS = new Set(["script", "style", "noscript", "svg", "canvas", "iframe", "form", "nav", "footer", "aside", "button", "select", "template"]);
 const BLOCK_TAGS = new Set(["p", "div", "section", "article", "main", "header", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote", "tr", "dd", "dt"]);
-function pageChrome(node) {
+function page_chrome(node) {
   const attrs = new Map((node.attrs || []).map(({ name, value }) => [name, value]));
   return IGNORED_TAGS.has(node.tagName) || attrs.get("role") === "navigation" ||
     attrs.has("hidden") || attrs.get("aria-hidden") === "true" ||
@@ -80,65 +80,65 @@ const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited
 // "Notes", "Sources" and "See also" can be real sections (meeting notes, say), so they only count as back matter
 // when they run straight into one of the headings above, as on Wikipedia.
 const MAYBE_BACK_MATTER = /^(?:notes|sources|see also|notes and references)$/i;
-const headingTitle = (node) => plainText(node).replace(/\[edit\]/gi, "").trim();
-function backMatterHeading(node) {
-  return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(headingTitle(node));
+const heading_title = (node) => plain_text(node).replace(/\[edit\]/gi, "").trim();
+function back_matter_heading(node) {
+  return ["h2", "h3"].includes(node.tagName) && BACK_MATTER.test(heading_title(node));
 }
-function sectionHeadings(node, found = []) {
+function section_headings(node, found = []) {
   if (["h2", "h3"].includes(node.tagName)) found.push(node);
-  else if (!pageChrome(node)) for (const child of node.childNodes || []) sectionHeadings(child, found);
+  else if (!page_chrome(node)) for (const child of node.childNodes || []) section_headings(child, found);
   return found;
 }
 /** Notes, Sources and See also headings that lead straight into back matter, so reading stops at them instead. */
-function backMatterRun(region) {
-  const headings = sectionHeadings(region), run = new Set();
+function back_matter_run(region) {
+  const headings = section_headings(region), run = new Set();
   headings.forEach((heading, index) => {
-    if (!backMatterHeading(heading)) return;
-    for (let before = index - 1; before >= 0 && MAYBE_BACK_MATTER.test(headingTitle(headings[before])); before -= 1)
+    if (!back_matter_heading(heading)) return;
+    for (let before = index - 1; before >= 0 && MAYBE_BACK_MATTER.test(heading_title(headings[before])); before -= 1)
       run.add(headings[before]);
   });
   return run;
 }
-function findTags(node, tag, found = []) {
+function find_tags(node, tag, found = []) {
   if (node.tagName === tag) found.push(node);
-  else if (!pageChrome(node)) for (const child of node.childNodes || []) findTags(child, tag, found);
+  else if (!page_chrome(node)) for (const child of node.childNodes || []) find_tags(child, tag, found);
   return found;
 }
-function findTag(node, tag) {
-  return findTags(node, tag)[0] || null;
+function find_tag(node, tag) {
+  return find_tags(node, tag)[0] || null;
 }
-function plainText(node) {
+function plain_text(node) {
   if (node.nodeName === "#text") return node.value;
-  return (node.childNodes || []).map(plainText).join("");
+  return (node.childNodes || []).map(plain_text).join("");
 }
 const CONTAINERS = new Set(["article", "main", "body", "html"]);
 /**
  * A block made almost entirely of short links: a site menu, language list, or table of contents. Judged by
  * links, not by line length, so short lists of real content (a checklist, steps, headings) always stay.
  */
-function linkMenu(node) {
+function link_menu(node) {
   if (!node.tagName || CONTAINERS.has(node.tagName)) return false;
-  const links = findTags(node, "a").map((link) => plainText(link).trim()).filter(Boolean);
+  const links = find_tags(node, "a").map((link) => plain_text(link).trim()).filter(Boolean);
   if (links.length < 3) return false;
   const visible = (text) => text.replace(/[\s•|·,]+/g, "").length;
   const linkChars = links.reduce((total, text) => total + visible(text), 0);
   const words = links.reduce((total, text) => total + text.split(/\s+/).length, 0);
-  return linkChars >= visible(plainText(node)) * 0.8 && words / links.length <= 4;
+  return linkChars >= visible(plain_text(node)) * 0.8 && words / links.length <= 4;
 }
 /** Text in reading order. Stops at the first back-matter heading (`state.ended`), once there's text to read. */
-function readableText(node, state = { ended: false, chars: 0, run: new Set() }) {
+function readable_text(node, state = { ended: false, chars: 0, run: new Set() }) {
   if (state.ended) return "";
   if (node.nodeName === "#text") {
     state.chars += node.value.trim().length;
     return node.value;
   }
-  if (pageChrome(node) || linkMenu(node)) return "";
-  if (state.chars > 0 && (backMatterHeading(node) || state.run.has(node))) {
+  if (page_chrome(node) || link_menu(node)) return "";
+  if (state.chars > 0 && (back_matter_heading(node) || state.run.has(node))) {
     state.ended = true;
     return "";
   }
   if (["br", "hr"].includes(node.tagName)) return "\n";
-  const text = (node.childNodes || []).map((child) => readableText(child, state)).join("");
+  const text = (node.childNodes || []).map((child) => readable_text(child, state)).join("");
   if (node.tagName === "li") return `\n• ${text}\n`;
   if (["td", "th"].includes(node.tagName)) return `${text} `;
   return BLOCK_TAGS.has(node.tagName) ? `\n${text}\n` : text;
@@ -146,19 +146,19 @@ function readableText(node, state = { ended: false, chars: 0, run: new Set() }) 
 export function clean_webpage_html(html) {
   // Parse real elements: strings/comments inside scripts must never choose the article region.
   const document = parse(html);
-  const titleNode = findTag(document, "title");
-  const title = (titleNode ? readableText(titleNode) : "").replace(/\s+/g, " ").trim().slice(0, 200);
+  const titleNode = find_tag(document, "title");
+  const title = (titleNode ? readable_text(titleNode) : "").replace(/\s+/g, " ").trim().slice(0, 200);
   // The longest article is the story; teasers and related posts are shorter.
-  const articles = findTags(document, "article").map((node) => [node, readableText(node).trim().length]);
+  const articles = find_tags(document, "article").map((node) => [node, readable_text(node).trim().length]);
   const article = articles.sort((a, b) => b[1] - a[1])[0]?.[0];
-  const region = article || findTag(document, "main") || findTag(document, "body") || document;
-  const source = readableText(region, { ended: false, chars: 0, run: backMatterRun(region) }).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
+  const region = article || find_tag(document, "main") || find_tag(document, "body") || document;
+  const source = readable_text(region, { ended: false, chars: 0, run: back_matter_run(region) }).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
   const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
     .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
   return { title, text: kept.join("\n\n").slice(0, 400_000) };
 }
 export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000 } = {}) {
-  let target = await resolvePublicUrl(value, lookupImpl);
+  let target = await resolve_public_url(value, lookupImpl);
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const controller = new AbortController();
     let response, reader, timer;
@@ -218,7 +218,7 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
       else if (response?.body) void response.body.cancel().catch(() => {});
     }
     if (!result.redirect) return result;
-    target = await resolvePublicUrl(new URL(result.redirect, target.url).toString(), lookupImpl);
+    target = await resolve_public_url(new URL(result.redirect, target.url).toString(), lookupImpl);
   }
   throw new WebImportError("The webpage could not be imported.");
 }

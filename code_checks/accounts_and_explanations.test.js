@@ -16,8 +16,8 @@ const document = { title: "Field Guide", sections: [{ heading: "Intro", text: "R
 const ask = (base, body, headers = {}) => fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 function capturing_ai(answer = { answer: "Income from sales.", sectionIndex: null, sectionTitle: null }) {
   const requests = [];
-  const fetchImpl = async (_url, options) => { requests.push(JSON.parse(options.body)); return { ok: true, async json() { return { output_text: JSON.stringify(answer) }; } }; };
-  return { requests, fetchImpl };
+  const fetch_impl = async (_url, options) => { requests.push(JSON.parse(options.body)); return { ok: true, async json() { return { output_text: JSON.stringify(answer) }; } }; };
+  return { requests, fetchImpl: fetch_impl };
 }
 
 test("shapes document answers with the chosen explanation style", async () => {

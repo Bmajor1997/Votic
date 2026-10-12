@@ -1,6 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import Purchases, { CustomerInfo } from "react-native-purchases";
-import { createRevenueCatService } from "./revenueCatService";
+import { create_revenue_cat_service } from "./revenueCatService";
 
 vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
 
@@ -52,7 +52,7 @@ it.each(["refresh", "restore"] as const)(
   "%s retries identification after a temporary login failure",
   async (action) => {
     sdk.logIn.mockRejectedValueOnce(new Error("offline"));
-    const service = createRevenueCatService("public-key", "pro");
+    const service = create_revenue_cat_service("public-key", "pro");
     expect((await service.identify("a")).status).toBe("unknown");
     sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
     sdk.getAppUserID.mockResolvedValue("a");
@@ -66,7 +66,7 @@ it.each(["refresh", "restore"] as const)(
 
 it("keeps recovery retryable when the next identification attempt also fails", async () => {
   sdk.logIn.mockRejectedValue(new Error("offline"));
-  const service = createRevenueCatService("public-key", "pro");
+  const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
   expect((await service.refresh()).status).toBe("unknown");
   sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
@@ -79,7 +79,7 @@ it.each(["reset", "switch"] as const)(
   "discards recovery when the account changes through %s",
   async (action) => {
     sdk.logIn.mockRejectedValueOnce(new Error("offline"));
-    const service = createRevenueCatService("public-key", "pro");
+    const service = create_revenue_cat_service("public-key", "pro");
     await service.identify("a");
     const recovery = deferred<{ customerInfo: CustomerInfo; created: boolean }>();
     sdk.logIn.mockReturnValueOnce(recovery.promise);
@@ -107,7 +107,7 @@ it("re-reads the identified customer instead of applying a queued native payload
   });
   sdk.getAppUserID.mockImplementation(async () => owner);
   sdk.getCustomerInfo.mockImplementation(async () => info(owner === "a"));
-  const service = createRevenueCatService("public-key", "pro");
+  const service = create_revenue_cat_service("public-key", "pro");
   const changed = vi.fn();
   service.onChange(changed);
   await service.identify("a");
@@ -122,7 +122,7 @@ it("finishes a slow logout before logging into the next account", async () => {
   const logout = deferred<CustomerInfo>();
   sdk.logIn.mockResolvedValue({ customerInfo: info(false), created: false });
   sdk.logOut.mockReturnValue(logout.promise);
-  const service = createRevenueCatService("public-key", "pro");
+  const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
   const resetting = service.reset();
   await flush();
@@ -145,7 +145,7 @@ it("discards an in-flight customer read when identity changes", async () => {
   });
   sdk.getAppUserID.mockImplementation(async () => owner);
   sdk.getCustomerInfo.mockReturnValue(reading.promise);
-  const service = createRevenueCatService("public-key", "pro");
+  const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
   const refresh = service.refresh();
   await flush();

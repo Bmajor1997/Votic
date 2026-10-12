@@ -13,8 +13,8 @@ import {
   PURPOSES,
   useVoticPurpose,
 } from "../personalization/PurposeProvider";
-import { formatPlaybackRate } from "../playback/rates";
-import { readerType } from "../reader/readerText";
+import { format_playback_rate } from "../playback/rates";
+import { reader_type } from "../reader/readerText";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 const STEPS = 4;
@@ -63,7 +63,7 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   const step = Math.min(STEPS - 1, editing ? editStep : (setup.setup?.currentStep ?? 0));
   const onClose = props.mode === "edit" ? props.onClose : undefined;
 
-  function goTo(next: number) {
+  function go_to(next: number) {
     if (editing) setEditStep(next);
     else setup.setStep(next);
   }
@@ -88,8 +88,8 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
       Boolean(purpose) || Boolean(answers.explanationStyle) || answers.listening.length > 0;
     setup.finishPersonalization({ skipped: !answeredSomething });
   }
-  const next = () => (step === STEPS - 1 ? finish() : goTo(step + 1));
-  const back = step > 0 ? () => goTo(step - 1) : onClose;
+  const next = () => (step === STEPS - 1 ? finish() : go_to(step + 1));
+  const back = step > 0 ? () => go_to(step - 1) : onClose;
 
   // Android's back button steps back through the questions rather than leaving them.
   const backRef = useRef(back);
@@ -209,7 +209,7 @@ function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
         <Text style={[s.previewLabel, { color: theme.mutedText }]}>PREVIEW</Text>
         <Text
           style={[
-            readerType(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing),
+            reader_type(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing),
             { color: theme.text },
           ]}
         >
@@ -363,11 +363,11 @@ function ListeningStep({
     [],
   );
 
-  function chooseSpeed(rate: number) {
+  function choose_speed(rate: number) {
     setDefaultPlaybackRate(rate);
     if (playing) play(rate);
   }
-  function chooseHighlight(mode: HighlightMode) {
+  function choose_highlight(mode: HighlightMode) {
     a.setHighlightMode(mode);
     setAnswers({ ...answers, listening: LISTENING_FOR[mode] });
   }
@@ -439,8 +439,8 @@ function ListeningStep({
               key={rate}
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
-              accessibilityLabel={`${formatPlaybackRate(rate)} speed`}
-              onPress={() => chooseSpeed(rate)}
+              accessibilityLabel={`${format_playback_rate(rate)} speed`}
+              onPress={() => choose_speed(rate)}
               style={[
                 s.speed,
                 {
@@ -450,7 +450,7 @@ function ListeningStep({
               ]}
             >
               <Text style={[s.speedText, { color: theme.text, fontWeight: selected ? "800" : "600" }]}>
-                {formatPlaybackRate(rate)}
+                {format_playback_rate(rate)}
               </Text>
             </Pressable>
           );
@@ -464,7 +464,7 @@ function ListeningStep({
             label={item.label}
             detail={item.detail}
             selected={highlightMode === item.value}
-            onPress={() => chooseHighlight(item.value)}
+            onPress={() => choose_highlight(item.value)}
           />
         ))}
       </View>

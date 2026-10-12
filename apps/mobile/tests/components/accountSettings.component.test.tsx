@@ -6,9 +6,9 @@ import { AccessibilityInfo, Text } from "react-native";
 import { router } from "expo-router";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as backend from "../mocks/authBackend";
-import { AppProviders, renderWithProviders, testDocument } from "../renderWithProviders";
-import { createDocumentStore } from "../../src/documents/documentStorage";
-import { legacyRecoveryAvailable } from "../../src/storage/accountStorage";
+import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
+import { create_document_store } from "../../src/documents/documentStorage";
+import { legacy_recovery_available } from "../../src/storage/accountStorage";
 
 const AUTO_OWNER_KEY = "votic.mobile.legacy-library-auto-owner.v1";
 function LibraryProbe() {
@@ -20,16 +20,16 @@ function Settings() {
   return <SettingsDetailScreen category="account" />;
 }
 
-async function openDeletion() {
+async function open_deletion() {
   await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
 }
-async function finalDeletion() {
-  await openDeletion();
+async function final_deletion() {
+  await open_deletion();
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 }
-function failAction(action: "deleteAccount" | "signOut", failure: unknown) {
-  const create = backend.createAuthBackend;
-  jest.spyOn(backend, "createAuthBackend").mockImplementation(() => ({
+function fail_action(action: "deleteAccount" | "signOut", failure: unknown) {
+  const create = backend.create_auth_backend;
+  jest.spyOn(backend, "create_auth_backend").mockImplementation(() => ({
     ...create(),
     [action]: async () => {
       throw failure;
@@ -39,7 +39,7 @@ function failAction(action: "deleteAccount" | "signOut", failure: unknown) {
 
 describe("Settings account management", () => {
   it("shows accessible identity, separate actions, and keeps membership and help navigation", async () => {
-    const rendered = await renderWithProviders(<Settings />);
+    const rendered = await render_with_providers(<Settings />);
     expect(screen.getByText("reader@example.com")).toBeTruthy();
     expect(screen.getByRole("header", { name: "ACCOUNT ACCESS" })).toBeTruthy();
     expect(screen.getByRole("header", { name: "ACCOUNT DELETION" })).toBeTruthy();
@@ -68,12 +68,12 @@ describe("Settings account management", () => {
     expect(screen.getByText("Done. The Getting Started checklist is back on Home.")).toBeTruthy();
   });
   it("confirms sign out, allows cancellation, and calls only existing signOut", async () => {
-    const doc = testDocument("saved", "Saved", {
+    const doc = test_document("saved", "Saved", {
       savedPassages: [
         { id: "note", text: "Passage", note: "My note", createdAt: 1, updatedAt: 1, sentenceIndex: 0 },
       ],
     });
-    await renderWithProviders(<Settings />, { documents: [doc] });
+    await render_with_providers(<Settings />, { documents: [doc] });
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(screen.getByRole("header", { name: "Sign out of Votic?" })).toBeTruthy();
     expect(backend.fakeAuth.calls).toEqual([]);
@@ -83,17 +83,17 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(backend.fakeAuth.calls).toEqual(["signOut"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await createDocumentStore("test-user").loadDocuments()).toEqual([doc]);
+    expect(await create_document_store("test-user").loadDocuments()).toEqual([doc]);
   });
   it("does not delete on the first tap, Cancel, Continue, or Keep account", async () => {
-    await renderWithProviders(<Settings />);
+    await render_with_providers(<Settings />);
     const before = await AsyncStorage.getAllKeys();
-    await openDeletion();
+    await open_deletion();
     expect(screen.getByRole("header", { name: "Before you delete your account" })).toBeTruthy();
     expect(screen.getByText(/does not cancel an App Store or Google Play subscription/)).toBeTruthy();
     expect(backend.fakeAuth.calls).toEqual([]);
     await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
-    await finalDeletion();
+    await final_deletion();
     expect(screen.getByRole("header", { name: "Permanently delete account?" })).toBeTruthy();
     expect(backend.fakeAuth.calls).toEqual([]);
     await fireEvent.press(screen.getByRole("button", { name: "Keep account" }));
@@ -102,13 +102,13 @@ describe("Settings account management", () => {
     expect(backend.fakeAuth.user).not.toBeNull();
   });
   it("only final confirmation deletes through existing auth and preserves documents and notes", async () => {
-    const doc = testDocument("saved", "Saved");
-    await renderWithProviders(<Settings />, { documents: [doc] });
-    await finalDeletion();
+    const doc = test_document("saved", "Saved");
+    await render_with_providers(<Settings />, { documents: [doc] });
+    await final_deletion();
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await createDocumentStore("test-user").loadDocuments()).toEqual([doc]);
+    expect(await create_document_store("test-user").loadDocuments()).toEqual([doc]);
   });
   it.each([
     ["auth/requires-recent-login", /sign back in using your usual sign-in method/],
@@ -116,10 +116,10 @@ describe("Settings account management", () => {
     ["auth/too-many-requests", /Wait a few minutes/],
     ["unknown", /couldn't delete your account/],
   ])("handles deletion error %s without signing out or clearing data", async (code, message) => {
-    failAction("deleteAccount", { code });
+    fail_action("deleteAccount", { code });
     const announcement = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
-    await renderWithProviders(<Settings />);
-    await finalDeletion();
+    await render_with_providers(<Settings />);
+    await final_deletion();
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(screen.getByRole("alert").props.children).toMatch(message);
     expect(announcement).toHaveBeenCalledWith(expect.stringMatching(message));
@@ -129,8 +129,8 @@ describe("Settings account management", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("shows a useful sign-out error and allows cancelling", async () => {
-    failAction("signOut", new Error("provider detail"));
-    await renderWithProviders(<Settings />);
+    fail_action("signOut", new Error("provider detail"));
+    await render_with_providers(<Settings />);
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(screen.getByRole("alert").props.children).toMatch(/couldn't sign you out/);
@@ -145,12 +145,12 @@ describe("Settings account management", () => {
           resolve = done;
         }),
     );
-    const create = backend.createAuthBackend;
+    const create = backend.create_auth_backend;
     jest
-      .spyOn(backend, "createAuthBackend")
+      .spyOn(backend, "create_auth_backend")
       .mockImplementation(() => ({ ...create(), deleteAccount: deletion }));
-    await renderWithProviders(<Settings />);
-    await finalDeletion();
+    await render_with_providers(<Settings />);
+    await final_deletion();
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(screen.getByRole("button", { name: "Delete account", disabled: true })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Keep account", disabled: true })).toBeTruthy();
@@ -159,8 +159,8 @@ describe("Settings account management", () => {
     await act(async () => resolve());
   });
   it("honors Reduce Motion and Android back cancels the request", async () => {
-    await renderWithProviders(<Settings />, { reduceMotion: true });
-    await openDeletion();
+    await render_with_providers(<Settings />, { reduceMotion: true });
+    await open_deletion();
     const modal = screen.getByTestId("account-confirmation");
     expect(modal.props.animationType).toBe("none");
     await fireEvent(modal, "requestClose");
@@ -169,7 +169,7 @@ describe("Settings account management", () => {
   });
   it("does not offer account actions when signed out", async () => {
     backend.fakeAuth.reset(null);
-    await renderWithProviders(<Settings />);
+    await render_with_providers(<Settings />);
     expect(screen.getByText("Not signed in")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
@@ -179,7 +179,7 @@ describe("Settings account management", () => {
 });
 
 it("recovers an older device library only after the owner confirms, keeping current documents", async () => {
-  const legacy = testDocument("legacy", "Older book", {
+  const legacy = test_document("legacy", "Older book", {
     savedPassages: [
       {
         id: "p",
@@ -191,19 +191,19 @@ it("recovers an older device library only after the owner confirms, keeping curr
       },
     ],
   });
-  await createDocumentStore().saveDocuments([legacy]);
+  await create_document_store().saveDocuments([legacy]);
   // Nobody was signed in when this version first ran, so the older library waits for its owner to recover it.
   await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: null }));
   function Probe() {
     const { documents } = useDocumentLibrary();
     return <Text testID="recovery-library">{documents.map((document) => document.title).join("|")}</Text>;
   }
-  await renderWithProviders(
+  await render_with_providers(
     <>
       <Settings />
       <Probe />
     </>,
-    { documents: [testDocument("current", "Current book")] },
+    { documents: [test_document("current", "Current book")] },
   );
   expect(screen.getByTestId("recovery-library").props.children).toBe("Current book");
   await fireEvent.press(await screen.findByRole("button", { name: "Recover older device library" }));
@@ -215,29 +215,29 @@ it("recovers an older device library only after the owner confirms, keeping curr
   await waitFor(() =>
     expect(screen.getByTestId("recovery-library").props.children).toBe("Current book|Older book"),
   );
-  expect(await createDocumentStore().loadDocuments()).toEqual([legacy]);
+  expect(await create_document_store().loadDocuments()).toEqual([legacy]);
   expect(screen.queryByRole("button", { name: "Recover older device library" })).toBeNull();
   // The library reloads in place: Settings stays open instead of the whole app reloading.
   expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
 });
 
 it("moves the older library automatically into the account that was signed in when Votic updated", async () => {
-  await createDocumentStore().saveDocuments([testDocument("legacy", "Older book")]);
-  await renderWithProviders(<LibraryProbe />, { documents: [testDocument("current", "Current book")] });
+  await create_document_store().saveDocuments([test_document("legacy", "Older book")]);
+  await render_with_providers(<LibraryProbe />, { documents: [test_document("current", "Current book")] });
   await waitFor(() =>
     expect(screen.getByTestId("library-titles").props.children).toBe("Current book|Older book"),
   );
   // Claimed by this account, so another account can't take it.
-  expect(await legacyRecoveryAvailable("someone-else")).toBe(false);
+  expect(await legacy_recovery_available("someone-else")).toBe(false);
 });
 
 it("lets the development account copy the older library without claiming it", async () => {
   backend.fakeAuth.reset({ uid: "development", email: null, displayName: null });
-  await createDocumentStore().saveDocuments([testDocument("legacy", "Older book")]);
-  await renderWithProviders(<LibraryProbe />);
+  await create_document_store().saveDocuments([test_document("legacy", "Older book")]);
+  await render_with_providers(<LibraryProbe />);
   await waitFor(() => expect(screen.getByTestId("library-titles").props.children).toBe("Older book"));
   // A real account can still recover it later, and the development account doesn't copy it twice.
   await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: null }));
-  expect(await legacyRecoveryAvailable("real-account")).toBe(true);
-  expect(await legacyRecoveryAvailable("development")).toBe(false);
+  expect(await legacy_recovery_available("real-account")).toBe(true);
+  expect(await legacy_recovery_available("development")).toBe(false);
 });

@@ -4,7 +4,7 @@ import { AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, Text, V
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../components/VoticLogo";
 import { radii, spacing, typography } from "../design/tokens";
-import { widgetPalette } from "../home/widgetDesign";
+import { widget_palette } from "../home/widgetDesign";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { PrimaryButton } from "./components";
 
@@ -106,8 +106,8 @@ export function HomeScreenWidgetsIntro({ mode, onDone }: { mode: "setup" | "sett
  */
 function WidgetPreview() {
   const { theme } = useVoticTheme();
-  const book = widgetPalette(theme.isDark, "chapter");
-  const week = widgetPalette(theme.isDark, "activity");
+  const book = widget_palette(theme.isDark, "chapter");
+  const week = widget_palette(theme.isDark, "activity");
   const days = [0.55, 0.7, 0, 0.95, 0.45, 0, 0];
   return (
     <View

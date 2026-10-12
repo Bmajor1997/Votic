@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { revealCompletedText, type TextRevealFrame } from "./textReveal";
+import { reveal_completed_text, type TextRevealFrame } from "./textReveal";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -9,7 +9,7 @@ describe("completed text reveal", () => {
     const text = "  First, word.\n\nNext\tline: https://votic.app/help\n";
     const frames: TextRevealFrame[] = [];
     const complete = vi.fn();
-    revealCompletedText(text, { onFrame: (frame) => frames.push(frame), onComplete: complete });
+    reveal_completed_text(text, { onFrame: (frame) => frames.push(frame), onComplete: complete });
     vi.runAllTimers();
     expect(frames.at(-1)).toEqual(expect.objectContaining({ visible: text, complete: true }));
     expect(frames.every((frame) => text.startsWith(frame.visible))).toBe(true);
@@ -18,7 +18,7 @@ describe("completed text reveal", () => {
   it("keeps a typed prefix visible and highlights only the new transcript", () => {
     const prefix = "My typed\nquestion: ";
     const frames: TextRevealFrame[] = [];
-    revealCompletedText(prefix + "One two.", {
+    reveal_completed_text(prefix + "One two.", {
       startAt: prefix.length,
       onFrame: (frame) => frames.push(frame),
       onComplete: vi.fn(),
@@ -31,7 +31,7 @@ describe("completed text reveal", () => {
   });
   it("finishes long text in at most 2.4 seconds", () => {
     const complete = vi.fn();
-    revealCompletedText("word ".repeat(10000), { onFrame: vi.fn(), onComplete: complete });
+    reveal_completed_text("word ".repeat(10000), { onFrame: vi.fn(), onComplete: complete });
     vi.advanceTimersByTime(2400);
     expect(complete).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
@@ -39,7 +39,7 @@ describe("completed text reveal", () => {
   it("cancels without publishing more words or invoking completion", () => {
     const onFrame = vi.fn();
     const onComplete = vi.fn();
-    const cancel = revealCompletedText("One two three.", { onFrame, onComplete });
+    const cancel = reveal_completed_text("One two three.", { onFrame, onComplete });
     vi.advanceTimersByTime(40);
     cancel();
     const calls = onFrame.mock.calls.length;
@@ -51,7 +51,7 @@ describe("completed text reveal", () => {
   it("publishes full text immediately without scheduling a timer when animation is disabled", () => {
     const onFrame = vi.fn();
     const onComplete = vi.fn();
-    revealCompletedText("Full text.", { animate: false, onFrame, onComplete });
+    reveal_completed_text("Full text.", { animate: false, onFrame, onComplete });
     expect(onFrame).toHaveBeenCalledWith({
       text: "Full text.",
       visible: "Full text.",

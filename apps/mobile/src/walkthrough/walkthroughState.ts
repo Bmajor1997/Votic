@@ -1,4 +1,4 @@
-import { accountStorageKey } from "../storage/accountStorage";
+import { account_storage_key } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { FLOWS, FlowId } from "./walkthroughFlows";
 
@@ -20,7 +20,7 @@ export type WalkthroughState = {
 
 export const EMPTY_WALKTHROUGH: WalkthroughState = { version: 1, flows: {} };
 
-export function parseWalkthroughState(raw: string | null): WalkthroughState | null {
+export function parse_walkthrough_state(raw: string | null): WalkthroughState | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw);
@@ -49,7 +49,7 @@ type StoredDocumentLike = {
  * For people who used Votic before the walkthrough existed: anything they've clearly used already is
  * treated as learned, so they only see walkthroughs for areas they haven't tried.
  */
-export function migratedFlows(input: {
+export function migrated_flows(input: {
   existingDevice: boolean;
   documents: StoredDocumentLike[];
   collections: string[];
@@ -69,7 +69,7 @@ export function migratedFlows(input: {
   return learned;
 }
 
-function parseList(raw: string | null): unknown[] {
+function parse_list(raw: string | null): unknown[] {
   try {
     const value = JSON.parse(raw || "[]");
     return Array.isArray(value) ? value : [];
@@ -78,7 +78,7 @@ function parseList(raw: string | null): unknown[] {
   }
 }
 
-function parseObject(raw: string | null): Record<string, unknown> | null {
+function parse_object(raw: string | null): Record<string, unknown> | null {
   try {
     const value = JSON.parse(raw || "null");
     return value && typeof value === "object" ? value : null;
@@ -88,7 +88,7 @@ function parseObject(raw: string | null): Record<string, unknown> | null {
 }
 
 /** Walkthrough progress belongs to the signed-in account, so each account on a device keeps its own. */
-export function walkthroughKey(uid: string) {
+export function walkthrough_key(uid: string) {
   return `${WALKTHROUGH_KEY}:${uid}`;
 }
 
@@ -101,14 +101,14 @@ export type WalkthroughAccount = { uid: string; isNewAccount: boolean; sessionRe
  * nothing shows on its own (every section can still be replayed from Settings); and a session from before
  * progress was kept per account takes over what this device had recorded.
  */
-export async function loadWalkthroughState(
+export async function load_walkthrough_state(
   account: WalkthroughAccount,
   now = Date.now(),
 ): Promise<WalkthroughState> {
-  const saved = parseWalkthroughState(await AsyncStorage.getItem(walkthroughKey(account.uid)));
+  const saved = parse_walkthrough_state(await AsyncStorage.getItem(walkthrough_key(account.uid)));
   if (saved) return saved;
   const state = account.sessionRestored
-    ? await loadDeviceState(now, account.uid)
+    ? await load_device_state(now, account.uid)
     : account.isNewAccount
       ? EMPTY_WALKTHROUGH
       : {
@@ -117,13 +117,13 @@ export async function loadWalkthroughState(
             Object.keys(FLOWS).map((id) => [id, { status: "migrated" as const, at: now }]),
           ),
         };
-  await saveWalkthroughState(account.uid, state);
+  await save_walkthrough_state(account.uid, state);
   return state;
 }
 
 /** Progress recorded for the whole device, before it was kept per account; decides what existing users know. */
-async function loadDeviceState(now: number, uid: string): Promise<WalkthroughState> {
-  const saved = parseWalkthroughState(await AsyncStorage.getItem(WALKTHROUGH_KEY));
+async function load_device_state(now: number, uid: string): Promise<WalkthroughState> {
+  const saved = parse_walkthrough_state(await AsyncStorage.getItem(WALKTHROUGH_KEY));
   if (saved) {
     // Progress saved before the welcome card existed means this person is already past it.
     if (saved.flows.intro || !Object.keys(saved.flows).length) return saved;
@@ -139,8 +139,8 @@ async function loadDeviceState(now: number, uid: string): Promise<WalkthroughSta
   ] = await AsyncStorage.multiGet([
     DEVICE_HISTORY_KEY,
     ONBOARDING_KEY,
-    accountStorageKey(LIBRARY_KEY, uid),
-    accountStorageKey(COLLECTIONS_KEY, uid),
+    account_storage_key(LIBRARY_KEY, uid),
+    account_storage_key(COLLECTIONS_KEY, uid),
     LIBRARY_KEY,
     COLLECTIONS_KEY,
   ]);
@@ -149,11 +149,11 @@ async function loadDeviceState(now: number, uid: string): Promise<WalkthroughSta
   const library = accountLibrary ?? oldLibrary;
   const collections = accountCollections ?? oldCollections;
   // Devices that ran a build from before the device history was recorded had already finished setup.
-  const finishedSetupBefore = history === null && parseObject(onboarding)?.personalized === true;
-  const learned = migratedFlows({
+  const finishedSetupBefore = history === null && parse_object(onboarding)?.personalized === true;
+  const learned = migrated_flows({
     existingDevice: history === "existing" || finishedSetupBefore,
-    documents: parseList(library) as StoredDocumentLike[],
-    collections: parseList(collections).filter((item): item is string => typeof item === "string"),
+    documents: parse_list(library) as StoredDocumentLike[],
+    collections: parse_list(collections).filter((item): item is string => typeof item === "string"),
   });
   return {
     version: 1,
@@ -161,10 +161,10 @@ async function loadDeviceState(now: number, uid: string): Promise<WalkthroughSta
   };
 }
 
-export async function saveWalkthroughState(uid: string, state: WalkthroughState) {
-  await AsyncStorage.setItem(walkthroughKey(uid), JSON.stringify(state));
+export async function save_walkthrough_state(uid: string, state: WalkthroughState) {
+  await AsyncStorage.setItem(walkthrough_key(uid), JSON.stringify(state));
 }
 
-export async function removeWalkthroughState(uid: string) {
-  await AsyncStorage.removeItem(walkthroughKey(uid));
+export async function remove_walkthrough_state(uid: string) {
+  await AsyncStorage.removeItem(walkthrough_key(uid));
 }

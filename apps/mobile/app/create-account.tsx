@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { useAuth } from "../src/auth/AuthProvider";
-import { authErrorMessage, looksLikeEmail, passwordProblem } from "../src/auth/authErrors";
+import { auth_error_message, looks_like_email, password_problem } from "../src/auth/authErrors";
 import {
   AccountScaffold,
   EmailDivider,
@@ -30,22 +30,22 @@ export default function CreateAccount() {
   const [triedSubmit, setTriedSubmit] = useState(false);
   const passwordRef = useRef<TextInput>(null);
 
-  const emailError = triedSubmit && !looksLikeEmail(email) ? "Enter a valid email address." : "";
-  const problem = passwordProblem(password);
+  const emailError = triedSubmit && !looks_like_email(email) ? "Enter a valid email address." : "";
+  const problem = password_problem(password);
   const passwordError = triedSubmit && problem ? problem : "";
 
   async function submit() {
     setTriedSubmit(true);
     setError("");
     setAccountExists(false);
-    if (!looksLikeEmail(email) || problem || busy || socialBusy) return;
+    if (!looks_like_email(email) || problem || busy || socialBusy) return;
     setBusy(true);
     try {
       await auth.createAccount(email, password);
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
       setAccountExists((failure as { code?: string })?.code === "auth/email-already-in-use");
-      setError(authErrorMessage(failure));
+      setError(auth_error_message(failure));
     } finally {
       setBusy(false);
     }

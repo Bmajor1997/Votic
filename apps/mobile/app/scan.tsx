@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { scanDocumentImage } from "../src/api/voticApi";
+import { scan_document_image } from "../src/api/voticApi";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
@@ -49,7 +49,7 @@ export default function ScanDocumentScreen() {
     }
   }
 
-  async function finishScan() {
+  async function finish_scan() {
     if (!pages.length || processing) return;
     setProcessing(true);
     try {
@@ -58,7 +58,7 @@ export default function ScanDocumentScreen() {
         const response = await fetch(pages[index].uri);
         if (!response.ok) throw new Error("Votic could not access one of the scanned pages.");
         const bytes = await response.arrayBuffer();
-        const text = await scanDocumentImage(`scan-page-${index + 1}.jpg`, bytes);
+        const text = await scan_document_image(`scan-page-${index + 1}.jpg`, bytes);
         if (text.trim()) extracted.push(text.trim());
       }
       const text = extracted.join("\n\n");
@@ -222,7 +222,7 @@ export default function ScanDocumentScreen() {
               <Pressable
                 accessibilityRole="button"
                 disabled={processing}
-                onPress={() => void finishScan()}
+                onPress={() => void finish_scan()}
                 style={[s.useAction, { opacity: processing ? 0.7 : 1 }]}
               >
                 {processing ? (

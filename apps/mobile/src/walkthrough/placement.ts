@@ -6,7 +6,7 @@ const GAP = 12;
 const MAX_SPOTLIGHT_SHARE = 0.45;
 
 /** The highlighted area: the control plus a little breathing room, kept inside the screen. */
-export function spotlightRect(target: Rect, screen: { width: number; height: number }): Rect {
+export function spotlight_rect(target: Rect, screen: { width: number; height: number }): Rect {
   const x = Math.max(0, target.x - SPOTLIGHT_PADDING);
   const y = Math.max(0, target.y - SPOTLIGHT_PADDING);
   const right = Math.min(screen.width, target.x + target.width + SPOTLIGHT_PADDING);
@@ -22,7 +22,7 @@ export function spotlightRect(target: Rect, screen: { width: number; height: num
  * Puts the coaching card on whichever side of the control has more room, with a small pointer aimed at
  * the control's center. The card's height isn't needed: "above" cards are anchored by their bottom edge.
  */
-export function cardPlacement(spotlight: Rect, screen: { width: number; height: number }, gutter = 16) {
+export function card_placement(spotlight: Rect, screen: { width: number; height: number }, gutter = 16) {
   const spaceAbove = spotlight.y;
   const spaceBelow = screen.height - (spotlight.y + spotlight.height);
   const side: "above" | "below" = spaceBelow >= spaceAbove ? "below" : "above";
@@ -36,7 +36,7 @@ export function cardPlacement(spotlight: Rect, screen: { width: number; height: 
 }
 
 /** The four dimmed rectangles around the spotlight; the spotlight itself stays clear. */
-export function dimRegions(spotlight: Rect, screen: { width: number; height: number }): Rect[] {
+export function dim_regions(spotlight: Rect, screen: { width: number; height: number }): Rect[] {
   const right = spotlight.x + spotlight.width;
   const bottom = spotlight.y + spotlight.height;
   return [

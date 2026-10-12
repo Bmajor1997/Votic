@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { HighlightMode } from "../accessibility/AccessibilityProvider";
 import type { ExplanationStyle } from "../personalization/PurposeProvider";
-import { normalizePlaybackRate } from "../playback/rates";
+import { normalize_playback_rate } from "../playback/rates";
 
 export type AccountPreferences = {
   explanationStyle: ExplanationStyle;
@@ -13,10 +13,10 @@ export const DEFAULT_ACCOUNT_PREFERENCES: AccountPreferences = {
   highlightMode: "both",
   defaultPlaybackRate: 1,
 };
-export const accountPreferencesKey = (uid: string) => `votic.mobile.personalization-preferences.v1:${uid}`;
+export const account_preferences_key = (uid: string) => `votic.mobile.personalization-preferences.v1:${uid}`;
 
-export async function loadAccountPreferences(uid: string): Promise<AccountPreferences | null> {
-  const raw = await AsyncStorage.getItem(accountPreferencesKey(uid));
+export async function load_account_preferences(uid: string): Promise<AccountPreferences | null> {
+  const raw = await AsyncStorage.getItem(account_preferences_key(uid));
   if (!raw) return null;
   try {
     const value = JSON.parse(raw);
@@ -31,15 +31,15 @@ export async function loadAccountPreferences(uid: string): Promise<AccountPrefer
     return {
       explanationStyle: value.explanationStyle,
       highlightMode: value.highlightMode,
-      defaultPlaybackRate: normalizePlaybackRate(value.defaultPlaybackRate),
+      defaultPlaybackRate: normalize_playback_rate(value.defaultPlaybackRate),
     };
   } catch {
     return null;
   }
 }
-export async function saveAccountPreferences(uid: string, value: AccountPreferences) {
-  await AsyncStorage.setItem(accountPreferencesKey(uid), JSON.stringify(value));
+export async function save_account_preferences(uid: string, value: AccountPreferences) {
+  await AsyncStorage.setItem(account_preferences_key(uid), JSON.stringify(value));
 }
-export async function removeAccountPreferences(uid: string) {
-  await AsyncStorage.removeItem(accountPreferencesKey(uid));
+export async function remove_account_preferences(uid: string) {
+  await AsyncStorage.removeItem(account_preferences_key(uid));
 }

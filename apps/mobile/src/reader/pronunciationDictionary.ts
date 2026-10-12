@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export type PronunciationEntry = { id: string; term: string; pronunciation: string };
 const KEY = "@votic/pronunciation-dictionary/v1";
 
-export async function loadPronunciations(): Promise<PronunciationEntry[]> {
+export async function load_pronunciations(): Promise<PronunciationEntry[]> {
   try {
     const raw = await AsyncStorage.getItem(KEY);
     const parsed = raw ? JSON.parse(raw) : [];
@@ -21,19 +21,19 @@ export async function loadPronunciations(): Promise<PronunciationEntry[]> {
     return [];
   }
 }
-export async function savePronunciations(entries: PronunciationEntry[]) {
+export async function save_pronunciations(entries: PronunciationEntry[]) {
   await AsyncStorage.setItem(KEY, JSON.stringify(entries.slice(0, 250)));
 }
-export function normalizePronunciationEntry(term: string, pronunciation: string): PronunciationEntry {
+export function normalize_pronunciation_entry(term: string, pronunciation: string): PronunciationEntry {
   const cleanTerm = term.trim().replace(/\s+/g, " ").slice(0, 120);
   const cleanPronunciation = pronunciation.trim().replace(/\s+/g, " ").slice(0, 180);
   if (!cleanTerm || !cleanPronunciation) throw new Error("Enter both a word and how Votic should say it.");
   return { id: cleanTerm.toLocaleLowerCase(), term: cleanTerm, pronunciation: cleanPronunciation };
 }
-function isWordCharacter(value: string | undefined) {
+function is_word_character(value: string | undefined) {
   return Boolean(value && /[\p{L}\p{N}]/u.test(value));
 }
-function replaceWholeTerm(text: string, term: string, pronunciation: string) {
+function replace_whole_term(text: string, term: string, pronunciation: string) {
   if (!term) return text;
   const lowerText = text.toLocaleLowerCase();
   const lowerTerm = term.toLocaleLowerCase();
@@ -46,8 +46,8 @@ function replaceWholeTerm(text: string, term: string, pronunciation: string) {
       break;
     }
     const end = index + term.length;
-    const hasBoundaryBefore = index === 0 || !isWordCharacter(text[index - 1]);
-    const hasBoundaryAfter = end === text.length || !isWordCharacter(text[end]);
+    const hasBoundaryBefore = index === 0 || !is_word_character(text[index - 1]);
+    const hasBoundaryAfter = end === text.length || !is_word_character(text[end]);
     if (hasBoundaryBefore && hasBoundaryAfter) {
       result += text.slice(cursor, index) + pronunciation;
       cursor = end;
@@ -58,15 +58,15 @@ function replaceWholeTerm(text: string, term: string, pronunciation: string) {
   }
   return result;
 }
-export function applyPronunciations(text: string, entries: PronunciationEntry[]) {
+export function apply_pronunciations(text: string, entries: PronunciationEntry[]) {
   let spoken = text;
   for (const entry of [...entries].sort((a, b) => b.term.length - a.term.length)) {
-    spoken = replaceWholeTerm(spoken, entry.term, entry.pronunciation);
+    spoken = replace_whole_term(spoken, entry.term, entry.pronunciation);
   }
   return spoken;
 }
 
-export function sourceWordAtSpokenOffset(sourceText: string, spokenText: string, charIndex: number) {
+export function source_word_at_spoken_offset(sourceText: string, spokenText: string, charIndex: number) {
   const sourceWords = [...sourceText.matchAll(/\S+/g)];
   const spokenWords = [...spokenText.matchAll(/\S+/g)];
   if (!sourceWords.length || !spokenWords.length) return 0;

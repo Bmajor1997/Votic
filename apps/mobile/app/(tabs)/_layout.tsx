@@ -60,14 +60,14 @@ export default function TabLayout() {
   const { registerTarget, pressed } = useWalkthrough();
   // Tab buttons are drawn by the navigator, so the walkthrough locates them from the bar's layout.
   useEffect(() => {
-    const tabRect = (index: number) => async () => ({
+    const tab_rect = (index: number) => async () => ({
       x: (window.width / VISIBLE_TABS) * index,
       y: window.height - (TAB_BAR_HEIGHT + insets.bottom),
       width: window.width / VISIBLE_TABS,
       height: TAB_BAR_HEIGHT,
     });
-    registerTarget("tab.documents", tabRect(1));
-    registerTarget("tab.notes", tabRect(2));
+    registerTarget("tab.documents", tab_rect(1));
+    registerTarget("tab.notes", tab_rect(2));
     return () => {
       registerTarget("tab.documents", null);
       registerTarget("tab.notes", null);

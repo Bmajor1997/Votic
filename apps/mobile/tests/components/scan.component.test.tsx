@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { screen } from "@testing-library/react-native";
 import ScanDocumentScreen from "../../app/scan";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
 const cameraProps: Record<string, unknown>[] = [];
 jest.mock("expo-camera", () => {
@@ -15,11 +15,11 @@ jest.mock("expo-camera", () => {
     }),
   };
 });
-jest.mock("../../src/api/voticApi", () => ({ scanDocumentImage: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({ scan_document_image: jest.fn() }));
 
 describe("document scanner", () => {
   it("never flashes the screen when a photo is taken", async () => {
-    await renderWithProviders(<ScanDocumentScreen />);
+    await render_with_providers(<ScanDocumentScreen />);
     expect(screen.getByTestId("scan-camera")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Take photo" })).toBeTruthy();
     // expo-camera's default shutter animation flashes the whole screen, a photosensitivity risk.

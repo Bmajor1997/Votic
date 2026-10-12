@@ -1,5 +1,5 @@
 import { useAccountData } from "../storage/AccountDataProvider";
-import { accountStorageKey } from "../storage/accountStorage";
+import { account_storage_key } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   PropsWithChildren,
@@ -15,12 +15,12 @@ import {
   ActivityKind,
   ActivityLog,
   AskEvent,
-  addAskEvent,
-  addInterval,
-  emptyLog,
-  parseLog,
+  add_ask_event,
+  add_interval,
+  empty_log,
+  parse_log,
 } from "./activityModel";
-import { sampleActivityLog } from "./sampleActivity";
+import { sample_activity_log } from "./sampleActivity";
 
 export const ACTIVITY_KEY = "votic.mobile.activity.v1";
 const SAVE_DELAY_MS = 2000;
@@ -40,8 +40,8 @@ const ActivityContext = createContext<ActivityValue | null>(null);
 
 export function ActivityProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
-  const storageKey = accountStorageKey(ACTIVITY_KEY, uid ?? "");
-  const [log, setLog] = useState<ActivityLog>(() => emptyLog());
+  const storageKey = account_storage_key(ACTIVITY_KEY, uid ?? "");
+  const [log, setLog] = useState<ActivityLog>(() => empty_log());
   const [hydrated, setHydrated] = useState(!uid);
   const [sample, setSample] = useState<ActivityLog | null>(null);
   const latest = useRef(log);
@@ -83,8 +83,8 @@ export function ActivityProvider({ children }: PropsWithChildren) {
       .catch(() => null)
       .then((raw) => {
         if (!mounted) return;
-        const saved = parseLog(raw);
-        let loaded = saved ?? emptyLog();
+        const saved = parse_log(raw);
+        let loaded = saved ?? empty_log();
         for (const update of pending.current) loaded = update(loaded);
         pending.current = [];
         latest.current = loaded;
@@ -111,7 +111,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
       registerReload(async () => {
         if (!uid) return;
         hydratedRef.current = false;
-        const saved = parseLog(await AsyncStorage.getItem(storageKey).catch(() => null));
+        const saved = parse_log(await AsyncStorage.getItem(storageKey).catch(() => null));
         let loaded = saved ?? latest.current;
         for (const update of pending.current) loaded = update(loaded);
         pending.current = [];
@@ -138,11 +138,11 @@ export function ActivityProvider({ children }: PropsWithChildren) {
         measuredLog: log,
         hydrated,
         recordTime: (documentId, kind, start, end) =>
-          change((current) => addInterval(current, documentId, kind, start, end)),
-        recordAsk: (event) => change((current) => addAskEvent(current, event)),
+          change((current) => add_interval(current, documentId, kind, start, end)),
+        recordAsk: (event) => change((current) => add_ask_event(current, event)),
         sampleData: Boolean(sample),
         setSampleData: (documentIds) =>
-          setSample(__DEV__ && documentIds ? sampleActivityLog(documentIds) : null),
+          setSample(__DEV__ && documentIds ? sample_activity_log(documentIds) : null),
       }}
     >
       {children}

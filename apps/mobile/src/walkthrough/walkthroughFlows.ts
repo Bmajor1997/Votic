@@ -389,12 +389,12 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
   },
 };
 
-export function copyFor(step: WalkthroughStep, context: FlowContext) {
+export function copy_for(step: WalkthroughStep, context: FlowContext) {
   const read = (value: WalkthroughStep["title"]) => (typeof value === "function" ? value(context) : value);
   return { title: read(step.title), message: read(step.message) };
 }
 
 /** The steps that apply to this screen right now. */
-export function applicableSteps(flow: WalkthroughFlow, context: FlowContext) {
+export function applicable_steps(flow: WalkthroughFlow, context: FlowContext) {
   return flow.steps.filter((step) => !step.when || step.when(context));
 }

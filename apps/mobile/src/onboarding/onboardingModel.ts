@@ -66,7 +66,7 @@ export const EMPTY_ANSWERS: PersonalizationAnswers = {
   keepingTrack: [],
 };
 
-export function newOnboardingState(): OnboardingState {
+export function new_onboarding_state(): OnboardingState {
   return {
     version: ONBOARDING_VERSION,
     currentStep: 0,
@@ -183,7 +183,7 @@ export const QUESTIONS: Question[] = [
  * Toggles a multiple-choice answer. "I'll decide as I go"-style options stand alone: choosing one clears
  * the others, and choosing any other option clears it.
  */
-export function toggleMultiple<T extends string>(
+export function toggle_multiple<T extends string>(
   question: { options: Option<T>[] },
   selected: T[],
   value: T,
@@ -197,7 +197,7 @@ export function toggleMultiple<T extends string>(
 }
 
 /** Whether the question has an answer, which decides between "Continue" and "Skip" on its button. */
-export function isAnswered(question: Question, answers: PersonalizationAnswers) {
+export function is_answered(question: Question, answers: PersonalizationAnswers) {
   const value = answers[question.key];
   return Array.isArray(value) ? value.length > 0 : value !== null;
 }
@@ -210,7 +210,7 @@ const allowed = <K extends keyof PersonalizationAnswers>(key: K) =>
   QUESTIONS.find((question) => question.key === key)!.options.map((option) => option.value);
 
 /** Reads saved onboarding, discarding anything unexpected, so a damaged or older record never crashes startup. */
-export function parseOnboardingState(raw: string | null): OnboardingState | null {
+export function parse_onboarding_state(raw: string | null): OnboardingState | null {
   if (!raw) return null;
   let value: Partial<OnboardingState> & { answers?: Partial<Record<keyof PersonalizationAnswers, unknown>> };
   try {
@@ -243,7 +243,7 @@ export function parseOnboardingState(raw: string | null): OnboardingState | null
 }
 
 /** The explanation style Ask Votic should use; "adaptive" when the person hasn't chosen. */
-export function explanationStyleFor(answers: PersonalizationAnswers): ExplanationStyle {
+export function explanation_style_for(answers: PersonalizationAnswers): ExplanationStyle {
   return answers.explanationStyle || DEFAULT_EXPLANATION_STYLE;
 }
 
@@ -251,7 +251,7 @@ export function explanationStyleFor(answers: PersonalizationAnswers): Explanatio
  * The Reader highlight setting implied by the listening answers, or null to leave the current setting alone.
  * Listening itself is never turned off: "I'm mainly here to read" only leaves highlighting as it is.
  */
-export function highlightModeFor(listening: ListeningPreference[]): HighlightMode | null {
+export function highlight_mode_for(listening: ListeningPreference[]): HighlightMode | null {
   const words = listening.includes("highlight-words");
   const sentence = listening.includes("highlight-sentence");
   if (words && sentence) return "both";

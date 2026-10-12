@@ -1,6 +1,9 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useState } from "react";
 import { AccessibilityInfo } from "react-native";
-import { loadAccessibilityPreferences, saveAccessibilityPreferences } from "../preferences/preferenceStorage";
+import {
+  load_accessibility_preferences,
+  save_accessibility_preferences,
+} from "../preferences/preferenceStorage";
 
 export type TextSize = "default" | "large" | "extra-large";
 export type ReadingSpacing = "compact" | "default" | "extra";
@@ -45,7 +48,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    loadAccessibilityPreferences().then((saved) => {
+    load_accessibility_preferences().then((saved) => {
       if (["default", "large", "extra-large"].includes(saved?.textSize)) setTextSize(saved.textSize);
       if (["compact", "default", "extra"].includes(saved?.readingSpacing))
         setReadingSpacing(saved.readingSpacing);
@@ -70,7 +73,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (hydrated)
-      saveAccessibilityPreferences({
+      save_accessibility_preferences({
         textSize,
         readingSpacing,
         readerFont,

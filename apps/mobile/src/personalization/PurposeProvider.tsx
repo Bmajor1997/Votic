@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PropsWithChildren, createContext, useContext, useEffect, useState } from "react";
 import type { ExplanationStyle } from "../api/voticApi";
-import { normalizePlaybackRate } from "../playback/rates";
+import { normalize_playback_rate } from "../playback/rates";
 export type { ExplanationStyle } from "../api/voticApi";
 export type VoticPurpose = "learning" | "work" | "research" | "personal" | "accessibility";
 export const PURPOSES = [
@@ -67,21 +67,21 @@ export function PurposeProvider({ children }: PropsWithChildren) {
         if (PURPOSES.some((item) => item.value === value)) setPurposeState(value as VoticPurpose);
         if (EXPLANATION_STYLES.some((item) => item.value === style))
           setExplanationStyleState(style as ExplanationStyle);
-        if (rate) setDefaultPlaybackRateState(normalizePlaybackRate(Number(rate)));
+        if (rate) setDefaultPlaybackRateState(normalize_playback_rate(Number(rate)));
       })
       .catch(() => {})
       .finally(() => setHydrated(true));
   }, []);
-  function setPurpose(value: VoticPurpose) {
+  function set_purpose(value: VoticPurpose) {
     setPurposeState(value);
     void AsyncStorage.setItem(KEY, value).catch(() => {});
   }
-  function setExplanationStyle(value: ExplanationStyle) {
+  function set_explanation_style(value: ExplanationStyle) {
     setExplanationStyleState(value);
     void AsyncStorage.setItem(EXPLANATION_KEY, value).catch(() => {});
   }
-  function setDefaultPlaybackRate(value: number) {
-    const rate = normalizePlaybackRate(value);
+  function set_default_playback_rate(value: number) {
+    const rate = normalize_playback_rate(value);
     setDefaultPlaybackRateState(rate);
     void AsyncStorage.setItem(RATE_KEY, String(rate)).catch(() => {});
   }
@@ -89,11 +89,11 @@ export function PurposeProvider({ children }: PropsWithChildren) {
     <Context.Provider
       value={{
         purpose,
-        setPurpose,
+        setPurpose: set_purpose,
         explanationStyle,
-        setExplanationStyle,
+        setExplanationStyle: set_explanation_style,
         defaultPlaybackRate,
-        setDefaultPlaybackRate,
+        setDefaultPlaybackRate: set_default_playback_rate,
         hydrated,
       }}
     >

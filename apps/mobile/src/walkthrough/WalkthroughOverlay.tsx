@@ -14,8 +14,8 @@ import {
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { Rect, cardPlacement, dimRegions, spotlightRect } from "./placement";
-import { copyFor, FLOWS, WalkthroughHost } from "./walkthroughFlows";
+import { Rect, card_placement, dim_regions, spotlight_rect } from "./placement";
+import { copy_for, FLOWS, WalkthroughHost } from "./walkthroughFlows";
 import { useWalkthrough } from "./WalkthroughProvider";
 
 const GUTTER = 16;
@@ -70,7 +70,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
 
   useEffect(() => {
     if (!step || !flow) return;
-    const copy = copyFor(step, flow.context);
+    const copy = copy_for(step, flow.context);
     AccessibilityInfo.announceForAccessibility(`${copy.title}. ${copy.message}`);
     // Moves screen reader focus to the card. The web has no native view handles (and no setAccessibilityFocus).
     const node = Platform.OS === "web" ? null : findNodeHandle(titleRef.current);
@@ -91,10 +91,10 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   }, [flow, skip]);
 
   if (!flow || !step || (step.target && !rect)) return null;
-  const copy = copyFor(step, flow.context);
+  const copy = copy_for(step, flow.context);
   const screen = { width: window.width, height: window.height };
-  const spotlight = rect ? spotlightRect(rect, screen) : null;
-  const placement = spotlight ? cardPlacement(spotlight, screen, GUTTER) : null;
+  const spotlight = rect ? spotlight_rect(rect, screen) : null;
+  const placement = spotlight ? card_placement(spotlight, screen, GUTTER) : null;
   const last = flow.index === flow.steps.length - 1;
   const primaryLabel = step.primaryLabel ?? (last ? "Got it" : "Next");
   const total = flow.steps.length;
@@ -118,7 +118,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
         />
       ) : null}
       {blocking && spotlight
-        ? dimRegions(spotlight, screen).map((region, index) => (
+        ? dim_regions(spotlight, screen).map((region, index) => (
             <View
               key={index}
               testID="walkthrough-dim"

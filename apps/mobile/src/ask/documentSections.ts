@@ -1,4 +1,4 @@
-import { splitPassages } from "../documents/passages";
+import { split_passages } from "../documents/passages";
 
 export const SECTION_TARGET_CHARS = 3000;
 // Well under the server's 400,000-character limit, and keeps each question affordable.
@@ -10,13 +10,13 @@ export type AskSection = { heading: string; text: string };
 export type AskLink = { documentId: string; sentenceIndex: number };
 export type LinkedSection = { section: AskSection; link: AskLink | null };
 
-function passageHeading(start: number, end: number, continued: boolean) {
+function passage_heading(start: number, end: number, continued: boolean) {
   const range = start === end ? `Passage ${start + 1}` : `Passages ${start + 1}–${end + 1}`;
   return continued ? range + " (continued)" : range;
 }
 
 /** Splits document text into ~3,000-character sections on Reader passage boundaries. */
-export function chunkDocument(
+export function chunk_document(
   documentId: string,
   plainText: string,
   targetChars = SECTION_TARGET_CHARS,
@@ -30,13 +30,13 @@ export function chunkDocument(
   function push() {
     if (!parts.length) return;
     sections.push({
-      section: { heading: passageHeading(start, end, continued), text: parts.join(" ") },
+      section: { heading: passage_heading(start, end, continued), text: parts.join(" ") },
       link: { documentId, sentenceIndex: start },
     });
     parts = [];
     size = 0;
   }
-  splitPassages(plainText).forEach((passage, index) => {
+  split_passages(plainText).forEach((passage, index) => {
     // A passage longer than a section (e.g. text without punctuation) is split into pieces.
     for (let offset = 0; offset < passage.length; offset += targetChars) {
       const piece = passage.slice(offset, offset + targetChars);
@@ -59,7 +59,7 @@ const STOP_WORDS = new Set(
     " ",
   ),
 );
-export function questionTerms(question: string) {
+export function question_terms(question: string) {
   return [
     ...new Set(
       (question.toLocaleLowerCase().match(/[\p{L}\p{N}]+/gu) || []).filter(
@@ -83,7 +83,7 @@ function occurrences(text: string, term: string) {
  * at `anchorIndex` (the reading position) comes first, then sections matching the question, then an even
  * spread across the rest so broad questions ("summarize this") still see the whole document.
  */
-export function selectSections<T extends { section: AskSection }>(
+export function select_sections<T extends { section: AskSection }>(
   items: T[],
   question: string,
   {
@@ -120,7 +120,7 @@ export function selectSections<T extends { section: AskSection }>(
     used += sizes[index];
   }
   if (anchorIndex !== undefined && anchorIndex >= 0 && anchorIndex < items.length) add(anchorIndex);
-  const terms = questionTerms(question);
+  const terms = question_terms(question);
   if (terms.length) {
     const lowered = boundedItems.map((item) => item.section.text.toLocaleLowerCase());
     const weights = terms.map((term) => {

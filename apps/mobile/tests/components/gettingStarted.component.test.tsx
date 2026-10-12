@@ -3,12 +3,12 @@ import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { cleanLocalDocumentText } from "../../src/documents/importDocument";
+import { clean_local_document_text } from "../../src/documents/importDocument";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
-import { ONBOARDING_KEY, parseOnboardingState } from "../../src/onboarding/OnboardingProvider";
+import { ONBOARDING_KEY, parse_onboarding_state } from "../../src/onboarding/OnboardingProvider";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../../src/onboarding/voticGuide";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { render_with_providers, test_document } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -16,8 +16,8 @@ jest.mock("expo-speech", () => ({
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
 
-async function savedOnboarding() {
-  return parseOnboardingState(await AsyncStorage.getItem(ONBOARDING_KEY));
+async function saved_onboarding() {
+  return parse_onboarding_state(await AsyncStorage.getItem(ONBOARDING_KEY));
 }
 
 function GuideProbe() {
@@ -43,7 +43,7 @@ function LibraryCount() {
 
 describe("Getting started", () => {
   it("offers a first action and adds the Votic guide when chosen", async () => {
-    await renderWithProviders(
+    await render_with_providers(
       <>
         <GettingStartedCard />
         <LibraryCount />
@@ -61,13 +61,13 @@ describe("Getting started", () => {
   });
 
   it("opens the updated walkthrough from Help and preserves the old guide and notes", async () => {
-    const old = testDocument("old-guide", "Votic guide", {
+    const old = test_document("old-guide", "Votic guide", {
       sourceName: "Votic guide.md",
       savedPassages: [
         { id: "saved", sentenceIndex: 0, text: "Old guide", note: "My note", createdAt: 1, updatedAt: 1 },
       ],
     });
-    await renderWithProviders(
+    await render_with_providers(
       <>
         <SettingsDetailScreen category="help" />
         <GuideProbe />
@@ -77,14 +77,16 @@ describe("Getting started", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
     expect(screen.getByTestId("guide-probe").props.children).toContain("Votic guide.md:My note");
     expect(screen.getByTestId("guide-probe").props.children).toContain(VOTIC_GUIDE_SOURCE_NAME);
-    expect(screen.getByTestId("active-guide").props.children).toBe(cleanLocalDocumentText(VOTIC_GUIDE_TEXT));
+    expect(screen.getByTestId("active-guide").props.children).toBe(
+      clean_local_document_text(VOTIC_GUIDE_TEXT),
+    );
   });
   it("reuses the current walkthrough instead of creating another copy", async () => {
-    const current = testDocument("current-guide", "Votic guide — updated features", {
+    const current = test_document("current-guide", "Votic guide — updated features", {
       sourceName: VOTIC_GUIDE_SOURCE_NAME,
-      plainText: cleanLocalDocumentText(VOTIC_GUIDE_TEXT),
+      plainText: clean_local_document_text(VOTIC_GUIDE_TEXT),
     });
-    await renderWithProviders(
+    await render_with_providers(
       <>
         <SettingsDetailScreen category="help" />
         <GuideProbe />
@@ -111,9 +113,9 @@ describe("Getting started", () => {
       expect(VOTIC_GUIDE_TEXT).toContain(feature);
   });
   it("can be hidden", async () => {
-    await renderWithProviders(<GettingStartedCard />, { onboarding: { checklistDismissed: false } });
+    await render_with_providers(<GettingStartedCard />, { onboarding: { checklistDismissed: false } });
     await fireEvent.press(screen.getByRole("button", { name: "Hide getting started" }));
     expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
-    await waitFor(async () => expect((await savedOnboarding())?.checklistDismissed).toBe(true));
+    await waitFor(async () => expect((await saved_onboarding())?.checklistDismissed).toBe(true));
   });
 });

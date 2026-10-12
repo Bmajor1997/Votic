@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { importWebPage } from "../src/api/voticApi";
+import { import_web_page } from "../src/api/voticApi";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
@@ -18,7 +18,7 @@ export default function ImportWebScreen() {
     if (busy) return;
     setBusy(true);
     try {
-      const page = await importWebPage(url);
+      const page = await import_web_page(url);
       addTextDocument(page.title + ".txt", page.text, { playbackRate: defaultPlaybackRate });
       router.replace("/reader");
     } catch (error) {

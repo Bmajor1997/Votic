@@ -2,7 +2,7 @@ import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AIResponse } from "../../src/components/AIResponse";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-audio", () => ({
   requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })),
@@ -14,7 +14,7 @@ jest.mock("expo-audio", () => ({
 }));
 
 it("reveals answers word by word in reading order and lets the user show the full response", async () => {
-  await renderWithProviders(<AIResponse text={"First word.\nNext line."} />);
+  await render_with_providers(<AIResponse text={"First word.\nNext line."} />);
   expect(screen.getByText("Revealing response")).toBeTruthy();
   expect(screen.queryByText("First word.\nNext line.")).toBeNull();
   expect(screen.getByLabelText("First word.\nNext line.")).toBeTruthy();
@@ -25,18 +25,18 @@ it("reveals answers word by word in reading order and lets the user show the ful
   expect(screen.queryByText("Revealing response")).toBeNull();
 });
 it("finishes the reveal and clears the generating status", async () => {
-  await renderWithProviders(<AIResponse text="One two three." />);
+  await render_with_providers(<AIResponse text="One two three." />);
   await act(async () => jest.advanceTimersByTime(120));
   expect(screen.getByText("One two three.")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
 });
 it("shows complete text immediately with reduced motion", async () => {
-  await renderWithProviders(<AIResponse text="A complete answer." />, { reduceMotion: true });
+  await render_with_providers(<AIResponse text="A complete answer." />, { reduceMotion: true });
   expect(screen.getByText("A complete answer.")).toBeTruthy();
   expect(screen.queryByText("Revealing response")).toBeNull();
 });
 it("offers an accessible native voice input control", async () => {
-  await renderWithProviders(
+  await render_with_providers(
     <KeyboardDictationButton value="" onChangeText={jest.fn()} onFocus={jest.fn()} />,
   );
   expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();

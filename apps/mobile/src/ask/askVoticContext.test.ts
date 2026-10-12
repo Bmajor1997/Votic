@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-  answerLink,
-  answerNoteForSource,
-  askVoticContextKey,
-  prepareAskRequest,
-  recentHistory,
-  answeredFromContext,
+  answer_link,
+  answer_note_for_source,
+  ask_votic_context_key,
+  prepare_ask_request,
+  recent_history,
+  answered_from_context,
   FULL_HISTORY,
-  initialQuestionFromParams,
-  notesScopeFromParams,
-  resolveAskVoticContext,
+  initial_question_from_params,
+  notes_scope_from_params,
+  resolve_ask_votic_context,
 } from "./askVoticContext";
-import { noteSelectionId } from "../notes/askVoticNotesContext";
+import { note_selection_id } from "../notes/askVoticNotesContext";
 import { VoticDocument } from "../documents/types";
 
 function doc(id: string, title: string, extra: Partial<VoticDocument> = {}): VoticDocument {
@@ -61,11 +61,11 @@ const documents = [biology, history];
 
 describe("Ask Votic context resolution", () => {
   it("uses the active document when opened without a notes scope", () => {
-    const context = resolveAskVoticContext(documents, biology, {});
+    const context = resolve_ask_votic_context(documents, biology, {});
     expect(context.kind).toBe("document");
     expect(context.label).toBe("About Biology");
     if (context.kind !== "document") return;
-    expect(prepareAskRequest(context, "q", []).document?.title).toBe("Biology");
+    expect(prepare_ask_request(context, "q", []).document?.title).toBe("Biology");
     expect(context.saveSource).toEqual({
       documentId: "doc-a",
       sentenceIndex: 12,
@@ -73,48 +73,48 @@ describe("Ask Votic context resolution", () => {
     });
   });
   it("falls back to general help when nothing is open", () => {
-    expect(resolveAskVoticContext(documents, null, {}).kind).toBe("general");
+    expect(resolve_ask_votic_context(documents, null, {}).kind).toBe("general");
   });
   it("uses the notes scope instead of the active document", () => {
-    const context = resolveAskVoticContext(documents, history, { notesDocumentId: "doc-a" });
+    const context = resolve_ask_votic_context(documents, history, { notesDocumentId: "doc-a" });
     expect(context.kind).toBe("notes");
     if (context.kind !== "notes") return;
-    expect(prepareAskRequest(context, "q", []).document?.title).toBe("Notes from Biology");
-    expect(JSON.stringify(prepareAskRequest(context, "q", []).document)).not.toContain("Rome");
+    expect(prepare_ask_request(context, "q", []).document?.title).toBe("Notes from Biology");
+    expect(JSON.stringify(prepare_ask_request(context, "q", []).document)).not.toContain("Rome");
   });
   it("never falls back to the active document when the requested notes are gone", () => {
-    const context = resolveAskVoticContext(documents, history, { notesDocumentId: "deleted-doc" });
+    const context = resolve_ask_votic_context(documents, history, { notesDocumentId: "deleted-doc" });
     expect(context).toEqual({ kind: "notes-missing", label: "Notes unavailable" });
   });
   it("includes saved passages selected without a note", () => {
-    const context = resolveAskVoticContext(documents, history, {
-      notesPassageIds: noteSelectionId("doc-a", "passage-7"),
+    const context = resolve_ask_votic_context(documents, history, {
+      notesPassageIds: note_selection_id("doc-a", "passage-7"),
     });
     expect(context.kind).toBe("notes");
     if (context.kind !== "notes") return;
-    expect(prepareAskRequest(context, "q", []).document?.sections[0].text).toBe(
+    expect(prepare_ask_request(context, "q", []).document?.sections[0].text).toBe(
       "Saved passage: DNA replicates.\nLocation: passage 8 of Biology",
     );
     expect(context.saveSource).toEqual({ documentId: "doc-a", sentenceIndex: 7, text: "DNA replicates." });
   });
   it("accepts array-valued route params", () => {
-    expect(notesScopeFromParams({ notesDocumentId: ["doc-a"] })).toEqual({
+    expect(notes_scope_from_params({ notesDocumentId: ["doc-a"] })).toEqual({
       documentId: "doc-a",
       passageId: undefined,
       passageIds: undefined,
     });
-    expect(initialQuestionFromParams({ initialQuestion: ["Quiz me"] })).toBe("Quiz me");
+    expect(initial_question_from_params({ initialQuestion: ["Quiz me"] })).toBe("Quiz me");
   });
 });
 
 describe("saving Ask Votic answers to Notes", () => {
   it("attaches an answer about one note to that note's document and location", () => {
-    const context = resolveAskVoticContext(documents, history, {
+    const context = resolve_ask_votic_context(documents, history, {
       notesDocumentId: "doc-a",
       notesPassageId: "passage-3",
     });
     if (context.kind !== "notes" || !context.saveSource) throw new Error("expected a notes save source");
-    const note = answerNoteForSource(
+    const note = answer_note_for_source(
       documents,
       context.saveSource,
       "Prophase, metaphase, anaphase, telophase.",
@@ -131,7 +131,7 @@ describe("saving Ask Votic answers to Notes", () => {
     });
   });
   it("attaches a notebook answer to the notebook's document, not the active document", () => {
-    const context = resolveAskVoticContext(documents, history, { notesDocumentId: "doc-a" });
+    const context = resolve_ask_votic_context(documents, history, { notesDocumentId: "doc-a" });
     if (context.kind !== "notes") throw new Error("expected notes context");
     expect(context.saveSource).toEqual({
       documentId: "doc-a",
@@ -140,68 +140,82 @@ describe("saving Ask Votic answers to Notes", () => {
     });
   });
   it("attaches a single-document selection to that document even without a documentId param", () => {
-    const context = resolveAskVoticContext(documents, history, {
-      notesPassageIds: [noteSelectionId("doc-a", "passage-3"), noteSelectionId("doc-a", "passage-7")].join(
-        ",",
-      ),
+    const context = resolve_ask_votic_context(documents, history, {
+      notesPassageIds: [
+        note_selection_id("doc-a", "passage-3"),
+        note_selection_id("doc-a", "passage-7"),
+      ].join(","),
     });
     if (context.kind !== "notes") throw new Error("expected notes context");
     expect(context.saveSource?.documentId).toBe("doc-a");
   });
   it("does not attach answers about notes from several documents to any single document", () => {
-    const context = resolveAskVoticContext(documents, biology, {
-      notesPassageIds: [noteSelectionId("doc-a", "passage-3"), noteSelectionId("doc-b", "passage-3")].join(
-        ",",
-      ),
+    const context = resolve_ask_votic_context(documents, biology, {
+      notesPassageIds: [
+        note_selection_id("doc-a", "passage-3"),
+        note_selection_id("doc-b", "passage-3"),
+      ].join(","),
     });
     if (context.kind !== "notes") throw new Error("expected notes context");
     expect(context.saveSource).toBeNull();
   });
   it("keeps an answer with the document it was asked about after the active document changes", () => {
     // The source is captured when the question is sent, while Biology is open.
-    const askedAbout = resolveAskVoticContext(documents, biology, {});
+    const askedAbout = resolve_ask_votic_context(documents, biology, {});
     if (askedAbout.kind !== "document") throw new Error("expected document context");
     // Later the user opens History; saving the earlier answer must still target Biology.
-    const nowActive = resolveAskVoticContext(documents, history, {});
+    const nowActive = resolve_ask_votic_context(documents, history, {});
     expect(nowActive.kind === "document" && nowActive.saveSource.documentId).toBe("doc-b");
-    const note = answerNoteForSource(documents, askedAbout.saveSource, "Biology answer", 100, "votic-note-2");
+    const note = answer_note_for_source(
+      documents,
+      askedAbout.saveSource,
+      "Biology answer",
+      100,
+      "votic-note-2",
+    );
     expect(note?.documentId).toBe("doc-a");
     expect(note?.passage.sentenceIndex).toBe(12);
   });
   it("refuses to save when the source document was deleted", () => {
     expect(
-      answerNoteForSource([history], { documentId: "doc-a", sentenceIndex: 0, text: "x" }, "answer", 1, "id"),
+      answer_note_for_source(
+        [history],
+        { documentId: "doc-a", sentenceIndex: 0, text: "x" },
+        "answer",
+        1,
+        "id",
+      ),
     ).toBeNull();
   });
 });
 
 describe("resetting Ask Votic between contexts", () => {
   it("changes context key when switching between two documents", () => {
-    expect(askVoticContextKey("doc-a", {})).not.toBe(askVoticContextKey("doc-b", {}));
-    expect(askVoticContextKey("doc-a", {})).toBe(askVoticContextKey("doc-a", {}));
+    expect(ask_votic_context_key("doc-a", {})).not.toBe(ask_votic_context_key("doc-b", {}));
+    expect(ask_votic_context_key("doc-a", {})).toBe(ask_votic_context_key("doc-a", {}));
   });
   it("changes context key when switching between two notebooks", () => {
-    expect(askVoticContextKey("doc-a", { notesDocumentId: "doc-a" })).not.toBe(
-      askVoticContextKey("doc-a", { notesDocumentId: "doc-b" }),
+    expect(ask_votic_context_key("doc-a", { notesDocumentId: "doc-a" })).not.toBe(
+      ask_votic_context_key("doc-a", { notesDocumentId: "doc-b" }),
     );
   });
   it("ignores the active document while a notes scope is in use", () => {
-    expect(askVoticContextKey("doc-a", { notesDocumentId: "doc-a" })).toBe(
-      askVoticContextKey("doc-b", { notesDocumentId: "doc-a" }),
+    expect(ask_votic_context_key("doc-a", { notesDocumentId: "doc-a" })).toBe(
+      ask_votic_context_key("doc-b", { notesDocumentId: "doc-a" }),
     );
   });
   it("changes context key when leaving a notes scope for the active document", () => {
-    expect(askVoticContextKey("doc-a", { notesDocumentId: "doc-a" })).not.toBe(
-      askVoticContextKey("doc-a", {}),
+    expect(ask_votic_context_key("doc-a", { notesDocumentId: "doc-a" })).not.toBe(
+      ask_votic_context_key("doc-a", {}),
     );
   });
   it("does not carry a prefilled question into the next context", () => {
     const fromNotes = { notesDocumentId: "doc-a", initialQuestion: "Quiz me on these notes" };
-    expect(initialQuestionFromParams(fromNotes)).toBe("Quiz me on these notes");
-    expect(askVoticContextKey("doc-a", fromNotes)).not.toBe(
-      askVoticContextKey("doc-a", { notesDocumentId: "doc-a" }),
+    expect(initial_question_from_params(fromNotes)).toBe("Quiz me on these notes");
+    expect(ask_votic_context_key("doc-a", fromNotes)).not.toBe(
+      ask_votic_context_key("doc-a", { notesDocumentId: "doc-a" }),
     );
-    expect(initialQuestionFromParams({})).toBe("");
+    expect(initial_question_from_params({})).toBe("");
   });
 });
 
@@ -216,12 +230,12 @@ describe("Ask Votic requests for long documents", () => {
   const book = doc("doc-book", "Book", { plainText: longText, sentenceIndex: 900 });
 
   it("sends every section of a short document with a Reader link for each", () => {
-    const context = resolveAskVoticContext(
+    const context = resolve_ask_votic_context(
       [book],
       { ...book, plainText: sentencesText, sentenceIndex: 0 },
       {},
     );
-    const request = prepareAskRequest(context, "What is this about?", []);
+    const request = prepare_ask_request(context, "What is this about?", []);
     expect(request.document?.title).toBe("Book");
     expect(request.document?.sections.length).toBe(request.links.length);
     expect(request.links[0]).toEqual({ documentId: "doc-book", sentenceIndex: 0 });
@@ -229,8 +243,8 @@ describe("Ask Votic requests for long documents", () => {
   });
   it("sends relevant excerpts of a long document within the budget, including the reading position", () => {
     const bigBook = { ...book, plainText: longText.repeat(4) };
-    const context = resolveAskVoticContext([bigBook], bigBook, {});
-    const request = prepareAskRequest(context, "Where does it mention photosynthesis?", []);
+    const context = resolve_ask_votic_context([bigBook], bigBook, {});
+    const request = prepare_ask_request(context, "Where does it mention photosynthesis?", []);
     const sections = request.document?.sections || [];
     expect(request.document?.title).toBe("Book (excerpts)");
     expect(
@@ -242,26 +256,29 @@ describe("Ask Votic requests for long documents", () => {
     ).toBe(true);
   });
   it("maps the section an answer points to back to a Reader location", () => {
-    const context = resolveAskVoticContext([book], book, {});
-    const request = prepareAskRequest(context, "q", []);
-    expect(answerLink(request, 2)).toEqual(request.links[2]);
-    expect(answerLink(request, null)).toBeNull();
-    expect(answerLink(request, 999)).toBeNull();
+    const context = resolve_ask_votic_context([book], book, {});
+    const request = prepare_ask_request(context, "q", []);
+    expect(answer_link(request, 2)).toEqual(request.links[2]);
+    expect(answer_link(request, null)).toBeNull();
+    expect(answer_link(request, 999)).toBeNull();
   });
   it("links answers about notes to the note's own document and passage", () => {
-    const context = resolveAskVoticContext(documents, history, {
-      notesPassageIds: [noteSelectionId("doc-a", "passage-7"), noteSelectionId("doc-b", "passage-3")].join(
-        ",",
-      ),
+    const context = resolve_ask_votic_context(documents, history, {
+      notesPassageIds: [
+        note_selection_id("doc-a", "passage-7"),
+        note_selection_id("doc-b", "passage-3"),
+      ].join(","),
     });
-    const request = prepareAskRequest(context, "q", []);
+    const request = prepare_ask_request(context, "q", []);
     expect(request.links).toEqual([
       { documentId: "doc-a", sentenceIndex: 7 },
       { documentId: "doc-b", sentenceIndex: 3 },
     ]);
   });
   it("sends no document for general help", () => {
-    expect(prepareAskRequest(resolveAskVoticContext(documents, null, {}), "How do I upload?", [])).toEqual({
+    expect(
+      prepare_ask_request(resolve_ask_votic_context(documents, null, {}), "How do I upload?", []),
+    ).toEqual({
       links: [],
       history: [],
     });
@@ -274,14 +291,18 @@ describe("Ask Votic conversation history", () => {
       role: (index % 2 ? "votic" : "user") as "user" | "votic",
       text: `Message ${index}`,
     }));
-    const request = prepareAskRequest(resolveAskVoticContext(documents, biology, {}), "Follow-up?", messages);
+    const request = prepare_ask_request(
+      resolve_ask_votic_context(documents, biology, {}),
+      "Follow-up?",
+      messages,
+    );
     expect(request.history).toHaveLength(6);
     expect(request.history[0]).toEqual({ role: "assistant", text: "Message 3" });
     expect(request.history.at(-1)).toEqual({ role: "user", text: "Message 8" });
   });
   it("drops the retried question from history", () => {
     expect(
-      recentHistory(
+      recent_history(
         [
           { role: "user", text: "First?" },
           { role: "votic", text: "Answer." },
@@ -295,13 +316,13 @@ describe("Ask Votic conversation history", () => {
     ]);
   });
   it("trims long earlier answers", () => {
-    const [item] = recentHistory([{ role: "votic", text: "a".repeat(5000) }], "Next?");
+    const [item] = recent_history([{ role: "votic", text: "a".repeat(5000) }], "Next?");
     expect(item.text.length).toBe(1500);
     expect(item.text.endsWith("…")).toBe(true);
   });
   it("leaves fallback notices out of history", () => {
     expect(
-      recentHistory(
+      recent_history(
         [
           { role: "user", text: "First?" },
           { role: "votic", text: "Votic's AI features have reached today's limit.", fallback: true },
@@ -321,14 +342,14 @@ describe("Ask Votic conversation history", () => {
       role: index % 2 ? ("votic" as const) : ("user" as const),
       text: "x".repeat(3000),
     }));
-    const history = recentHistory(messages, "Summarize", FULL_HISTORY);
+    const history = recent_history(messages, "Summarize", FULL_HISTORY);
     expect(history).toHaveLength(20);
     expect(history.every((item) => item.text.length === 2000)).toBe(true);
   });
   it("treats document replies that did not use the document as fallbacks", () => {
     const withDocument = { document: { title: "T", sections: [] }, links: [], history: [] };
-    expect(answeredFromContext(withDocument, { mode: "document-ai" })).toBe(true);
-    expect(answeredFromContext(withDocument, { mode: "built-in" })).toBe(false);
-    expect(answeredFromContext({ links: [], history: [] }, { mode: "built-in" })).toBe(true);
+    expect(answered_from_context(withDocument, { mode: "document-ai" })).toBe(true);
+    expect(answered_from_context(withDocument, { mode: "built-in" })).toBe(false);
+    expect(answered_from_context({ links: [], history: [] }, { mode: "built-in" })).toBe(true);
   });
 });

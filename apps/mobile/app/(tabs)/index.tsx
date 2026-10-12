@@ -2,17 +2,17 @@ import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork";
-import { widgetPalette } from "../../src/home/widgetDesign";
+import { widget_palette } from "../../src/home/widgetDesign";
 import { EmptyContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
-import { homeNotes } from "../../src/home/homeModel";
+import { home_notes } from "../../src/home/homeModel";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
-import { positionLabel, progressLabel, readableTitle } from "../../src/documents/documentDisplay";
+import { position_label, progress_label, readable_title } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { mostRecentIncomplete } from "../../src/documents/insights";
-import { readableDocuments, VoticDocument } from "../../src/documents/types";
-import { openFrom, useDocumentImport } from "../../src/documents/useDocumentImport";
+import { most_recent_incomplete } from "../../src/documents/insights";
+import { readable_documents, VoticDocument } from "../../src/documents/types";
+import { open_from, useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
@@ -23,18 +23,18 @@ export default function Home() {
   const { theme } = useVoticTheme();
   const { documents: everything, loaded, openDocument } = useDocumentLibrary();
   // Quick Notes is a notebook: its notes still show under Recent notes, but it isn't a document to continue.
-  const documents = readableDocuments(everything);
+  const documents = readable_documents(everything);
   const { checklistDismissed } = useOnboarding();
   const transition = useDocumentTransition();
   const addRef = useRef<View>(null);
   const { importing, importDocument } = useDocumentImport(addRef);
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
-  const featured = mostRecentIncomplete(documents);
+  const featured = most_recent_incomplete(documents);
   const recent = [...documents]
     .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 8);
-  const notes = homeNotes(everything);
+  const notes = home_notes(everything);
   // With nothing added yet, Home keeps its usual sections, each saying what will show up there.
   const empty = loaded && !documents.length;
   const continueTarget = useWalkthroughTarget("home.continue");
@@ -85,7 +85,7 @@ export default function Home() {
             if (transition.transitioning) return;
             openDocument(featured.id);
             // Listen opens with narration controls and starts playing; Read opens without audio controls.
-            openFrom(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
+            open_from(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
           }}
         />
       ) : null}
@@ -98,7 +98,7 @@ export default function Home() {
           onOpen={(document, source) => {
             if (transition.transitioning) return;
             openDocument(document.id);
-            openFrom(source, transition, { mode: "read" });
+            open_from(source, transition, { mode: "read" });
           }}
           onMore={setMenuDocument}
         />
@@ -136,10 +136,10 @@ function ContinueCard({
   targetRef?: (node: View | null) => void;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widgetPalette(theme.isDark, "chapter");
+  const colors = widget_palette(theme.isDark, "chapter");
   const listenRef = useRef<View>(null);
   const readRef = useRef<View>(null);
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
   const { width, fontScale } = useWindowDimensions();
   const [labelsWrapped, setLabelsWrapped] = useState(false);
@@ -160,7 +160,7 @@ function ContinueCard({
         <HomeDocumentArtwork document={document} featured />
         <View style={s.featuredCopy}>
           <Text style={[s.featuredTitle, { color: colors.ink }]}>{title}</Text>
-          <Text style={[s.featuredMeta, { color: colors.detail }]}>{positionLabel(document)}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{position_label(document)}</Text>
           <View
             accessible
             accessibilityRole="progressbar"
@@ -175,7 +175,7 @@ function ContinueCard({
               ]}
             />
           </View>
-          <Text style={[s.featuredMeta, { color: colors.detail }]}>{progressLabel(document)}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{progress_label(document)}</Text>
         </View>
       </View>
       <View testID="home-continue-actions" style={[s.featuredActions, stacked && s.stackedActions]}>

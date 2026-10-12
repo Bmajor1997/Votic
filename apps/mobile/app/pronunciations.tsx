@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  loadPronunciations,
-  normalizePronunciationEntry,
+  load_pronunciations,
+  normalize_pronunciation_entry,
   PronunciationEntry,
-  savePronunciations,
+  save_pronunciations,
 } from "../src/reader/pronunciationDictionary";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -17,13 +17,13 @@ export default function PronunciationDictionaryScreen() {
   const [term, setTerm] = useState("");
   const [pronunciation, setPronunciation] = useState("");
   useEffect(() => {
-    void loadPronunciations().then(setEntries);
+    void load_pronunciations().then(setEntries);
   }, []);
   async function add() {
     try {
-      const entry = normalizePronunciationEntry(term, pronunciation);
+      const entry = normalize_pronunciation_entry(term, pronunciation);
       const next = [entry, ...entries.filter((item) => item.id !== entry.id)];
-      await savePronunciations(next);
+      await save_pronunciations(next);
       setEntries(next);
       setTerm("");
       setPronunciation("");
@@ -33,7 +33,7 @@ export default function PronunciationDictionaryScreen() {
   }
   async function remove(id: string) {
     const next = entries.filter((item) => item.id !== id);
-    await savePronunciations(next);
+    await save_pronunciations(next);
     setEntries(next);
   }
   return (

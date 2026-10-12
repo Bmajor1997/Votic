@@ -4,12 +4,12 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
 import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
-import { homeNotes } from "../../src/home/homeModel";
-import { documentWidgetTone, widgetPalette, WidgetTone } from "../../src/home/widgetDesign";
+import { home_notes } from "../../src/home/homeModel";
+import { document_widget_tone, widget_palette, WidgetTone } from "../../src/home/widgetDesign";
 import { router } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { render_with_providers, test_document } from "../renderWithProviders";
 
-const featured = testDocument("featured", "The next chapter", {
+const featured = test_document("featured", "The next chapter", {
   progress: 0.45,
   lastOpenedAt: 10,
   savedPassages: [
@@ -25,7 +25,7 @@ const featured = testDocument("featured", "The next chapter", {
     },
   ],
 });
-const recent = testDocument("recent", "Field Guide", {
+const recent = test_document("recent", "Field Guide", {
   sourceName: "Field Guide.epub",
   progress: 0.3,
   lastOpenedAt: 1,
@@ -39,7 +39,7 @@ describe("Colorful Home cards", () => {
       await act(async () =>
         Dimensions.set({ window: { ...originalWindow, width, fontScale: 1 }, screen: originalScreen }),
       );
-      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      await render_with_providers(<Home />, { documents: [featured], reduceMotion: true });
       const actions = screen.getByTestId("home-continue-actions");
       expect(StyleSheet.flatten(actions.props.style).flexDirection).toBe("row");
       const buttons = screen.getAllByRole("button", { name: /^Continue (Listening|Reading):/ });
@@ -65,7 +65,7 @@ describe("Colorful Home cards", () => {
       await act(async () =>
         Dimensions.set({ window: { ...originalWindow, fontScale: 2 }, screen: originalScreen }),
       );
-      await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+      await render_with_providers(<Home />, { documents: [featured], reduceMotion: true });
       expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
         "column",
       );
@@ -81,7 +81,7 @@ describe("Colorful Home cards", () => {
   });
 
   it("falls back to complete full-width actions when native text measurement detects wrapping", async () => {
-    await renderWithProviders(<Home />, { documents: [featured], reduceMotion: true });
+    await render_with_providers(<Home />, { documents: [featured], reduceMotion: true });
     await fireEvent(screen.getByText("Continue Listening"), "textLayout", {
       nativeEvent: { lines: [{ text: "Continue Listen" }, { text: "ing" }] },
     });
@@ -94,18 +94,18 @@ describe("Colorful Home cards", () => {
   for (const mode of ["light", "dark"] as const) {
     it(`keeps accessible actions and decorative artwork separate in ${mode} mode`, async () => {
       await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode: mode }));
-      await renderWithProviders(<Home />, { documents: [featured, recent], reduceMotion: true });
+      await render_with_providers(<Home />, { documents: [featured, recent], reduceMotion: true });
       expect(StyleSheet.flatten(screen.getByTestId("home-continue-card").props.style).backgroundColor).toBe(
-        widgetPalette(mode === "dark", "chapter").surface,
+        widget_palette(mode === "dark", "chapter").surface,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-week-card").props.style).backgroundColor).toBe(
-        widgetPalette(mode === "dark", "activity").surface,
+        widget_palette(mode === "dark", "activity").surface,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-recent-card").props.style).backgroundColor).toBe(
-        widgetPalette(mode === "dark", "book").surface,
+        widget_palette(mode === "dark", "book").surface,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-note-card").props.style).backgroundColor).toBe(
-        widgetPalette(mode === "dark", "notes").surface,
+        widget_palette(mode === "dark", "notes").surface,
       );
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");
@@ -134,7 +134,7 @@ describe("Colorful Home cards", () => {
   it("preserves recent-document and options callbacks with the original document", async () => {
     const open = jest.fn(),
       more = jest.fn();
-    await renderWithProviders(<RecentShelf documents={[recent]} onOpen={open} onMore={more} />);
+    await render_with_providers(<RecentShelf documents={[recent]} onOpen={open} onMore={more} />);
     await fireEvent.press(screen.getByRole("button", { name: "Open Field Guide" }));
     expect(open).toHaveBeenCalledWith(recent, expect.objectContaining({ current: expect.anything() }));
     await fireEvent.press(screen.getByRole("button", { name: "More options for Field Guide" }));
@@ -150,10 +150,10 @@ describe("Colorful Home cards", () => {
       const longTitle = "A longer reading title that should remain available at larger text sizes";
       const document = { ...recent, title: longTitle };
       const open = jest.fn();
-      await renderWithProviders(
+      await render_with_providers(
         <>
           <RecentShelf documents={[document]} onOpen={open} onMore={() => {}} />
-          <NotesShelf notes={homeNotes([featured])} onOpen={() => {}} />
+          <NotesShelf notes={home_notes([featured])} onOpen={() => {}} />
         </>,
       );
       expect(screen.getByText(longTitle).props.numberOfLines).toBeUndefined();
@@ -169,8 +169,8 @@ describe("Colorful Home cards", () => {
   });
   it("preserves pinned-note selection and its original passage", async () => {
     const open = jest.fn();
-    const notes = homeNotes([featured]);
-    await renderWithProviders(<NotesShelf notes={notes} onOpen={open} />);
+    const notes = home_notes([featured]);
+    await render_with_providers(<NotesShelf notes={notes} onOpen={open} />);
     await fireEvent.press(screen.getByRole("button", { name: /Pinned note. An idea to revisit/ }));
     expect(open).toHaveBeenCalledWith(notes[0]);
   });
@@ -191,7 +191,7 @@ describe("Home palette contrast", () => {
     const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
     for (const dark of [false, true])
       for (const tone of tones) {
-        const palette = widgetPalette(dark, tone);
+        const palette = widget_palette(dark, tone);
         for (const surface of [palette.surface, palette.art]) {
           expect(contrast(palette.ink, surface)).toBeGreaterThanOrEqual(4.5);
           expect(contrast(palette.detail, surface)).toBeGreaterThanOrEqual(4.5);
@@ -200,17 +200,17 @@ describe("Home palette contrast", () => {
       }
   });
   it("uses file type rather than document order to choose the cover treatment", () => {
-    expect(documentWidgetTone("REPORT.PDF")).toBe("pdf");
-    expect(documentWidgetTone("slides.pptx")).toBe("slides");
-    expect(documentWidgetTone("book.epub")).toBe("book");
-    expect(documentWidgetTone("report.docx")).toBe("chapter");
-    expect(documentWidgetTone("notes.md")).toBe("text");
+    expect(document_widget_tone("REPORT.PDF")).toBe("pdf");
+    expect(document_widget_tone("slides.pptx")).toBe("slides");
+    expect(document_widget_tone("book.epub")).toBe("book");
+    expect(document_widget_tone("report.docx")).toBe("chapter");
+    expect(document_widget_tone("notes.md")).toBe("text");
   });
 });
 
 describe("Home with an empty library", () => {
   it("keeps Home's sections, each saying what will show up there", async () => {
-    await renderWithProviders(<Home />);
+    await render_with_providers(<Home />);
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
     expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
     expect(screen.getByText("Ready when you are")).toBeTruthy();
@@ -228,7 +228,7 @@ describe("Home with an empty library", () => {
 
 describe("Quick Notes on Home", () => {
   it("is never offered as the document to continue, but its notes still show", async () => {
-    const quickNotes = testDocument("quick", "Quick Notes", {
+    const quickNotes = test_document("quick", "Quick Notes", {
       sourceName: "Quick Notes.txt",
       notebookKind: "quick-notes",
       progress: 0,
@@ -237,7 +237,7 @@ describe("Quick Notes on Home", () => {
         { id: "q1", sentenceIndex: 0, text: "", note: "Call the library", createdAt: 1, updatedAt: 5 },
       ],
     });
-    await renderWithProviders(<Home />, { documents: [quickNotes, recent] });
+    await render_with_providers(<Home />, { documents: [quickNotes, recent] });
     expect(screen.queryByRole("button", { name: /^Continue (Listening|Reading): Quick Notes/ })).toBeNull();
     expect(screen.getAllByRole("button", { name: /^Continue Reading: Field Guide/ }).length).toBe(1);
     expect(screen.getAllByText("Call the library").length).toBeGreaterThan(0);

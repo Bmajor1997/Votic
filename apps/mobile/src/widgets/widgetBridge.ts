@@ -16,7 +16,7 @@ export const WIDGET_SNAPSHOT_KEY = "votic.widgets.snapshot.v1";
 
 type AndroidWidgets = { publish: (snapshot: string) => void };
 
-export function publishWidgetSnapshot(snapshot: string) {
+export function publish_widget_snapshot(snapshot: string) {
   try {
     if (Platform.OS === "ios") {
       // Loaded only on iPhone; the module reads a native global that other platforms don't have.

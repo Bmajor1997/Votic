@@ -32,7 +32,7 @@ Stack.Protected = function StackProtected({ guard, children }: { guard: boolean;
   return guard ? <>{children}</> : null;
 };
 
-export function resetExpoRouterMock() {
+export function reset_expo_router_mock() {
   router.push.mockReset();
   router.back.mockReset();
   router.canGoBack.mockReset().mockReturnValue(true);

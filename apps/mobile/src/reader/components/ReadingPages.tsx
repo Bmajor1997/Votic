@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, type TextStyle } from "react-native";
-import { wordMatches } from "../readerText";
+import { word_matches } from "../readerText";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 
 type Page = { text: string; start: number; end: number };
 type Line = { text: string; height: number };
 
 /** Native text measurements determine page breaks; saved positions remain document word locations. */
-export function pagesFromLines(text: string, lines: Line[], height: number): Page[] {
+export function pages_from_lines(text: string, lines: Line[], height: number): Page[] {
   const pages: Page[] = [];
   let cursor = 0;
   let start = 0;
@@ -57,10 +57,12 @@ export function ReadingPages({
   const key = JSON.stringify([text, size, textStyle]);
   const pages = useMemo(
     () =>
-      measurement?.key === key ? pagesFromLines(text, measurement.lines, Math.max(1, size.height - 32)) : [],
+      measurement?.key === key
+        ? pages_from_lines(text, measurement.lines, Math.max(1, size.height - 32))
+        : [],
     [key, measurement, text, size.height],
   );
-  const location = (offsets[index] ?? 0) + (wordMatches(passages[index] ?? "")[wordIndex]?.index ?? 0);
+  const location = (offsets[index] ?? 0) + (word_matches(passages[index] ?? "")[wordIndex]?.index ?? 0);
   const target = Math.max(
     0,
     pages.findIndex((entry) => location < entry.end),
@@ -96,7 +98,7 @@ export function ReadingPages({
     offsets.forEach((start, at) => {
       if (start <= offset) passage = at;
     });
-    const words = wordMatches(passages[passage] ?? "");
+    const words = word_matches(passages[passage] ?? "");
     const first = words.findIndex(
       (match) => (match.index ?? 0) + match[0].length > offset - offsets[passage],
     );

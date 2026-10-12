@@ -1,7 +1,7 @@
 export type TextRevealFrame = { text: string; visible: string; highlightStart: number; complete: boolean };
 
 /** Animate only text already returned by the backend. Keep whitespace verbatim. */
-export function revealCompletedText(
+export function reveal_completed_text(
   text: string,
   {
     startAt = 0,

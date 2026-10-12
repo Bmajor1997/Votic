@@ -25,7 +25,7 @@ const MESSAGES: Record<string, string> = {
 };
 
 /** A short, plain explanation of an authentication failure. Never exposes raw provider codes. */
-export function authErrorMessage(error: unknown) {
+export function auth_error_message(error: unknown) {
   const code =
     error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
   if (MESSAGES[code]) return MESSAGES[code];
@@ -34,13 +34,13 @@ export function authErrorMessage(error: unknown) {
 }
 
 /** Checks a new password before it is sent, so people see the rule while typing rather than after a round trip. */
-export function passwordProblem(password: string) {
+export function password_problem(password: string) {
   if (password.length < 8) return "Use at least 8 characters.";
   if (!/[a-z]/i.test(password)) return "Include at least one letter.";
   if (!/\d/.test(password)) return "Include at least one number.";
   return null;
 }
 
-export function looksLikeEmail(value: string) {
+export function looks_like_email(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

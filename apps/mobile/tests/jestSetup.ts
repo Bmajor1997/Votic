@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, jest } from "@jest/globals";
 import { fakeAuth } from "./mocks/authBackend";
-import { resetExpoRouterMock } from "./mocks/expoRouter";
+import { reset_expo_router_mock } from "./mocks/expoRouter";
 import { fakeSubscriptions } from "./mocks/subscriptionService";
 
 // Mock factories run before imports resolve, so they must use require().
@@ -28,7 +28,7 @@ jest.mock("../src/subscription/subscriptionService", () => require("./mocks/subs
 
 beforeEach(async () => {
   await AsyncStorage.clear();
-  resetExpoRouterMock();
+  reset_expo_router_mock();
   fakeAuth.reset();
   fakeSubscriptions.reset();
 });

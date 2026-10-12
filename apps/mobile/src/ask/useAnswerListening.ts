@@ -3,9 +3,9 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { splitPassages } from "../documents/passages";
-import { normalizePlaybackRate } from "../playback/rates";
-import { applyPronunciations, loadPronunciations } from "../reader/pronunciationDictionary";
+import { split_passages } from "../documents/passages";
+import { normalize_playback_rate } from "../playback/rates";
+import { apply_pronunciations, load_pronunciations } from "../reader/pronunciationDictionary";
 
 /** One answer at a time, owned by the focused Ask screen; never changes document progress. */
 export function useAnswerListening(contextKey: string, enabled = true, playbackRate = 1) {
@@ -77,11 +77,11 @@ export function useAnswerListening(contextKey: string, enabled = true, playbackR
       if (!current()) return;
       await Speech.stop();
       if (!current()) return;
-      const pronunciations = await loadPronunciations();
+      const pronunciations = await load_pronunciations();
       if (!current()) return;
       const limit = Math.max(1, Math.min(3000, Speech.maxSpeechInputLength || 3000));
-      const chunks = splitPassages(text).flatMap((passage) => {
-        const spoken = applyPronunciations(passage, pronunciations);
+      const chunks = split_passages(text).flatMap((passage) => {
+        const spoken = apply_pronunciations(passage, pronunciations);
         return spoken.match(new RegExp(`[\\s\\S]{1,${limit}}`, "gu")) || [];
       });
       function speak(index: number) {
@@ -89,7 +89,7 @@ export function useAnswerListening(contextKey: string, enabled = true, playbackR
         if (!chunks[index]) return finish();
         Speech.speak(chunks[index], {
           voice: voiceIdentifier || undefined,
-          rate: normalizePlaybackRate(playbackRate),
+          rate: normalize_playback_rate(playbackRate),
           onDone: () => {
             try {
               speak(index + 1);

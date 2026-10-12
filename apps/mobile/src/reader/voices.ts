@@ -26,14 +26,14 @@ const NAMES = {
 };
 
 /** Only explicit engine metadata is trusted; opaque Android voice codes do not encode reliable gender. */
-export function deviceVoiceGender(voice: DeviceVoice): VoiceGender | undefined {
+export function device_voice_gender(voice: DeviceVoice): VoiceGender | undefined {
   const markers = `${voice.name} ${voice.identifier}`.toLowerCase().split(/[^a-z]+/);
   if (markers.includes("female")) return "female";
   if (markers.includes("male")) return "male";
   return undefined;
 }
 
-function identityHash(identifier: string) {
+function identity_hash(identifier: string) {
   return Array.from(identifier).reduce((value, char) => (value * 31 + char.charCodeAt(0)) >>> 0, 0);
 }
 
@@ -41,13 +41,13 @@ function identityHash(identifier: string) {
  * A friendly name for every voice, never a device code, and no two alike. Names come from each voice's identity,
  * rather than the OS's list order, so the same voice keeps its name across launches.
  */
-export function voticVoiceNames(voices: DeviceVoice[]): Record<string, string> {
+export function votic_voice_names(voices: DeviceVoice[]): Record<string, string> {
   const names: Record<string, string> = {};
   const used = new Set<string>();
   const ordered = [...voices].sort((a, b) => (a.identifier < b.identifier ? -1 : 1));
   ordered.forEach((voice, index) => {
-    const list = NAMES[deviceVoiceGender(voice) ?? "either"];
-    const first = identityHash(voice.identifier) % list.length;
+    const list = NAMES[device_voice_gender(voice) ?? "either"];
+    const first = identity_hash(voice.identifier) % list.length;
     // On a clash, take the next free name in the same list.
     const free = list.map((_, step) => list[(first + step) % list.length]).find((name) => !used.has(name));
     const name = free ?? `Voice ${index + 1}`;
@@ -57,12 +57,12 @@ export function voticVoiceNames(voices: DeviceVoice[]): Record<string, string> {
   return names;
 }
 
-export function voticVoicePreview(name: string) {
+export function votic_voice_preview(name: string) {
   return `Hi, I'm ${name}. I'm here to make reading feel clear, comfortable, and easy to follow.`;
 }
 
 /** Keep one English voice per display name so platform variants do not create duplicate choices. */
-export function uniqueEnglishVoices<T extends DeviceVoice>(available: T[]) {
+export function unique_english_voices<T extends DeviceVoice>(available: T[]) {
   const seen = new Set<string>();
   return available
     .filter((voice) => voice.language.toLowerCase().startsWith("en"))

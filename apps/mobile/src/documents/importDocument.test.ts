@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  cleanLocalDocumentText,
+  clean_local_document_text,
   MAX_DOCUMENT_BYTES,
-  supportedDocument,
-  validateImport,
-  validateLoadedBytes,
+  supported_document,
+  validate_import,
+  validate_loaded_bytes,
 } from "./importDocument";
 
 describe("document import reliability", () => {
@@ -18,32 +18,34 @@ describe("document import reliability", () => {
       "legacy.PPT",
       "book.epub",
     ])
-      expect(supportedDocument(name)).toBe(true);
+      expect(supported_document(name)).toBe(true);
   });
 
   it("rejects unsupported document types", () => {
-    expect(() => validateImport({ name: "payload.exe", uri: "file:///payload.exe" })).toThrow(/Choose a TXT/);
+    expect(() => validate_import({ name: "payload.exe", uri: "file:///payload.exe" })).toThrow(
+      /Choose a TXT/,
+    );
   });
 
   it("does not trust missing picker size metadata", () => {
-    expect(() => validateImport({ name: "book.pdf", uri: "file:///book.pdf" })).not.toThrow();
-    expect(() => validateLoadedBytes(MAX_DOCUMENT_BYTES + 1)).toThrow(/too large/i);
+    expect(() => validate_import({ name: "book.pdf", uri: "file:///book.pdf" })).not.toThrow();
+    expect(() => validate_loaded_bytes(MAX_DOCUMENT_BYTES + 1)).toThrow(/too large/i);
   });
 
   it("enforces the actual loaded-byte boundary", () => {
-    expect(() => validateLoadedBytes(MAX_DOCUMENT_BYTES)).not.toThrow();
-    expect(() => validateLoadedBytes(MAX_DOCUMENT_BYTES + 1)).toThrow(/too large/i);
+    expect(() => validate_loaded_bytes(MAX_DOCUMENT_BYTES)).not.toThrow();
+    expect(() => validate_loaded_bytes(MAX_DOCUMENT_BYTES + 1)).toThrow(/too large/i);
   });
 
   it("rejects invalid size values instead of treating them as safe", () => {
-    expect(() => validateImport({ name: "book.pdf", uri: "file:///book.pdf", size: -1 })).toThrow(
+    expect(() => validate_import({ name: "book.pdf", uri: "file:///book.pdf", size: -1 })).toThrow(
       /determine this document's size/i,
     );
-    expect(() => validateLoadedBytes(Number.NaN)).toThrow(/determine this document's size/i);
+    expect(() => validate_loaded_bytes(Number.NaN)).toThrow(/determine this document's size/i);
   });
 
   it("cleans local text without damaging readable content", () => {
-    expect(cleanLocalDocumentText("Title\r\n\u0000First line.   \n\n\nSecond line.")).toBe(
+    expect(clean_local_document_text("Title\r\n\u0000First line.   \n\n\nSecond line.")).toBe(
       "Title\nFirst line.\n\nSecond line.",
     );
   });

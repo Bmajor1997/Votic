@@ -7,12 +7,12 @@
  * rather than a finished weekly total so the widget stays right after midnight or a new week starts,
  * even if Votic hasn't been opened since.
  */
-import { ActivityLog, dailyTotals, dayKey } from "../activity/activityModel";
-import { fileTypeLabel, readableTitle } from "../documents/documentDisplay";
-import { estimatedMinutesRemaining } from "../documents/insights";
+import { ActivityLog, daily_totals, day_key } from "../activity/activityModel";
+import { file_type_label, readable_title } from "../documents/documentDisplay";
+import { estimated_minutes_remaining } from "../documents/insights";
 import { VoticDocument } from "../documents/types";
-import { resumeModeFor, ResumeMode } from "../home/homeModel";
-import { documentWidgetTone, WidgetTone } from "../home/widgetDesign";
+import { resume_mode_for, ResumeMode } from "../home/homeModel";
+import { document_widget_tone, WidgetTone } from "../home/widgetDesign";
 
 export const WIDGET_SNAPSHOT_VERSION = 1;
 /** How many documents the larger widgets list under the one to continue. */
@@ -57,7 +57,7 @@ export type WidgetSnapshot = {
   days: WidgetDay[];
 };
 
-export function signedOutSnapshot(): WidgetSnapshot {
+export function signed_out_snapshot(): WidgetSnapshot {
   return {
     version: WIDGET_SNAPSHOT_VERSION,
     signedIn: false,
@@ -68,36 +68,36 @@ export function signedOutSnapshot(): WidgetSnapshot {
   };
 }
 
-function shortTitle(document: VoticDocument) {
-  const title = readableTitle(document.title);
+function short_title(document: VoticDocument) {
+  const title = readable_title(document.title);
   return title.length > TITLE_LIMIT ? `${title.slice(0, TITLE_LIMIT - 1).trimEnd()}…` : title;
 }
 
-function statusFor(document: VoticDocument) {
+function status_for(document: VoticDocument) {
   if (document.progress >= 1) return "Finished";
   if (!document.progress) return "Not started";
-  return `${Math.round(document.progress * 100)}% · about ${estimatedMinutesRemaining(document)} min left`;
+  return `${Math.round(document.progress * 100)}% · about ${estimated_minutes_remaining(document)} min left`;
 }
 
-export function widgetDocument(document: VoticDocument, log: ActivityLog, now = new Date()): WidgetDocument {
+export function widget_document(document: VoticDocument, log: ActivityLog, now = new Date()): WidgetDocument {
   return {
     id: document.id,
-    title: shortTitle(document),
-    kind: fileTypeLabel(document.sourceName),
-    tone: documentWidgetTone(document.sourceName),
+    title: short_title(document),
+    kind: file_type_label(document.sourceName),
+    tone: document_widget_tone(document.sourceName),
     progress: Math.round(Math.min(1, Math.max(0, document.progress || 0)) * 100) / 100,
-    status: statusFor(document),
-    mode: resumeModeFor(log, document.id, now),
+    status: status_for(document),
+    mode: resume_mode_for(log, document.id, now),
   };
 }
 
-const lastUsed = (document: VoticDocument) => document.lastOpenedAt || document.updatedAt;
+const last_used = (document: VoticDocument) => document.lastOpenedAt || document.updatedAt;
 
 /** Reading and listening per day, newest first, within the last WIDGET_DAYS days. */
-export function widgetDays(log: ActivityLog, now = new Date()): WidgetDay[] {
-  const earliest = dayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (WIDGET_DAYS - 1)));
-  const today = dayKey(now);
-  return [...dailyTotals(log)]
+export function widget_days(log: ActivityLog, now = new Date()): WidgetDay[] {
+  const earliest = day_key(new Date(now.getFullYear(), now.getMonth(), now.getDate() - (WIDGET_DAYS - 1)));
+  const today = day_key(now);
+  return [...daily_totals(log)]
     .filter(([date, split]) => date >= earliest && date <= today && split.reading + split.listening > 0)
     .sort(([a], [b]) => (a < b ? 1 : -1))
     .map(([date, split]) => ({
@@ -107,7 +107,7 @@ export function widgetDays(log: ActivityLog, now = new Date()): WidgetDay[] {
     }));
 }
 
-export function buildWidgetSnapshot({
+export function build_widget_snapshot({
   documents,
   log,
   signedIn,
@@ -118,10 +118,10 @@ export function buildWidgetSnapshot({
   signedIn: boolean;
   now?: Date;
 }): WidgetSnapshot {
-  if (!signedIn) return signedOutSnapshot();
+  if (!signedIn) return signed_out_snapshot();
   // Quick Notes is a notebook, not something to read or listen to.
   const library = documents.filter((document) => !document.notebookKind);
-  const byRecent = [...library].sort((a, b) => lastUsed(b) - lastUsed(a));
+  const byRecent = [...library].sort((a, b) => last_used(b) - last_used(a));
   const current = byRecent.find((document) => document.progress < 1) ?? null;
   const others = byRecent.filter((document) => document.id !== current?.id);
   const upNext = [
@@ -131,9 +131,9 @@ export function buildWidgetSnapshot({
   return {
     version: WIDGET_SNAPSHOT_VERSION,
     signedIn: true,
-    continue: current ? widgetDocument(current, log, now) : null,
-    upNext: upNext.map((document) => widgetDocument(document, log, now)),
+    continue: current ? widget_document(current, log, now) : null,
+    upNext: upNext.map((document) => widget_document(document, log, now)),
     documentCount: library.length,
-    days: widgetDays(log, now),
+    days: widget_days(log, now),
   };
 }
