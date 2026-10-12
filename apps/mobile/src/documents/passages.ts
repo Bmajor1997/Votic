@@ -27,8 +27,11 @@ const ABBREVIATIONS = new Set([
   "no",
   "approx",
 ]);
-function endsWithAbbreviation(before: string) {
-  const word = before.trim().split(/\s+/).pop() ?? "";
+function endsWithAbbreviation(text: string, end: number) {
+  // Inspect only the preceding word, rather than rescanning the entire passage for each period.
+  let start = end;
+  while (start > 0 && !/\s/.test(text[start - 1])) start -= 1;
+  const word = text.slice(start, end);
   // A single capital letter is an initial ("J. K. Rowling").
   return ABBREVIATIONS.has(word.toLowerCase()) || /^[A-Z]$/.test(word);
 }
@@ -44,15 +47,11 @@ export function splitPassages(text: string) {
     const clean = value.trim();
     if (clean) passages.push(clean);
   };
-  for (const paragraph of withoutMarkdownMarks(text).split(/\n[ \t]*\n/)) {
+  for (const paragraph of withoutMarkdownMarks(text.replace(/\r\n?/g, "\n")).split(/\n[ \t]*\n/)) {
     const ending = /[.!?]+[\]"')\u2019\u201d]*(?=\s|$)/g;
     let start = 0;
     for (let match = ending.exec(paragraph); match; match = ending.exec(paragraph)) {
-      if (
-        match[0].startsWith(".") &&
-        match[0].length === 1 &&
-        endsWithAbbreviation(paragraph.slice(start, match.index))
-      )
+      if (match[0].startsWith(".") && match[0].length === 1 && endsWithAbbreviation(paragraph, match.index))
         continue;
       const end = match.index + match[0].length;
       add(paragraph.slice(start, end));
