@@ -14,6 +14,13 @@ export const LEGACY_ACTIVITY_KEY = "votic.mobile.activity.v1";
 const CHUNK_CHARS = 500_000;
 let recoveryQueue: Promise<void> = Promise.resolve();
 
+/** The account used to explore Votic in development and preview builds without Firebase. */
+export const DEVELOPMENT_UID = "development";
+/** Decided once, on the first launch of this version: which account (if any) was already signed in. */
+const AUTO_OWNER_KEY = "votic.mobile.legacy-library-auto-owner.v1";
+/** The development account copies the older library without claiming it, and only once. */
+const DEVELOPMENT_COPY_KEY = "legacy-library-copied.v1";
+
 type Owner = { uid: string; complete: boolean };
 async function owner(): Promise<Owner | null> {
   const raw = await AsyncStorage.getItem(OWNER_KEY);
@@ -25,7 +32,11 @@ async function owner(): Promise<Owner | null> {
 }
 export async function legacyRecoveryAvailable(uid: string) {
   const assigned = await owner();
-  if (assigned && (assigned.uid !== uid || assigned.complete)) return false;
+  if (uid === DEVELOPMENT_UID) {
+    // Never copies a library a real account has already claimed, and never copies twice.
+    if (assigned?.complete) return false;
+    if ((await AsyncStorage.getItem(accountStorageKey(DEVELOPMENT_COPY_KEY, uid))) !== null) return false;
+  } else if (assigned && (assigned.uid !== uid || assigned.complete)) return false;
   const values = await AsyncStorage.multiGet([
     LIBRARY_KEY,
     OLD_LIBRARY_KEY,
@@ -63,13 +74,34 @@ function mergeActivity(current: ActivityLog | null, legacy: ActivityLog): Activi
   };
 }
 
-/** Explicit owner recovery only. Original device data is retained as a backup, never auto-adopted. */
+/**
+ * Whether this account should get the older shared library automatically: only the account that was already
+ * signed in when this version first ran (the person who was using Votic on this device), or the development
+ * account, which copies without claiming. Anyone else can still recover it from Settings.
+ */
+export async function legacyAutoRecoveryEligible(uid: string, sessionRestored: boolean) {
+  if (uid !== DEVELOPMENT_UID) {
+    const raw = await AsyncStorage.getItem(AUTO_OWNER_KEY);
+    let decided: string | null;
+    if (raw === null) {
+      decided = sessionRestored ? uid : null;
+      await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: decided }));
+    } else decided = JSON.parse(raw)?.uid ?? null;
+    if (decided !== uid) return false;
+  }
+  return legacyRecoveryAvailable(uid);
+}
+
+/** Original device data is always retained as a backup. */
 export function recoverLegacyDeviceData(uid: string) {
+  const claims = uid !== DEVELOPMENT_UID;
   const recover = async () => {
     const assigned = await owner();
-    if (assigned && assigned.uid !== uid) throw new Error("The older library belongs to another account.");
+    if (claims && assigned && assigned.uid !== uid)
+      throw new Error("The older library belongs to another account.");
     if (assigned?.complete) return;
-    await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: false }));
+    // The development account copies without becoming the owner, so a real account can still claim it later.
+    if (claims) await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: false }));
     const key = (name: string) => accountStorageKey(name, uid);
     const splitRaw = await AsyncStorage.getItem(LIBRARY_KEY);
     const legacy = array(splitRaw ?? (await AsyncStorage.getItem(OLD_LIBRARY_KEY)));
@@ -126,7 +158,8 @@ export function recoverLegacyDeviceData(uid: string) {
         JSON.stringify(mergeActivity(currentActivity, legacyActivity)),
       );
     }
-    await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: true }));
+    if (claims) await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: true }));
+    else await AsyncStorage.setItem(accountStorageKey(DEVELOPMENT_COPY_KEY, uid), "1");
   };
   const result = recoveryQueue.then(recover);
   recoveryQueue = result.catch(() => {});

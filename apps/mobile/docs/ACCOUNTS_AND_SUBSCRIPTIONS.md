@@ -137,10 +137,13 @@ storage namespaces for each Firebase UID. Signing out or switching accounts clea
 activity, navigation, and widget snapshots before the next account can render. Pending saves finish only
 in the account namespace that started them. Signing out still retains that account's local files.
 
-Older versions used a shared device library with no recorded owner. It is kept as a backup and never
-loaded automatically into a signed-in account. Its owner can choose **Settings → Account → Recover older
-device library**, confirm ownership, and merge it into the current account. Once assigned, another
-account cannot recover that backup. Recovery preserves current documents, notes on unreadable documents,
+Older versions used a shared device library with no recorded owner. The account that was already signed in
+when this version first ran (the person using Votic on this device) gets it automatically, before its library
+first loads, so nothing looks missing after the update. Otherwise the owner can choose **Settings → Account →
+Recover older device library**, confirm ownership, and merge it into the current account; the library then
+reloads in place. Once assigned, another account cannot recover that backup. The development account (builds
+without Firebase) copies it once without claiming it, so a real account can still recover it later. The
+original shared data always stays on the device as a backup. Recovery preserves current documents, notes on unreadable documents,
 and original device data; an interrupted recovery can be retried by the same owner.
 
 Explanation, listening, purpose, and reading-comfort previews in the personalization editor remain local
