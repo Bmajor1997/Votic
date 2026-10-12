@@ -1,11 +1,13 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
+import * as Speech from "expo-speech";
 import { Keyboard, StyleSheet } from "react-native";
 import { AskVotic } from "../../app/assistant";
 import { askVotic, VoticAnswer } from "../../src/api/voticApi";
 import { renderWithProviders, testDocument } from "../renderWithProviders";
 
 jest.mock("../../src/api/voticApi", () => ({ askVotic: jest.fn() }));
+jest.mock("expo-speech", () => ({ speak: jest.fn(), stop: jest.fn(async () => {}) }));
 const askVoticMock = jest.mocked(askVotic);
 const CONNECTION_ERROR = "Votic could not connect. Check your connection and try again.";
 
@@ -78,4 +80,20 @@ describe("Ask Votic question box", () => {
       maxHeight: 168,
     });
   });
+});
+
+it("offers opt-in read aloud below an Ask answer", async () => {
+  jest.mocked(Speech.speak).mockClear();
+  askVoticMock.mockResolvedValueOnce({
+    answer: "ATP stores energy.",
+    mode: "ai",
+    sectionIndex: null,
+    sectionTitle: null,
+  });
+  await renderWithProviders(<AskVotic />, { reduceMotion: true });
+  await ask("What is ATP?");
+  expect(Speech.speak).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole("button", { name: "Read answer aloud" }));
+  expect(Speech.speak).toHaveBeenCalledWith("ATP stores energy.", expect.anything());
+  await fireEvent.press(screen.getByRole("button", { name: "Stop reading answer" }));
 });

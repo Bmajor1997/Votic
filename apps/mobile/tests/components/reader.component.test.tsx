@@ -678,3 +678,26 @@ describe("Reader", () => {
     expect(screen.getByText("2 passages left")).toBeTruthy();
   });
 });
+
+it("reads an Ask answer and ignores late callbacks after the panel closes", async () => {
+  askVoticMock.mockResolvedValueOnce({
+    answer: "Focus supports learning.",
+    mode: "document-ai",
+    sectionIndex: null,
+    sectionTitle: null,
+  });
+  await renderWithProviders(<OpenedReader />, { documents: [book], reduceMotion: true });
+  await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+  await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why focus?");
+  await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+  const before = speak.mock.calls.length;
+  await fireEvent.press(screen.getByRole("button", { name: "Read answer aloud" }));
+  expect(speak.mock.calls.length).toBeGreaterThan(before);
+  expect(lastSpeech().text).toBe("Focus supports learning.");
+  const options = lastSpeech().options;
+  await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
+  const stopped = speak.mock.calls.length;
+  await act(async () => options.onDone?.());
+  expect(speak.mock.calls.length).toBe(stopped);
+  expect(screen.queryByRole("button", { name: "Stop reading answer" })).toBeNull();
+});

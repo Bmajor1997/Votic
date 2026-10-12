@@ -44,6 +44,7 @@ import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
+import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
 import { VoticLogo } from "../src/components/VoticLogo";
@@ -191,6 +192,11 @@ function ReaderContent() {
   const [askVoiceLevel, setAskVoiceLevel] = useState({ value: 0, at: 0 });
   const [askVoiceError, setAskVoiceError] = useState("");
   const askVoiceBusy = !["idle", "error"].includes(askVoicePhase);
+  const answerListening = useAnswerListening(
+    activeId || "",
+    askOpen && !askClosing && !askVoiceBusy,
+    activeDocument?.playbackRate,
+  );
   const showAskRecording = askVoiceBusy && askVoicePhase !== "reviewing";
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
@@ -421,6 +427,7 @@ function ReaderContent() {
   }
   /** The X, Android Back, and answer links all close Ask Votic here. Narration and position are left alone. */
   function closeAskVotic() {
+    void answerListening.stop();
     setAskMessages((messages) => messages.map((message) => ({ ...message, revealed: true })));
     if (!askOpen || askClosing) return;
     Keyboard.dismiss();
@@ -693,6 +700,7 @@ function ReaderContent() {
     await Speech.stop();
   }
   async function previewVoice(voice: DeviceVoice, name: string) {
+    await answerListening.stop();
     if (!listening) return;
     const session = ++speechSession.current;
     setPlaying(false);
@@ -710,6 +718,7 @@ function ReaderContent() {
     });
   }
   function speak(at = index, startWord = at === index ? wordIndex : 0) {
+    void answerListening.stop();
     if (!listening) return;
     const session = speechSession.current + 1;
     speechSession.current = session;
@@ -1384,6 +1393,13 @@ function ReaderContent() {
                                 style={[s.askAnswerText, { color: theme.text }]}
                               />
                               <AskAnswerFooter
+                                listen={{
+                                  playing: answerListening.playingKey === String(messageIndex),
+                                  failed: answerListening.errorKey === String(messageIndex),
+                                  disabled: askVoiceBusy,
+                                  onPress: () =>
+                                    void answerListening.toggle(String(messageIndex), message.text, stop),
+                                }}
                                 source={
                                   message.link
                                     ? {
@@ -1430,6 +1446,13 @@ function ReaderContent() {
                               style={[s.askAnswerText, { color: theme.text }]}
                             />
                             <AskAnswerFooter
+                              listen={{
+                                playing: answerListening.playingKey === "summary",
+                                failed: answerListening.errorKey === "summary",
+                                disabled: askVoiceBusy,
+                                onPress: () =>
+                                  void answerListening.toggle("summary", conversationSummary.text, stop),
+                              }}
                               save={
                                 conversationSummary.source
                                   ? {
@@ -1533,7 +1556,13 @@ function ReaderContent() {
                         key={activeId}
                         active={!askClosing}
                         value={askQuestion}
-                        onPhaseChange={setAskVoicePhase}
+                        onPhaseChange={(phase) => {
+                          if (phase === "starting") {
+                            void answerListening.stop();
+                            void stop();
+                          }
+                          setAskVoicePhase(phase);
+                        }}
                         onLevelChange={(value) => setAskVoiceLevel({ value, at: Date.now() })}
                         onErrorChange={setAskVoiceError}
                         onRevealChange={setAskVoiceReveal}

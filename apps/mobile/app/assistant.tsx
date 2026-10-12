@@ -42,6 +42,7 @@ import {
   resolveAskVoticContext,
 } from "../src/ask/askVoticContext";
 import { AskLink } from "../src/ask/documentSections";
+import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { askEventFor } from "../src/activity/askCategories";
@@ -86,6 +87,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const [voiceLevel, setVoiceLevel] = useState({ value: 0, at: 0 });
   const [voiceError, setVoiceError] = useState("");
   const voiceBusy = !["idle", "error"].includes(voicePhase);
+  const answerListening = useAnswerListening(contextKey, !voiceBusy, activeDocument?.playbackRate);
   const showRecording = voiceBusy && voicePhase !== "reviewing";
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
@@ -409,6 +411,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                         return (
                           <AskAnswerFooter
                             style={s.answerFooter}
+                            listen={{
+                              playing: answerListening.playingKey === String(i),
+                              failed: answerListening.errorKey === String(i),
+                              disabled: voiceBusy,
+                              onPress: () => void answerListening.toggle(String(i), m.text),
+                            }}
                             source={
                               link && target
                                 ? {
@@ -529,7 +537,10 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               <KeyboardDictationButton
                 key={contextKey}
                 value={question}
-                onPhaseChange={setVoicePhase}
+                onPhaseChange={(phase) => {
+                  if (phase === "starting") void answerListening.stop();
+                  setVoicePhase(phase);
+                }}
                 onLevelChange={(value) => setVoiceLevel({ value, at: Date.now() })}
                 onErrorChange={setVoiceError}
                 onRevealChange={setVoiceReveal}
