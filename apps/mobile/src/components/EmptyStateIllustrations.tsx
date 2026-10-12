@@ -1,18 +1,34 @@
-import { Image, ImageSourcePropType, StyleSheet } from "react-native";
+import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
+import { useVoticTheme } from "../theme/ThemeProvider";
 
-const searchSource = require("../../assets/votic-search-mascot.png") as ImageSourcePropType;
+// The Ask Votic mascot in three layers, so its wings take the accent color chosen in Settings while keeping
+// their hand-drawn texture: the drawing without its wings, the wings as a shape to tint, and their shading.
+const searchBase = require("../../assets/votic-search-mascot-base.png") as ImageSourcePropType;
+const searchWings = require("../../assets/votic-search-mascot-wings.png") as ImageSourcePropType;
+const searchShading = require("../../assets/votic-search-mascot-shading.png") as ImageSourcePropType;
 const notesSource = require("../../assets/notes-empty.png") as ImageSourcePropType;
 const homeSource = require("../../assets/home-empty-house.png") as ImageSourcePropType;
 const documentsSource = require("../../assets/documents-empty.png") as ImageSourcePropType;
 
 export function AskVoticEmptyAnimation() {
+  const { theme } = useVoticTheme();
   return (
-    <Image
+    <View
+      accessible
+      accessibilityRole="image"
       accessibilityLabel="Votic looking through a magnifying glass"
-      source={searchSource}
-      resizeMode="contain"
       style={s.search}
-    />
+    >
+      <Image source={searchBase} resizeMode="contain" style={StyleSheet.absoluteFill} />
+      <Image
+        testID="ask-mascot-wings"
+        source={searchWings}
+        resizeMode="contain"
+        tintColor={theme.logoWing}
+        style={StyleSheet.absoluteFill}
+      />
+      <Image source={searchShading} resizeMode="contain" style={StyleSheet.absoluteFill} />
+    </View>
   );
 }
 
