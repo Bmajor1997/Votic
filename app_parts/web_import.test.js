@@ -220,3 +220,11 @@ test("webpage cleanup keeps a page whose first heading is Notes", () => {
   const { text } = clean_webpage_html(`<main><h2>Notes</h2><p>Meeting notes for Tuesday.</p></main>`);
   assert.equal(text, "Notes\n\nMeeting notes for Tuesday.");
 });
+
+test("webpage cleanup preserves substantive Notes and Sources sections after an introduction", () => {
+  const { text } = clean_webpage_html(`<main><h1>Meeting</h1><p>Introduction.</p>
+    <h2>Notes</h2><p>Decisions to retain.</p><h2>Sources</h2><p>Interview findings.</p>
+    <h2>Next steps</h2><p>Schedule a follow-up.</p></main>`);
+  for (const content of ["Decisions to retain.", "Interview findings.", "Schedule a follow-up."])
+    assert.ok(text.includes(content));
+});
