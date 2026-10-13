@@ -242,11 +242,6 @@ export function parse_onboarding_state(raw: string | null): OnboardingState | nu
   };
 }
 
-/** The explanation style Ask Votic should use; "adaptive" when the person hasn't chosen. */
-export function explanation_style_for(answers: PersonalizationAnswers): ExplanationStyle {
-  return answers.explanationStyle || DEFAULT_EXPLANATION_STYLE;
-}
-
 /**
  * The Reader highlight setting implied by the listening answers, or null to leave the current setting alone.
  * Listening itself is never turned off: "I'm mainly here to read" only leaves highlighting as it is.

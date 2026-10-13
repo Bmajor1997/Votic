@@ -6,7 +6,7 @@ Welcome to Votic. This walkthrough is a real document, so you can try reading an
 
 ## Read and listen
 
-Press play at the bottom to hear this guide. Votic highlights spoken words, and you can pause and resume where you stopped. Open the Listen controls to change speed, preview voices, and choose a voice. If your phone does not identify a voice's gender, preview it and choose a female or male name. That naming choice does not change the sound.
+Press play at the bottom to hear this guide. Votic highlights spoken words, and you can pause and resume where you stopped. Open the Listen controls to change speed, preview voices, and choose a voice. Each voice has its own name, so you can tell them apart.
 
 Reader Appearance controls change the document's text, spacing, and reading colors. Sepia is for the Reader; the app itself uses Light, Dark, or System.
 

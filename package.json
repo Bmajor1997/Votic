@@ -18,10 +18,10 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
-    "@playwright/test": "^1.63.0"
+    "@playwright/test": "^1.63.0",
+    "docx": "^9.7.1"
   },
   "dependencies": {
-    "docx": "^9.7.1",
     "jose": "^6.2.12",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.3",

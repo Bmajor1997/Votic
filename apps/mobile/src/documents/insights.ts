@@ -27,13 +27,6 @@ export function start_of_current_week(now = new Date()) {
   return start;
 }
 
-export function weekly_insights(documents: VoticDocument[], now = new Date()) {
-  const start = start_of_current_week(now);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  return period_insights(documents, start, end);
-}
-
 export function period_insights(documents: VoticDocument[], start: Date, end: Date) {
   let readingSeconds = 0;
   let listeningSeconds = 0;

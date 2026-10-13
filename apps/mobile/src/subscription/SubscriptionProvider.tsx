@@ -65,11 +65,14 @@ export function SubscriptionProvider({
   const settled = useRef<string | null>(null);
   const canBypass = isDevelopment && Boolean(service.unavailableReason);
 
+  // Until the saved development bypass is read, access isn't known yet (see `checking`).
+  const [bypassLoaded, setBypassLoaded] = useState(false);
   useEffect(() => {
     if (!canBypass) return;
     void AsyncStorage.getItem(DEVELOPMENT_BYPASS_KEY)
       .then((value) => setBypassed(value === "yes"))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setBypassLoaded(true));
   }, [canBypass]);
 
   // Link purchases to the Votic account, so they follow the person to other devices and reinstalls.
@@ -115,7 +118,8 @@ export function SubscriptionProvider({
   );
 
   const entitlement = uid && checked?.uid === uid ? checked.entitlement : UNKNOWN_ENTITLEMENT;
-  const checking = Boolean(uid && !service.unavailableReason && checked?.uid !== uid);
+  const checking =
+    Boolean(uid && !service.unavailableReason && checked?.uid !== uid) || (canBypass && !bypassLoaded);
   const value: SubscriptionValue = {
     service,
     legal,

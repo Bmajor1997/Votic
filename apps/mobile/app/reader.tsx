@@ -752,7 +752,7 @@ function ReaderContent() {
     setPlaying(false);
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
-    await nativePlayer?.pause();
+    await nativePlayer?.pause().catch(() => {});
   }
   async function preview_voice(voice: DeviceVoice, name: string) {
     await answerListening.stop();
@@ -760,7 +760,7 @@ function ReaderContent() {
     const session = ++speechSession.current;
     setPlaying(false);
     await Speech.stop();
-    await nativePlayer?.pause();
+    await nativePlayer?.pause().catch(() => {});
     if (session !== speechSession.current) return;
     setPreviewVoiceIdentifier(voice.identifier);
     const clear_preview = () =>
@@ -891,7 +891,7 @@ function ReaderContent() {
     const location = location_for_progress(passages, value);
     speechSession.current += 1;
     await Speech.stop();
-    await nativePlayer?.pause();
+    await nativePlayer?.pause().catch(() => {});
     scrollToPosition.current = true;
     setIndex(location.sentenceIndex);
     setWordIndex(location.wordIndex);

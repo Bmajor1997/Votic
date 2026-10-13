@@ -7,7 +7,6 @@ const searchBase = require("../../assets/votic-search-mascot-base.png") as Image
 const searchWings = require("../../assets/votic-search-mascot-wings.png") as ImageSourcePropType;
 const searchShading = require("../../assets/votic-search-mascot-shading.png") as ImageSourcePropType;
 const notesSource = require("../../assets/notes-empty.png") as ImageSourcePropType;
-const homeSource = require("../../assets/home-empty-house.png") as ImageSourcePropType;
 const documentsSource = require("../../assets/documents-empty.png") as ImageSourcePropType;
 
 export function AskVoticEmptyAnimation() {
@@ -43,12 +42,6 @@ export function NotesEmptyAnimation() {
   );
 }
 
-export function HomeEmptyAnimation() {
-  return (
-    <Image accessibilityLabel="Welcoming house" source={homeSource} resizeMode="contain" style={s.home} />
-  );
-}
-
 export function DocumentsEmptyAnimation() {
   return (
     <Image
@@ -63,6 +56,5 @@ export function DocumentsEmptyAnimation() {
 const s = StyleSheet.create({
   search: { width: 150, height: 126, marginBottom: 8 },
   notes: { width: 132, height: 120 },
-  home: { width: 150, height: 126 },
   documents: { width: 140, height: 128 },
 });

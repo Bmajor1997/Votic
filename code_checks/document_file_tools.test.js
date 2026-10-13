@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow } from "docx";
 import JSZip from "jszip";
-import { clean_extracted_text, create_completed_docx, extract_document, html_to_document_text, reconstruct_pdf_page_text } from "../app_parts/document_file_tools.js";
+import { clean_extracted_text, extract_document, html_to_document_text, reconstruct_pdf_page_text } from "../app_parts/document_file_tools.js";
 
 test("preserves headings and table cells from Word conversion", () => {
   const text = html_to_document_text("<h1>Plan</h1><h2>Checks</h2><table><tr><td>☐ Ready</td><td>__________</td></tr></table>");
@@ -92,21 +92,6 @@ test("rejects EPUB files without a publication manifest", async () => {
   archive.file("chapter.xhtml", "<p>Orphaned chapter</p>");
   await assert.rejects(extract_document("broken.epub", await archive.generateAsync({ type: "nodebuffer" })), /publication manifest/);
 });
-
-test("creates a valid completed Word worksheet with explicit structure", async () => {
-  const buffer = await create_completed_docx("Completed Plan", [
-    { type: "heading", text: "Tasks" },
-    { type: "paragraph", text: "[x] Approved." },
-    { type: "paragraph", text: "Short answer" },
-  ]);
-  assert.equal(buffer.subarray(0, 2).toString(), "PK");
-  const extracted = await extract_document("completed.docx", buffer);
-  assert.match(extracted, /Completed Plan/);
-  assert.match(extracted, /## Tasks/);
-  assert.match(extracted, /Short answer/);
-  assert.doesNotMatch(extracted, /## Short answer/);
-});
-
 
 test("rejects ZIP-based documents with oversized expanded entries", async () => {
   const archive = new JSZip();

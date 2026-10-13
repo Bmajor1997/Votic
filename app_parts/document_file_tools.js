@@ -1,6 +1,5 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
-import { Document, HeadingLevel, Packer, Paragraph } from "docx";
 import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
@@ -10,16 +9,37 @@ const MAX_ARCHIVE_ENTRY_BYTES = 8_000_000;
 const MAX_ARCHIVE_TOTAL_BYTES = 40_000_000;
 const MAX_POWERPOINT_SLIDES = 1000;
 
-function validate_archive(archive) {
+const ARCHIVE_TOO_LARGE = "This document archive expands beyond Votic's processing limit.";
+
+/** Expands one entry while counting real bytes, stopping as soon as a limit is passed. */
+function measure_entry(entry, limit) {
+  return new Promise((resolve, reject) => {
+    let size = 0, settled = false;
+    const stream = entry.internalStream("uint8array");
+    stream.on("data", (chunk) => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > limit) {
+        settled = true;
+        stream.pause();
+        reject(new Error(limit < MAX_ARCHIVE_ENTRY_BYTES ? ARCHIVE_TOO_LARGE : "This document archive contains an oversized file."));
+      }
+    }).on("error", (error) => { if (!settled) { settled = true; reject(error); } })
+      .on("end", () => { if (!settled) { settled = true; resolve(size); } });
+    stream.resume();
+  });
+}
+
+// Sizes in the archive's headers are claims an attacker controls, so every entry is also expanded once
+// with a running count. A small file can no longer expand to gigabytes before it is rejected.
+async function validate_archive(archive) {
   const entries = Object.values(archive.files).filter((entry) => !entry.dir);
   if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("This document archive contains too many files.");
   let total = 0;
   for (const entry of entries) {
-    const size = Number(entry?._data?.uncompressedSize);
-    if (!Number.isSafeInteger(size) || size < 0) continue;
-    if (size > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
-    total += size;
-    if (total > MAX_ARCHIVE_TOTAL_BYTES) throw new Error("This document archive expands beyond Votic's processing limit.");
+    const declared = Number(entry?._data?.uncompressedSize);
+    if (Number.isSafeInteger(declared) && declared > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
+    total += await measure_entry(entry, Math.min(MAX_ARCHIVE_ENTRY_BYTES, MAX_ARCHIVE_TOTAL_BYTES - total));
   }
   return archive;
 }
@@ -161,10 +181,13 @@ export function powerpoint_xml_text(xml, { notes = false } = {}) {
     .join("\n");
 }
 
+// A malformed character reference (beyond Unicode) is dropped instead of failing the whole document.
+function code_point(value) { return Number.isInteger(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : ""; }
+
 function decode_powerpoint_xml(text) {
   return String(text)
-    .replace(/&#x([0-9a-f]+);/gi, (_match, value) => String.fromCodePoint(parseInt(value, 16)))
-    .replace(/&#(\d+);/g, (_match, value) => String.fromCodePoint(Number(value)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, value) => code_point(parseInt(value, 16)))
+    .replace(/&#(\d+);/g, (_match, value) => code_point(Number(value)))
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
@@ -184,7 +207,14 @@ export function reconstruct_pdf_page_text(items) {
 
   const lines = [];
   for (const fragment of fragments) {
-    const line = lines.find((candidate) => Math.abs(candidate.y - fragment.y) <= Math.max(2, Math.min(candidate.height, fragment.height) * .45));
+    // Fragments arrive top to bottom, so only the most recent lines can match. Searching back from the newest
+    // line and stopping once lines are far above keeps text-dense pages linear instead of quadratic.
+    let line;
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const candidate = lines[index];
+      if (Math.abs(candidate.y - fragment.y) <= Math.max(2, Math.min(candidate.height, fragment.height) * .45)) { line = candidate; break; }
+      if (candidate.y - fragment.y > Math.max(4, candidate.height, fragment.height) * 4) break;
+    }
     if (line) {
       line.fragments.push(fragment);
       const count = line.fragments.length;
@@ -265,19 +295,7 @@ function is_page_number(line) { return /^(?:page\s+)?\d+(?:\s+of\s+\d+)?$/i.test
 
 function decode_html(text) {
   return text.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (_, entity) => {
-    if (entity[0] === "#") return String.fromCodePoint(parseInt(entity.slice(entity[1]?.toLowerCase() === "x" ? 2 : 1), entity[1]?.toLowerCase() === "x" ? 16 : 10));
+    if (entity[0] === "#") return code_point(parseInt(entity.slice(entity[1]?.toLowerCase() === "x" ? 2 : 1), entity[1]?.toLowerCase() === "x" ? 16 : 10));
     return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " })[entity.toLowerCase()];
   });
-}
-
-export async function create_completed_docx(title, blocks) {
-  const safeTitle = String(title || "Completed worksheet").slice(0, 300);
-  const children = [new Paragraph({ text: safeTitle, heading: HeadingLevel.TITLE })];
-  for (const block of blocks) {
-    if (!block || !["heading", "paragraph"].includes(block.type) || typeof block.text !== "string") continue;
-    const text = block.text.trim().slice(0, 100_000);
-    if (!text) continue;
-    children.push(new Paragraph(block.type === "heading" ? { text, heading: HeadingLevel.HEADING_1 } : { text }));
-  }
-  return Packer.toBuffer(new Document({ sections: [{ children }] }));
 }

@@ -33,9 +33,10 @@ class VoticPlaybackService : Service() {
     private const val NOTIFICATION_ID = 2401
     @Volatile var state: Map<String, Any?> = emptyMap()
       private set
-    var observer: ((Map<String, Any?>) -> Unit)? = null
-    var pending: PlaybackDocument? = null
-    var instance: VoticPlaybackService? = null
+    // Written on the JS module's thread and read on the main thread.
+    @Volatile var observer: ((Map<String, Any?>) -> Unit)? = null
+    @Volatile var pending: PlaybackDocument? = null
+    @Volatile var instance: VoticPlaybackService? = null
       private set
     private const val PROGRESS_STORE = "votic.playback.progress"
     fun clear_state(context: Context? = instance) {
@@ -71,6 +72,8 @@ class VoticPlaybackService : Service() {
   private var utterance: String? = null
   private var serial = 0L
   private var engine: TextToSpeech? = null
+  // The document whose voice and speed the engine is set to, so the voice list is searched once per document.
+  private var configuredFor: PlaybackDocument? = null
   private lateinit var mediaSession: MediaSession
   private lateinit var audio: AudioManager
   private var focusRequest: AudioFocusRequest? = null
@@ -258,9 +261,12 @@ class VoticPlaybackService : Service() {
       }
     })
     try {
-      val selected = current.voice?.let { name -> engine?.voices?.firstOrNull { it.name == name } }
-      if (selected != null) engine?.voice = selected else engine?.language = Locale.getDefault()
-      engine?.setSpeechRate(current.rate)
+      if (configuredFor !== current) {
+        val selected = current.voice?.let { name -> engine?.voices?.firstOrNull { it.name == name } }
+        if (selected != null) engine?.voice = selected else engine?.language = Locale.getDefault()
+        engine?.setSpeechRate(current.rate)
+        configuredFor = current
+      }
       val result = engine?.speak(passage.text.substring(start, end), TextToSpeech.QUEUE_FLUSH, null, token)
       if (result == TextToSpeech.ERROR) fail("Your device could not read this passage. Check its installed voices.")
     } catch (_: Exception) { fail("Your device could not read this passage. Check its installed voices.") }

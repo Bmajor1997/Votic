@@ -119,5 +119,7 @@ export async function transcribe_voice(bytes, { env, fetch_impl, timeout_ms }) {
 export function ai_failure_reason(error) {
   if (error?.provider_status) return { status: error.provider_status, code: error.provider_code ?? null };
   if (error?.name === "AbortError") return { reason: "timed out" };
+  // A JSON parse error quotes the start of the model's reply, which can repeat the person's document.
+  if (error instanceof SyntaxError) return { reason: "invalid AI response" };
   return { reason: String(error?.message || "unknown").slice(0, 160) };
 }

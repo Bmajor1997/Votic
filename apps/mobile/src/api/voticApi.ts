@@ -135,6 +135,8 @@ export async function ask_votic(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       question,
+      // Help without a document is about the phone app, not the web prototype.
+      client: "mobile",
       ...(feature !== "ask-votic" ? { feature } : {}),
       document,
       ...(history.length ? { history } : {}),

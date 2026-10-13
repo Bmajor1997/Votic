@@ -16,10 +16,12 @@ import {
 export function NotificationPlaybackSync() {
   const { uid } = useAccountData();
   const library = useDocumentLibrary();
-  const { access } = useSubscription();
-  const latest = useRef({ uid, library, access });
+  const { access, checking } = useSubscription();
+  // While Votic is still confirming Premium at launch, access is unknown, not lost: never stop narration then.
+  const denied = !access && !checking;
+  const latest = useRef({ uid, library, access, denied });
   useEffect(() => {
-    latest.current = { uid, library, access };
+    latest.current = { uid, library, access, denied };
   });
   const sync = useRef<(state: Partial<NotificationPlaybackState>) => void>(() => {});
 
@@ -53,9 +55,10 @@ export function NotificationPlaybackSync() {
     const receive = (state: Partial<NotificationPlaybackState>) => {
       const current = latest.current;
       if (!state.documentId) return;
+      if (!current.denied && !current.access) return;
       if (
         !valid_playback_state(state, current.uid) ||
-        !current.access ||
+        current.denied ||
         (current.library.loaded && !current.library.documents.some((item) => item.id === state.documentId))
       ) {
         void player.stop().catch(() => {});
@@ -88,18 +91,18 @@ export function NotificationPlaybackSync() {
       if (state) sync.current(state);
     });
     return () => cancelAnimationFrame(frame);
-  }, [library.loaded, uid, access]);
+  }, [library.loaded, uid, access, denied]);
 
   useEffect(() => {
     const player = notification_player();
     const state = player?.get_state();
     if (
       state?.documentId &&
-      (!access ||
+      (denied ||
         !valid_playback_state(state, uid) ||
         (library.loaded && !library.documents.some((doc) => doc.id === state.documentId)))
     )
       void player?.stop().catch(() => {});
-  }, [uid, access, library.loaded, library.documents]);
+  }, [uid, denied, library.loaded, library.documents]);
   return null;
 }

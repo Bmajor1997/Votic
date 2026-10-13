@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { extract_document } from "./app_parts/document_file_tools.js";
-import { local_help_answer, VOTIC_HELP_CONTEXT } from "./app_parts/help_answers.js";
+import { local_help_answer, VOTIC_HELP_CONTEXT, VOTIC_MOBILE_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
@@ -25,6 +25,8 @@ const security_headers = {
   "Content-Security-Policy": "default-src 'self'; base-uri 'none'; connect-src 'self'; form-action 'self'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'",
   "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
   "Referrer-Policy": "no-referrer",
+  // Browsers only honor this over HTTPS, so local HTTP development is unaffected.
+  "Strict-Transport-Security": "max-age=31536000",
   "X-Content-Type-Options": "nosniff",
   "X-Frame-Options": "DENY",
 };
@@ -218,13 +220,15 @@ export function create_votic_handler(options = {}) {
    }
    if (request.method === "POST" && path === "/api/help") {
       rate_limit(`${client}:help`, config.help_rate_limit);
-      const { question, document, history, explanationStyle, feature } = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
+      const { question, document, history, explanationStyle, feature, client: app } = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
       if (feature != null && !["ask-votic", "catch-me-up"].includes(feature)) throw new HttpError(400, "Invalid AI feature.");
+      // The phone app gets help about the phone app; anything else (the web prototype, older apps) keeps the web guide.
+      const help_client = app === "mobile" ? "mobile" : "web";
       const feature_name = feature || "ask-votic";
       if (typeof question !== "string" || !question.trim() || question.length > 1000) throw new HttpError(400, "Type a shorter question about using Votic.");
       const safe_history = validate_help_history(history);
       const style = validate_explanation_style(explanationStyle);
-      let answer = local_help_answer(question), mode = "built-in", sectionIndex = null, sectionTitle = null;
+      let answer = local_help_answer(question, help_client), mode = "built-in", sectionIndex = null, sectionTitle = null;
       if (document) {
         const safe_document = validate_review_document(document, { too_long_message: HELP_DOCUMENT_TOO_LONG, preserve_section_indexes: true });
         const limit_message = env.OPENAI_API_KEY ? take_ai_call(ai_client) : null;
@@ -232,7 +236,7 @@ export function create_votic_handler(options = {}) {
         else if (limit_message) answer = `${limit_message} Your document remains open, and I can still help with Votic’s controls.`;
         else try { ({ answer, sectionIndex, sectionTitle } = await answer_document_question(question, safe_document, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style })); mode = "document-ai"; }
         catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic document help unavailable; using built-in guidance", ai_failure_reason(error)); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
-      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style }); mode = "ai"; } catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic AI help unavailable; using built-in guidance", ai_failure_reason(error)); } }
+      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style, client: help_client }); mode = "ai"; } catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic AI help unavailable; using built-in guidance", ai_failure_reason(error)); } }
       send_json(response, 200, { answer, mode, sectionIndex, sectionTitle });
     return;
   }
@@ -346,10 +350,11 @@ function validate_help_history(history) {
     .filter((item) => item && (item.role === "user" || item.role === "assistant") && typeof item.text === "string" && item.text.trim())
     .map((item) => ({ role: item.role, text: item.text.trim().slice(0, HELP_HISTORY_MESSAGE_CHARS) }));
 }
-async function answer_with_ai(question, history, { env, fetch_impl, timeout_ms, style = "adaptive" }) {
+async function answer_with_ai(question, history, { env, fetch_impl, timeout_ms, style = "adaptive", client = "web" }) {
+  const context = client === "mobile" ? VOTIC_MOBILE_HELP_CONTEXT : VOTIC_HELP_CONTEXT;
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout_ms);
   const input = history.length ? [...history.map((item) => ({ role: item.role, content: item.text })), { role: "user", content: question.trim() }] : question.trim();
-  try { const apiResponse = await fetch_impl("https://api.openai.com/v1/responses", { method: "POST", signal: controller.signal, headers: { "Authorization": `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: env.OPENAI_MODEL || "gpt-6-luna", instructions: style === "adaptive" ? VOTIC_HELP_CONTEXT : `${VOTIC_HELP_CONTEXT} ${EXPLANATION_STYLES[style]}`, input, store: false, max_output_tokens: style === "detailed" ? 500 : 300 }) }); if (!apiResponse.ok) throw new Error("AI unavailable"); const result = await apiResponse.json(); return response_text(result) || local_help_answer(question); }
+  try { const apiResponse = await fetch_impl("https://api.openai.com/v1/responses", { method: "POST", signal: controller.signal, headers: { "Authorization": `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: env.OPENAI_MODEL || "gpt-6-luna", instructions: style === "adaptive" ? context : `${context} ${EXPLANATION_STYLES[style]}`, input, store: false, max_output_tokens: style === "detailed" ? 500 : 300 }) }); if (!apiResponse.ok) throw new Error("AI unavailable"); const result = await apiResponse.json(); return response_text(result) || local_help_answer(question, client); }
   finally { clearTimeout(timer); }
 }
 async function answer_document_question(question, document, history, { env, fetch_impl, timeout_ms, style = "adaptive" }) {

@@ -12,23 +12,13 @@ import {
 } from "react-native";
 import { format_duration, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
-import { DocumentCover } from "../components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { position_label, progress_label, readable_title } from "../documents/documentDisplay";
+import { progress_label, readable_title } from "../documents/documentDisplay";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
-import {
-  NoteItem,
-  ResumeMode,
-  change_label,
-  home_insight,
-  last_session,
-  relative_day,
-  resume_mode_for,
-  week_activity,
-} from "./homeModel";
+import { NoteItem, change_label, home_insight, relative_day, week_activity } from "./homeModel";
 
 import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
 import { document_widget_tone, widget_palette } from "./widgetDesign";
@@ -62,159 +52,6 @@ export function SectionHeader({
           <Text style={[s.seeAllText, { color: theme.accentText }]}>See all</Text>
         </Pressable>
       ) : null}
-    </View>
-  );
-}
-
-// ---------- Continue ----------
-
-/**
- * The one thing Home is for: picking up where you left off. The way the document was last used (listening or
- * reading) comes first; the other way is right beside it. The cover and title open it the same way.
- */
-export function ContinueWidget({
-  document,
-  onOpen,
-  targetRef,
-}: {
-  document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>, mode: ResumeMode) => void;
-  targetRef?: Target;
-}) {
-  const { theme } = useVoticTheme();
-  const { log, hydrated } = useActivity();
-  const cardRef = useRef<View>(null);
-  const listenRef = useRef<View>(null);
-  const readRef = useRef<View>(null);
-  const title = readable_title(document.title);
-  const percent = Math.round(document.progress * 100);
-  const started = document.progress > 0;
-  const mode = hydrated ? resume_mode_for(log, document.id) : "read";
-  const last = hydrated ? last_session(log, document.id) : null;
-  // The card already says "Continue", so the buttons stay short; screen readers hear the full action.
-  const listenLabel = started ? "Resume listening" : "Listen";
-  const readLabel = started ? "Resume reading" : "Read";
-  const lastLine = last ? `${last.mode === "listen" ? "Listened" : "Read"} ${when_phrase(last.at)}` : null;
-
-  const listen = (
-    <ResumeButton
-      key="listen"
-      sourceRef={listenRef}
-      primary={mode === "listen"}
-      icon="play"
-      label="Listen"
-      accessibilityLabel={`${listenLabel} to ${title}`}
-      accessibilityHint="Opens the Reader and plays from where you left off"
-      onPress={() => onOpen(listenRef, "listen")}
-    />
-  );
-  const read = (
-    <ResumeButton
-      key="read"
-      sourceRef={readRef}
-      primary={mode === "read"}
-      icon="book-outline"
-      label="Read"
-      accessibilityLabel={`${readLabel} ${title}`}
-      accessibilityHint="Opens the document for reading, without audio controls"
-      onPress={() => onOpen(readRef, "read")}
-    />
-  );
-  return (
-    <View
-      ref={(node) => {
-        cardRef.current = node;
-        targetRef?.(node);
-      }}
-      collapsable={false}
-      style={[s.continue, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}
-    >
-      {/* Tapping the document itself resumes the usual way. Screen readers use the two buttons below. */}
-      <Pressable
-        accessible={false}
-        onPress={() => onOpen(cardRef, mode)}
-        style={({ pressed }) => [s.continueTop, { opacity: pressed ? 0.75 : 1 }]}
-      >
-        <DocumentCover document={document} size="lg" />
-        <View style={s.grow}>
-          <Text numberOfLines={3} style={[s.continueTitle, { color: theme.text }]}>
-            {title}
-          </Text>
-          <Text style={[s.meta, { color: theme.mutedText }]}>
-            {lastLine ? `${position_label(document)} · ${lastLine}` : position_label(document)}
-          </Text>
-          {started ? (
-            <View
-              accessible
-              accessibilityRole="progressbar"
-              accessibilityLabel={`${title} progress`}
-              accessibilityValue={{ min: 0, max: 100, now: percent }}
-              style={[s.track, s.continueTrack, { backgroundColor: theme.border }]}
-            >
-              <View style={[s.fill, { backgroundColor: theme.accent, width: `${Math.max(2, percent)}%` }]} />
-            </View>
-          ) : null}
-          <Text style={[s.meta, { color: theme.mutedText }]}>{progress_label(document)}</Text>
-        </View>
-      </Pressable>
-      <View style={s.continueActions}>{mode === "listen" ? [listen, read] : [read, listen]}</View>
-    </View>
-  );
-}
-
-/** "today", "yesterday", "3 days ago", or "on Sep 27". */
-function when_phrase(time: number) {
-  const day = relative_day(time);
-  if (day === "Today" || day === "Yesterday") return day.toLowerCase();
-  return day.endsWith("ago") ? day : `on ${day}`;
-}
-
-function ResumeButton({
-  sourceRef,
-  primary,
-  icon,
-  label,
-  accessibilityLabel,
-  accessibilityHint,
-  onPress,
-}: {
-  sourceRef: React.RefObject<View | null>;
-  primary: boolean;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  accessibilityLabel: string;
-  accessibilityHint: string;
-  onPress: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View ref={sourceRef} collapsable={false} style={s.half}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-        onPress={onPress}
-        style={({ pressed }) => [
-          s.resume,
-          primary
-            ? { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }
-            : {
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: pressed ? theme.surfaceMuted : theme.surface,
-              },
-        ]}
-      >
-        <Ionicons name={icon} size={19} color={primary ? theme.onAccent : theme.text} />
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-          style={[s.resumeText, { color: primary ? theme.onAccent : theme.text }]}
-        >
-          {label}
-        </Text>
-      </Pressable>
     </View>
   );
 }
@@ -690,23 +527,6 @@ const s = StyleSheet.create({
   meta: { fontSize: 13, lineHeight: 18 },
   track: { height: 5, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
-
-  continue: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.lg },
-  continueTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  continueTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2, marginBottom: 2 },
-  continueTrack: { marginVertical: spacing.xs },
-  continueActions: { flexDirection: "row", gap: spacing.sm },
-  half: { flex: 1, minWidth: 0 },
-  resume: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  resumeText: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
 
   week: { overflow: "hidden", borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   weekHeader: {

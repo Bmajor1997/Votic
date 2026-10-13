@@ -25,12 +25,28 @@ export function has_premium_entitlement(customer, entitlement_id, now = Date.now
   return Math.max(expiry, grace) > now;
 }
 
-export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 5000, now = Date.now } = {}) {
+// A confirmed subscriber is remembered briefly, so a burst of AI, scan and import requests makes one RevenueCat
+// call instead of one each. Only confirmed access is remembered, never a denial or an error, so a new purchase
+// works on the next request; a cancellation or refund takes effect within a minute.
+const PREMIUM_CACHE_MS = 60_000, PREMIUM_CACHE_LIMIT = 10_000;
+
+export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 5000, now = Date.now, cacheMs = PREMIUM_CACHE_MS } = {}) {
   const key = String(env.REVENUECAT_SECRET_API_KEY || "").trim();
   const entitlementId = String(env.REVENUECAT_ENTITLEMENT_ID || "pro").trim();
+  const confirmed = new Map();
   return async (uid) => {
     if (typeof uid !== "string" || !uid) return false;
     if (!key) throw new PremiumVerificationError();
+    if ((confirmed.get(uid) ?? 0) > now()) return true;
+    confirmed.delete(uid);
+    const allowed = await verify(uid);
+    if (allowed && cacheMs > 0) {
+      if (confirmed.size >= PREMIUM_CACHE_LIMIT) confirmed.clear();
+      confirmed.set(uid, now() + cacheMs);
+    }
+    return allowed;
+  };
+  async function verify(uid) {
     const controller = new AbortController();
     let timer;
     const deadline = new Promise((_, reject) => {
@@ -52,5 +68,5 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
     } catch {
       throw new PremiumVerificationError();
     } finally { clearTimeout(timer); }
-  };
+  }
 }
