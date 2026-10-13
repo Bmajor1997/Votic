@@ -18,7 +18,7 @@ import {
   updateProfile,
 } from "@firebase/auth";
 import { Platform } from "react-native";
-import { SignInCancelled } from "./authErrors";
+import { SignInCancelled, password_problem } from "./authErrors";
 
 export type VoticUser = {
   uid: string;
@@ -125,6 +125,9 @@ function create_firebase_backend(): AuthBackend {
       return onIdTokenChanged(firebase_auth(), (user) => listener(to_votic_user(user)));
     },
     async createAccount(email, password) {
+      if (password_problem(password)) {
+        throw Object.assign(new Error("Password requirements were not met."), { code: "auth/weak-password" });
+      }
       await createUserWithEmailAndPassword(firebase_auth(), email.trim(), password);
     },
     async signIn(email, password) {

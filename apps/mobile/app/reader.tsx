@@ -4,6 +4,8 @@ import * as Speech from "expo-speech";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  AppState,
   Animated,
   BackHandler,
   Easing,
@@ -25,6 +27,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { ask_event_for } from "../src/activity/askCategories";
+import { useAccountData } from "../src/storage/AccountDataProvider";
+import {
+  notification_player,
+  notification_payload,
+  valid_playback_state,
+} from "../src/playback/notificationPlayback";
 import { useReaderActivity } from "../src/activity/useReaderActivity";
 import { ask_votic } from "../src/api/voticApi";
 import {
@@ -140,6 +148,8 @@ export default function Reader() {
 
 function ReaderContent() {
   const { theme } = useVoticTheme();
+  const { uid } = useAccountData();
+  const [nativePlayer] = useState(notification_player);
   const accessibility = useAccessibilityPreferences();
   const transition = useDocumentTransition();
   const onboarding = useOnboarding();
@@ -293,6 +303,38 @@ function ReaderContent() {
     [passages, index, wordIndex],
   );
 
+  // Android's service keeps owning narration after this screen or the JS runtime is suspended.
+  const nativeError = useRef<string | null>(null);
+  const receive_native_playback = useEffectEvent(
+    (state: ReturnType<NonNullable<typeof nativePlayer>["get_state"]>) => {
+      if (!valid_playback_state(state, uid) || state.documentId !== activeId || !listening) return;
+      setIndex(state.passageIndex);
+      setWordIndex(state.wordIndex);
+      setPlaying(state.playing);
+      if (state.error && state.error !== nativeError.current) {
+        nativeError.current = state.error;
+        Alert.alert("Listening paused", state.error);
+      } else if (!state.error) nativeError.current = null;
+      if (state.completed) {
+        completedRef.current = true;
+        setCompletionOpen(true);
+      }
+    },
+  );
+  useEffect(() => {
+    if (!nativePlayer) return;
+    const frame = requestAnimationFrame(() => receive_native_playback(nativePlayer.get_state()));
+    const listener = nativePlayer.addListener("state", (state) => receive_native_playback(state));
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") receive_native_playback(nativePlayer.get_state());
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      listener.remove();
+      appState.remove();
+    };
+  }, [nativePlayer, activeId, listening]);
+
   // Effect events read the latest render's functions without restarting the effects that call them.
   const onHardwareBack = useEffectEvent(() => {
     // With Ask Votic open, Back closes it (the same way as its X) and the Reader stays open.
@@ -357,12 +399,17 @@ function ReaderContent() {
     if (listening) return;
     speechSession.current += 1;
     void Speech.stop();
+    void nativePlayer?.pause().catch(() => {});
     const frame = requestAnimationFrame(() => onReadEntry());
     return () => cancelAnimationFrame(frame);
-  }, [listening]);
+  }, [listening, nativePlayer]);
   // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
-  const onReadyToAutoplay = useEffectEvent(() => speak());
+  const onReadyToAutoplay = useEffectEvent(() => {
+    const state = nativePlayer?.get_state();
+    if (state && valid_playback_state(state, uid) && state.documentId === activeId && state.playing) return;
+    speak();
+  });
   useEffect(() => {
     if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length)
       return;
@@ -640,7 +687,11 @@ function ReaderContent() {
   async function close_reader() {
     if (closing.current) return;
     closing.current = true;
-    await stop();
+    if (nativePlayer) {
+      void progressSync.flush();
+      await answerListening.stop();
+      await Speech.stop();
+    } else await stop();
     transition.closeReader(() => router.back());
   }
   function prepare_reader() {
@@ -701,6 +752,7 @@ function ReaderContent() {
     setPlaying(false);
     setPreviewVoiceIdentifier(null);
     await Speech.stop();
+    await nativePlayer?.pause();
   }
   async function preview_voice(voice: DeviceVoice, name: string) {
     await answerListening.stop();
@@ -708,6 +760,7 @@ function ReaderContent() {
     const session = ++speechSession.current;
     setPlaying(false);
     await Speech.stop();
+    await nativePlayer?.pause();
     if (session !== speechSession.current) return;
     setPreviewVoiceIdentifier(voice.identifier);
     const clear_preview = () =>
@@ -725,7 +778,39 @@ function ReaderContent() {
     if (!listening) return;
     const session = speechSession.current + 1;
     speechSession.current = session;
-    void begin_speech(at, startWord, session, true);
+    if (nativePlayer) void begin_native_speech(at, startWord, session);
+    else void begin_speech(at, startWord, session, true);
+  }
+  async function begin_native_speech(at: number, startWord: number, session: number, playbackRate = rate) {
+    if (!nativePlayer || !uid || !activeDocument || !passages[at]) return;
+    try {
+      await Speech.stop();
+      if (session !== speechSession.current) return;
+      const payload = notification_payload(
+        uid,
+        activeDocument,
+        passages,
+        pronunciations,
+        at,
+        startWord,
+        playbackRate,
+        accessibility.voiceIdentifier,
+      );
+      await nativePlayer.start(payload);
+      if (session !== speechSession.current) return;
+      completedRef.current = false;
+      setIndex(at);
+      setWordIndex(startWord);
+      onboarding.markTipSeen("reader-listen");
+      // The service's state event sets playing after TTS is ready, rather than pretending audio started.
+    } catch {
+      if (session !== speechSession.current) return;
+      setPlaying(false);
+      Alert.alert(
+        "Could not start listening",
+        "Votic could not start background listening. Check your device's reading voices and try again.",
+      );
+    }
   }
   async function begin_speech(
     at: number,
@@ -797,6 +882,7 @@ function ReaderContent() {
     speechSession.current += 1;
     setPlaying(false);
     void Speech.stop();
+    void nativePlayer?.pause().catch(() => {});
   }
   async function seek_to(value: number) {
     if (!activeDocument || !passages.length) return;
@@ -805,6 +891,7 @@ function ReaderContent() {
     const location = location_for_progress(passages, value);
     speechSession.current += 1;
     await Speech.stop();
+    await nativePlayer?.pause();
     scrollToPosition.current = true;
     setIndex(location.sentenceIndex);
     setWordIndex(location.wordIndex);
@@ -813,7 +900,8 @@ function ReaderContent() {
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
-      void begin_speech(location.sentenceIndex, location.wordIndex, session, false);
+      if (nativePlayer) void begin_native_speech(location.sentenceIndex, location.wordIndex, session);
+      else void begin_speech(location.sentenceIndex, location.wordIndex, session, false);
     }
   }
   async function change_rate(value: number) {
@@ -826,12 +914,16 @@ function ReaderContent() {
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
-      void begin_speech(resumeAt.index, resumeAt.wordIndex, session, false, nextRate);
+      if (nativePlayer) void begin_native_speech(resumeAt.index, resumeAt.wordIndex, session, nextRate);
+      else void begin_speech(resumeAt.index, resumeAt.wordIndex, session, false, nextRate);
     }
   }
   function finish_document(stopSpeech = true) {
     if (!activeDocument || !passages.length) return;
-    if (stopSpeech) void stop();
+    if (stopSpeech) {
+      void stop();
+      void nativePlayer?.stop().catch(() => {});
+    }
     const finalIndex = passages.length - 1;
     const finalWord = Math.max(0, word_matches(passages[finalIndex]).length - 1);
     completedRef.current = true;

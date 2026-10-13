@@ -17,6 +17,7 @@ import { OnboardingProvider } from "../src/onboarding/OnboardingProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
 import { SubscriptionProvider, useSubscription } from "../src/subscription/SubscriptionProvider";
 import { WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
+import { NotificationPlaybackSync } from "../src/playback/NotificationPlaybackSync";
 import { WidgetSync } from "../src/widgets/WidgetSync";
 
 // Keep the launch screen up until Votic knows whether to show Welcome, setup, or Home.
@@ -53,6 +54,7 @@ function ThemedStack() {
     <DocumentLibraryProvider>
       {/* Keeps the iPhone and Android home-screen widgets up to date. */}
       <WidgetSync />
+      <NotificationPlaybackSync />
       <DocumentTransitionProvider>
         <WalkthroughProvider>
           {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}

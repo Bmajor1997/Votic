@@ -1,3 +1,4 @@
+import { notification_player } from "../playback/notificationPlayback";
 import { publish_widget_snapshot } from "../widgets/widgetBridge";
 import { signed_out_snapshot } from "../widgets/widgetSnapshot";
 import {
@@ -55,7 +56,15 @@ function AccountDataSession({
   const mounted = useRef(true);
   // Widgets are cleared only when this account goes away (sign-out or a switch), never on every launch:
   // WidgetSync sends the new account's snapshot once its data has loaded.
-  useLayoutEffect(() => () => publish_widget_snapshot(JSON.stringify(signed_out_snapshot())), []);
+  useLayoutEffect(
+    () => () => {
+      publish_widget_snapshot(JSON.stringify(signed_out_snapshot()));
+      void notification_player()
+        ?.stop()
+        .catch(() => {});
+    },
+    [],
+  );
   useEffect(() => {
     mounted.current = true;
     if (uid)

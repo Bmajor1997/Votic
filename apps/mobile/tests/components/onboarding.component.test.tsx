@@ -120,6 +120,14 @@ describe("Create account", () => {
     await fireEvent.changeText(screen.getByLabelText("Email"), "new@example.com");
     await fireEvent.changeText(screen.getByLabelText("Password"), "reading1");
     await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
+    expect(screen.getByText("Include at least one uppercase letter.")).toBeTruthy();
+    expect(fakeAuth.calls).not.toContain("createAccount");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "Reading1");
+    await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
+    expect(screen.getByText("Include at least one symbol (for example, !, @, or #).")).toBeTruthy();
+    expect(fakeAuth.calls).not.toContain("createAccount");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "Reading1!");
+    await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
     expect(fakeAuth.user).toMatchObject({ email: "new@example.com", isNewAccount: true });
   });
 
@@ -128,7 +136,7 @@ describe("Create account", () => {
     fakeAuth.accounts.set("reader@example.com", "reading1");
     await render_with_providers(<CreateAccount />);
     await fireEvent.changeText(screen.getByLabelText("Email"), "reader@example.com");
-    await fireEvent.changeText(screen.getByLabelText("Password"), "another1");
+    await fireEvent.changeText(screen.getByLabelText("Password"), "Another1!");
     await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
     expect(await screen.findByText("An account already uses this email. Sign in instead.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Sign in instead" }));

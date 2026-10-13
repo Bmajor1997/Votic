@@ -2,7 +2,12 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { useAuth } from "../src/auth/AuthProvider";
-import { auth_error_message, looks_like_email, password_problem } from "../src/auth/authErrors";
+import {
+  auth_error_message,
+  looks_like_email,
+  password_problem,
+  PASSWORD_REQUIREMENTS,
+} from "../src/auth/authErrors";
 import {
   AccountScaffold,
   EmailDivider,
@@ -69,11 +74,7 @@ export default function CreateAccount() {
             accessibilityHint={emailError || undefined}
           />
         </Field>
-        <Field
-          label="Password"
-          error={passwordError}
-          hint={passwordError ? undefined : "At least 8 characters, with a letter and a number."}
-        >
+        <Field label="Password" error={passwordError} hint={PASSWORD_REQUIREMENTS}>
           <PasswordInput
             ref={passwordRef}
             kind="new"
