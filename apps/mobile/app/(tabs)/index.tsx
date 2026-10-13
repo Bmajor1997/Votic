@@ -141,10 +141,8 @@ function ContinueCard({
   const readRef = useRef<View>(null);
   const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
-  const { width, fontScale } = useWindowDimensions();
-  const [labelsWrapped, setLabelsWrapped] = useState(false);
+  const { width } = useWindowDimensions();
   const compact = width <= 350;
-  const stacked = fontScale > 1.15 || width < 320 || labelsWrapped;
   const listenLabel = "Continue Listening";
   const readLabel = "Continue Reading";
   return (
@@ -178,8 +176,8 @@ function ContinueCard({
           <Text style={[s.featuredMeta, { color: colors.detail }]}>{progress_label(document)}</Text>
         </View>
       </View>
-      <View testID="home-continue-actions" style={[s.featuredActions, stacked && s.stackedActions]}>
-        <View ref={listenRef} collapsable={false} style={stacked ? undefined : s.listenAction}>
+      <View testID="home-continue-actions" style={s.featuredActions}>
+        <View ref={listenRef} collapsable={false} style={s.listenAction}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${listenLabel}: ${title}`}
@@ -191,17 +189,10 @@ function ContinueCard({
               { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <Text
-              onTextLayout={(event) => {
-                if (!stacked && event.nativeEvent.lines.length > 1) setLabelsWrapped(true);
-              }}
-              style={[s.primaryText, s.continueLabel, compact && s.compactLabel]}
-            >
-              {listenLabel}
-            </Text>
+            <Text style={[s.primaryText, s.continueLabel, compact && s.compactLabel]}>{listenLabel}</Text>
           </Pressable>
         </View>
-        <View ref={readRef} collapsable={false} style={stacked ? undefined : s.readAction}>
+        <View ref={readRef} collapsable={false} style={s.readAction}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${readLabel}: ${title}`}
@@ -214,9 +205,6 @@ function ContinueCard({
             ]}
           >
             <Text
-              onTextLayout={(event) => {
-                if (!stacked && event.nativeEvent.lines.length > 1) setLabelsWrapped(true);
-              }}
               style={[s.secondaryText, s.continueLabel, compact && s.compactLabel, { color: colors.ink }]}
             >
               {readLabel}
@@ -250,14 +238,20 @@ const s = StyleSheet.create({
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
-  // Give the longer Listening label more room; large text uses full-width actions in the same order.
-  featuredActions: { flexDirection: "row", gap: spacing.sm, marginHorizontal: -spacing.md },
-  stackedActions: { flexDirection: "column" },
+  // Always side by side, with the longer Listening label given a little more room. With large text a label
+  // wraps onto a second line inside its own button, so both stay complete and in the same order.
+  featuredActions: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+    marginHorizontal: -spacing.md,
+  },
   listenAction: { flex: 18, minWidth: 0 },
   readAction: { flex: 16, minWidth: 0 },
   continueLabel: { flexShrink: 1, textAlign: "center" },
   compactLabel: { fontSize: 14 },
-  featuredButton: { paddingHorizontal: spacing.xs, paddingVertical: spacing.md },
+  // Fills its half, so both buttons match in height when one label wraps.
+  featuredButton: { flexGrow: 1, paddingHorizontal: spacing.xs, paddingVertical: spacing.md },
   grow: { flex: 1, minWidth: 0 },
   primary: {
     minHeight: 50,

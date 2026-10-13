@@ -58,37 +58,29 @@ describe("Colorful Home cards", () => {
     }
   });
 
-  it("stacks complete actions for accessibility text without changing their order", async () => {
+  it("keeps both actions side by side with accessibility text, letting labels wrap instead of cutting them off", async () => {
     const originalWindow = Dimensions.get("window");
     const originalScreen = Dimensions.get("screen");
     try {
       await act(async () =>
-        Dimensions.set({ window: { ...originalWindow, fontScale: 2 }, screen: originalScreen }),
+        Dimensions.set({ window: { ...originalWindow, width: 320, fontScale: 2 }, screen: originalScreen }),
       );
       await render_with_providers(<Home />, { documents: [featured], reduceMotion: true });
       expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
-        "column",
+        "row",
       );
       expect(
         screen
           .getAllByRole("button", { name: /^Continue (Listening|Reading):/ })
           .map((button) => button.props.accessibilityLabel),
       ).toEqual(["Continue Listening: The next chapter", "Continue Reading: The next chapter"]);
-      expect(screen.getByText("Continue Listening").props.numberOfLines).toBeUndefined();
+      for (const label of ["Continue Listening", "Continue Reading"]) {
+        expect(screen.getByText(label).props.numberOfLines).toBeUndefined();
+        expect(screen.getByText(label).props.allowFontScaling).not.toBe(false);
+      }
     } finally {
       await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
     }
-  });
-
-  it("falls back to complete full-width actions when native text measurement detects wrapping", async () => {
-    await render_with_providers(<Home />, { documents: [featured], reduceMotion: true });
-    await fireEvent(screen.getByText("Continue Listening"), "textLayout", {
-      nativeEvent: { lines: [{ text: "Continue Listen" }, { text: "ing" }] },
-    });
-    expect(StyleSheet.flatten(screen.getByTestId("home-continue-actions").props.style).flexDirection).toBe(
-      "column",
-    );
-    expect(screen.getByText("Continue Listening")).toBeTruthy();
   });
 
   for (const mode of ["light", "dark"] as const) {
