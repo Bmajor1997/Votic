@@ -83,6 +83,15 @@ describe("Settings categories", () => {
 });
 
 describe("Settings preferences", () => {
+  it("keeps every accent color name on one line", async () => {
+    await render_with_providers(<SettingsDetailScreen category="appearance" />);
+    for (const name of ["Orange", "Blue", "Purple", "Red", "Teal", "Emerald", "Indigo", "Rose", "Amber"]) {
+      const label = screen.getByText(name);
+      expect(label.props.numberOfLines).toBe(1);
+      expect(label.props.adjustsFontSizeToFit).toBe(true);
+    }
+  });
+
   it("updates appearance and accent immediately, persists them, and refreshes the overview summary", async () => {
     const announcement = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     const rendered = await render_with_providers(<SettingsDetailScreen category="appearance" />);

@@ -181,7 +181,13 @@ function AppearanceSettings() {
                   <Ionicons name="checkmark" size={19} color="#FFFFFF" accessible={false} />
                 ) : null}
               </View>
-              <Text style={[s.colorName, { color: theme.text }]}>
+              {/* One line: on narrow phones or with large text the name shrinks a little instead of breaking. */}
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                style={[s.colorName, { color: theme.text }]}
+              >
                 {color[0].toUpperCase() + color.slice(1)}
               </Text>
             </Pressable>
@@ -425,12 +431,13 @@ const s = StyleSheet.create({
     minHeight: 80,
     flexGrow: 1,
     flexBasis: "28%",
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
     borderWidth: 2,
     borderRadius: radii.md,
     alignItems: "center",
     gap: spacing.sm,
   },
   swatch: { width: 28, height: 28, borderRadius: radii.pill, alignItems: "center", justifyContent: "center" },
-  colorName: { fontSize: 14, fontWeight: "600" },
+  colorName: { alignSelf: "stretch", textAlign: "center", fontSize: 14, fontWeight: "600" },
 });
