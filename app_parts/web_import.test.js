@@ -240,6 +240,9 @@ test("webpage cleanup stops at Notes, Sources and See also that lead into Refere
 
 test("web importer accepts a pasted domain without a scheme and still blocks private addresses", async () => {
   assert.equal((await validate_public_url(" public.test/article ", async () => [{ address: "203.0.113.10", family: 4 }])).href, "https://public.test/article");
+  assert.equal((await validate_public_url("public.test:8080/news", async () => [{ address: "203.0.113.10", family: 4 }])).href, "https://public.test:8080/news");
+  await assert.rejects(() => validate_public_url("localhost:4173/secret"), /not public/);
+  await assert.rejects(() => validate_public_url("javascript:alert(1)"), /Only http and https/);
   await assert.rejects(() => validate_public_url("localhost/secret"), /not public/);
   await assert.rejects(() => validate_public_url("192.168.1.1/secret"), /not public/);
 });

@@ -30,7 +30,8 @@ async function resolve_public_url(value, lookupImpl) {
   let url;
   try {
     const trimmed = value.trim();
-    url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
+    // "example.com:8080/news" has a port, not a scheme; only a letter-led scheme ("http:", "javascript:") counts.
+    url = new URL(/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(trimmed) ? trimmed : `https://${trimmed}`);
   } catch { throw new WebImportError("Enter a valid webpage address."); }
   if (!["http:", "https:"].includes(url.protocol)) throw new WebImportError("Only http and https webpage links are supported.");
   if (url.username || url.password) throw new WebImportError("Webpage links cannot contain sign-in credentials.");
