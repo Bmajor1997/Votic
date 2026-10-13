@@ -28,7 +28,10 @@ function private_ip(address) {
 }
 async function resolve_public_url(value, lookupImpl) {
   let url;
-  try { url = new URL(value); } catch { throw new WebImportError("Enter a valid webpage address."); }
+  try {
+    const trimmed = value.trim();
+    url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
+  } catch { throw new WebImportError("Enter a valid webpage address."); }
   if (!["http:", "https:"].includes(url.protocol)) throw new WebImportError("Only http and https webpage links are supported.");
   if (url.username || url.password) throw new WebImportError("Webpage links cannot contain sign-in credentials.");
   const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase().replace(/\.$/, "");
@@ -43,25 +46,33 @@ export async function validate_public_url(value, lookupImpl = lookup) {
 }
 
 /** Keep the hostname for TLS verification/Host, but connect only to an address already validated. */
-export function fetch_public_page(url, options, addresses, requestImpl = url.protocol === "https:" ? httpsRequest : httpRequest) {
-  const pinned = addresses[0];
-  return new Promise((resolve, reject) => {
-    const request = requestImpl(url, {
-      ...options,
-      family: pinned.family,
-      autoSelectFamily: false,
-      lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
-    }, (response) => {
-      const headers = new Headers();
-      for (const [name, value] of Object.entries(response.headers)) {
-        if (Array.isArray(value)) for (const item of value) headers.append(name, item);
-        else if (value !== undefined) headers.set(name, value);
-      }
-      resolve(new Response(Readable.toWeb(response), { status: response.statusCode, headers }));
-    });
-    request.on("error", reject);
-    request.end();
-  });
+export async function fetch_public_page(url, options, addresses, requestImpl = url.protocol === "https:" ? httpsRequest : httpRequest) {
+  // Try every validated address: a DNS record can list IPv6 first on an IPv4-only server.
+  // Each connection remains pinned, including retries, so DNS rebinding cannot bypass validation.
+  let lastError;
+  for (const pinned of [...addresses].sort((a, b) => a.family - b.family)) {
+    if (options.signal?.aborted) throw options.signal.reason || new Error("Webpage download aborted.");
+    try {
+      return await new Promise((resolve, reject) => {
+        const request = requestImpl(url, {
+          ...options,
+          family: pinned.family,
+          autoSelectFamily: false,
+          lookup: (_hostname, _options, callback) => callback(null, pinned.address, pinned.family),
+        }, (response) => {
+          const headers = new Headers();
+          for (const [name, value] of Object.entries(response.headers)) {
+            if (Array.isArray(value)) for (const item of value) headers.append(name, item);
+            else if (value !== undefined) headers.set(name, value);
+          }
+          resolve(new Response(Readable.toWeb(response), { status: response.statusCode, headers }));
+        });
+        request.on("error", reject);
+        request.end();
+      });
+    } catch (error) { lastError = error; }
+  }
+  throw lastError || new WebImportError("The webpage could not be downloaded.");
 }
 
 const IGNORED_TAGS = new Set(["script", "style", "noscript", "svg", "canvas", "iframe", "form", "nav", "footer", "aside", "button", "select", "template"]);

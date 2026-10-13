@@ -3,6 +3,7 @@ import {
   client_headers,
   INSECURE_API_URL_MESSAGE,
   MISSING_API_URL_MESSAGE,
+  TUNNEL_API_URL_MESSAGE,
   resolve_api_url,
 } from "./apiConfig";
 
@@ -33,6 +34,18 @@ describe("Votic API address", () => {
     expect(resolve_api_url({ isDevelopment: true, configuredUrl: "http://10.0.0.4:4173" })).toBe(
       "http://10.0.0.4:4173",
     );
+  });
+  it("does not mistake an Expo tunnel for the Votic backend", () => {
+    expect(() =>
+      resolve_api_url({ isDevelopment: true, developmentHostUri: "preview-8081.exp.direct" }),
+    ).toThrow(TUNNEL_API_URL_MESSAGE);
+    expect(
+      resolve_api_url({
+        isDevelopment: true,
+        developmentHostUri: "preview-8081.exp.direct",
+        configuredUrl: "https://api.example.com",
+      }),
+    ).toBe("https://api.example.com");
   });
   it("reaches the computer running Expo during development", () => {
     expect(resolve_api_url({ isDevelopment: true, developmentHostUri: "192.168.1.5:8081" })).toBe(

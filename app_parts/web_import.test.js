@@ -1,4 +1,4 @@
-/* global Response, ReadableStream */
+/* global Response, ReadableStream, queueMicrotask */
 import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import test from "node:test";
@@ -236,4 +236,34 @@ test("webpage cleanup stops at Notes, Sources and See also that lead into Refere
     <h2>Sources</h2><ul><li>Smith, J. (2001). A Book. ISBN 978-0-00-000000-0.</li></ul>
     <h2>References</h2><div class="reflist"><ol><li>Ref 1</li></ol></div></main>`);
   assert.equal(text, "Topic\n\nIntro text.\n\nHistory\n\nBody.");
+});
+
+test("web importer accepts a pasted domain without a scheme and still blocks private addresses", async () => {
+  assert.equal((await validate_public_url(" public.test/article ", async () => [{ address: "203.0.113.10", family: 4 }])).href, "https://public.test/article");
+  await assert.rejects(() => validate_public_url("localhost/secret"), /not public/);
+  await assert.rejects(() => validate_public_url("192.168.1.1/secret"), /not public/);
+});
+
+test("public transport retries only validated addresses when one connection fails", async () => {
+  const attempted = [];
+  const request_impl = (_url, options, onResponse) => {
+    const request = new EventEmitter();
+    options.lookup("public.test", {}, (_error, address) => attempted.push(address));
+    request.end = () => {
+      if (attempted.length === 1) {
+        queueMicrotask(() => request.emit("error", new Error("ENETUNREACH")));
+      } else {
+        const response = Readable.from([Buffer.from("Recovered article")]);
+        response.statusCode = 200;
+        response.headers = { "content-type": "text/html" };
+        onResponse(response);
+      }
+    };
+    return request;
+  };
+  const response = await fetch_public_page(new URL("https://public.test"), {}, [
+    { address: "2606:4700::1111", family: 6 }, { address: "203.0.113.10", family: 4 },
+  ], request_impl);
+  assert.deepEqual(attempted, ["203.0.113.10", "2606:4700::1111"]);
+  assert.equal(await response.text(), "Recovered article");
 });

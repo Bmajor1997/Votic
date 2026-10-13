@@ -1,12 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
+import { File } from "expo-file-system";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Image,
   Pressable,
+  Platform,
+  Linking,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -26,6 +29,7 @@ export default function ScanDocumentScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [pages, setPages] = useState<ScanPage[]>([]);
+  const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [torch, setTorch] = useState(false);
@@ -34,12 +38,13 @@ export default function ScanDocumentScreen() {
   const current = reviewing ? pages.at(-1) : undefined;
 
   async function capture() {
-    if (!cameraRef.current || capturing) return;
+    if (!cameraRef.current || !cameraReady || capturing || processing) return;
     setCapturing(true);
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (photo?.uri) {
         setPages((value) => [...value, photo]);
+        setCameraReady(false);
         setReviewing(true);
       }
     } catch {
@@ -55,9 +60,21 @@ export default function ScanDocumentScreen() {
     try {
       const extracted: string[] = [];
       for (let index = 0; index < pages.length; index += 1) {
-        const response = await fetch(pages[index].uri);
-        if (!response.ok) throw new Error("Votic could not access one of the scanned pages.");
-        const bytes = await response.arrayBuffer();
+        let bytes: ArrayBuffer;
+        if (Platform.OS === "web") {
+          const response = await fetch(pages[index].uri);
+          if (!response.ok) throw new Error("Votic could not access one of the scanned pages.");
+          bytes = await response.arrayBuffer();
+        } else {
+          // Camera photos are local files on iOS/Android, not network resources.
+          const file = new File(pages[index].uri);
+          if (!file.exists) throw new Error("Votic could not access one of the scanned pages. Retake it.");
+          if (file.size > 12_000_000)
+            throw new Error("This photo is too large. Retake the page at a lower resolution.");
+          bytes = await file.arrayBuffer();
+        }
+        if (bytes.byteLength > 12_000_000)
+          throw new Error("This photo is too large. Retake the page at a lower resolution.");
         const text = await scan_document_image(`scan-page-${index + 1}.jpg`, bytes);
         if (text.trim()) extracted.push(text.trim());
       }
@@ -103,10 +120,14 @@ export default function ScanDocumentScreen() {
         </Text>
         <Pressable
           accessibilityRole="button"
-          onPress={() => void requestPermission()}
+          onPress={() =>
+            void (permission.canAskAgain === false ? Linking.openSettings() : requestPermission())
+          }
           style={[s.permissionButton, { backgroundColor: theme.accent }]}
         >
-          <Text style={s.primaryText}>Allow camera</Text>
+          <Text style={s.primaryText}>
+            {permission.canAskAgain === false ? "Open settings" : "Allow camera"}
+          </Text>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={s.cancelButton}>
           <Text style={[s.cancelText, { color: theme.text }]}>Not now</Text>
@@ -127,6 +148,14 @@ export default function ScanDocumentScreen() {
           facing="back"
           enableTorch={torch}
           animateShutter={false}
+          onCameraReady={() => setCameraReady(true)}
+          onMountError={() => {
+            setCameraReady(false);
+            Alert.alert(
+              "Camera unavailable",
+              "Votic could not start the camera. Check camera access in Settings and try again.",
+            );
+          }}
         />
       )}
 
@@ -185,11 +214,11 @@ export default function ScanDocumentScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Take photo"
-                disabled={capturing}
+                disabled={capturing || !cameraReady || processing}
                 onPress={() => void capture()}
                 style={s.shutterOuter}
               >
-                <View style={[s.shutterInner, { opacity: capturing ? 0.5 : 1 }]} />
+                <View style={[s.shutterInner, { opacity: capturing || !cameraReady ? 0.5 : 1 }]} />
               </Pressable>
               <View style={s.sideSlot} />
             </View>
@@ -201,6 +230,7 @@ export default function ScanDocumentScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Retake page"
+                disabled={processing}
                 onPress={() => {
                   setPages((value) => value.slice(0, -1));
                   setReviewing(false);
@@ -213,6 +243,7 @@ export default function ScanDocumentScreen() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Add another page"
+                disabled={processing}
                 onPress={() => setReviewing(false)}
                 style={s.secondaryAction}
               >
@@ -221,6 +252,7 @@ export default function ScanDocumentScreen() {
               </Pressable>
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel={processing ? "Reading scan" : "Use scan"}
                 disabled={processing}
                 onPress={() => void finish_scan()}
                 style={[s.useAction, { opacity: processing ? 0.7 : 1 }]}

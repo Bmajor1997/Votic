@@ -1,5 +1,7 @@
 const DEVELOPMENT_PORT = 4173;
 export const MISSING_API_URL_MESSAGE = "This version of Votic isn't connected to a Votic server yet.";
+export const TUNNEL_API_URL_MESSAGE =
+  "This Expo preview is not connected to a Votic server. Configure a reachable Votic server address before importing webpages or scanning text.";
 export const INSECURE_API_URL_MESSAGE = "This version of Votic is set up with an insecure server address.";
 
 type ApiUrlInput = { isDevelopment: boolean; configuredUrl?: string; developmentHostUri?: string };
@@ -16,6 +18,7 @@ export function resolve_api_url({ isDevelopment, configuredUrl, developmentHostU
   }
   if (!isDevelopment) throw new Error(MISSING_API_URL_MESSAGE);
   const host = developmentHostUri?.replace(/^https?:\/\//, "").split(":")[0];
+  if (host && /(?:^|\.)(?:exp\.direct|expo\.direct)$/i.test(host)) throw new Error(TUNNEL_API_URL_MESSAGE);
   return `http://${host || "localhost"}:${DEVELOPMENT_PORT}`;
 }
 
