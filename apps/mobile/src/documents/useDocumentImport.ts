@@ -2,7 +2,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { RefObject, useState } from "react";
 import { Alert, View } from "react-native";
-import { extract_document } from "../api/voticApi";
+import { extract_document, scan_document_image } from "../api/voticApi";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
@@ -42,6 +42,11 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
           "application/vnd.openxmlformats-officedocument.presentationml.presentation",
           "application/vnd.ms-powerpoint",
           "application/epub+zip",
+          "application/rtf",
+          "application/vnd.oasis.opendocument.text",
+          "text/html",
+          "image/jpeg",
+          "image/png",
         ],
         copyToCacheDirectory: true,
         multiple: false,
@@ -58,6 +63,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       validate_loaded_bytes(bytes.byteLength);
       let text: string;
       if (can_read_locally(asset.name)) text = clean_local_document_text(new TextDecoder().decode(bytes));
+      else if (/\.(jpe?g|png)$/i.test(asset.name)) text = await scan_document_image(asset.name, bytes);
       else text = await extract_document(asset.name, bytes);
       if (!text.trim()) throw new Error("This document does not contain readable text.");
       addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
