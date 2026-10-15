@@ -31,6 +31,7 @@ function fallback_name(mimeType: string | null) {
     "text/html": "html",
     "image/jpeg": "jpg",
     "image/png": "png",
+    "image/webp": "webp",
   };
   return `Shared document.${extension[mimeType || ""] || "file"}`;
 }
@@ -76,7 +77,7 @@ export default function HandleShare() {
         setStatus(`Reading ${name}…`);
         const text = can_read_locally(name)
           ? clean_local_document_text(new TextDecoder().decode(bytes))
-          : /\.(jpe?g|png)$/i.test(name)
+          : /\.(jpe?g|png|webp)$/i.test(name)
             ? await scan_document_image(name, bytes)
             : await extract_document(name, bytes);
 
