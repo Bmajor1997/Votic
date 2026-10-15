@@ -4,6 +4,11 @@ import { mix, useVoticTheme } from "../theme/ThemeProvider";
 import { ink_segments, type TextRevealFrame } from "./textReveal";
 
 const HEX = /^#[0-9a-f]{6}$/i;
+/**
+ * Ink for words not written yet. On Android a fully transparent color (0) means "no color set", so the words
+ * would inherit the normal text color and show; one step of alpha keeps them invisible but still laid out.
+ */
+export const UNWRITTEN_INK = "#00000001";
 
 /**
  * The color of a glowing piece of the writing edge: the accent color near the edge, settling into the text color
@@ -59,7 +64,7 @@ export function RevealingText({
           {segment.text}
         </Text>
       ))}
-      {singleLine || !rest ? null : <Text style={{ color: "transparent" }}>{rest}</Text>}
+      {singleLine || !rest ? null : <Text style={{ color: UNWRITTEN_INK }}>{rest}</Text>}
     </Text>
   );
 }

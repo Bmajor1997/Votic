@@ -1,6 +1,7 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AIResponse } from "../../src/components/AIResponse";
+import { UNWRITTEN_INK } from "../../src/components/RevealingText";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { render_with_providers } from "../renderWithProviders";
 
@@ -19,7 +20,7 @@ function parts(full: string) {
   const rest = children.at(-1) as { props?: { style?: { color?: string }; children?: string } };
   return {
     inked: typeof children[0] === "string" ? children[0] : "",
-    hidden: rest?.props?.style?.color === "transparent" ? (rest.props.children ?? "") : "",
+    hidden: rest?.props?.style?.color === UNWRITTEN_INK ? (rest.props.children ?? "") : "",
   };
 }
 
