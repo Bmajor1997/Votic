@@ -137,3 +137,22 @@ test("preserves unusual Unicode as inert document text", async () => {
   assert.match(text, /日本語/);
   assert.match(text, /<script>alert\(1\)<\/script>/);
 });
+
+test("extracts plain text from RTF", async () => {
+  const text = await extract_document("notes.rtf", Buffer.from("{\\\\rtf1\\\\ansi Hello\\\\par World}"));
+  assert.match(text, /Hello/);
+  assert.match(text, /World/);
+});
+test("extracts ODT paragraphs", async () => {
+  const archive = new JSZip();
+  archive.file("mimetype", "application/vnd.oasis.opendocument.text");
+  archive.file("content.xml", '<office:document-content><office:body><office:text><text:p>Hello ODT</text:p></office:text></office:body></office:document-content>');
+  const text = await extract_document("notes.odt", await archive.generateAsync({type:"nodebuffer"}));
+  assert.match(text, /Hello ODT/);
+});
+test("extracts HTML without executable markup", async () => {
+  const text = await extract_document("page.html", Buffer.from("<html><body><h1>Title</h1><p>Paragraph</p><script>alert(1)</script></body></html>"));
+  assert.match(text, /Title/);
+  assert.match(text, /Paragraph/);
+  assert.doesNotMatch(text, /alert\\(1\\)/);
+});
