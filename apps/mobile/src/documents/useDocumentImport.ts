@@ -47,6 +47,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
           "text/html",
           "image/jpeg",
           "image/png",
+          "image/webp",
         ],
         copyToCacheDirectory: true,
         multiple: false,
@@ -63,7 +64,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       validate_loaded_bytes(bytes.byteLength);
       let text: string;
       if (can_read_locally(asset.name)) text = clean_local_document_text(new TextDecoder().decode(bytes));
-      else if (/\.(jpe?g|png)$/i.test(asset.name)) text = await scan_document_image(asset.name, bytes);
+      else if (/\.(jpe?g|png|webp)$/i.test(asset.name)) text = await scan_document_image(asset.name, bytes);
       else text = await extract_document(asset.name, bytes);
       if (!text.trim()) throw new Error("This document does not contain readable text.");
       addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
