@@ -224,7 +224,18 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       }),
     );
   }
+  // Android can deliver Return twice before React re-renders, so a ref (not state) blocks a second send at once.
+  const sendLock = useRef(false);
   async function send(retryQuestion?: string) {
+    if (sendLock.current) return;
+    sendLock.current = true;
+    try {
+      await submit_question(retryQuestion);
+    } finally {
+      sendLock.current = false;
+    }
+  }
+  async function submit_question(retryQuestion?: string) {
     const retry = typeof retryQuestion === "string";
     const clean = (retryQuestion ?? question).trim();
     if (!clean || sending || launching || voiceBusy) return;

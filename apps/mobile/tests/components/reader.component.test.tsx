@@ -397,6 +397,26 @@ describe("Reader", () => {
     expect(tree.indexOf("Conversation summary")).toBeLessThan(tree.indexOf("Breaks help attention recover."));
   });
 
+  it("sends a question once even when Return arrives twice before the screen updates", async () => {
+    askVoticMock.mockResolvedValue({
+      answer: "One answer.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: null,
+    });
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
+    const input = screen.getByLabelText("Ask Votic a question");
+    await act(async () => {
+      input.props.onSubmitEditing();
+      input.props.onSubmitEditing();
+    });
+    await waitFor(() => expect(screen.getByText("One answer.")).toBeTruthy());
+    expect(askVoticMock).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByText("Why does focus help?")).toHaveLength(1);
+  });
+
   it("shows a limit notice as a notice, not as an answer from the document", async () => {
     const LIMIT = "Votic's AI features have reached today's limit. Please try again tomorrow.";
     askVoticMock.mockResolvedValue({

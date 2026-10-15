@@ -505,7 +505,18 @@ function ReaderContent() {
     setAskVoiceError("");
   }
 
+  // Android can deliver Return twice before React re-renders, so a ref (not state) blocks a second send at once.
+  const askLock = useRef(false);
   async function send_ask_votic() {
+    if (askLock.current) return;
+    askLock.current = true;
+    try {
+      await submit_ask_question();
+    } finally {
+      askLock.current = false;
+    }
+  }
+  async function submit_ask_question() {
     const clean = askQuestion.trim();
     if (!clean || askSending || askVoiceBusy || !activeDocument) return;
     Keyboard.dismiss();
