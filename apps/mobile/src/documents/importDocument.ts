@@ -1,7 +1,7 @@
 export type ImportCandidate = { name: string; mimeType?: string | null; size?: number | null; uri: string };
 export const MAX_DOCUMENT_BYTES = 25_000_000;
 export function supported_document(name: string) {
-  return /\.(txt|md|pdf|docx|pptx|ppt|epub|rtf|odt|html|htm|jpg|jpeg|png)$/i.test(name);
+  return /\.(txt|md|pdf|docx|pptx|ppt|epub|rtf|odt|html|htm|jpg|jpeg|png|webp)$/i.test(name);
 }
 export function can_read_locally(name: string) {
   return /\.(txt|md)$/i.test(name);
