@@ -6,6 +6,7 @@ import { RevealingText } from "./RevealingText";
 import { lay_down_text, readable_ai_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { VoticLogo } from "./VoticLogo";
+import { ask_status } from "../ask/askStatus";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
 export function AIResponse({
@@ -61,8 +62,16 @@ export function AIResponse({
     </View>
   );
 }
-export function AIThinking({ summary = false }: { summary?: boolean }) {
-  return <AIStatus label={summary ? "Thinking about your summary" : "Thinking"} />;
+export function AIThinking({
+  summary = false,
+  question = "",
+  grounded = false,
+}: {
+  summary?: boolean;
+  question?: string;
+  grounded?: boolean;
+}) {
+  return <AIStatus label={summary ? "Summarizing" : ask_status(question, grounded)} />;
 }
 
 /**

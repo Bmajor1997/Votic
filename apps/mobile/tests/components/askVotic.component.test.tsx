@@ -1,7 +1,8 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Keyboard, StyleSheet } from "react-native";
+import { Keyboard, StyleSheet, Text } from "react-native";
+import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { AskVotic } from "../../app/assistant";
 import { ask_votic, VoticAnswer } from "../../src/api/voticApi";
 import { render_with_providers, test_document } from "../renderWithProviders";
@@ -10,6 +11,17 @@ jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
 jest.mock("expo-speech", () => ({ speak: jest.fn(), stop: jest.fn(async () => {}) }));
 const askVoticMock = jest.mocked(ask_votic);
 const CONNECTION_ERROR = "Votic could not connect. Check your connection and try again.";
+function QuickNotesProbe() {
+  const { documents } = useDocumentLibrary();
+  return (
+    <Text testID="quick-notes-probe">
+      {documents
+        .find((document) => document.notebookKind === "quick-notes")
+        ?.savedPassages?.map((passage) => passage.note)
+        .join("\n") ?? ""}
+    </Text>
+  );
+}
 
 async function ask(question: string) {
   await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), question);
@@ -46,6 +58,39 @@ describe("Ask Votic retry", () => {
 });
 
 describe("Ask Votic answers", () => {
+  it("puts conversation summaries and the manual quick-note editor in the header menu", async () => {
+    askVoticMock.mockClear();
+    const book = test_document("quick-actions", "Field Guide", { plainText: "Focus matters. Rest helps." });
+    askVoticMock.mockResolvedValue({
+      answer: "Focus and rest help.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: null,
+    });
+    await render_with_providers(
+      <>
+        <AskVotic />
+        <QuickNotesProbe />
+      </>,
+      { documents: [book], reduceMotion: true },
+    );
+    expect(screen.queryByRole("button", { name: "Summarize" })).toBeNull();
+    await ask("Why does focus matter?");
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize" }));
+    expect(askVoticMock.mock.calls.at(-1)?.[1]?.sections[0].text).toBe(
+      "You: Why does focus matter?\n\nVotic: Focus and rest help.",
+    );
+    expect(screen.getByText("Conversation summary")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Quick notes" }));
+    expect(screen.getByLabelText("Note text").props.value).toBe("");
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "My personal note.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.queryByLabelText("Note text")).toBeNull();
+    expect(screen.getByTestId("quick-notes-probe").props.children).toBe("My personal note.");
+    expect(askVoticMock).toHaveBeenCalledTimes(2);
+  });
   it("does not offer to save a notice that replaced a document answer", async () => {
     const book = test_document("doc-book", "Field Guide", { plainText: "Focus matters. Rest helps." });
     await render_with_providers(<AskVotic />, { documents: [book], reduceMotion: true });

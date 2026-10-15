@@ -9,6 +9,7 @@ export type AskConversationAction = {
   onPress: () => void;
   /** Shown but not pressable, such as "Conversation saved to Notes" once it's done. */
   done?: boolean;
+  disabled?: boolean;
 };
 
 const MENU_WIDTH = 264;
@@ -19,17 +20,26 @@ const MENU_WIDTH = 264;
  */
 export function AskConversationMenu({ actions }: { actions: AskConversationAction[] }) {
   const { theme } = useVoticTheme();
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const button = useRef<View>(null);
   const [anchor, setAnchor] = useState<{ top: number; right: number; placed: boolean } | null>(null);
   if (!actions.length) return null;
   function open() {
     const node = button.current;
-    // The menu opens at once and appears beneath the button as soon as the button's position is known.
+    // Open above a bottom-docked header when the menu would fall outside the screen.
     setAnchor({ top: 96, right: 16, placed: !node?.measureInWindow });
     node?.measureInWindow?.((x, y, w, h) =>
       setAnchor((current) =>
-        current ? { top: y + h + 4, right: Math.max(8, width - (x + w)), placed: true } : current,
+        current
+          ? {
+              top: Math.max(
+                8,
+                y + h + 4 + actions.length * 48 > height - 24 ? y - actions.length * 48 - 4 : y + h + 4,
+              ),
+              right: Math.max(8, width - (x + w)),
+              placed: true,
+            }
+          : current,
       ),
     );
   }
@@ -68,8 +78,8 @@ export function AskConversationMenu({ actions }: { actions: AskConversationActio
                 key={action.label}
                 accessibilityRole="menuitem"
                 accessibilityLabel={action.label}
-                accessibilityState={{ disabled: Boolean(action.done) }}
-                disabled={action.done}
+                accessibilityState={{ disabled: Boolean(action.done || action.disabled) }}
+                disabled={action.done || action.disabled}
                 onPress={() => {
                   close();
                   action.onPress();

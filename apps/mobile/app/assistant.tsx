@@ -51,6 +51,9 @@ import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { ask_suggestions } from "../src/personalization/suggestions";
 import { usePersonalization } from "../src/personalization/usePersonalization";
+import { AskConversationMenu } from "../src/ask/AskConversationMenu";
+import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../src/ask/conversationSummary";
+import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
 
 type Message = {
   role: "user" | "votic";
@@ -60,6 +63,7 @@ type Message = {
   link?: AskLink;
   /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
   fallback?: boolean;
+  summary?: boolean;
 };
 type PromptFlight = { label: string; x: number; y: number; dx: number; dy: number };
 /** Timestamp and unique id for a note saved from an answer (called only from the Save button). */
@@ -71,12 +75,13 @@ function answer_note_stamp() {
 const JUMP_HEIGHT = 72;
 
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
+  const quickNote = useQuickNoteEditor();
   const { theme } = useVoticTheme();
   const { explanationStyle } = useVoticPurpose();
   const personalization = usePersonalization();
   const onboarding = useOnboarding();
   const { recordAsk } = useActivity();
-  const { activeDocument, documents, savePassage, openDocument } = useDocumentLibrary();
+  const { activeDocument, documents, savePassage, openDocument, addQuickNote } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolve_ask_votic_context(documents, activeDocument, params);
   const contextKey = ask_votic_context_key(activeDocument?.id, params);
@@ -95,6 +100,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const showRecording = voiceBusy && voicePhase !== "reviewing";
   const [messages, setMessages] = useState<Message[]>([]);
   const [sending, setSending] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [error, setError] = useState("");
@@ -128,6 +134,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setVoiceError("");
     setError("");
     setSending(false);
+    setSummarizing(false);
     setRetrying(false);
     setLaunching(false);
     setFlight(null);
@@ -295,6 +302,56 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       }
     }
   }
+  async function summarize_conversation() {
+    if (
+      sendLock.current ||
+      sending ||
+      launching ||
+      voiceBusy ||
+      !messages.some((message) => message.role === "votic" && !message.fallback)
+    )
+      return;
+    sendLock.current = true;
+    const askGeneration = generation.current;
+    setSending(true);
+    setSummarizing(true);
+    setError("");
+    try {
+      const request = conversation_summary_request(messages);
+      const answer = await ask_votic(
+        CONVERSATION_SUMMARY_PROMPT,
+        request.document,
+        request.history,
+        explanationStyle,
+      );
+      if (askGeneration !== generation.current) return;
+      if (!answered_from_context(request, answer)) {
+        setError(answer.answer);
+        return;
+      }
+      setMessages((current) => [
+        ...current,
+        {
+          role: "votic",
+          text: answer.answer,
+          summary: true,
+          source:
+            context.kind === "document" || context.kind === "notes"
+              ? (context.saveSource ?? undefined)
+              : undefined,
+        },
+      ]);
+    } catch (error) {
+      if (askGeneration === generation.current)
+        setError(error instanceof Error ? error.message : "Votic could not summarize this conversation.");
+    } finally {
+      sendLock.current = false;
+      if (askGeneration === generation.current) {
+        setSending(false);
+        setSummarizing(false);
+      }
+    }
+  }
   function open_answer_link(link: AskLink) {
     if (!documents.some((document) => document.id === link.documentId)) return;
     openDocument(link.documentId, link.sentenceIndex);
@@ -302,13 +359,30 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   }
   function can_save_answer(message: Message) {
     return Boolean(
-      message.source && documents.some((document) => document.id === message.source?.documentId),
+      message.summary ||
+      (message.source && documents.some((document) => document.id === message.source?.documentId)),
     );
   }
   function save_answer_to_notes(index: number) {
     const message = messages[index];
-    if (!message || message.role !== "votic" || message.saved || !message.source) return;
+    if (!message || message.role !== "votic" || message.saved) return;
     const { now, id } = answer_note_stamp();
+    if (message.summary && !message.source) {
+      addQuickNote({
+        id,
+        sentenceIndex: 0,
+        text: "",
+        note: message.text,
+        title: "Ask Votic conversation summary",
+        noteType: "key-point",
+        tags: ["votic", "summary"],
+        createdAt: now,
+        updatedAt: now,
+      });
+      setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
+      return;
+    }
+    if (!message.source) return;
     const note = answer_note_for_source(documents, message.source, message.text, now, id);
     if (!note) return;
     savePassage(note.documentId, note.passage);
@@ -353,7 +427,21 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 {context.label}
               </Text>
             </View>
-            <View style={s.icon} />
+            <AskConversationMenu
+              actions={[
+                { label: "Quick notes", icon: "create-outline", onPress: quickNote.openQuickNote },
+                {
+                  label: "Summarize",
+                  icon: "sparkles-outline",
+                  disabled:
+                    sending ||
+                    launching ||
+                    voiceBusy ||
+                    !messages.some((message) => message.role === "votic" && !message.fallback),
+                  onPress: () => void summarize_conversation(),
+                },
+              ]}
+            />
           </View>
           <FadingScrollView
             ref={scrollRef}
@@ -413,7 +501,18 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   ]}
                 >
                   {m.role === "votic" ? (
-                    <AIResponse text={m.text} animate={!m.fallback} style={[s.body, { color: theme.text }]} />
+                    <View>
+                      {m.summary ? (
+                        <Text style={[s.body, { color: theme.text, fontWeight: "700" }]}>
+                          Conversation summary
+                        </Text>
+                      ) : null}
+                      <AIResponse
+                        text={m.text}
+                        animate={!m.fallback}
+                        style={[s.body, { color: theme.text }]}
+                      />
+                    </View>
                   ) : (
                     <Text style={[s.body, { color: "#FFF" }]}>{m.text}</Text>
                   )}
@@ -453,7 +552,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 </View>
               ))
             )}
-            {sending ? <AIThinking /> : null}
+            {sending ? (
+              <AIThinking
+                summary={summarizing}
+                question={messages.filter((message) => message.role === "user").at(-1)?.text}
+                grounded={context.kind === "document" || context.kind === "notes"}
+              />
+            ) : null}
             {error || retrying ? (
               <View accessibilityLiveRegion="polite" style={[s.error, { borderColor: theme.border }]}>
                 {error ? <Text style={[s.body, { color: theme.text }]}>{error}</Text> : null}
@@ -666,6 +771,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
           ) : null}
         </View>
       </KeyboardAvoidingView>
+      {quickNote.editor}
     </SafeAreaView>
   );
 }

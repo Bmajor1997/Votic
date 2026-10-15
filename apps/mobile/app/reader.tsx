@@ -41,7 +41,6 @@ import {
   answer_note_for_source,
   AskAnswerSource,
   conversation_messages,
-  FULL_HISTORY,
   prepare_ask_request,
   resolve_ask_votic_context,
 } from "../src/ask/askVoticContext";
@@ -52,6 +51,8 @@ import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
+import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
+import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../src/ask/conversationSummary";
 import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
@@ -133,18 +134,13 @@ type ReaderAskMessage = {
   /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
   fallback?: boolean;
 };
-/** `partial` when the conversation was longer than the server accepts, so only its latest part was summarized. */
 // `after`: how many messages came before it, so later answers (such as Catch me up) appear below it, not hidden above.
 type ConversationSummary = {
   text: string;
   source?: AskAnswerSource;
   saved?: boolean;
-  partial?: boolean;
   after: number;
 };
-
-const CONVERSATION_SUMMARY_PROMPT =
-  "Create a quick summary of our conversation. Start with one short main-idea sentence, then list the essential answers and key takeaways as clear bullet points. Include important terms only when they help understanding. Keep it concise, accurate, and supported by the document.";
 
 export default function Reader() {
   return (
@@ -155,6 +151,7 @@ export default function Reader() {
 }
 
 function ReaderContent() {
+  const quickNote = useQuickNoteEditor();
   const { theme } = useVoticTheme();
   const { uid } = useAccountData();
   const [nativePlayer] = useState(notification_player);
@@ -264,26 +261,26 @@ function ReaderContent() {
     (message) => message.role === "votic" && !message.fallback,
   ).length;
   // What applies to the whole conversation sits in the header's menu rather than under the answers.
-  // Summarizing is offered once there's more than one answer to sum up.
-  const conversationActions: AskConversationAction[] = documentAnswers
-    ? [
-        {
-          label: conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes",
-          icon: "bookmark-outline",
-          done: conversationSaved,
-          onPress: save_conversation_to_notes,
-        },
-        ...(documentAnswers >= 2 && !conversationSummary && !summarizing && !askSending
-          ? [
-              {
-                label: "Summarize conversation",
-                icon: "sparkles-outline" as const,
-                onPress: () => void summarize_conversation(),
-              },
-            ]
-          : []),
-      ]
-    : [];
+  // Summaries cover both sides of the conversation; Quick notes opens the Notes editor.
+  const conversationActions: AskConversationAction[] = [
+    { label: "Quick notes", icon: "create-outline", onPress: quickNote.openQuickNote },
+    {
+      label: "Summarize",
+      icon: "sparkles-outline",
+      disabled: !documentAnswers || summarizing || askSending,
+      onPress: () => void summarize_conversation(),
+    },
+    ...(documentAnswers
+      ? [
+          {
+            label: conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes",
+            icon: "bookmark-outline" as const,
+            done: conversationSaved,
+            onPress: save_conversation_to_notes,
+          },
+        ]
+      : []),
+  ];
   // Keep the empty composer compact; recording happens inside the same one-line bar.
   const minimumAskHeight = askComposerHeight + 22 + (askVoiceError ? askVoiceErrorHeight : 0);
   const askPanelHeight = hasAskConversation
@@ -294,7 +291,7 @@ function ReaderContent() {
           Math.floor((availableHeight ?? window.height) * ASK_CONVERSATION_MAX_SHARE),
         ),
       )
-    : Math.max(ASK_COMPOSER_HEIGHT, minimumAskHeight);
+    : Math.max(ASK_COMPOSER_HEIGHT, minimumAskHeight + 48);
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     create_throttled_saver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
@@ -518,7 +515,7 @@ function ReaderContent() {
   }
   async function submit_ask_question() {
     const clean = askQuestion.trim();
-    if (!clean || askSending || askVoiceBusy || !activeDocument) return;
+    if (!clean || askSending || summarizing || askVoiceBusy || !activeDocument) return;
     Keyboard.dismiss();
     const generation = askGeneration.current;
     const context = resolve_ask_votic_context(documents, activeDocument, {});
@@ -671,7 +668,7 @@ function ReaderContent() {
     setSummarizing(true);
     setAskError("");
     try {
-      const request = prepare_ask_request(context, CONVERSATION_SUMMARY_PROMPT, askMessages, FULL_HISTORY);
+      const request = conversation_summary_request(askMessages);
       const answer = await ask_votic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
@@ -681,7 +678,6 @@ function ReaderContent() {
       }
       setConversationSummary({
         after: askMessages.length,
-        partial: conversation_messages(askMessages).length > FULL_HISTORY.messages,
         text: answer.answer,
         source:
           context.kind === "document" || context.kind === "notes"
@@ -1494,25 +1490,23 @@ function ReaderContent() {
                       },
                     ]}
                   >
-                    {hasAskConversation ? (
-                      <View style={s.askHeader}>
-                        <View style={s.askBrand}>
-                          <VoticLogo compact markOnly />
-                          <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
-                        </View>
-                        <View style={s.askHeaderActions}>
-                          <AskConversationMenu actions={conversationActions} />
-                          <Pressable
-                            accessibilityRole="button"
-                            accessibilityLabel="Close Ask Votic"
-                            onPress={close_ask_votic}
-                            style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
-                          >
-                            <Ionicons name="close" size={24} color={theme.text} />
-                          </Pressable>
-                        </View>
+                    <View style={s.askHeader}>
+                      <View style={s.askBrand}>
+                        <VoticLogo compact markOnly />
+                        <Text style={[s.askTitle, { color: theme.text }]}>Ask Votic</Text>
                       </View>
-                    ) : null}
+                      <View style={s.askHeaderActions}>
+                        <AskConversationMenu actions={conversationActions} />
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel="Close Ask Votic"
+                          onPress={close_ask_votic}
+                          style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
+                        >
+                          <Ionicons name="close" size={24} color={theme.text} />
+                        </Pressable>
+                      </View>
+                    </View>
                     {hasAskConversation ? (
                       <ScrollView
                         ref={askScrollRef}
@@ -1542,11 +1536,6 @@ function ReaderContent() {
                                 Conversation summary
                               </Text>
                             </View>
-                            {conversationSummary.partial ? (
-                              <Text style={[s.askStatus, { color: theme.mutedText }]}>
-                                Covers the most recent part of this conversation.
-                              </Text>
-                            ) : null}
                             <AIResponse
                               key={conversationSummary.text}
                               text={conversationSummary.text}
@@ -1576,7 +1565,13 @@ function ReaderContent() {
                         {askMessages
                           .slice(summaryAt)
                           .map((message, offset) => ask_message_view(message, summaryAt + offset))}
-                        {askSending || summarizing ? <AIThinking summary={summarizing} /> : null}
+                        {askSending || summarizing ? (
+                          <AIThinking
+                            summary={summarizing}
+                            question={askMessages.filter((message) => message.role === "user").at(-1)?.text}
+                            grounded
+                          />
+                        ) : null}
                         {askError ? (
                           <Text
                             accessibilityLiveRegion="polite"
@@ -1612,13 +1607,6 @@ function ReaderContent() {
                         { borderColor: theme.accent, backgroundColor: theme.surface },
                       ]}
                     >
-                      {/* The logo steps aside once there's a question, so the words get the room. */}
-                      {!hasAskConversation &&
-                      !showAskRecording &&
-                      askVoicePhase !== "error" &&
-                      !askQuestion ? (
-                        <VoticLogo compact markOnly progress={progress} />
-                      ) : null}
                       {showAskRecording ? (
                         <View style={s.askRecordingInput}>
                           <VoiceRecordingArea
@@ -1702,16 +1690,6 @@ function ReaderContent() {
                           )}
                         </Pressable>
                       )}
-                      {!hasAskConversation ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel="Close Ask Votic"
-                          onPress={close_ask_votic}
-                          style={({ pressed }) => [s.askComposerClose, { opacity: pressed ? 0.55 : 1 }]}
-                        >
-                          <Ionicons name="close" size={22} color={theme.text} />
-                        </Pressable>
-                      ) : null}
                     </View>
                   </Animated.View>
                 ) : null}
@@ -1749,6 +1727,7 @@ function ReaderContent() {
               onSave={confirm_save_passage}
               onRemove={confirm_remove_passage}
             />
+            {quickNote.editor}
           </SafeAreaView>
         </Animated.View>
       </Animated.View>

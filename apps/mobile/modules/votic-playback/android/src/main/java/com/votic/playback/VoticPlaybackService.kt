@@ -11,6 +11,11 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
+import android.graphics.Rect
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -36,6 +41,8 @@ class VoticPlaybackService : Service() {
     private const val CHANNEL = "votic-listening-v2"
     private const val OLD_CHANNEL = "votic-listening"
     private const val NOTIFICATION_ID = 2401
+    // Matches ThemeProvider's default blue accent (#2563EB).
+    private const val BRAND_BLUE = 0xFF2563EB.toInt()
     @Volatile var state: Map<String, Any?> = emptyMap()
       private set
     // Written on the JS module's thread and read on the main thread.
@@ -86,8 +93,18 @@ class VoticPlaybackService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private var destroyed = false
   private var lastCheckpoint = 0L
-  // The Votic V on a cream card: Android paints the player from this artwork instead of a plain black panel.
-  private val artwork: Bitmap? by lazy { BitmapFactory.decodeResource(resources, R.drawable.votic_playback_artwork) }
+  // Compose the same mark and tinted wing mask as VoticLogo, on the default cool background.
+  private val artwork: Bitmap by lazy {
+    Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).also { bitmap ->
+      val canvas = Canvas(bitmap)
+      canvas.drawColor(0xFFF3F6FC.toInt())
+      val bounds = Rect(80, 96, 444, 460)
+      val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+      canvas.drawBitmap(BitmapFactory.decodeResource(resources, R.drawable.votic_playback_mark), null, bounds, paint)
+      paint.colorFilter = PorterDuffColorFilter(BRAND_BLUE, PorterDuff.Mode.SRC_IN)
+      canvas.drawBitmap(BitmapFactory.decodeResource(resources, R.drawable.votic_playback_wings), null, bounds, paint)
+    }
+  }
   private val attributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -379,7 +396,7 @@ class VoticPlaybackService : Service() {
       .setOnlyAlertOnce(true).setShowWhen(false).setOngoing(playing)
       .setDeleteIntent(action("stop"))
       .setContentIntent(open_app())
-      .setColor(0xFFEB6834.toInt())
+      .setColor(BRAND_BLUE)
       .also { notice -> artwork?.let { notice.setLargeIcon(it) } }
       .addAction(Notification.Action.Builder(android.R.drawable.ic_media_previous, "Previous passage", action("previous")).build())
       .addAction(Notification.Action.Builder(if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,

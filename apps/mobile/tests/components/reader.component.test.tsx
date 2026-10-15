@@ -70,6 +70,47 @@ beforeEach(() => {
 });
 
 describe("Reader", () => {
+  it("offers summaries and quick notes throughout the Reader conversation without moving the passage", async () => {
+    askVoticMock.mockResolvedValueOnce({
+      answer: "First answer.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: null,
+    });
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    expect(screen.queryByRole("button", { name: "Quick notes" })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "My first question?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    let finish!: (value: Awaited<ReturnType<typeof ask_votic>>) => void;
+    askVoticMock.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize" }));
+    const transcript = askVoticMock.mock.calls.at(-1)?.[1]?.sections[0].text;
+    expect(transcript).toContain("You: My first question?");
+    expect(transcript).toContain("Votic: First answer.");
+    expect(transcript).not.toContain(book.plainText);
+    expect(screen.getByLabelText("Summarizing")).toBeTruthy();
+    await act(async () =>
+      finish({
+        answer: "The guide covers three passages.",
+        mode: "document-ai",
+        sectionIndex: 0,
+        sectionTitle: null,
+      }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Quick notes" }));
+    expect(screen.getByLabelText("Note text")).toBeTruthy();
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "My own quick note.");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(askVoticMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("First passage here.")).toBeTruthy();
+  });
   it("speaks continuous passages on Android and ignores callbacks from completed utterances", async () => {
     const platform = jest.replaceProperty(Platform, "OS", "android");
     try {
@@ -344,9 +385,9 @@ describe("Reader", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save answer to Notes" }));
     expect(screen.getByRole("button", { name: "Saved to Notes" })).toBeTruthy();
 
-    // Saving the whole conversation is in the header's menu. One answer isn't worth summarizing yet.
+    // All conversation-level actions live together in the header menu, even after one exchange.
     await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
-    expect(screen.queryByRole("menuitem", { name: "Summarize conversation" })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "Summarize" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("menuitem", { name: "Save conversation to Notes" }));
     expect(screen.queryByRole("menu")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
@@ -372,7 +413,7 @@ describe("Reader", () => {
       sectionTitle: "Field Guide · 1/1",
     });
     await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
-    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize conversation" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize" }));
     await waitFor(() => expect(screen.getByLabelText("Conversation notes preview")).toBeTruthy());
     expect(screen.getByText(/Key term: focus/)).toBeTruthy();
     expect(screen.getByText("Conversation summary")).toBeTruthy();
@@ -432,7 +473,7 @@ describe("Reader", () => {
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByText("· From this document")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Conversation options" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Conversation options" })).toBeTruthy();
     // A notice doesn't tick "Ask Votic a question" off the getting-started checklist.
     expect(JSON.parse((await AsyncStorage.getItem(ONBOARDING_KEY)) ?? "{}").askedVotic).not.toBe(true);
 
@@ -478,13 +519,15 @@ describe("Reader", () => {
       sectionTitle: null,
     });
     await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
-    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize conversation" }));
+    await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize" }));
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
     expect(screen.queryByLabelText("Conversation notes preview")).toBeNull();
     // All ten messages were sent, not just the last six.
-    const history = askVoticMock.mock.calls.at(-1)?.[2];
-    expect(history).toHaveLength(10);
-    expect(history?.[0]).toEqual({ role: "user", text: "Question 1?" });
+    const transcript = askVoticMock.mock.calls.at(-1)?.[1]?.sections[0].text;
+    for (let turn = 1; turn <= 5; turn += 1) {
+      expect(transcript).toContain(`You: Question ${turn}?`);
+      expect(transcript).toContain(`Votic: Answer ${turn}.`);
+    }
   });
 
   it("closes Ask Votic at once with Reduce Motion and returns to the Reader where it was", async () => {
