@@ -14,7 +14,7 @@ it("sweeps a violet band across the thinking label and stops on unmount", async 
       (letter) => letter.props.style.color,
     );
   const initialColors = colors();
-  expect(initialColors).toContain("#a78bfa");
+  expect(initialColors).toContain("#7c3aed");
   expect(initialColors).toContain("#2563eb");
   expect(screen.queryByText("…")).toBeNull();
   await act(async () => jest.advanceTimersByTime(400));

@@ -2,6 +2,9 @@ import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
 
+import { assert_help_request_size, help_request_body, type ExplanationStyle } from "./helpRequest";
+export type { ExplanationStyle } from "./helpRequest";
+
 const API_TIMEOUT_MS = 20_000;
 function development_host_uri(constants: typeof Constants = Constants) {
   const legacy = constants as typeof Constants & {
@@ -122,7 +125,6 @@ export type VoticAnswer = {
   sectionIndex: number | null;
   sectionTitle: string | null;
 };
-export type ExplanationStyle = "quick" | "simple" | "detailed" | "adaptive";
 export async function ask_votic(
   question: string,
   document?: { title: string; sections: { heading: string; text: string }[] },
@@ -130,19 +132,12 @@ export async function ask_votic(
   explanationStyle: ExplanationStyle = "adaptive",
   feature: "ask-votic" | "catch-me-up" = "ask-votic",
 ): Promise<VoticAnswer> {
+  const body = help_request_body(question, document, history, explanationStyle, feature);
+  assert_help_request_size(body);
   const response = await api_fetch("/api/help", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      question,
-      // Help without a document is about the phone app, not the web prototype.
-      client: "mobile",
-      ...(feature !== "ask-votic" ? { feature } : {}),
-      document,
-      ...(history.length ? { history } : {}),
-      // "adaptive" is the server's default, so it is left out to keep requests unchanged for most people.
-      ...(explanationStyle !== "adaptive" ? { explanationStyle } : {}),
-    }),
+    body,
   });
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not answer right now."));

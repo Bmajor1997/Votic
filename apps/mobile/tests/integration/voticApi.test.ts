@@ -13,6 +13,21 @@ afterEach(() => {
 });
 
 describe("Votic API requests", () => {
+  it("rejects oversized multibyte context before refreshing credentials or sending it", async () => {
+    const token = jest.fn(async () => "id-token");
+    set_auth_token_provider(token);
+    const fetchMock = jest.fn(async () => new Response("{}"));
+    global.fetch = fetchMock as typeof fetch;
+    await expect(
+      ask_votic("Summarize", {
+        title: "Conversation",
+        sections: [{ heading: "Transcript", text: "漢".repeat(200_000) }],
+      }),
+    ).rejects.toThrow("too long");
+    expect(token).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("times out a stalled token refresh and never sends a late request", async () => {
     let finish!: (token: string) => void;
     set_auth_token_provider(

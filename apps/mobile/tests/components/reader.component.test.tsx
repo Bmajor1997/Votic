@@ -622,6 +622,29 @@ describe("Reader", () => {
       speak.mockClear();
       jest.mocked(Speech.stop).mockClear();
     }
+    it.each(["finished", "shown all"])(
+      "keeps %s answers visible when inserting a conversation summary",
+      async (state) => {
+        await open_ask_with_answer();
+        if (state === "finished") await act(async () => jest.advanceTimersByTime(16000));
+        else await fireEvent.press(screen.getByRole("button", { name: "Show full response" }));
+        expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
+        askVoticMock.mockResolvedValueOnce({
+          answer: "A new conversation summary.",
+          mode: "document-ai",
+          sectionIndex: 0,
+          sectionTitle: null,
+        });
+        await fireEvent.press(screen.getByRole("button", { name: "Conversation options" }));
+        await fireEvent.press(screen.getByRole("menuitem", { name: "Summarize" }));
+        // Only the new summary is writing. Earlier answers keep their component state.
+        expect(screen.getAllByRole("button", { name: "Show full response" })).toHaveLength(1);
+        expect(screen.getByText(answer)).toBeTruthy();
+        await act(async () => jest.advanceTimersByTime(16000));
+        expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
+      },
+    );
+
     /** Ask Votic is fully closed and the Reader is back where it was, with nothing spoken or stopped. */
     function expect_reader_restored() {
       expect(screen.queryByLabelText("Ask Votic conversation")).toBeNull();

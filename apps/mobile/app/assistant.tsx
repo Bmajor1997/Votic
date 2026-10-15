@@ -317,7 +317,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     setSummarizing(true);
     setError("");
     try {
-      const request = conversation_summary_request(messages);
+      const request = conversation_summary_request(messages, explanationStyle);
       const answer = await ask_votic(
         CONVERSATION_SUMMARY_PROMPT,
         request.document,
@@ -818,7 +818,6 @@ const s = StyleSheet.create({
   userMessage: { alignSelf: "flex-end", borderRadius: 16, paddingHorizontal: spacing.md },
   voticMessage: { alignSelf: "flex-start" },
   answerFooter: { marginTop: spacing.sm },
-  thinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   status: { fontSize: 14 },
   error: { borderWidth: 1, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   retry: {

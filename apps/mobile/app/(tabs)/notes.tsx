@@ -16,6 +16,7 @@ import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { NoteType } from "../../src/documents/types";
+import { new_quick_note_item, note_from_draft } from "../../src/notes/noteDraft";
 import { note_selection_id } from "../../src/notes/askVoticNotesContext";
 import { NotebookCard } from "../../src/notes/components/NotebookCard";
 import { NotebookHeader } from "../../src/notes/components/NotebookHeader";
@@ -24,7 +25,7 @@ import { NoteGroupCard } from "../../src/notes/components/NoteGroupCard";
 import { NoteOptionsMenu } from "../../src/notes/components/NoteOptionsMenu";
 import { NotesFilterSheet } from "../../src/notes/components/NotesFilterSheet";
 import { NoteViewer } from "../../src/notes/components/NoteViewer";
-import { automatic_note_title, clean_tags, note_type_label } from "../../src/notes/noteMetadata";
+import { automatic_note_title, note_type_label } from "../../src/notes/noteMetadata";
 import {
   advanced_filter_count,
   available_tags,
@@ -151,55 +152,18 @@ export default function Notes() {
     });
   }
   function start_quick_note() {
-    const now = Date.now();
-    const document = notebook || {
-      id: "new-quick-note",
-      title: "Quick Notes",
-      sourceName: "Quick Notes.txt",
-      plainText: "",
-      importedAt: now,
-      updatedAt: now,
-      progress: 0,
-      sentenceIndex: 0,
-      wordIndex: 0,
-      playbackRate: 1,
-    };
-    setEditing({
-      document,
-      passage: {
-        id: "quick-" + now + "-" + Math.random().toString(36).slice(2, 8),
-        sentenceIndex: 0,
-        text: "",
-        note: "",
-        createdAt: now,
-        updatedAt: now,
-      },
-    });
+    setEditing(new_quick_note_item(notebook));
   }
   function save_note({ document, passage }: NoteItem, draft: NoteDraft) {
     if (!passage.text && !draft.note.trim()) return;
     if (document.id === "new-quick-note") {
-      addQuickNote({
-        ...passage,
-        note: draft.note.trim(),
-        title: draft.title.trim() || undefined,
-        noteType: draft.noteType,
-        tags: clean_tags(draft.tags),
-        updatedAt: Date.now(),
-      });
+      addQuickNote(note_from_draft(passage, draft));
       setEditing(null);
       setQuery("");
       clear_filters();
       return;
     }
-    savePassage(document.id, {
-      ...passage,
-      note: draft.note.trim(),
-      title: draft.title.trim() || undefined,
-      noteType: draft.noteType,
-      tags: clean_tags(draft.tags),
-      updatedAt: Date.now(),
-    });
+    savePassage(document.id, note_from_draft(passage, draft));
     setEditing(null);
   }
   function toggle_pin({ document, passage }: NoteItem) {

@@ -44,9 +44,6 @@ export const MISSING_NOTES_MESSAGE =
   "These notes are no longer available. Go back to Notes and choose them again.";
 export const HISTORY_MESSAGES = 6;
 export const HISTORY_MESSAGE_CHARS = 1500;
-/** The most history the server accepts; used when the whole conversation matters, as in a summary. */
-export const FULL_HISTORY = { messages: 20, chars: 2000 };
-type HistoryLimit = { messages: number; chars: number };
 type ChatMessage = { role: "user" | "votic"; text: string; fallback?: boolean };
 
 function single(value: Param) {
@@ -132,17 +129,16 @@ export function conversation_messages<T extends ChatMessage>(messages: T[]) {
 }
 
 /** The last few exchanges, so follow-up questions make sense. Excludes the question being asked. */
-export function recent_history(
-  messages: ChatMessage[],
-  question: string,
-  limit: HistoryLimit = { messages: HISTORY_MESSAGES, chars: HISTORY_MESSAGE_CHARS },
-): AskHistoryItem[] {
+export function recent_history(messages: ChatMessage[], question: string): AskHistoryItem[] {
   const conversation = conversation_messages(messages);
   const last = conversation[conversation.length - 1];
   const prior = last?.role === "user" && last.text === question ? conversation.slice(0, -1) : conversation;
-  return prior.slice(-limit.messages).map((message) => ({
+  return prior.slice(-HISTORY_MESSAGES).map((message) => ({
     role: message.role === "user" ? "user" : "assistant",
-    text: message.text.length > limit.chars ? message.text.slice(0, limit.chars - 1) + "…" : message.text,
+    text:
+      message.text.length > HISTORY_MESSAGE_CHARS
+        ? message.text.slice(0, HISTORY_MESSAGE_CHARS - 1) + "…"
+        : message.text,
   }));
 }
 
@@ -173,9 +169,8 @@ export function prepare_ask_request(
   context: AskVoticContext,
   question: string,
   messages: ChatMessage[],
-  historyLimit?: HistoryLimit,
 ): AskRequest {
-  const history = recent_history(messages, question, historyLimit);
+  const history = recent_history(messages, question);
   if (context.kind === "notes")
     return to_request(context.title, select_sections(context.sections, question), history);
   if (context.kind === "document") {

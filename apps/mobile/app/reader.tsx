@@ -603,6 +603,49 @@ function ReaderContent() {
     );
   }
 
+  function ask_conversation_views() {
+    const views = askMessages.map(ask_message_view);
+    if (conversationSummary)
+      views.splice(
+        summaryAt,
+        0,
+        <View
+          key="conversation-summary"
+          accessibilityLabel="Conversation notes preview"
+          style={[s.summaryCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <View style={s.summaryTitleRow}>
+            <Ionicons name="sparkles" size={17} color={theme.accent} />
+            <Text style={[s.summaryTitle, { color: theme.text }]}>Conversation summary</Text>
+          </View>
+          <AIResponse
+            key={conversationSummary.text}
+            text={conversationSummary.text}
+            style={[s.askAnswerText, { color: theme.text }]}
+          />
+          <AskAnswerFooter
+            listen={{
+              playing: answerListening.playingKey === "summary",
+              failed: answerListening.errorKey === "summary",
+              disabled: askVoiceBusy,
+              onPress: () => void answerListening.toggle("summary", conversationSummary.text, stop),
+            }}
+            save={
+              conversationSummary.source
+                ? {
+                    saved: Boolean(conversationSummary.saved),
+                    onPress: save_conversation_summary,
+                    label: "Save conversation summary to Notes",
+                    savedLabel: "Conversation summary saved to Notes",
+                  }
+                : null
+            }
+          />
+        </View>,
+      );
+    return views;
+  }
+
   async function send_catch_up() {
     if (!activeDocument || askSending || activeDocument.progress <= 0) return;
     Keyboard.dismiss();
@@ -1521,50 +1564,7 @@ function ReaderContent() {
                             Ask a question about {activeDocument?.title || "this document"}.
                           </Text>
                         ) : null}
-                        {askMessages.slice(0, summaryAt).map(ask_message_view)}
-                        {conversationSummary ? (
-                          <View
-                            accessibilityLabel="Conversation notes preview"
-                            style={[
-                              s.summaryCard,
-                              { borderColor: theme.border, backgroundColor: theme.surface },
-                            ]}
-                          >
-                            <View style={s.summaryTitleRow}>
-                              <Ionicons name="sparkles" size={17} color={theme.accent} />
-                              <Text style={[s.summaryTitle, { color: theme.text }]}>
-                                Conversation summary
-                              </Text>
-                            </View>
-                            <AIResponse
-                              key={conversationSummary.text}
-                              text={conversationSummary.text}
-                              style={[s.askAnswerText, { color: theme.text }]}
-                            />
-                            <AskAnswerFooter
-                              listen={{
-                                playing: answerListening.playingKey === "summary",
-                                failed: answerListening.errorKey === "summary",
-                                disabled: askVoiceBusy,
-                                onPress: () =>
-                                  void answerListening.toggle("summary", conversationSummary.text, stop),
-                              }}
-                              save={
-                                conversationSummary.source
-                                  ? {
-                                      saved: Boolean(conversationSummary.saved),
-                                      onPress: save_conversation_summary,
-                                      label: "Save conversation summary to Notes",
-                                      savedLabel: "Conversation summary saved to Notes",
-                                    }
-                                  : null
-                              }
-                            />
-                          </View>
-                        ) : null}
-                        {askMessages
-                          .slice(summaryAt)
-                          .map((message, offset) => ask_message_view(message, summaryAt + offset))}
+                        {ask_conversation_views()}
                         {askSending || summarizing ? (
                           <AIThinking
                             summary={summarizing}
@@ -1844,7 +1844,6 @@ const s = StyleSheet.create({
   },
   askComposerTall: { borderRadius: 24, alignItems: "flex-end", paddingVertical: 2 },
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  askComposerClose: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   dock: {
     borderWidth: 1,
     borderRadius: radii.lg,

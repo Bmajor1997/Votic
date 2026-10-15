@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
+import { ai_shimmer_colors } from "./aiShimmerColors";
 import { mix, useVoticTheme } from "../theme/ThemeProvider";
 
 const SWEEP_MS = 1300;
@@ -25,7 +26,7 @@ export function ShimmerText({
   const { reduceMotion } = useAccessibilityPreferences();
   const characters = Array.from(text);
   const [center, setCenter] = useState(0);
-  const blue = theme.isDark ? "#60A5FA" : "#2563EB";
+  const { blue, violet } = ai_shimmer_colors(theme.mode);
   useEffect(() => {
     if (reduceMotion) return;
     const started = Date.now();
@@ -47,7 +48,7 @@ export function ShimmerText({
         : characters.map((character, index) => {
             const glow = Math.max(0, 1 - Math.abs(index - center) / BAND);
             return (
-              <Text key={index} style={{ color: mix(blue, "#A78BFA", glow) }}>
+              <Text key={index} style={{ color: mix(blue, violet, glow) }}>
                 {character}
               </Text>
             );

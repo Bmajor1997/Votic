@@ -6,7 +6,6 @@ import {
   prepare_ask_request,
   recent_history,
   answered_from_context,
-  FULL_HISTORY,
   initial_question_from_params,
   notes_scope_from_params,
   resolve_ask_votic_context,
@@ -336,15 +335,6 @@ describe("Ask Votic conversation history", () => {
       { role: "user", text: "Second?" },
       { role: "assistant", text: "Real answer." },
     ]);
-  });
-  it("can send the whole conversation the server accepts, for summaries", () => {
-    const messages = Array.from({ length: 30 }, (_, index) => ({
-      role: index % 2 ? ("votic" as const) : ("user" as const),
-      text: "x".repeat(3000),
-    }));
-    const history = recent_history(messages, "Summarize", FULL_HISTORY);
-    expect(history).toHaveLength(20);
-    expect(history.every((item) => item.text.length === 2000)).toBe(true);
   });
   it("treats document replies that did not use the document as fallbacks", () => {
     const withDocument = { document: { title: "T", sections: [] }, links: [], history: [] };

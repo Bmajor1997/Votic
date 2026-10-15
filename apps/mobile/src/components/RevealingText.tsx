@@ -1,6 +1,7 @@
 import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { mix, useVoticTheme } from "../theme/ThemeProvider";
+import { ai_shimmer_colors } from "./aiShimmerColors";
 import { ink_segments, type TextRevealFrame } from "./textReveal";
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -12,15 +13,11 @@ export const UNWRITTEN_INK = "#00000001";
 
 /**
  * The color of a glowing piece of the writing edge: soft violet near the edge, settling into the text color
- * behind it, with the very newest characters still fading in. Non-hex colors are shown plain.
+ * behind it. Keep letters opaque so the glow stays readable on light and sepia paper.
  */
 function edge_color(text: string, accent: string, position: number) {
   if (!HEX.test(text) || !HEX.test(accent)) return text;
-  const glow = mix(text, accent, Math.min(1, position));
-  const alpha = position > 0.8 ? 1 - (position - 0.8) * 3 : 1;
-  return `${glow}${Math.round(Math.max(0.35, alpha) * 255)
-    .toString(16)
-    .padStart(2, "0")}`;
+  return mix(text, accent, Math.min(1, position));
 }
 
 /**
@@ -60,7 +57,10 @@ export function RevealingText({
     >
       {inked}
       {edge.map((segment, index) => (
-        <Text key={index} style={{ color: edge_color(color, "#A78BFA", segment.position) }}>
+        <Text
+          key={index}
+          style={{ color: edge_color(color, ai_shimmer_colors(theme.mode).violet, segment.position) }}
+        >
           {segment.text}
         </Text>
       ))}
