@@ -18,15 +18,15 @@ export function AskVoticEmptyAnimation() {
       accessibilityLabel="Votic looking through a magnifying glass"
       style={s.search}
     >
-      <Image source={searchBase} resizeMode="contain" style={StyleSheet.absoluteFill} />
+      <Image testID="ask-mascot-base" source={searchBase} resizeMode="contain" style={s.layer} />
       <Image
         testID="ask-mascot-wings"
         source={searchWings}
         resizeMode="contain"
         tintColor={theme.logoWing}
-        style={StyleSheet.absoluteFill}
+        style={s.layer}
       />
-      <Image source={searchShading} resizeMode="contain" style={StyleSheet.absoluteFill} />
+      <Image testID="ask-mascot-shading" source={searchShading} resizeMode="contain" style={s.layer} />
     </View>
   );
 }
@@ -55,6 +55,8 @@ export function DocumentsEmptyAnimation() {
 
 const s = StyleSheet.create({
   search: { width: 150, height: 126, marginBottom: 8 },
+  // An explicit size: a bundled image otherwise takes its own pixel size (480×480) and ignores the box.
+  layer: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
   notes: { width: 132, height: 120 },
   documents: { width: 140, height: 128 },
 });

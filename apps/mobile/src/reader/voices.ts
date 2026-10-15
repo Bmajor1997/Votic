@@ -5,6 +5,7 @@ const NAMES = {
   female: ["Mira", "Kaia", "Nyla", "Elara", "Clara", "Sofia", "Emma", "Lily"],
   male: ["Daniel", "Soren", "Kellan", "Oliver", "James", "Noah", "Henry", "Leo"],
   // Most Android voices don't say whether they sound female or male, so they get names that suit either.
+  // There can be dozens of English voices (several accents), so there are enough names for every one.
   either: [
     "Alex",
     "Jordan",
@@ -22,6 +23,50 @@ const NAMES = {
     "Harper",
     "Logan",
     "Skyler",
+    "Parker",
+    "Hayden",
+    "Dakota",
+    "Ellis",
+    "Finley",
+    "Marlowe",
+    "Remy",
+    "Shiloh",
+    "Sasha",
+    "Robin",
+    "Jules",
+    "Arden",
+    "Blair",
+    "Cameron",
+    "Drew",
+    "Eden",
+    "Frankie",
+    "Gray",
+    "Hollis",
+    "Indigo",
+    "Jesse",
+    "Kai",
+    "Lane",
+    "Micah",
+    "Nico",
+    "Oakley",
+    "Peyton",
+    "Rory",
+    "Sutton",
+    "Tatum",
+    "Wren",
+    "Ari",
+    "Bailey",
+    "Charlie",
+    "Devon",
+    "Emery",
+    "Flynn",
+    "Hunter",
+    "Jaden",
+    "Kendall",
+    "Lennox",
+    "Monroe",
+    "Noel",
+    "Phoenix",
   ],
 };
 
@@ -62,14 +107,27 @@ export function votic_voice_preview(name: string) {
 }
 
 /** Keep one English voice per display name so platform variants do not create duplicate choices. */
+/**
+ * One English voice per sound. Android lists most voices twice, an offline copy ("…-local") and an online copy
+ * ("…-network") that sound the same, so only one is kept, preferring the offline copy that works without internet.
+ */
 export function unique_english_voices<T extends DeviceVoice>(available: T[]) {
+  const sound = (voice: T) =>
+    voice.name
+      .trim()
+      .toLocaleLowerCase()
+      .replace(/-(?:local|network)$/, "");
+  const english = available.filter((voice) => voice.language.toLowerCase().startsWith("en"));
+  const offline_first = [...english].sort(
+    (a, b) => Number(/-network$/i.test(a.name)) - Number(/-network$/i.test(b.name)),
+  );
+  const kept = new Set<T>();
   const seen = new Set<string>();
-  return available
-    .filter((voice) => voice.language.toLowerCase().startsWith("en"))
-    .filter((voice) => {
-      const key = voice.name.trim().toLocaleLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  for (const voice of offline_first) {
+    if (seen.has(sound(voice))) continue;
+    seen.add(sound(voice));
+    kept.add(voice);
+  }
+  // Keep the device's own order for the voices that remain.
+  return english.filter((voice) => kept.has(voice));
 }

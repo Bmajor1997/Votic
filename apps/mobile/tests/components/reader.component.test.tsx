@@ -120,7 +120,7 @@ describe("Reader", () => {
 
     await act(async () => last_speech().options.onDone?.());
     expect(last_speech().text).toBe("Second passage there.");
-    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("1 passage left")).toBeTruthy();
 
     await fireEvent.press(screen.getByRole("button", { name: "Pause" }));
     expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
@@ -213,11 +213,11 @@ describe("Reader", () => {
     await expand_listening_controls();
     expect(screen.getByRole("button", { name: "Previous passage", disabled: true })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
-    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("1 passage left")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
     expect(screen.getByText("0 passages left")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Previous passage" }));
-    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("1 passage left")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
 
     await fireEvent.press(screen.getByRole("button", { name: "Finish document" }));
@@ -379,6 +379,22 @@ describe("Reader", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save conversation summary to Notes" }));
     expect(screen.getByRole("button", { name: "Conversation summary saved to Notes" })).toBeTruthy();
     expect(router.push).not.toHaveBeenCalledWith("/assistant");
+
+    // A later answer appears below the summary, where the conversation scrolls to, not hidden above it.
+    askVoticMock.mockResolvedValueOnce({
+      answer: "Breaks help attention recover.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: "Field Guide · 1/1",
+    });
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "What about breaks?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    await waitFor(() => expect(screen.getByText("Breaks help attention recover.")).toBeTruthy());
+    const tree = JSON.stringify(screen.toJSON());
+    expect(tree.indexOf("Single-tasking keeps attention on one thing.")).toBeLessThan(
+      tree.indexOf("Conversation summary"),
+    );
+    expect(tree.indexOf("Conversation summary")).toBeLessThan(tree.indexOf("Breaks help attention recover."));
   });
 
   it("shows a limit notice as a notice, not as an answer from the document", async () => {
@@ -472,7 +488,7 @@ describe("Reader", () => {
     expect(ask_panel_offset()).toBe(0);
     expect(ask_panel_height()).toBeLessThan(Dimensions.get("window").height * 0.2);
     expect(screen.getByText("Field Guide")).toBeTruthy();
-    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("1 passage left")).toBeTruthy();
     expect(screen.getByText("Second passage there.")).toBeTruthy();
     expect(
       StyleSheet.flatten(screen.getByTestId("reader-scroll").props.contentContainerStyle).paddingBottom,
@@ -499,7 +515,7 @@ describe("Reader", () => {
     expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
     expect(reader_dock_offset()).toBe(0);
     expect(reader_dock_opacity()).toBe(1);
-    expect(screen.getByText("1 passages left")).toBeTruthy();
+    expect(screen.getByText("1 passage left")).toBeTruthy();
     expect(speak).not.toHaveBeenCalled();
 
     await fireEvent.press(screen.getByRole("button", { name: "Play" }));
@@ -549,7 +565,7 @@ describe("Reader", () => {
       expect(screen.queryByLabelText("Ask Votic a question")).toBeNull();
       expect(screen.queryByText(answer)).toBeNull();
       expect(screen.getByText("Field Guide")).toBeTruthy();
-      expect(screen.getByText("1 passages left")).toBeTruthy();
+      expect(screen.getByText("1 passage left")).toBeTruthy();
       expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
       expect(speak).not.toHaveBeenCalled();
       expect(Speech.stop).not.toHaveBeenCalled();

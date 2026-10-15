@@ -81,11 +81,13 @@ const BLOCK_TAGS = new Set(["p", "div", "section", "article", "main", "header", 
 function page_chrome(node) {
   const attrs = new Map((node.attrs || []).map(({ name, value }) => [name, value]));
   return IGNORED_TAGS.has(node.tagName) || attrs.get("role") === "navigation" ||
-    attrs.has("hidden") || attrs.get("aria-hidden") === "true" ||
+    attrs.has("hidden") || attrs.get("aria-hidden") === "true" || attrs.get("role") === "note" ||
+    // Footnote markers such as [1] are small superscripts; "reference" elsewhere can be real content.
+    (node.tagName === "sup" && /(?:^|\s)reference(?:\s|$)/i.test(attrs.get("class") || "")) ||
     /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`) ||
-    // Things a reader skips: citation lists, review/status boxes, short descriptions, navigation boxes,
-    // category links, and anything a site marks as not for print.
-    /(?:^|\s)(?:reflist|references|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
+    // Things a reader skips: citation lists and [1] markers, review/status boxes, short descriptions, fact boxes,
+    // "For other uses…" notes, sidebars, navigation boxes, category links, and anything marked not for print.
+    /(?:^|\s)(?:reflist|references|mw-cite-backlink|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|infobox[\w-]*|hatnote|sidebar[\w-]*|vertical-navbox|ambox[\w-]*|toc|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link|mw-empty-elt)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
 /** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
 const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited|further reading|external links)$/i;

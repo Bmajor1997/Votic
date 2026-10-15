@@ -270,3 +270,14 @@ test("public transport retries only validated addresses when one connection fail
   assert.deepEqual(attempted, ["203.0.113.10", "2606:4700::1111"]);
   assert.equal(await response.text(), "Recovered article");
 });
+
+test("webpage cleanup skips Wikipedia fact boxes, side notes, sidebars and footnote markers", () => {
+  const { text } = clean_webpage_html(`<main><h1>Braille</h1>
+    <div role="note" class="hatnote">This article is about the writing system.</div>
+    <div class="hatnote navigation-not-searchable">For other uses, see Braille (disambiguation).</div>
+    <table class="infobox vcard"><tr><th>Script type</th><td>Alphabet</td></tr><tr><th>Languages</th><td>133 languages</td></tr></table>
+    <table class="sidebar"><tr><td>Writing systems</td></tr></table>
+    <p>Braille is a tactile writing system.<sup class="reference"><a href="#cite-1">[1]</a></sup> It was created in 1824.</p>
+    <table class="wikitable"><tr><th>Letter</th><td>Dots</td></tr></table></main>`);
+  assert.equal(text, "Braille\n\nBraille is a tactile writing system. It was created in 1824.\n\nLetter Dots");
+});

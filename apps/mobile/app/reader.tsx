@@ -84,6 +84,7 @@ import {
   speech_segment,
   word_at_speech_offset,
   word_matches,
+  passages_left_label,
 } from "../src/reader/readerText";
 import { DeviceVoice, unique_english_voices, votic_voice_preview } from "../src/reader/voices";
 import {
@@ -133,7 +134,14 @@ type ReaderAskMessage = {
   fallback?: boolean;
 };
 /** `partial` when the conversation was longer than the server accepts, so only its latest part was summarized. */
-type ConversationSummary = { text: string; source?: AskAnswerSource; saved?: boolean; partial?: boolean };
+// `after`: how many messages came before it, so later answers (such as Catch me up) appear below it, not hidden above.
+type ConversationSummary = {
+  text: string;
+  source?: AskAnswerSource;
+  saved?: boolean;
+  partial?: boolean;
+  after: number;
+};
 
 const CONVERSATION_SUMMARY_PROMPT =
   "Create a quick summary of our conversation. Start with one short main-idea sentence, then list the essential answers and key takeaways as clear bullet points. Include important terms only when they help understanding. Keep it concise, accurate, and supported by the document.";
@@ -217,6 +225,7 @@ function ReaderContent() {
   useWebAutoGrow(askInputRef, askQuestion, ASK_INPUT_MIN_HEIGHT, ASK_INPUT_MAX_HEIGHT);
   const [askError, setAskError] = useState("");
   const [conversationSummary, setConversationSummary] = useState<ConversationSummary | null>(null);
+  const summaryAt = conversationSummary?.after ?? 0;
   const [conversationSaved, setConversationSaved] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
@@ -537,6 +546,58 @@ function ReaderContent() {
     }
   }
 
+  /** One Ask Votic message: the person's question, or Votic's answer with listen, passage and save controls. */
+  function ask_message_view(message: (typeof askMessages)[number], messageIndex: number) {
+    return message.role === "user" ? (
+      <View key={messageIndex} style={[s.askUserMessage, theme.isDark && { backgroundColor: theme.accent }]}>
+        <Text style={s.askUserText}>{message.text}</Text>
+      </View>
+    ) : (
+      <View
+        key={messageIndex}
+        style={[s.askAnswer, { borderColor: theme.border, backgroundColor: theme.surface }]}
+      >
+        <View style={s.askAnswerLabel}>
+          <VoticLogo compact markOnly />
+          <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
+          {message.fallback ? null : (
+            <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>· From this document</Text>
+          )}
+        </View>
+        <AIResponse
+          text={message.text}
+          animate={!message.fallback && !message.revealed}
+          style={[s.askAnswerText, { color: theme.text }]}
+        />
+        <AskAnswerFooter
+          listen={{
+            playing: answerListening.playingKey === String(messageIndex),
+            failed: answerListening.errorKey === String(messageIndex),
+            disabled: askVoiceBusy,
+            onPress: () => void answerListening.toggle(String(messageIndex), message.text, stop),
+          }}
+          source={
+            message.link
+              ? {
+                  label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
+                  accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
+                  onPress: () => open_ask_answer_link(message.link!),
+                }
+              : null
+          }
+          save={
+            message.source
+              ? {
+                  saved: Boolean(message.saved),
+                  onPress: () => save_ask_answer(messageIndex),
+                }
+              : null
+          }
+        />
+      </View>
+    );
+  }
+
   async function send_catch_up() {
     if (!activeDocument || askSending || activeDocument.progress <= 0) return;
     Keyboard.dismiss();
@@ -611,6 +672,7 @@ function ReaderContent() {
         return;
       }
       setConversationSummary({
+        after: askMessages.length,
         partial: conversation_messages(askMessages).length > FULL_HISTORY.messages,
         text: answer.answer,
         source:
@@ -1104,7 +1166,7 @@ function ReaderContent() {
                       {Math.round(progress * 100)}% read
                     </Text>
                     <Text maxFontSizeMultiplier={1.2} style={[s.progressText, { color: theme.mutedText }]}>
-                      {Math.max(0, passages.length - index - 1)} passages left
+                      {passages_left_label(Math.max(0, passages.length - index - 1))}
                     </Text>
                   </View>
                   <SeekableProgress
@@ -1457,65 +1519,7 @@ function ReaderContent() {
                             Ask a question about {activeDocument?.title || "this document"}.
                           </Text>
                         ) : null}
-                        {askMessages.map((message, messageIndex) =>
-                          message.role === "user" ? (
-                            <View
-                              key={messageIndex}
-                              style={[s.askUserMessage, theme.isDark && { backgroundColor: theme.accent }]}
-                            >
-                              <Text style={s.askUserText}>{message.text}</Text>
-                            </View>
-                          ) : (
-                            <View
-                              key={messageIndex}
-                              style={[
-                                s.askAnswer,
-                                { borderColor: theme.border, backgroundColor: theme.surface },
-                              ]}
-                            >
-                              <View style={s.askAnswerLabel}>
-                                <VoticLogo compact markOnly />
-                                <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
-                                {message.fallback ? null : (
-                                  <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
-                                    · From this document
-                                  </Text>
-                                )}
-                              </View>
-                              <AIResponse
-                                text={message.text}
-                                animate={!message.fallback && !message.revealed}
-                                style={[s.askAnswerText, { color: theme.text }]}
-                              />
-                              <AskAnswerFooter
-                                listen={{
-                                  playing: answerListening.playingKey === String(messageIndex),
-                                  failed: answerListening.errorKey === String(messageIndex),
-                                  disabled: askVoiceBusy,
-                                  onPress: () =>
-                                    void answerListening.toggle(String(messageIndex), message.text, stop),
-                                }}
-                                source={
-                                  message.link
-                                    ? {
-                                        label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
-                                        accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
-                                        onPress: () => open_ask_answer_link(message.link!),
-                                      }
-                                    : null
-                                }
-                                save={
-                                  message.source
-                                    ? {
-                                        saved: Boolean(message.saved),
-                                        onPress: () => save_ask_answer(messageIndex),
-                                      }
-                                    : null
-                                }
-                              />
-                            </View>
-                          ),
-                        )}
+                        {askMessages.slice(0, summaryAt).map(ask_message_view)}
                         {conversationSummary ? (
                           <View
                             accessibilityLabel="Conversation notes preview"
@@ -1561,6 +1565,9 @@ function ReaderContent() {
                             />
                           </View>
                         ) : null}
+                        {askMessages
+                          .slice(summaryAt)
+                          .map((message, offset) => ask_message_view(message, summaryAt + offset))}
                         {askSending || summarizing ? <AIThinking summary={summarizing} /> : null}
                         {askError ? (
                           <Text

@@ -4,12 +4,12 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } fro
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ShimmerText } from "./ShimmerText";
 import { RevealingText } from "./RevealingText";
-import { reveal_completed_text, type TextRevealFrame } from "./textReveal";
+import { readable_ai_text, reveal_completed_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
 export function AIResponse({
-  text,
+  text: raw,
   style,
   animate = true,
 }: {
@@ -17,6 +17,7 @@ export function AIResponse({
   style?: StyleProp<TextStyle>;
   animate?: boolean;
 }) {
+  const text = readable_ai_text(raw);
   const { reduceMotion } = useAccessibilityPreferences();
   const { theme } = useVoticTheme();
   const [frame, setFrame] = useState<TextRevealFrame>({

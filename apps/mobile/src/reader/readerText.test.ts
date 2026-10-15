@@ -234,4 +234,27 @@ describe("Votic voices", () => {
     ];
     expect(unique_english_voices(voices).map((voice) => voice.identifier)).toEqual(["a", "d"]);
   });
+  it("keeps one copy of each Android voice, preferring the offline one", () => {
+    const voices = [
+      "en-us-x-iob-network",
+      "en-us-x-iob-local",
+      "en-gb-x-gba-network",
+      "en-au-x-aua-local",
+    ].map((name) => ({ identifier: name, name, language: "en-US" }));
+    expect(unique_english_voices(voices).map((voice) => voice.identifier)).toEqual([
+      "en-us-x-iob-local",
+      "en-gb-x-gba-network",
+      "en-au-x-aua-local",
+    ]);
+  });
+  it("names 60 voices without falling back to numbers", () => {
+    const voices = Array.from({ length: 60 }, (_, i) => ({
+      identifier: `en-x-${i}-local`,
+      name: `en-x-${i}-local`,
+      language: "en-US",
+    }));
+    const names = Object.values(votic_voice_names(voices));
+    expect(new Set(names).size).toBe(60);
+    expect(names.some((name) => /\d/.test(name))).toBe(false);
+  });
 });

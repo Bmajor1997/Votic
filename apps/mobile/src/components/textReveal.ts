@@ -49,3 +49,8 @@ export function reveal_completed_text(
     clearInterval(timer);
   };
 }
+
+/** AI answers can use Markdown list dashes and **bold**; show them as plain bullets and words. */
+export function readable_ai_text(text: string) {
+  return text.replace(/^([ \t]*)[-*][ \t]+/gm, "$1• ").replace(/\*\*(.+?)\*\*/g, "$1");
+}

@@ -127,3 +127,8 @@ export function reader_type(
     fontFamily: readerFont === "serif" ? "serif" : readerFont === "accessible" ? "sans-serif" : undefined,
   };
 }
+
+/** "1 passage left", "2 passages left". */
+export function passages_left_label(count: number) {
+  return `${count} ${count === 1 ? "passage" : "passages"} left`;
+}
