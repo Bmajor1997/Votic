@@ -4,7 +4,7 @@ import { clearSharedPayloads, useIncomingShare } from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { extract_document } from "../src/api/voticApi";
+import { extract_document, scan_document_image } from "../src/api/voticApi";
 import { spacing, radii } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
@@ -26,6 +26,11 @@ function fallback_name(mimeType: string | null) {
     "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
     "application/vnd.ms-powerpoint": "ppt",
     "application/epub+zip": "epub",
+    "application/rtf": "rtf",
+    "application/vnd.oasis.opendocument.text": "odt",
+    "text/html": "html",
+    "image/jpeg": "jpg",
+    "image/png": "png",
   };
   return `Shared document.${extension[mimeType || ""] || "file"}`;
 }
@@ -71,7 +76,9 @@ export default function HandleShare() {
         setStatus(`Reading ${name}…`);
         const text = can_read_locally(name)
           ? clean_local_document_text(new TextDecoder().decode(bytes))
-          : await extract_document(name, bytes);
+          : /\.(jpe?g|png)$/i.test(name)
+            ? await scan_document_image(name, bytes)
+            : await extract_document(name, bytes);
 
         if (!text.trim()) throw new Error("This document does not contain readable text.");
 
