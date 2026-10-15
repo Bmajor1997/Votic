@@ -54,6 +54,9 @@ async function safe_archive_text(file) {
 }
 
 export async function extract_document(name, buffer) {
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_to_document_text(buffer.toString("utf8")));
+  if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
+  if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
   if (/\.ppt$/i.test(name)) return extract_legacy_powerpoint(buffer);
   if (/\.pptx$/i.test(name)) return extract_powerpoint(buffer);
@@ -298,4 +301,43 @@ function decode_html(text) {
     if (entity[0] === "#") return code_point(parseInt(entity.slice(entity[1]?.toLowerCase() === "x" ? 2 : 1), entity[1]?.toLowerCase() === "x" ? 16 : 10));
     return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " })[entity.toLowerCase()];
   });
+}
+
+/** Minimal RTF plain-text reader: handles common escapes and ignores hidden destinations. */
+export function extract_rtf(buffer) {
+  const source = buffer.toString("latin1");
+  if (!source.startsWith("{\\rtf")) throw new Error("This is not a valid RTF document.");
+  const stack = []; let skip = false, pending = false, unicodeSkip = 1, text = "";
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === "{") { stack.push({ skip, unicodeSkip }); pending = true; continue; }
+    if (c === "}") { const state = stack.pop(); if (!state) throw new Error("Malformed RTF document."); skip = state.skip; unicodeSkip = state.unicodeSkip; pending = false; continue; }
+    if (c !== "\\") { if (!skip && c !== "\r" && c !== "\n") text += c; continue; }
+    const next = source[++i];
+    if (next === "*" && pending) { skip = true; pending = false; continue; }
+    if (next === "'" && /^[0-9a-f]{2}$/i.test(source.slice(i+1,i+3))) { if (!skip) text += Buffer.from([parseInt(source.slice(i+1,i+3),16)]).toString("latin1"); i += 2; continue; }
+    if (next === "\\" || next === "{" || next === "}") { if (!skip) text += next; continue; }
+    const m = source.slice(i).match(/^([a-zA-Z]+)(-?\d+)? ?/);
+    if (!m) { if (!skip && next === "~") text += " "; continue; }
+    i += m[0].length-1; const word=m[1].toLowerCase(), arg=m[2] == null ? null : Number(m[2]);
+    if (["fonttbl","colortbl","stylesheet","info","pict","object","header","footer","generator"].includes(word)) skip = true;
+    if (word === "uc" && arg !== null) unicodeSkip=Math.max(0,Math.min(10,arg));
+    if (!skip && word === "u" && arg !== null) { text += String.fromCharCode((arg+65536)%65536); i += unicodeSkip; }
+    if (!skip && ["par","line"].includes(word)) text += "\n";
+    if (!skip && word === "tab") text += "\t";
+    pending = false;
+  }
+  if (stack.length) throw new Error("Malformed RTF document.");
+  return clean_extracted_text(text);
+}
+export async function extract_odt(buffer) {
+  const archive = await load_safe_archive(buffer);
+  const mimetype = archive.file("mimetype");
+  if (!mimetype || (await safe_archive_text(mimetype)).trim() !== "application/vnd.oasis.opendocument.text") throw new Error("This is not a valid ODT document.");
+  const content = archive.file("content.xml");
+  if (!content) throw new Error("This ODT document is missing its content.");
+  const xml = await safe_archive_text(content);
+  const readable = xml.replace(/<text:tab\b[^>]*\/>/g,"\t").replace(/<text:line-break\b[^>]*\/>/g,"\n")
+    .replace(/<\/text:(?:p|h|list-item)>/g,"\n").replace(/<[^>]*>/g," ");
+  return clean_extracted_text(decode_powerpoint_xml(readable));
 }
