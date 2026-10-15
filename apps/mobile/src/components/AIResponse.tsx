@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ShimmerText } from "./ShimmerText";
 import { RevealingText } from "./RevealingText";
 import { lay_down_text, readable_ai_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { VoticLogo } from "./VoticLogo";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
 export function AIResponse({
@@ -37,7 +37,7 @@ export function AIResponse({
     <View style={s.response}>
       {!complete ? (
         <View style={s.statusRow}>
-          <AIStatus label="Revealing response…" />
+          <AIStatus label="Writing" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Show full response"
@@ -62,35 +62,32 @@ export function AIResponse({
   );
 }
 export function AIThinking({ summary = false }: { summary?: boolean }) {
-  return <AIStatus label={summary ? "Thinking about your summary…" : "Thinking…"} />;
+  return <AIStatus label={summary ? "Thinking about your summary" : "Thinking"} />;
 }
 
+/**
+ * What Votic is doing (Thinking, Writing, Transcribing): Votic's mark with its wings rippling, beside a
+ * shimmering label. The compact form is the label alone, for tight spaces such as the question box.
+ */
 export function AIStatus({ label, compact = false }: { label: string; compact?: boolean }) {
-  const { theme } = useVoticTheme();
+  const text = label.replace(/(?:…|\.\.\.)$/, "");
   return (
     <View style={[s.thinking, compact && s.compact]}>
       {!compact && (
         <View accessible={false} importantForAccessibility="no-hide-descendants">
-          <Ionicons name="sparkles-outline" size={16} color={theme.aiStatusText} />
+          <VoticLogo compact markOnly thinking />
         </View>
       )}
-      <ShimmerText text={label.replace(/…$/, "")} accessibilityLabel={label} style={s.aiStatus} />
-      <Text
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        style={[s.aiStatus, { color: theme.mutedText }]}
-      >
-        …
-      </Text>
+      <ShimmerText text={text} accessibilityLabel={text} style={s.aiStatus} />
     </View>
   );
 }
 const s = StyleSheet.create({
   response: { gap: 4 },
-  thinking: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 44, flexShrink: 1 },
+  thinking: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44, flexShrink: 1 },
   compact: { minHeight: 20 },
   statusRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   status: { fontSize: 13 },
-  aiStatus: { fontSize: 13, lineHeight: 20, fontWeight: "400", letterSpacing: 0.1, flexShrink: 1 },
+  aiStatus: { fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1, flexShrink: 1 },
   skip: { minHeight: 48, paddingHorizontal: 8, justifyContent: "center" },
 });

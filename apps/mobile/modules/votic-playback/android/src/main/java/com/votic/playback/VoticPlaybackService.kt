@@ -29,7 +29,10 @@ import org.json.JSONObject
 /** Owns narration and transport commands independently of the React Native screen/JS timers. */
 class VoticPlaybackService : Service() {
   companion object {
-    private const val CHANNEL = "votic-listening"
+    // Default importance, so the Votic icon shows in the status bar beside the clock (low importance hides it),
+    // with no sound or vibration. A channel's importance can't change once created, hence a new id.
+    private const val CHANNEL = "votic-listening-v2"
+    private const val OLD_CHANNEL = "votic-listening"
     private const val NOTIFICATION_ID = 2401
     @Volatile var state: Map<String, Any?> = emptyMap()
       private set
@@ -105,9 +108,15 @@ class VoticPlaybackService : Service() {
     wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
       .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Votic:document-listening")
     if (Build.VERSION.SDK_INT >= 26) {
-      getSystemService(NotificationManager::class.java).createNotificationChannel(
-        NotificationChannel(CHANNEL, "Votic listening", NotificationManager.IMPORTANCE_LOW)
-          .apply { description = "Play, pause, and move through a document without opening Votic." }
+      val notifications = getSystemService(NotificationManager::class.java)
+      notifications.deleteNotificationChannel(OLD_CHANNEL)
+      notifications.createNotificationChannel(
+        NotificationChannel(CHANNEL, "Votic listening", NotificationManager.IMPORTANCE_DEFAULT).apply {
+          description = "Play, pause, and move through a document without opening Votic."
+          setSound(null, null)
+          enableVibration(false)
+          setShowBadge(false)
+        }
       )
     }
     mediaSession = MediaSession(this, "Votic listening")

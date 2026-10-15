@@ -7,10 +7,13 @@ export function VoticLogo({
   compact = false,
   markOnly = false,
   progress,
+  thinking = false,
 }: {
   compact?: boolean;
   markOnly?: boolean;
   progress?: number;
+  /** Keep the wings rippling, top to bottom, while Votic thinks or writes an answer. */
+  thinking?: boolean;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -24,22 +27,24 @@ export function VoticLogo({
       [wing1, wing2, wing3].forEach((value) => value.setValue(1));
       return;
     }
+    const lift = thinking ? 1.2 : 1.12;
     const pulse = (value: Animated.Value) =>
       Animated.sequence([
-        Animated.timing(value, { toValue: 1.12, duration: 110, useNativeDriver: true }),
-        Animated.timing(value, { toValue: 1, duration: 140, useNativeDriver: true }),
+        Animated.timing(value, { toValue: lift, duration: thinking ? 220 : 110, useNativeDriver: true }),
+        Animated.timing(value, { toValue: 1, duration: thinking ? 280 : 140, useNativeDriver: true }),
       ]);
-    const animation = Animated.sequence([
-      Animated.delay(180),
+    const ripple = Animated.sequence([
+      Animated.delay(thinking ? 120 : 180),
       pulse(wing1),
-      Animated.delay(45),
+      Animated.delay(thinking ? 90 : 45),
       pulse(wing2),
-      Animated.delay(45),
+      Animated.delay(thinking ? 90 : 45),
       pulse(wing3),
     ]);
+    const animation = thinking ? Animated.loop(Animated.sequence([ripple, Animated.delay(240)])) : ripple;
     animation.start();
     return () => animation.stop();
-  }, [progress, reduceMotion, wing1, wing2, wing3]);
+  }, [progress, reduceMotion, thinking, wing1, wing2, wing3]);
 
   const wing = (value: Animated.Value, top: number, height: number, wingIndex: number) => {
     const fill = progress === undefined ? 1 : Math.max(0, Math.min(1, progress * 3 - wingIndex));

@@ -26,7 +26,7 @@ function parts(full: string) {
 it("lays answers down from left to right without moving text, and lets the user show the full response", async () => {
   const answer = "First word.\nNext line of the answer.";
   await render_with_providers(<AIResponse text={answer} />);
-  expect(screen.getByText("Revealing response")).toBeTruthy();
+  expect(screen.getByText("Writing")).toBeTruthy();
   // At first nothing is inked, but the whole answer is already laid out (invisibly), so lines never jump.
   expect(parts(answer)).toEqual({ inked: "", hidden: answer });
   await act(async () => jest.advanceTimersByTime(24 * 8));
@@ -36,7 +36,7 @@ it("lays answers down from left to right without moving text, and lets the user 
   expect(answer.endsWith(midway.hidden)).toBe(true);
   await fireEvent.press(screen.getByRole("button", { name: "Show full response" }));
   expect(screen.getByText(answer)).toBeTruthy();
-  expect(screen.queryByText("Revealing response")).toBeNull();
+  expect(screen.queryByText("Writing")).toBeNull();
 });
 it("finishes laying down the answer, fully inked, and clears the generating status", async () => {
   await render_with_providers(<AIResponse text="One two three." />);
@@ -47,7 +47,7 @@ it("finishes laying down the answer, fully inked, and clears the generating stat
 it("shows complete text immediately with reduced motion", async () => {
   await render_with_providers(<AIResponse text="A complete answer." />, { reduceMotion: true });
   expect(screen.getByText("A complete answer.")).toBeTruthy();
-  expect(screen.queryByText("Revealing response")).toBeNull();
+  expect(screen.queryByText("Writing")).toBeNull();
 });
 it("offers an accessible native voice input control", async () => {
   await render_with_providers(

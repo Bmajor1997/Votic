@@ -88,14 +88,23 @@ describe("laying an answer down", () => {
     expect(frames.at(-1)).toEqual({ text, visible: text, highlightStart: text.length, complete: true });
     expect(complete).toHaveBeenCalledOnce();
   });
-  it("finishes long answers in about 2.4 seconds", () => {
-    const complete = vi.fn();
-    lay_down_text("word ".repeat(5000), { onFrame: vi.fn(), onComplete: complete });
-    vi.advanceTimersByTime(2400);
-    expect(complete).toHaveBeenCalledOnce();
+  it("lays words down at a reading pace: a short answer takes several seconds, a long one at most 15", () => {
+    const short = vi.fn();
+    lay_down_text("Braille was invented by Louis Braille, a Frenchman, in 1824. It uses six dots.", {
+      onFrame: vi.fn(),
+      onComplete: short,
+    });
+    vi.advanceTimersByTime(1500);
+    expect(short).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2500);
+    expect(short).toHaveBeenCalledOnce();
+    const long = vi.fn();
+    lay_down_text("word ".repeat(5000), { onFrame: vi.fn(), onComplete: long });
+    vi.advanceTimersByTime(15_100);
+    expect(long).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
-  it("fades the newest characters most and never splits an emoji", () => {
+  it("glows brightest at the writing edge and never splits an emoji", () => {
     const frame = {
       text: "abcdefghij👆klmnop",
       visible: "abcdefghij👆klmnop",
@@ -104,7 +113,9 @@ describe("laying an answer down", () => {
     };
     const segments = ink_segments(frame);
     expect(segments.map((segment) => segment.text).join("")).toBe("efghij👆klmnop");
-    for (let i = 1; i < segments.length; i++) expect(segments[i].alpha).toBeLessThan(segments[i - 1].alpha);
+    for (let i = 1; i < segments.length; i++)
+      expect(segments[i].position).toBeGreaterThan(segments[i - 1].position);
+    expect(segments.at(-1)!.position).toBeGreaterThan(0.9);
     expect(ink_segments({ ...frame, complete: true })).toEqual([]);
     expect(INK_TAIL).toBeGreaterThan(0);
   });

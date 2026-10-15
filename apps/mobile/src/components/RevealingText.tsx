@@ -1,18 +1,26 @@
 import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { useVoticTheme } from "../theme/ThemeProvider";
+import { mix, useVoticTheme } from "../theme/ThemeProvider";
 import { ink_segments, type TextRevealFrame } from "./textReveal";
 
-/** `#RRGGBB` at an opacity, for the fading edge; other color formats are shown solid. */
-function faded(color: string, alpha: number) {
-  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
-  return `${color}${Math.round(alpha * 255)
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/**
+ * The color of a glowing piece of the writing edge: the accent color near the edge, settling into the text color
+ * behind it, with the very newest characters still fading in. Non-hex colors are shown plain.
+ */
+function edge_color(text: string, accent: string, position: number) {
+  if (!HEX.test(text) || !HEX.test(accent)) return text;
+  const glow = mix(text, accent, Math.min(1, position * 0.95));
+  const alpha = position > 0.8 ? 1 - (position - 0.8) * 3 : 1;
+  return `${glow}${Math.round(Math.max(0.35, alpha) * 255)
     .toString(16)
     .padStart(2, "0")}`;
 }
 
 /**
- * Text being laid down from left to right: inked words, then a short edge that is still fading in. The rest of
+ * Text being laid down from left to right: settled words, then a writing edge that glows in the accent color as
+ * it moves, so the shimmer travels with the words being laid down. The rest of
  * the finished text is already there but invisible, so lines wrap exactly as they will at the end and nothing
  * jumps as words arrive. Screen readers get the whole text at once.
  */
@@ -47,7 +55,7 @@ export function RevealingText({
     >
       {inked}
       {edge.map((segment, index) => (
-        <Text key={index} style={{ color: faded(color, segment.alpha) }}>
+        <Text key={index} style={{ color: edge_color(color, theme.accentText, segment.position) }}>
           {segment.text}
         </Text>
       ))}

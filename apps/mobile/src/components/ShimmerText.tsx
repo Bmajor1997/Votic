@@ -10,7 +10,7 @@ const FRAME_MS = 40;
 const BAND = 3;
 
 /**
- * A short status label ("Thinking…") with a band of the accent color sweeping across it, left to right, then a
+ * A short status label ("Thinking") with a band of the accent color sweeping across it, left to right, then a
  * short pause. One light timer drives it, rather than an animation per letter.
  */
 export function ShimmerText({

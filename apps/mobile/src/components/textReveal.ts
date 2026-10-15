@@ -55,16 +55,19 @@ export function readable_ai_text(text: string) {
   return text.replace(/^([ \t]*)[-*][ \t]+/gm, "$1• ").replace(/\*\*(.+?)\*\*/g, "$1");
 }
 
-/** How many characters at the leading edge are still fading in while an answer is laid down. */
-export const INK_TAIL = 24;
-const LAY_DOWN_TICK_MS = 24;
-const LAY_DOWN_MAX_TICKS = 100;
+/** How many characters behind the writing edge are still glowing and settling into the text color. */
+export const INK_TAIL = 32;
+/** Words are laid down at a calm, reading-like pace... */
+const CHARS_PER_SECOND = 40;
+/** ...but a long answer speeds up so it never takes longer than this. */
+const MAX_LAY_DOWN_MS = 15_000;
+const LAY_DOWN_TICK_MS = 33;
 
 /**
- * Lays an answer down from left to right: the visible end advances a few characters at a time, and the
- * last INK_TAIL characters before it are still fading in (see `ink_segments`). `highlightStart` is where the
- * fully inked text ends; it trails the visible end by INK_TAIL and catches up after the last character, so the
- * whole answer is solid when `complete` is true. Long answers take about 2.4 seconds, short ones less.
+ * Lays an answer down from left to right at about 40 characters a second. `visible` is what has been written so
+ * far; `highlightStart` is where the settled text ends. The last INK_TAIL characters before the writing edge
+ * still glow (see `ink_segments`), and after the final character the glow finishes settling, so the whole
+ * answer is plain text when `complete` is true.
  */
 export function lay_down_text(
   text: string,
@@ -72,16 +75,18 @@ export function lay_down_text(
 ): () => void {
   // Character boundaries by code point, so emoji and accented letters are never split.
   const ends = Array.from(text.matchAll(/[\s\S]/gu), (match) => match.index + match[0].length);
-  const per_tick = Math.max(2, Math.ceil((ends.length + INK_TAIL) / LAY_DOWN_MAX_TICKS));
-  let inked = 0;
+  const total = ends.length + INK_TAIL;
+  const per_second = Math.max(CHARS_PER_SECOND, (total * 1000) / MAX_LAY_DOWN_MS);
+  const per_tick = (per_second * LAY_DOWN_TICK_MS) / 1000;
+  let written = 0;
   let cancelled = false;
-  const at = (count: number) => (count <= 0 ? 0 : ends[Math.min(count, ends.length) - 1]);
+  const at = (count: number) => (count < 1 ? 0 : ends[Math.min(Math.floor(count), ends.length) - 1]);
   const publish = () => {
-    const complete = inked >= ends.length + INK_TAIL;
+    const complete = written >= total;
     onFrame({
       text,
-      visible: text.slice(0, at(inked)),
-      highlightStart: complete ? text.length : at(inked - INK_TAIL),
+      visible: text.slice(0, at(written)),
+      highlightStart: complete ? text.length : at(written - INK_TAIL),
       complete,
     });
     return complete;
@@ -94,7 +99,7 @@ export function lay_down_text(
   publish();
   const timer = setInterval(() => {
     if (cancelled) return;
-    inked += per_tick;
+    written = Math.min(total, written + per_tick);
     if (publish()) {
       clearInterval(timer);
       onComplete();
@@ -107,20 +112,23 @@ export function lay_down_text(
 }
 
 /**
- * The fading part of a frame, in a few pieces from most to least inked. Characters nearer the visible end are
- * fainter, so the words appear to be laid down from left to right.
+ * The glowing part of a frame, in pieces from the settled text to the writing edge. `position` runs from 0
+ * (about to settle into the text color) to 1 (the newest characters, glowing brightest and still fading in).
  */
-export function ink_segments(frame: TextRevealFrame, pieces = 6): { text: string; alpha: number }[] {
+export function ink_segments(frame: TextRevealFrame, pieces = 8): { text: string; position: number }[] {
   if (frame.complete) return [];
   const tail = Array.from(frame.visible.slice(frame.highlightStart));
   if (!tail.length) return [];
   const size = Math.max(1, Math.ceil(tail.length / pieces));
-  const segments: { text: string; alpha: number }[] = [];
+  const segments: { text: string; position: number }[] = [];
   for (let start = 0; start < tail.length; start += size) {
     const middle = start + Math.min(size, tail.length - start) / 2;
-    // From nearly solid at the inked edge to faint at the newest characters.
-    const alpha = Math.max(0.08, 1 - middle / Math.max(INK_TAIL, tail.length));
-    segments.push({ text: tail.slice(start, start + size).join(""), alpha: Math.round(alpha * 100) / 100 });
+    // Measured against the full glow length, so the edge keeps its brightness even when little is written.
+    const position = 1 - (tail.length - middle) / Math.max(INK_TAIL, tail.length);
+    segments.push({
+      text: tail.slice(start, start + size).join(""),
+      position: Math.round(position * 100) / 100,
+    });
   }
   return segments;
 }

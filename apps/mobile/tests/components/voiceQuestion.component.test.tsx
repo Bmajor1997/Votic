@@ -220,7 +220,7 @@ describe("Ask Votic recording composer", () => {
     expect(transcribe_voice_question).not.toHaveBeenCalled();
     await stop();
     expect(stream.stop).toHaveBeenCalledTimes(1);
-    expect(screen.getByLabelText("Transcribing…")).toBeTruthy();
+    expect(screen.getByLabelText("Transcribing")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Transcribing voice question", disabled: true, busy: true }),
     ).toBeTruthy();
@@ -541,7 +541,7 @@ describe("Ask Votic recording composer", () => {
         <VoiceRecordingArea phase="transcribing" level={1} />
       </AppProviders>,
     );
-    expect(screen.getByLabelText("Transcribing…")).toBeTruthy();
+    expect(screen.getByLabelText("Transcribing")).toBeTruthy();
     await act(async () => jest.advanceTimersByTime(1000));
     expect(heights()).toEqual(frozen);
   });
