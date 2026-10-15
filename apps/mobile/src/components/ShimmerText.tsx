@@ -4,14 +4,13 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { mix, useVoticTheme } from "../theme/ThemeProvider";
 
 const SWEEP_MS = 1300;
-const PAUSE_MS = 350;
 const FRAME_MS = 40;
 /** How many characters on each side of the band's center are lit. */
 const BAND = 3;
 
 /**
- * A short status label ("Thinking") with a band of the accent color sweeping across it, left to right, then a
- * short pause. One light timer drives it, rather than an animation per letter.
+ * A short status label ("Thinking") with a violet band sweeping across blue letters, left to right.
+ * Explicit letter colors keep the sweep visible on Android too. One light timer drives the whole label.
  */
 export function ShimmerText({
   text,
@@ -25,32 +24,30 @@ export function ShimmerText({
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const characters = Array.from(text);
-  const [center, setCenter] = useState(-BAND);
+  const [center, setCenter] = useState(0);
+  const blue = theme.isDark ? "#60A5FA" : "#2563EB";
   useEffect(() => {
     if (reduceMotion) return;
     const started = Date.now();
     const span = characters.length + BAND * 2;
     const timer = setInterval(() => {
-      const elapsed = (Date.now() - started) % (SWEEP_MS + PAUSE_MS);
-      setCenter(elapsed > SWEEP_MS ? characters.length + BAND : -BAND + (elapsed / SWEEP_MS) * span);
+      const elapsed = (Date.now() - started) % SWEEP_MS;
+      setCenter((((elapsed / SWEEP_MS) * span + BAND) % span) - BAND);
     }, FRAME_MS);
     return () => clearInterval(timer);
-  }, [characters.length, reduceMotion]);
+  }, [text, characters.length, reduceMotion]);
   return (
     <Text
       accessibilityLabel={accessibilityLabel}
       accessibilityLiveRegion="polite"
-      style={[style, { color: theme.mutedText }]}
+      style={[style, { color: reduceMotion ? theme.aiStatusText : blue }]}
     >
       {reduceMotion
         ? text
         : characters.map((character, index) => {
             const glow = Math.max(0, 1 - Math.abs(index - center) / BAND);
             return (
-              <Text
-                key={index}
-                style={glow > 0 ? { color: mix(theme.mutedText, theme.accentText, glow) } : null}
-              >
+              <Text key={index} style={{ color: mix(blue, "#A78BFA", glow) }}>
                 {character}
               </Text>
             );

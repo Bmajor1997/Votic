@@ -3,20 +3,22 @@ import { act, screen } from "@testing-library/react-native";
 import { AIResponse, AIThinking, AIStatus } from "../../src/components/AIResponse";
 import { render_with_providers } from "../renderWithProviders";
 
-it("sweeps an accent band across the thinking label and stops on unmount", async () => {
+it("sweeps a violet band across the thinking label and stops on unmount", async () => {
   const clear = jest.spyOn(global, "clearInterval");
   const view = await render_with_providers(<AIThinking />);
   const label = screen.getByLabelText("Thinking");
   expect(label.props.accessibilityLiveRegion).toBe("polite");
-  // Votic's own mark ripples beside the label; there are no sparkles or trailing dots.
-  expect(screen.getByLabelText("Votic logo", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.queryByLabelText("Votic logo", { includeHiddenElements: true })).toBeNull();
+  const colors = () =>
+    (screen.getByLabelText("Thinking").props.children as { props: { style: { color: string } } }[]).map(
+      (letter) => letter.props.style.color,
+    );
+  const initialColors = colors();
+  expect(initialColors).toContain("#a78bfa");
+  expect(initialColors).toContain("#2563eb");
   expect(screen.queryByText("…")).toBeNull();
   await act(async () => jest.advanceTimersByTime(400));
-  // Partway through the sweep, some letters are lit (they have their own color).
-  const lit = (screen.getByLabelText("Thinking").props.children as { props: { style: unknown } }[]).filter(
-    (letter) => letter.props.style,
-  );
-  expect(lit.length).toBeGreaterThan(0);
+  expect(colors()).not.toEqual(initialColors);
   await view.unmount();
   expect(clear).toHaveBeenCalled();
 });

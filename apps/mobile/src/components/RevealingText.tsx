@@ -11,12 +11,12 @@ const HEX = /^#[0-9a-f]{6}$/i;
 export const UNWRITTEN_INK = "#00000001";
 
 /**
- * The color of a glowing piece of the writing edge: the accent color near the edge, settling into the text color
+ * The color of a glowing piece of the writing edge: soft violet near the edge, settling into the text color
  * behind it, with the very newest characters still fading in. Non-hex colors are shown plain.
  */
 function edge_color(text: string, accent: string, position: number) {
   if (!HEX.test(text) || !HEX.test(accent)) return text;
-  const glow = mix(text, accent, Math.min(1, position * 0.95));
+  const glow = mix(text, accent, Math.min(1, position));
   const alpha = position > 0.8 ? 1 - (position - 0.8) * 3 : 1;
   return `${glow}${Math.round(Math.max(0.35, alpha) * 255)
     .toString(16)
@@ -24,7 +24,7 @@ function edge_color(text: string, accent: string, position: number) {
 }
 
 /**
- * Text being laid down from left to right: settled words, then a writing edge that glows in the accent color as
+ * Text being laid down from left to right: settled words, then a writing edge that glows in soft violet as
  * it moves, so the shimmer travels with the words being laid down. The rest of
  * the finished text is already there but invisible, so lines wrap exactly as they will at the end and nothing
  * jumps as words arrive. Screen readers get the whole text at once.
@@ -60,7 +60,7 @@ export function RevealingText({
     >
       {inked}
       {edge.map((segment, index) => (
-        <Text key={index} style={{ color: edge_color(color, theme.accentText, segment.position) }}>
+        <Text key={index} style={{ color: edge_color(color, "#A78BFA", segment.position) }}>
           {segment.text}
         </Text>
       ))}

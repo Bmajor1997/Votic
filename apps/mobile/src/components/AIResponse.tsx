@@ -5,7 +5,6 @@ import { ShimmerText } from "./ShimmerText";
 import { RevealingText } from "./RevealingText";
 import { lay_down_text, readable_ai_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { VoticLogo } from "./VoticLogo";
 import { ask_status } from "../ask/askStatus";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
@@ -74,20 +73,12 @@ export function AIThinking({
   return <AIStatus label={summary ? "Summarizing" : ask_status(question, grounded)} />;
 }
 
-/**
- * What Votic is doing (Thinking, Writing, Transcribing): Votic's mark with its wings rippling, beside a
- * shimmering label. The compact form is the label alone, for tight spaces such as the question box.
- */
+/** Text-only status labels share the blue-to-violet shimmer. */
 export function AIStatus({ label, compact = false }: { label: string; compact?: boolean }) {
   const text = label.replace(/(?:…|\.\.\.)$/, "");
   return (
     <View style={[s.thinking, compact && s.compact]}>
-      {!compact && (
-        <View accessible={false} importantForAccessibility="no-hide-descendants">
-          <VoticLogo compact markOnly thinking />
-        </View>
-      )}
-      <ShimmerText text={text} accessibilityLabel={text} style={s.aiStatus} />
+      <ShimmerText key={text} text={text} accessibilityLabel={text} style={s.aiStatus} />
     </View>
   );
 }
