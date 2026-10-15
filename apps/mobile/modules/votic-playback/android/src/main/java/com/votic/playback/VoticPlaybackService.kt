@@ -9,6 +9,8 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -84,6 +86,8 @@ class VoticPlaybackService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private var destroyed = false
   private var lastCheckpoint = 0L
+  // The Votic V on a cream card: Android paints the player from this artwork instead of a plain black panel.
+  private val artwork: Bitmap? by lazy { BitmapFactory.decodeResource(resources, R.drawable.votic_playback_artwork) }
   private val attributes = AudioAttributes.Builder()
     .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
@@ -340,7 +344,9 @@ class VoticPlaybackService : Service() {
     if (updateNotification) {
       mediaSession.setMetadata(MediaMetadata.Builder()
         .putString(MediaMetadata.METADATA_KEY_TITLE, current.title)
-        .putString(MediaMetadata.METADATA_KEY_ARTIST, "Votic · Passage ${at + 1} of ${current.passages.size}").build())
+        .putString(MediaMetadata.METADATA_KEY_ARTIST, "Votic · Passage ${at + 1} of ${current.passages.size}")
+        .also { meta -> artwork?.let { meta.putBitmap(MediaMetadata.METADATA_KEY_ART, it).putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it) } }
+        .build())
       val actions = PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or PlaybackState.ACTION_PLAY_PAUSE or
         PlaybackState.ACTION_STOP or PlaybackState.ACTION_SKIP_TO_PREVIOUS or PlaybackState.ACTION_SKIP_TO_NEXT
       // Position is intentionally unknown: passage navigation is not a seconds-based seek bar.
@@ -358,6 +364,12 @@ class VoticPlaybackService : Service() {
     else PendingIntent.getService(this, action.hashCode(), intent, flags)
   }
 
+  // Tapping the player opens Votic where the reader left off.
+  private fun open_app(): PendingIntent? = packageManager.getLaunchIntentForPackage(packageName)?.let {
+    it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+  }
+
   private fun notification(): Notification {
     val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else Notification.Builder(this)
     return builder.setSmallIcon(R.drawable.votic_playback_notification)
@@ -366,6 +378,9 @@ class VoticPlaybackService : Service() {
       .setCategory(Notification.CATEGORY_TRANSPORT).setVisibility(Notification.VISIBILITY_PRIVATE)
       .setOnlyAlertOnce(true).setShowWhen(false).setOngoing(playing)
       .setDeleteIntent(action("stop"))
+      .setContentIntent(open_app())
+      .setColor(0xFFEB6834.toInt())
+      .also { notice -> artwork?.let { notice.setLargeIcon(it) } }
       .addAction(Notification.Action.Builder(android.R.drawable.ic_media_previous, "Previous passage", action("previous")).build())
       .addAction(Notification.Action.Builder(if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
         if (playing) "Pause" else "Play", action(if (playing) "pause" else "play")).build())
