@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import { Animated, Easing, Text, type StyleProp, type TextStyle } from "react-native";
+import { Text, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { useVoticTheme } from "../theme/ThemeProvider";
+import { mix, useVoticTheme } from "../theme/ThemeProvider";
 
-/** One sweep drives short status labels; no masks, extra native modules, or layout animation. */
+const SWEEP_MS = 1300;
+const PAUSE_MS = 350;
+const FRAME_MS = 40;
+/** How many characters on each side of the band's center are lit. */
+const BAND = 3;
+
+/**
+ * A short status label ("Thinking…") with a band of the accent color sweeping across it, left to right, then a
+ * short pause. One light timer drives it, rather than an animation per letter.
+ */
 export function ShimmerText({
   text,
   accessibilityLabel = text,
@@ -15,29 +24,18 @@ export function ShimmerText({
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
-  const [sweep] = useState(() => new Animated.Value(-3));
   const characters = Array.from(text);
+  const [center, setCenter] = useState(-BAND);
   useEffect(() => {
     if (reduceMotion) return;
-    sweep.setValue(-3);
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sweep, {
-          toValue: characters.length + 3,
-          duration: 1700,
-          easing: Easing.linear,
-          useNativeDriver: false,
-          isInteraction: false,
-        }),
-        Animated.delay(450),
-      ]),
-    );
-    animation.start();
-    return () => {
-      animation.stop();
-      sweep.stopAnimation();
-    };
-  }, [sweep, characters.length, reduceMotion]);
+    const started = Date.now();
+    const span = characters.length + BAND * 2;
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - started) % (SWEEP_MS + PAUSE_MS);
+      setCenter(elapsed > SWEEP_MS ? characters.length + BAND : -BAND + (elapsed / SWEEP_MS) * span);
+    }, FRAME_MS);
+    return () => clearInterval(timer);
+  }, [characters.length, reduceMotion]);
   return (
     <Text
       accessibilityLabel={accessibilityLabel}
@@ -46,20 +44,17 @@ export function ShimmerText({
     >
       {reduceMotion
         ? text
-        : characters.map((character, index) => (
-            <Animated.Text
-              key={index}
-              style={{
-                color: sweep.interpolate({
-                  inputRange: [index - 3, index, index + 3],
-                  outputRange: [theme.mutedText, theme.text, theme.mutedText],
-                  extrapolate: "clamp",
-                }),
-              }}
-            >
-              {character}
-            </Animated.Text>
-          ))}
+        : characters.map((character, index) => {
+            const glow = Math.max(0, 1 - Math.abs(index - center) / BAND);
+            return (
+              <Text
+                key={index}
+                style={glow > 0 ? { color: mix(theme.mutedText, theme.accentText, glow) } : null}
+              >
+                {character}
+              </Text>
+            );
+          })}
     </Text>
   );
 }

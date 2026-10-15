@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { ComponentProps, ReactNode, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ACTIVE_DAY_MS,
@@ -23,6 +23,7 @@ import {
 } from "../src/activity/activityModel";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { ASK_CATEGORY_LABELS } from "../src/activity/askCategories";
+import { FadingScrollView } from "../src/components/FadingScrollView";
 import { TimeChart, series_colors } from "../src/activity/TimeChart";
 import { DocumentCover } from "../src/components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
@@ -81,7 +82,7 @@ export default function Statistics() {
           {section ? SECTION_TITLES[section] : "Your Votic activity"}
         </Text>
       </View>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <FadingScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {!section ? (
           <Text style={[s.intro, { color: theme.mutedText }]}>
             Your reading, listening, and moments of discovery.
@@ -175,7 +176,7 @@ export default function Statistics() {
             ) : null}
           </>
         ) : null}
-      </ScrollView>
+      </FadingScrollView>
     </SafeAreaView>
   );
 }

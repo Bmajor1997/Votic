@@ -17,7 +17,8 @@ const CHART_HEIGHT = 132;
 const NICE_MINUTES = [10, 20, 30, 60, 90, 120, 180, 240, 360, 480, 720, 1200, 2400, 4800, 9600];
 
 function scale_max(points: ChartPoint[]) {
-  const largest = Math.max(...points.map((point) => point.reading + point.listening), 0) / 60_000;
+  // Bars stand side by side, so the scale fits the taller of the two, not their sum.
+  const largest = Math.max(...points.map((point) => Math.max(point.reading, point.listening)), 0) / 60_000;
   return (NICE_MINUTES.find((value) => value >= largest) ?? Math.ceil(largest / 60) * 60) * 60_000;
 }
 function axis_label(ms: number) {
@@ -29,7 +30,7 @@ function describe(point: ChartPoint) {
   return `${point.longLabel}: reading ${spoken_duration(point.reading)}, listening ${spoken_duration(point.listening)}`;
 }
 
-/** Stacked daily (or monthly) bars of reading and listening, with a legend and a table view. */
+/** Daily (or monthly) reading and listening bars side by side, with a legend and a table view. */
 export function TimeChart({ points, title }: { points: ChartPoint[]; title: string }) {
   const { theme } = useVoticTheme();
   const colors = series_colors(theme.isDark);
@@ -111,35 +112,25 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
                     onPress={() => setSelected(active ? null : point.key)}
                     style={s.slot}
                   >
-                    <View style={[s.column, { height: CHART_HEIGHT }]}>
-                      {/* Reading sits on top of listening, separated by a 2px surface gap. */}
-                      {readingHeight > 0 ? (
+                    <View style={[s.pair, { height: CHART_HEIGHT }]}>
+                      {/* Reading, then listening, both rising from the baseline with a 2px gap between. */}
+                      {[
+                        { key: "reading", height: readingHeight, color: colors.reading },
+                        { key: "listening", height: listeningHeight, color: colors.listening },
+                      ].map((bar) => (
                         <View
+                          key={bar.key}
+                          testID={`bar-${point.key}-${bar.key}`}
                           style={[
-                            s.segment,
-                            s.top,
+                            s.bar,
                             {
-                              height: Math.max(2, readingHeight),
-                              backgroundColor: colors.reading,
-                              opacity: selected && !active ? 0.45 : 1,
-                              marginBottom: listeningHeight > 0 ? 2 : 0,
-                            },
-                          ]}
-                        />
-                      ) : null}
-                      {listeningHeight > 0 ? (
-                        <View
-                          style={[
-                            s.segment,
-                            readingHeight > 0 ? null : s.top,
-                            {
-                              height: Math.max(2, listeningHeight),
-                              backgroundColor: colors.listening,
+                              height: bar.height > 0 ? Math.max(2, bar.height) : 0,
+                              backgroundColor: bar.color,
                               opacity: selected && !active ? 0.45 : 1,
                             },
                           ]}
                         />
-                      ) : null}
+                      ))}
                     </View>
                     <Text
                       numberOfLines={1}
@@ -188,9 +179,8 @@ const s = StyleSheet.create({
   bars: { flex: 1, flexDirection: "row", alignItems: "flex-start" },
   grid: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth },
   slot: { flex: 1, alignItems: "center", minHeight: 44 },
-  column: { width: "70%", maxWidth: 24, justifyContent: "flex-end" },
-  segment: { width: "100%" },
-  top: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
+  pair: { width: "80%", maxWidth: 30, flexDirection: "row", alignItems: "flex-end", gap: 2 },
+  bar: { flex: 1, borderTopLeftRadius: 4, borderTopRightRadius: 4 },
   label: { fontSize: 12, marginTop: 6 },
   tableRow: {
     minHeight: 48,

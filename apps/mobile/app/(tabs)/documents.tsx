@@ -16,7 +16,7 @@ import { document_type_color } from "../../src/components/DocumentTypeIcon";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
-import { Screen, ScrollFadeItem } from "../../src/components/Screen";
+import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
@@ -275,7 +275,7 @@ export default function Documents() {
                 const title = readable_title(document.title);
                 const percent = Math.round(document.progress * 100);
                 return (
-                  <ScrollFadeItem key={document.id}>
+                  <View key={document.id}>
                     <View
                       ref={(node) => {
                         cardRefs.current[document.id] = node;
@@ -358,7 +358,7 @@ export default function Documents() {
                         <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
                       </Pressable>
                     </View>
-                  </ScrollFadeItem>
+                  </View>
                 );
               })}
             </View>

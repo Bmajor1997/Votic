@@ -1,35 +1,12 @@
-import { PropsWithChildren, ReactNode, createContext, useContext, useRef, useState } from "react";
+import { PropsWithChildren, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Animated, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { FadingScrollView } from "./FadingScrollView";
 import { VoticLogo } from "./VoticLogo";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
-import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
-
-const ScrollFadeContext = createContext<{ scrollY: Animated.Value; enabled: boolean } | null>(null);
-export function ScrollFadeItem({ children, style }: { children: ReactNode; style?: object }) {
-  const context = useContext(ScrollFadeContext);
-  const [top, setTop] = useState(0);
-  const itemRef = useRef<View>(null);
-  if (!context) return <View style={style}>{children}</View>;
-  const opacity = context.enabled
-    ? context.scrollY.interpolate({
-        inputRange: [Math.max(0, top - 92), Math.max(1, top - 18)],
-        outputRange: [1, 0.08],
-        extrapolate: "clamp",
-      })
-    : 1;
-  function layout() {
-    requestAnimationFrame(() => itemRef.current?.measureInWindow((_x, y) => setTop(y)));
-  }
-  return (
-    <Animated.View ref={itemRef} onLayout={layout} style={[style, { opacity }]}>
-      {children}
-    </Animated.View>
-  );
-}
 
 export function Screen({
   title,
@@ -39,9 +16,7 @@ export function Screen({
 }: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode }>) {
   const { theme } = useVoticTheme();
   const { persistenceError } = useDocumentLibrary();
-  const { reduceMotion } = useAccessibilityPreferences();
   const transition = useDocumentTransition();
-  const scrollY = useState(() => new Animated.Value(0))[0];
   const screenOpacity = transition.progress.interpolate({
     inputRange: [0, 0.7, 1],
     outputRange: [1, 0.88, 0.04],
@@ -50,42 +25,36 @@ export function Screen({
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.safe, { backgroundColor: theme.background }]}>
       <Animated.View style={[s.safe, { opacity: transition.transitioning ? screenOpacity : 1 }]}>
-        <Animated.ScrollView
+        <FadingScrollView
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          scrollEventThrottle={16}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
-            useNativeDriver: true,
-          })}
         >
-          <ScrollFadeContext.Provider value={{ scrollY, enabled: !reduceMotion }}>
-            <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
-              <VoticLogo />
-              <View style={s.headerIcon} />
+          <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
+            <VoticLogo />
+            <View style={s.headerIcon} />
+          </View>
+          {persistenceError ? (
+            <View
+              accessible
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+              style={[s.warning, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
+            >
+              <Ionicons name="warning-outline" size={20} color={theme.accent} />
+              <Text style={[s.warningText, { color: theme.text }]}>{persistenceError}</Text>
             </View>
-            {persistenceError ? (
-              <View
-                accessible
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-                style={[s.warning, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
-              >
-                <Ionicons name="warning-outline" size={20} color={theme.accent} />
-                <Text style={[s.warningText, { color: theme.text }]}>{persistenceError}</Text>
-              </View>
-            ) : null}
-            {!hideTitle ? (
-              <View style={s.titleRow}>
-                <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-                  {title}
-                </Text>
-                {titleAction}
-              </View>
-            ) : null}
-            {children}
-          </ScrollFadeContext.Provider>
-        </Animated.ScrollView>
+          ) : null}
+          {!hideTitle ? (
+            <View style={s.titleRow}>
+              <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+                {title}
+              </Text>
+              {titleAction}
+            </View>
+          ) : null}
+          {children}
+        </FadingScrollView>
       </Animated.View>
     </SafeAreaView>
   );

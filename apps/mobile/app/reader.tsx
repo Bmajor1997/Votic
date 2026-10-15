@@ -553,10 +553,7 @@ function ReaderContent() {
         <Text style={s.askUserText}>{message.text}</Text>
       </View>
     ) : (
-      <View
-        key={messageIndex}
-        style={[s.askAnswer, { borderColor: theme.border, backgroundColor: theme.surface }]}
-      >
+      <View key={messageIndex} style={s.askAnswer}>
         <View style={s.askAnswerLabel}>
           <VoticLogo compact markOnly />
           <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
@@ -1807,7 +1804,8 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   askUserText: { color: "#FFF", fontSize: 14, lineHeight: 20 },
-  askAnswer: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.sm },
+  // Answers sit directly on the panel, without a box, like the questions opposite them.
+  askAnswer: { paddingVertical: spacing.xs, gap: spacing.sm },
   askAnswerLabel: { flexDirection: "row", alignItems: "center", gap: 4 },
   askAnswerName: { fontSize: 12, fontWeight: "800" },
   askAnswerSource: { fontSize: 11 },

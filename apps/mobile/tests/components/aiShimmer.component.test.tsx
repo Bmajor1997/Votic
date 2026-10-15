@@ -1,42 +1,40 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, screen } from "@testing-library/react-native";
-import { Animated } from "react-native";
 import { AIResponse, AIThinking, AIStatus } from "../../src/components/AIResponse";
 import { render_with_providers } from "../renderWithProviders";
 
-it("keeps the thinking label coherent and stops its shimmer on unmount", async () => {
-  const start = jest.fn();
-  const stop = jest.fn();
-  const loop = jest.spyOn(Animated, "loop").mockReturnValue({ start, stop, reset: jest.fn() });
+it("sweeps an accent band across the thinking label and stops on unmount", async () => {
+  const clear = jest.spyOn(global, "clearInterval");
   const view = await render_with_providers(<AIThinking />);
-  expect(screen.getByLabelText("Thinking…").props.accessibilityLiveRegion).toBe("polite");
-  expect(loop).toHaveBeenCalled();
-  expect(start).toHaveBeenCalled();
+  const label = screen.getByLabelText("Thinking…");
+  expect(label.props.accessibilityLiveRegion).toBe("polite");
+  await act(async () => jest.advanceTimersByTime(400));
+  // Partway through the sweep, some letters are lit (they have their own color).
+  const lit = (screen.getByLabelText("Thinking…").props.children as { props: { style: unknown } }[]).filter(
+    (letter) => letter.props.style,
+  );
+  expect(lit.length).toBeGreaterThan(0);
   await view.unmount();
-  expect(stop).toHaveBeenCalled();
+  expect(clear).toHaveBeenCalled();
 });
 
 it("uses static, accessible status text with Reduce Motion", async () => {
-  const start = jest.fn();
-  const stop = jest.fn();
-  const loop = jest.spyOn(Animated, "loop").mockReturnValue({ start, stop, reset: jest.fn() });
+  const intervals = jest.spyOn(global, "setInterval");
   await render_with_providers(<AIStatus compact label="Transcribing…" />, { reduceMotion: true });
   expect(screen.getByLabelText("Transcribing…").props.children).toBe("Transcribing");
-  // If preferences loaded after mount, the initial loop must already be stopped.
-  expect(stop.mock.calls.length).toBe(loop.mock.calls.length);
-  start.mockClear();
+  intervals.mockClear();
   await act(async () => jest.advanceTimersByTime(5000));
-  expect(start).not.toHaveBeenCalled();
+  expect(intervals).not.toHaveBeenCalled();
 });
 
 it("stops reveal timers when an answer unmounts", async () => {
   const intervals = jest.spyOn(global, "setInterval");
   const clear = jest.spyOn(global, "clearInterval");
   const view = await render_with_providers(<AIResponse text="One two three four." />);
-  const index = intervals.mock.calls.findIndex((call) => call[1] === 40);
+  const index = intervals.mock.calls.findIndex((call) => call[1] === 24);
   expect(index).toBeGreaterThanOrEqual(0);
   const revealTimer = intervals.mock.results[index].value;
-  await act(async () => jest.advanceTimersByTime(40));
+  await act(async () => jest.advanceTimersByTime(24));
   await view.unmount();
   expect(clear).toHaveBeenCalledWith(revealTimer);
 });

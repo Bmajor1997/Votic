@@ -2,6 +2,7 @@ import { account_storage_key } from "../../src/storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 import Statistics from "../../app/statistics";
 import { ACTIVITY_KEY } from "../../src/activity/ActivityProvider";
 import { add_ask_event, add_interval, empty_log, period_for } from "../../src/activity/activityModel";
@@ -22,6 +23,20 @@ async function seed_activity() {
 }
 
 describe("Statistics activity overview", () => {
+  it("draws reading and listening as side-by-side bars from the same baseline", async () => {
+    await seed_activity();
+    await render_with_providers(<Statistics />);
+    const height = (id: RegExp) =>
+      screen
+        .getAllByTestId(id)
+        .map((bar) => StyleSheet.flatten(bar.props.style).height as number)
+        .filter((value) => value > 0);
+    // 20 minutes reading and 10 listening: the scale tops out at 20 minutes, so reading fills the chart
+    // and listening reaches halfway, each its own bar rather than one stacked on the other.
+    expect(height(/^bar-.*-reading$/)).toEqual([132]);
+    expect(height(/^bar-.*-listening$/)).toEqual([66]);
+  });
+
   it("shows accurate accessible totals and keeps the chart table available", async () => {
     const saved = await seed_activity();
     await render_with_providers(<Statistics />);

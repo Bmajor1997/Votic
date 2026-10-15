@@ -36,7 +36,7 @@ function tint(hex: string, amount: number) {
   return `#${channel(1)}${channel(3)}${channel(5)}`;
 }
 /** Blends two #RRGGBB colors: `amount` 0 is all `a`, 1 is all `b`. */
-function mix(a: string, b: string, amount: number) {
+export function mix(a: string, b: string, amount: number) {
   const channel = (start: number) =>
     Math.round(
       parseInt(a.slice(start, start + 2), 16) * (1 - amount) +

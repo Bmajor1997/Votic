@@ -1,9 +1,21 @@
-import { useEffect, useState } from "react";
-import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
+import { StyleSheet, Text, type StyleProp, type TextStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import type { TextRevealFrame } from "./textReveal";
+import { ink_segments, type TextRevealFrame } from "./textReveal";
 
+/** `#RRGGBB` at an opacity, for the fading edge; other color formats are shown solid. */
+function faded(color: string, alpha: number) {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return color;
+  return `${color}${Math.round(alpha * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
+}
+
+/**
+ * Text being laid down from left to right: inked words, then a short edge that is still fading in. The rest of
+ * the finished text is already there but invisible, so lines wrap exactly as they will at the end and nothing
+ * jumps as words arrive. Screen readers get the whole text at once.
+ */
 export function RevealingText({
   frame,
   style,
@@ -19,72 +31,27 @@ export function RevealingText({
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
-  const [settle] = useState(() => new Animated.Value(0));
-  useEffect(() => {
-    if (reduceMotion || frame.highlightStart >= frame.visible.length) return;
-    settle.setValue(0);
-    const animation = Animated.timing(settle, {
-      toValue: 1,
-      duration: 180,
-      useNativeDriver: false,
-      isInteraction: false,
-    });
-    animation.start();
-    return () => {
-      animation.stop();
-      settle.stopAnimation();
-    };
-  }, [settle, frame.visible, frame.highlightStart, reduceMotion]);
   const requestedColor = StyleSheet.flatten(style)?.color;
   const color = typeof requestedColor === "string" ? requestedColor : theme.text;
-  const words = reduceMotion ? (
-    frame.text
-  ) : (
-    <>
-      {frame.visible.slice(0, frame.highlightStart)}
-      <Animated.Text
-        style={{
-          color: settle.interpolate({
-            inputRange: [0, 1],
-            outputRange: [theme.accentText, color],
-          }),
-        }}
-      >
-        {frame.visible.slice(frame.highlightStart)}
-      </Animated.Text>
-    </>
-  );
-  if (singleLine)
-    return (
-      <Text
-        selectable
-        numberOfLines={1}
-        ellipsizeMode="head"
-        accessibilityLabel={frame.text}
-        accessibilityLiveRegion="none"
-        style={[style, { color }]}
-      >
-        {words}
-      </Text>
-    );
+  const done = reduceMotion || frame.complete;
+  const inked = done ? frame.text : frame.visible.slice(0, frame.highlightStart);
+  const edge = done ? [] : ink_segments(frame);
+  const rest = done ? "" : frame.text.slice(frame.visible.length);
   return (
-    <View>
-      {/* Reserve the final wrapping/height, without exposing a duplicate to screen readers. */}
-      <Text
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        style={[style, { color: "transparent" }]}
-      >
-        {frame.text}
-      </Text>
-      <Text
-        selectable
-        accessibilityLabel={frame.text}
-        accessibilityLiveRegion="none"
-        style={[style, StyleSheet.absoluteFill, { color }]}
-      >
-        {words}
-      </Text>
-    </View>
+    <Text
+      selectable
+      accessibilityLabel={frame.text}
+      accessibilityLiveRegion="none"
+      {...(singleLine ? { numberOfLines: 1, ellipsizeMode: "head" as const } : null)}
+      style={[style, { color }]}
+    >
+      {inked}
+      {edge.map((segment, index) => (
+        <Text key={index} style={{ color: faded(color, segment.alpha) }}>
+          {segment.text}
+        </Text>
+      ))}
+      {singleLine || !rest ? null : <Text style={{ color: "transparent" }}>{rest}</Text>}
+    </Text>
   );
 }

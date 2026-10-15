@@ -29,6 +29,7 @@ import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
 import { AskVoticEmptyAnimation } from "../src/components/EmptyStateIllustrations";
+import { FadingScrollView } from "../src/components/FadingScrollView";
 import {
   answered_from_context,
   answer_link,
@@ -343,7 +344,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
             </View>
             <View style={s.icon} />
           </View>
-          <ScrollView
+          <FadingScrollView
             ref={scrollRef}
             contentContainerStyle={s.messages}
             keyboardShouldPersistTaps="handled"
@@ -468,7 +469,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 </Animated.View>
               </View>
             ) : null}
-          </ScrollView>
+          </FadingScrollView>
           <View>
             {voiceError ? (
               <Text style={[s.voiceError, { color: theme.text }]}>

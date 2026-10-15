@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { reveal_completed_text, type TextRevealFrame } from "./textReveal";
+import {
+  INK_TAIL,
+  ink_segments,
+  lay_down_text,
+  reveal_completed_text,
+  type TextRevealFrame,
+} from "./textReveal";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -60,5 +66,46 @@ describe("completed text reveal", () => {
     });
     expect(onComplete).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe("laying an answer down", () => {
+  it("advances left to right with a fading edge, ends fully inked, and keeps text intact", () => {
+    const text = "Braille has six dots 👆 in two columns.\nEach letter is a pattern.";
+    const frames: TextRevealFrame[] = [];
+    const complete = vi.fn();
+    lay_down_text(text, { onFrame: (frame) => frames.push(frame), onComplete: complete });
+    vi.runAllTimers();
+    for (const frame of frames) {
+      expect(text.startsWith(frame.visible)).toBe(true);
+      expect(frame.highlightStart).toBeLessThanOrEqual(frame.visible.length);
+    }
+    // The visible end and the inked edge only ever move forward.
+    for (let i = 1; i < frames.length; i++) {
+      expect(frames[i].visible.length).toBeGreaterThanOrEqual(frames[i - 1].visible.length);
+      expect(frames[i].highlightStart).toBeGreaterThanOrEqual(frames[i - 1].highlightStart);
+    }
+    expect(frames.at(-1)).toEqual({ text, visible: text, highlightStart: text.length, complete: true });
+    expect(complete).toHaveBeenCalledOnce();
+  });
+  it("finishes long answers in about 2.4 seconds", () => {
+    const complete = vi.fn();
+    lay_down_text("word ".repeat(5000), { onFrame: vi.fn(), onComplete: complete });
+    vi.advanceTimersByTime(2400);
+    expect(complete).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("fades the newest characters most and never splits an emoji", () => {
+    const frame = {
+      text: "abcdefghij👆klmnop",
+      visible: "abcdefghij👆klmnop",
+      highlightStart: 4,
+      complete: false,
+    };
+    const segments = ink_segments(frame);
+    expect(segments.map((segment) => segment.text).join("")).toBe("efghij👆klmnop");
+    for (let i = 1; i < segments.length; i++) expect(segments[i].alpha).toBeLessThan(segments[i - 1].alpha);
+    expect(ink_segments({ ...frame, complete: true })).toEqual([]);
+    expect(INK_TAIL).toBeGreaterThan(0);
   });
 });
