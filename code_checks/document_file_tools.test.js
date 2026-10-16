@@ -139,7 +139,7 @@ test("preserves unusual Unicode as inert document text", async () => {
 });
 
 test("extracts plain text from RTF", async () => {
-  const text = await extract_document("notes.rtf", Buffer.from("{\\\\rtf1\\\\ansi Hello\\\\par World}"));
+  const text = await extract_document("notes.rtf", Buffer.from("{\\rtf1\\ansi Hello\\par World}"));
   assert.match(text, /Hello/);
   assert.match(text, /World/);
 });
@@ -154,5 +154,17 @@ test("extracts HTML without executable markup", async () => {
   const text = await extract_document("page.html", Buffer.from("<html><body><h1>Title</h1><p>Paragraph</p><script>alert(1)</script></body></html>"));
   assert.match(text, /Title/);
   assert.match(text, /Paragraph/);
-  assert.doesNotMatch(text, /alert\\(1\\)/);
+  assert.doesNotMatch(text, /alert\(1\)/);
+});
+test("leaves styles, scripts and comments out of an uploaded HTML file and keeps list numbers", async () => {
+  const html = "<html><head><title>Hidden</title><style>body{color:red}</style></head><body><h1>Guide</h1>" +
+    "<p>Fish &amp; chips</p><SCRIPT>steal('</p>')</SCRIPT><!-- private --><ol><li>One</li><li>Two</li></ol></body></html>";
+  assert.equal(await extract_document("page.htm", Buffer.from(html)), "# Guide\n\nFish & chips\n\n1. One\n2. Two");
+});
+test("reads hostile or broken HTML in linear time", async () => {
+  for (const html of ["<ol>".repeat(200_000), "<div>".repeat(200_000), "<a".repeat(500_000), "<!--".repeat(300_000), "<script>".repeat(200_000), "<ul>" + "<li>x".repeat(100_000)]) {
+    const started = Date.now();
+    await extract_document("page.html", Buffer.from(html)).catch(() => "");
+    assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`);
+  }
 });

@@ -54,7 +54,7 @@ async function safe_archive_text(file) {
 }
 
 export async function extract_document(name, buffer) {
-  if (/\.html?$/i.test(name)) return clean_extracted_text(html_to_document_text(buffer.toString("utf8")));
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8")));
   if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
   if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
@@ -302,6 +302,65 @@ function decode_html(text) {
     return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " })[entity.toLowerCase()];
   });
 }
+
+// Elements whose contents are never part of the readable page.
+const HIDDEN_HTML = new Set(["script", "style", "noscript", "template", "head", "svg", "math", "iframe", "object"]);
+const HTML_BLOCKS = new Set(["p", "div", "section", "article", "main", "header", "footer", "aside", "blockquote", "pre", "table", "tr", "ul", "ol", "dl", "dt", "dd", "figure", "figcaption", "hr"]);
+
+/**
+ * Readable text from an uploaded HTML file, in one forward pass. Unlike html_to_document_text (for the tidy HTML
+ * mammoth makes from Word files), it never pairs tags with a search, so broken or hostile markup stays fast, and it
+ * drops scripts, styles and other hidden contents instead of reading them aloud.
+ */
+export function html_file_text(html) {
+  const lower = html.toLowerCase(), parts = [], lists = [];
+  let i = 0;
+  while (i < html.length) {
+    const open = html.indexOf("<", i);
+    if (open === -1) { parts.push(html_text_run(html.slice(i))); break; }
+    if (open > i) parts.push(html_text_run(html.slice(i, open)));
+    if (html.startsWith("<!--", open)) {
+      const end = html.indexOf("-->", open + 4);
+      if (end === -1) break;
+      i = end + 3;
+      continue;
+    }
+    const close = html.indexOf(">", open + 1);
+    // No later ">" means no later tag can finish either; the rest is not readable markup.
+    if (close === -1) break;
+    const tag = /^(\/?)([a-z][a-z0-9:-]*)/i.exec(html.slice(open + 1, Math.min(close, open + 64)));
+    i = close + 1;
+    if (!tag) { parts.push(html_text_run(html.slice(open, close + 1))); continue; }
+    const ending = Boolean(tag[1]), name = tag[2].toLowerCase();
+    if (!ending && HIDDEN_HTML.has(name) && !html.slice(open, close + 1).endsWith("/>")) {
+      const end = lower.indexOf(`</${name}`, i);
+      if (end === -1) break;
+      const after = html.indexOf(">", end);
+      if (after === -1) break;
+      i = after + 1;
+      continue;
+    }
+    if (/^h[1-6]$/.test(name)) parts.push(ending ? "\n\n" : name === "h1" ? "\n# " : "\n## ");
+    else if (name === "br") parts.push("\n");
+    else if (name === "ol" || name === "ul") { if (ending) lists.pop(); else lists.push(name === "ol" ? 0 : null); parts.push("\n"); }
+    else if (name === "li") {
+      if (!ending) {
+        const depth = lists.length - 1;
+        if (depth >= 0 && lists[depth] !== null) parts.push(`\n${(lists[depth] += 1)}. `);
+        else parts.push("\n• ");
+      }
+    }
+    else if (name === "td" || name === "th") { if (ending) parts.push(" | "); }
+    else if (HTML_BLOCKS.has(name)) parts.push("\n");
+  }
+  return parts.join("")
+    .replace(/[ \t]+\|[ \t]*(?=\n|$)/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+function html_text_run(text) { return decode_html(text.replace(/\s+/g, " ")); }
 
 /** Minimal RTF plain-text reader: handles common escapes and ignores hidden destinations. */
 export function extract_rtf(buffer) {
