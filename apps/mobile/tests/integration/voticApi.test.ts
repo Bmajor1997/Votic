@@ -3,6 +3,7 @@ import { set_auth_token_provider } from "../../src/api/authToken";
 import {
   ask_votic,
   check_voice_question_availability,
+  extract_document,
   transcribe_voice_question,
 } from "../../src/api/voticApi";
 
@@ -13,6 +14,33 @@ afterEach(() => {
 });
 
 describe("Votic API requests", () => {
+  it("accepts PDF OCR that completes after the old 30-second deadline", async () => {
+    global.fetch = jest.fn(
+      async () =>
+        new Promise<Response>((resolve) => {
+          setTimeout(
+            () => resolve(new Response(JSON.stringify({ text: "Complete scanned document" }))),
+            35_000,
+          );
+        }),
+    ) as typeof fetch;
+    const outcome = extract_document("scan.pdf", new ArrayBuffer(1));
+    await jest.advanceTimersByTimeAsync(35_000);
+    await expect(outcome).resolves.toBe("Complete scanned document");
+  });
+
+  it("still bounds a stalled PDF import including response-body reading", async () => {
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: () => new Promise(() => {}),
+    })) as unknown as typeof fetch;
+    const outcome = expect(extract_document("scan.pdf", new ArrayBuffer(1))).rejects.toThrow(
+      "Votic took too long to respond",
+    );
+    await jest.advanceTimersByTimeAsync(180_000);
+    await outcome;
+  });
+
   it("rejects oversized multibyte context before refreshing credentials or sending it", async () => {
     const token = jest.fn(async () => "id-token");
     set_auth_token_provider(token);

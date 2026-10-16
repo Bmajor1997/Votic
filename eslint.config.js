@@ -7,6 +7,8 @@ const sharedGlobals = {
   FormData: "readonly",
   Headers: "readonly",
   AbortController: "readonly",
+  AbortSignal: "readonly",
+  TextDecoder: "readonly",
   fetch: "readonly",
   document: "readonly",
   window: "readonly",

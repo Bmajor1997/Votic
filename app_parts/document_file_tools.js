@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
@@ -10,6 +11,42 @@ const MAX_ARCHIVE_TOTAL_BYTES = 40_000_000;
 const MAX_POWERPOINT_SLIDES = 1000;
 
 const ARCHIVE_TOO_LARGE = "This document archive expands beyond Votic's processing limit.";
+const MAX_PDF_OCR_PAGES = 20;
+const MAX_PDF_OCR_IMAGE_BYTES = 24_000_000;
+const PDF_IMAGE_OPERATORS = new Set([
+  OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject,
+  OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat, OPS.paintImageMaskXObjectGroup,
+  OPS.paintInlineImageXObjectGroup,
+]);
+export class PdfOcrRequiredError extends Error {
+  constructor() { super("This PDF contains scanned or image content that needs OCR."); }
+}
+
+/** Render a bounded document before spending AI allowance. No PDF/base64 token estimate is needed. */
+export async function render_pdf_for_ocr(buffer) {
+  const parser = new PDFParse({ data: buffer });
+  try {
+    const document = await parser.load();
+    if (document.numPages > MAX_PDF_OCR_PAGES)
+      throw new Error("Scanned or illustrated PDFs can contain at most 20 pages. Split this PDF into smaller files and try again.");
+    const images = [];
+    let bytes = 0;
+    for (let number = 1; number <= document.numPages; number++) {
+      const page = await document.getPage(number);
+      const viewport = page.getViewport({ scale: 1 });
+      if (![viewport.width, viewport.height].every((value) => Number.isFinite(value) && value > 0))
+        throw new Error("This PDF has invalid page dimensions.");
+      const scale = 1600 / Math.max(viewport.width, viewport.height);
+      const screenshot = await parser.getScreenshot({ partial: [number], scale, imageBuffer: true, imageDataUrl: false });
+      const image = Buffer.from(screenshot.pages[0].data);
+      bytes += image.length;
+      if (bytes > MAX_PDF_OCR_IMAGE_BYTES)
+        throw new Error("This PDF's page images are too large to read at once. Split it into smaller files and try again.");
+      images.push(image);
+    }
+    return images;
+  } finally { await parser.destroy(); }
+}
 
 /** Expands one entry while counting real bytes, stopping as soon as a limit is passed. */
 function measure_entry(entry, limit) {
@@ -77,16 +114,21 @@ export async function extract_document(name, buffer) {
   const parser = new PDFParse({ data: buffer });
   try {
     const document = await parser.load();
+    if (document.numPages > 1000) throw new Error("This PDF contains too many pages.");
     const pages = [];
     for (let page_number = 1; page_number <= document.numPages; page_number++) {
       const page = await document.getPage(page_number);
       try {
         const content = await page.getTextContent({ includeMarkedContent: false, disableNormalization: false });
         pages.push(reconstruct_pdf_page_text(content.items));
+        // A selectable cover/footer must not hide a scan. Conservatively OCR image-bearing PDFs,
+        // including pages that also have selectable text, rather than return a partial document.
+        const operators = await page.getOperatorList();
+        if (operators.fnArray.some((operator) => PDF_IMAGE_OPERATORS.has(operator))) throw new PdfOcrRequiredError();
       } finally { page.cleanup(); }
     }
     const text = pages.join("\f");
-    if (!text.trim()) throw new Error("This PDF has no selectable text. Scanned PDFs need OCR, which is not included yet.");
+    if (!text.trim()) throw new PdfOcrRequiredError();
     return clean_extracted_text(text, { removeRepeatedPageArtifacts: true });
   } finally { await parser.destroy(); }
 }
@@ -362,32 +404,86 @@ export function html_file_text(html) {
 }
 function html_text_run(text) { return decode_html(text.replace(/\s+/g, " ")); }
 
-/** Minimal RTF plain-text reader: handles common escapes and ignores hidden destinations. */
+function rtf_decoder(codepage) {
+  const aliases = { 65001: "utf-8", 932: "shift_jis", 936: "gbk", 949: "euc-kr", 950: "big5", 10000: "macintosh" };
+  try { return new TextDecoder(aliases[codepage] || `windows-${codepage}`, { fatal: true }); }
+  catch { throw new Error("This RTF document uses an unsupported text encoding. Save it as Unicode RTF and try again."); }
+}
+
+/** Decode text runs in their declared code page; count Unicode fallback as RTF tokens, not source bytes. */
 export function extract_rtf(buffer) {
   const source = buffer.toString("latin1");
   if (!source.startsWith("{\\rtf")) throw new Error("This is not a valid RTF document.");
-  const stack = []; let skip = false, pending = false, unicodeSkip = 1, text = "";
+  const stack = [], parts = [];
+  let skip = false, pending = false, unicode_skip = 1, fallback = 0, codepage = 1252, bytes = "";
+  const flush = () => {
+    if (bytes) parts.push(rtf_decoder(codepage).decode(Buffer.from(bytes, "latin1")));
+    bytes = "";
+  };
+  const character = (value) => {
+    if (fallback) { fallback--; return; }
+    if (!skip) bytes += value;
+    pending = false;
+  };
   for (let i = 0; i < source.length; i++) {
     const c = source[i];
-    if (c === "{") { stack.push({ skip, unicodeSkip }); pending = true; continue; }
-    if (c === "}") { const state = stack.pop(); if (!state) throw new Error("Malformed RTF document."); skip = state.skip; unicodeSkip = state.unicodeSkip; pending = false; continue; }
-    if (c !== "\\") { if (!skip && c !== "\r" && c !== "\n") text += c; continue; }
+    if (c === "{") { flush(); fallback = 0; stack.push({ skip, unicode_skip, codepage }); pending = true; continue; }
+    if (c === "}") {
+      flush(); fallback = 0;
+      const state = stack.pop();
+      if (!state) throw new Error("Malformed RTF document.");
+      ({ skip, unicode_skip, codepage } = state); pending = false; continue;
+    }
+    if (c !== "\\") { if (c !== "\r" && c !== "\n") character(c); continue; }
     const next = source[++i];
+    if (next === "'") {
+      if (!/^[0-9a-f]{2}$/i.test(source.slice(i + 1, i + 3))) throw new Error("Malformed RTF document.");
+      character(String.fromCharCode(parseInt(source.slice(i + 1, i + 3), 16))); i += 2; continue;
+    }
+    if (next === "\\" || next === "{" || next === "}") { character(next); continue; }
+    flush();
     if (next === "*" && pending) { skip = true; pending = false; continue; }
-    if (next === "'" && /^[0-9a-f]{2}$/i.test(source.slice(i+1,i+3))) { if (!skip) text += Buffer.from([parseInt(source.slice(i+1,i+3),16)]).toString("latin1"); i += 2; continue; }
-    if (next === "\\" || next === "{" || next === "}") { if (!skip) text += next; continue; }
     const m = source.slice(i).match(/^([a-zA-Z]+)(-?\d+)? ?/);
-    if (!m) { if (!skip && next === "~") text += " "; continue; }
-    i += m[0].length-1; const word=m[1].toLowerCase(), arg=m[2] == null ? null : Number(m[2]);
-    if (["fonttbl","colortbl","stylesheet","info","pict","object","header","footer","generator"].includes(word)) skip = true;
-    if (word === "uc" && arg !== null) unicodeSkip=Math.max(0,Math.min(10,arg));
-    if (!skip && word === "u" && arg !== null) { text += String.fromCharCode((arg+65536)%65536); i += unicodeSkip; }
-    if (!skip && ["par","line"].includes(word)) text += "\n";
-    if (!skip && word === "tab") text += "\t";
+    if (!m) {
+      if (fallback) fallback--;
+      else if (!skip && next === "~") parts.push(" ");
+      else if (!skip && next === "_") parts.push("-");
+      continue;
+    }
+    i += m[0].length - 1;
+    const word = m[1].toLowerCase(), arg = m[2] == null ? null : Number(m[2]);
+    if (word === "bin") {
+      if (!Number.isSafeInteger(arg) || arg < 0 || i + 1 + arg > source.length) throw new Error("Malformed RTF binary data.");
+      i += arg;
+      if (fallback) fallback--;
+      continue;
+    }
+    if (fallback) { fallback--; continue; }
+    if (["fonttbl", "colortbl", "stylesheet", "info", "pict", "object", "header", "footer", "generator"].includes(word)) skip = true;
+    if (word === "ansicpg" && arg !== null && !skip) { rtf_decoder(arg); codepage = arg; }
+    if (word === "mac" && !skip) codepage = 10000;
+    if (word === "uc" && arg !== null) {
+      if (!Number.isSafeInteger(arg) || arg < 0 || arg > 255) throw new Error("Malformed RTF Unicode fallback.");
+      unicode_skip = arg;
+    }
+    if (word === "u" && arg !== null) {
+      if (!Number.isInteger(arg) || arg < -32768 || arg > 65535) throw new Error("Malformed RTF Unicode character.");
+      if (!skip) parts.push(String.fromCharCode((arg + 65536) % 65536));
+      fallback = unicode_skip;
+    }
+    if (!skip && ["par", "line"].includes(word)) parts.push("\n");
+    if (!skip && word === "tab") parts.push("\t");
+    if (!skip && word === "emdash") parts.push("—");
+    if (!skip && word === "endash") parts.push("–");
+    if (!skip && word === "lquote") parts.push("‘");
+    if (!skip && word === "rquote") parts.push("’");
+    if (!skip && word === "ldblquote") parts.push("“");
+    if (!skip && word === "rdblquote") parts.push("”");
     pending = false;
   }
+  flush();
   if (stack.length) throw new Error("Malformed RTF document.");
-  return clean_extracted_text(text);
+  return clean_extracted_text(parts.join(""));
 }
 export async function extract_odt(buffer) {
   const archive = await load_safe_archive(buffer);

@@ -1,23 +1,8 @@
+export { IMPORT_TYPES } from "../../config/importTypes";
 export type ImportCandidate = { name: string; mimeType?: string | null; size?: number | null; uri: string };
 export const MAX_DOCUMENT_BYTES = 25_000_000;
 /** The server reads photos of pages up to this size (scanned PDFs and documents can be larger). */
 export const MAX_PAGE_PHOTO_BYTES = 12_000_000;
-/** Every type Votic imports, by MIME type, with the extension a shared file without a name is given. */
-export const IMPORT_TYPES: Record<string, string> = {
-  "text/plain": "txt",
-  "text/markdown": "md",
-  "application/pdf": "pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-  "application/vnd.ms-powerpoint": "ppt",
-  "application/epub+zip": "epub",
-  "application/rtf": "rtf",
-  "application/vnd.oasis.opendocument.text": "odt",
-  "text/html": "html",
-  "image/jpeg": "jpg",
-  "image/png": "png",
-  "image/webp": "webp",
-};
 export const UNSUPPORTED_TYPE_MESSAGE =
   "Choose a TXT, Markdown, PDF, Word, PowerPoint, EPUB, RTF, ODT, or HTML document, or a JPEG, PNG, or WebP photo of a page.";
 export function supported_document(name: string) {

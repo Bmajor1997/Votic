@@ -7,7 +7,14 @@ class AiProviderError extends Error {
 }
 
 import { createHash } from "node:crypto";
-import { model_prices } from "./ai_usage.js";
+import { AI_EXECUTION_TIMEOUT_MS, model_prices } from "./ai_usage.js";
+
+class AiIncompleteError extends Error {
+  constructor(status) {
+    super("AI response did not complete");
+    this.incomplete = status === "incomplete";
+  }
+}
 
 export function response_text(result) {
   if (Array.isArray(result.output)) return result.output
@@ -22,7 +29,7 @@ export function response_text(result) {
 /** All paid requests use the same ledger. Reserve before sending; retain uncertain charges on timeout.
  * Deliberately no automatic retry: a timeout may already have spent tokens at the provider.
  */
-export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
+export function accounted_fetch({ fetch_impl, store, env, user_id, feature, timeout_ms = AI_EXECUTION_TIMEOUT_MS }) {
   return async (url, options) => {
     const transcription = url === "https://api.openai.com/v1/audio/transcriptions";
     if (!transcription && url !== "https://api.openai.com/v1/responses") throw new Error("Unsupported AI endpoint");
@@ -38,7 +45,7 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
     // UTF-8 bytes conservatively bound text, but base64 is transport data, not image tokens.
     // Keep the existing 50K high-detail image reservation per page; settle against provider usage.
     let image_count = 0;
-    const accounting_payload = payload && feature === "scan-ocr" ? JSON.stringify(payload, (_key, value) => {
+    const accounting_payload = payload && ["scan-ocr", "pdf-ocr"].includes(feature) ? JSON.stringify(payload, (_key, value) => {
       if (value && typeof value === "object" && value.type === "input_image") {
         image_count += 1;
         return { type: "input_image", detail: value.detail };
@@ -50,32 +57,46 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
     const output_bound = transcription ? 2000 : payload.max_output_tokens;
     const request_id = store.reserve({ user_id, feature, model, input_bound, output_bound, rates });
     let finished = false;
+    const controller = new AbortController();
+    let timer;
+    const deadline = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        const error = new Error("AI request timed out");
+        error.name = "AbortError";
+        reject(error);
+      }, Math.min(timeout_ms, AI_EXECUTION_TIMEOUT_MS));
+    });
     try {
-      const response = await fetch_impl(url, {
-        ...options,
-        ...(payload ? { body: JSON.stringify(payload) } : {}),
-        headers: { ...options.headers, "X-Client-Request-Id": request_id },
-      });
-      const provider_request_id = response.headers?.get?.("x-request-id") || null;
-      if (!response.ok) {
-        // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
-        store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
+      const execute = async () => {
+        const response = await fetch_impl(url, {
+          ...options,
+          signal: options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal,
+          ...(payload ? { body: JSON.stringify(payload) } : {}),
+          headers: { ...options.headers, "X-Client-Request-Id": request_id },
+        });
+        const provider_request_id = response.headers?.get?.("x-request-id") || null;
+        if (!response.ok) {
+          // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
+          store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
+          finished = true;
+          // Keep the provider's status and error code (never its message, which can echo part of the key).
+          const body = await response.json().catch(() => null);
+          throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
+        }
+        const result = await response.json();
+        const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
+        store.finish(request_id, { status, result, provider_request_id });
         finished = true;
-        // Keep the provider's status and error code (never its message, which can echo part of the key).
-        const body = await response.json().catch(() => null);
-        throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
-      }
-      const result = await response.json();
-      const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
-      store.finish(request_id, { status, result, provider_request_id });
-      finished = true;
-      // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
-      if (status !== "completed") throw Object.assign(new Error("AI response did not complete"), { incomplete: status === "incomplete" });
-      return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
+        // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
+        if (status !== "completed") throw new AiIncompleteError(status);
+        return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
+      };
+      return await Promise.race([execute(), deadline]);
     } catch (error) {
       if (!finished) store.finish(request_id, { status: "unknown" });
       throw error;
-    }
+    } finally { clearTimeout(timer); }
   };
 }
 

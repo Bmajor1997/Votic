@@ -6,6 +6,10 @@ import { randomUUID } from "node:crypto";
 export class AiLimitError extends Error {
   constructor(message) { super(message); this.status = 429; this.headers = { "Retry-After": "60" }; }
 }
+// Gateway requests have a hard lifetime. The extra grace prevents a second worker releasing a slot
+// while the first is still aborting; charges remain reserved after this execution lease expires.
+export const AI_EXECUTION_TIMEOUT_MS = 120_000;
+export const AI_EXECUTION_LEASE_MS = AI_EXECUTION_TIMEOUT_MS + 30_000;
 
 // USD per million tokens, Standard processing, verified 2026-10-05.
 const PRICES = {
@@ -72,6 +76,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
     reserve({ user_id, feature, model, input_bound, output_bound, rates }) {
       const started_at = now().toISOString(), month = started_at.slice(0, 7) + "-01T00:00:00.000Z", day = started_at.slice(0, 10) + "T00:00:00.000Z";
       const minute = new Date(Date.parse(started_at) - 60000).toISOString();
+      const active_since = new Date(Date.parse(started_at) - AI_EXECUTION_LEASE_MS).toISOString();
       const reserved_tokens = input_bound + output_bound;
       // Reserve the most expensive input category; cache writes can cost more than uncached input.
       const reserved_cost = estimate_cost({ input_tokens: input_bound, output_tokens: output_bound, cached_tokens: 0, cache_write_tokens: 0 }, { ...rates, input: Math.max(rates.input, rates.cached, rates.cache_write) });
@@ -79,7 +84,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       try {
         const sums = db.prepare(`SELECT COALESCE(SUM(allowance_tokens),0) AS tokens, COALESCE(SUM(estimated_cost_usd),0) AS cost FROM ai_usage WHERE user_id=? AND started_at>=?`).get(user_id, month);
         const global = db.prepare("SELECT COALESCE(SUM(estimated_cost_usd),0) AS cost FROM ai_usage WHERE started_at>=?").get(month);
-        const counts = db.prepare(`SELECT SUM(started_at>=?) AS daily, SUM(started_at>=?) AS minute, SUM(status='pending') AS active FROM ai_usage WHERE user_id=?`).get(day, minute, user_id);
+        const counts = db.prepare(`SELECT SUM(started_at>=?) AS daily, SUM(started_at>=?) AS minute, SUM(status='pending' AND started_at>?) AS active FROM ai_usage WHERE user_id=?`).get(day, minute, active_since, user_id);
         const global_daily = db.prepare("SELECT COUNT(*) AS count FROM ai_usage WHERE started_at>=?").get(day).count;
         if (sums.tokens + reserved_tokens > limits.user_tokens || sums.cost + reserved_cost > limits.user_cost)
           throw new AiLimitError("You've reached your monthly AI allowance. Try again next month.");
