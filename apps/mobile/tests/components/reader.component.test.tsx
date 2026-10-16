@@ -138,6 +138,29 @@ describe("Reader", () => {
     }
   });
 
+  it("shows Catch me up as a Where you left off reminder, not as another summary", async () => {
+    searchParams.current = {};
+    askVoticMock.mockResolvedValueOnce({
+      answer: "You were reading about the second passage.",
+      mode: "document-ai",
+      sectionIndex: null,
+      sectionTitle: null,
+    });
+    const halfway = test_document("doc-half", "Field Guide", {
+      plainText: "First passage here. Second passage there. Third passage ends.",
+      progress: 0.4,
+      sentenceIndex: 1,
+    });
+    await render_with_providers(<OpenedReader />, { documents: [halfway], reduceMotion: true });
+    await fireEvent.press(screen.getByText("More"));
+    await fireEvent.press(screen.getByRole("button", { name: "Catch up" }));
+    expect(askVoticMock.mock.calls[0][0]).toMatch(/no bullet points/);
+    expect(await screen.findByRole("header", { name: "Where you left off" })).toBeTruthy();
+    expect(screen.getByText("40% through Field Guide")).toBeTruthy();
+    expect(screen.getByText("You were reading about the second passage.")).toBeTruthy();
+    expect(screen.queryByText("Conversation summary")).toBeNull();
+  });
+
   it("shows the document's passages and reading progress", async () => {
     await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
     expect(screen.getByText("Field Guide")).toBeTruthy();

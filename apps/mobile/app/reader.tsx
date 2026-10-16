@@ -133,6 +133,8 @@ type ReaderAskMessage = {
   link?: AskLink;
   /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
   fallback?: boolean;
+  /** A Catch me up reminder, shown as its own "Where you left off" card so it isn't mistaken for a summary. */
+  catchUp?: { percent: number; title: string };
 };
 // `after`: how many messages came before it, so later answers (such as Catch me up) appear below it, not hidden above.
 type ConversationSummary = {
@@ -556,6 +558,39 @@ function ReaderContent() {
 
   /** One Ask Votic message: the person's question, or Votic's answer with listen, passage and save controls. */
   function ask_message_view(message: (typeof askMessages)[number], messageIndex: number) {
+    if (message.role === "votic" && message.catchUp)
+      return (
+        <View
+          key={messageIndex}
+          style={[s.catchUpCard, { backgroundColor: theme.surfaceMuted, borderLeftColor: theme.accent }]}
+        >
+          <View
+            accessible
+            accessibilityRole="header"
+            accessibilityLabel="Where you left off"
+            style={s.summaryTitleRow}
+          >
+            <Ionicons accessible={false} name="bookmark" size={17} color={theme.accent} />
+            <Text style={[s.summaryTitle, { color: theme.text }]}>Where you left off</Text>
+          </View>
+          <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
+            {message.catchUp.percent}% through {message.catchUp.title}
+          </Text>
+          <AIResponse
+            text={message.text}
+            animate={!message.revealed}
+            style={[s.askAnswerText, { color: theme.text }]}
+          />
+          <AskAnswerFooter
+            listen={{
+              playing: answerListening.playingKey === String(messageIndex),
+              failed: answerListening.errorKey === String(messageIndex),
+              disabled: askVoiceBusy,
+              onPress: () => void answerListening.toggle(String(messageIndex), message.text, stop),
+            }}
+          />
+        </View>
+      );
     return message.role === "user" ? (
       <View key={messageIndex} style={[s.askUserMessage, theme.isDark && { backgroundColor: theme.accent }]}>
         <Text style={s.askUserText}>{message.text}</Text>
@@ -670,7 +705,14 @@ function ReaderContent() {
       setAskMessages((current) => [
         ...current,
         answer.mode === "document-ai"
-          ? { role: "votic", text: answer.answer }
+          ? {
+              role: "votic",
+              text: answer.answer,
+              catchUp: {
+                percent: Math.round((activeDocument.progress || 0) * 100),
+                title: activeDocument.title,
+              },
+            }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
     } catch (error) {
@@ -1815,6 +1857,7 @@ const s = StyleSheet.create({
     lineHeight: 19,
   },
   summaryCard: { borderWidth: 1, borderRadius: 16, padding: spacing.md, gap: spacing.md },
+  catchUpCard: { borderLeftWidth: 4, borderRadius: 12, padding: spacing.md, gap: spacing.xs },
   summaryTitleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   summaryTitle: { fontSize: 14, fontWeight: "800" },
   askComposer: {

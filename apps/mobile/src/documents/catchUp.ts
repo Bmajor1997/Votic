@@ -16,6 +16,6 @@ export function catch_up_prompt(document: VoticDocument) {
   return (
     "Catch me up on what I have already covered in this document. I am about " +
     percent +
-    "% through it. Summarize only the material before my current position, in plain language, with one short overview and 3-5 key points. Do not spoil later sections."
+    '% through it. In two or three short, plain sentences, remind me where I left off: start with "You were reading about", then say what the most recent part covered. Write it as a short paragraph, with no bullet points, headings, or lists, so it reads as a reminder rather than a summary. Cover only the material before my current position and do not spoil later sections.'
   );
 }
