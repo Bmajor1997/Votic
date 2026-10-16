@@ -62,6 +62,7 @@ export function GettingStartedCard() {
     else
       addTextDocument(VOTIC_GUIDE_SOURCE_NAME, clean_local_document_text(VOTIC_GUIDE_TEXT), {
         playbackRate: defaultPlaybackRate,
+        origin: "guide",
       });
     // The guide asks people to press Play, so it opens with the listening controls.
     open_from(guideRef, transition, { mode: "listen" });

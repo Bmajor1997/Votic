@@ -1,7 +1,7 @@
 import { useAccountData } from "../storage/AccountDataProvider";
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
-import { SavedPassage, VoticDocument } from "./types";
+import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
 
@@ -26,7 +26,11 @@ type Library = {
   /** False until the saved library has been read (or failed to read), so screens can show loading. */
   loaded: boolean;
   renameDocument: (id: string, title: string) => void;
-  addTextDocument: (sourceName: string, text: string, options?: { playbackRate?: number }) => VoticDocument;
+  addTextDocument: (
+    sourceName: string,
+    text: string,
+    options?: { playbackRate?: number; origin?: DocumentOrigin },
+  ) => VoticDocument;
   openDocument: (id: string, sentenceIndex?: number) => void;
   addCollection: (name: string) => void;
   setDocumentCollection: (id: string, collection?: string) => void;
@@ -166,12 +170,17 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     [documents, activeId],
   );
 
-  function add_text_document(sourceName: string, text: string, options: { playbackRate?: number } = {}) {
+  function add_text_document(
+    sourceName: string,
+    text: string,
+    options: { playbackRate?: number; origin?: DocumentOrigin } = {},
+  ) {
     const now = Date.now();
     const document: VoticDocument = {
       id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
       title: title_from(sourceName, text),
       sourceName,
+      ...(options.origin ? { origin: options.origin } : {}),
       plainText: text.trim(),
       importedAt: now,
       updatedAt: now,

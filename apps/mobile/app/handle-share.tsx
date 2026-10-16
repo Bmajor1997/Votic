@@ -8,6 +8,7 @@ import { spacing, radii } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
   IMPORT_TYPES,
+  import_origin,
   supported_document,
   UNSUPPORTED_TYPE_MESSAGE,
   validate_import,
@@ -61,7 +62,7 @@ export default function HandleShare() {
 
         if (!text.trim()) throw new Error("This document does not contain readable text.");
 
-        addTextDocument(name, text, { playbackRate: defaultPlaybackRate });
+        addTextDocument(name, text, { playbackRate: defaultPlaybackRate, origin: import_origin(name) });
         clearSharedPayloads();
         router.replace("/reader");
       } catch (caught) {

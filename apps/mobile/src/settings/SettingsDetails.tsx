@@ -333,6 +333,7 @@ function HelpSettings() {
                   clean_local_document_text(VOTIC_GUIDE_TEXT),
                   {
                     playbackRate: defaultPlaybackRate,
+                    origin: "guide",
                   },
                 );
               open_from(guideRef, transition, { mode: "listen" });

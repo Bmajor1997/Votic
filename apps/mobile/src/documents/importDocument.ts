@@ -27,6 +27,10 @@ export function supported_document(name: string) {
 export function is_page_photo(name: string) {
   return /\.(jpe?g|png|webp)$/i.test(name);
 }
+/** A photo of a page counts as a scan; every other imported file is an uploaded file. */
+export function import_origin(name: string) {
+  return is_page_photo(name) ? ("scan" as const) : ("file" as const);
+}
 const PHOTO_TOO_LARGE = "This photo is too large. The limit for photos of pages is 12 MB.";
 export function can_read_locally(name: string) {
   return /\.(txt|md)$/i.test(name);

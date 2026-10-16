@@ -1,7 +1,7 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { AIResponse } from "../../src/components/AIResponse";
-import { UNWRITTEN_INK } from "../../src/components/RevealingText";
+import { edge_color, UNWRITTEN_INK } from "../../src/components/RevealingText";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { render_with_providers } from "../renderWithProviders";
 
@@ -14,7 +14,7 @@ jest.mock("expo-audio", () => ({
   })),
 }));
 
-// The answer's Text holds: the inked words, the fading edge, then the rest of the answer, invisible.
+// The answer's Text holds: the inked words, the glowing edge, then the rest of the word being written, invisible.
 function parts(full: string) {
   const children = ([] as unknown[]).concat(screen.getByLabelText(full).props.children).filter(Boolean);
   const rest = children.at(-1) as { props?: { style?: { color?: string }; children?: string } };
@@ -24,17 +24,18 @@ function parts(full: string) {
   };
 }
 
-it("lays answers down from left to right without moving text, and lets the user show the full response", async () => {
+it("writes answers from left to right, holding only the current word's place, and can show the full response", async () => {
   const answer = "First word.\nNext line of the answer.";
   await render_with_providers(<AIResponse text={answer} />);
   expect(screen.getByText("Writing")).toBeTruthy();
-  // At first nothing is inked, but the whole answer is already laid out (invisibly), so lines never jump.
-  expect(parts(answer)).toEqual({ inked: "", hidden: answer });
+  // At first nothing is inked; only the first word's place is held, so it can't jump to another line mid-word.
+  expect(parts(answer)).toEqual({ inked: "", hidden: "First" });
   await act(async () => jest.advanceTimersByTime(24 * 8));
   const midway = parts(answer);
   expect(answer.startsWith(midway.inked)).toBe(true);
-  expect(midway.hidden.length).toBeLessThan(answer.length);
-  expect(answer.endsWith(midway.hidden)).toBe(true);
+  // The held part is never more than the rest of one word, so the answer grows line by line as it is written.
+  expect(midway.hidden).not.toMatch(/\s/);
+  expect(answer).toContain(midway.hidden);
   await fireEvent.press(screen.getByRole("button", { name: "Show full response" }));
   expect(screen.getByText(answer)).toBeTruthy();
   expect(screen.queryByText("Writing")).toBeNull();
@@ -55,4 +56,17 @@ it("offers an accessible native voice input control", async () => {
     <KeyboardDictationButton value="" onChangeText={jest.fn()} onFocus={jest.fn()} />,
   );
   expect(screen.getByRole("button", { name: "Start voice input" })).toBeTruthy();
+});
+it("forms the newest letters out of see-through light and settles older ones into the text color", () => {
+  const text = "#202124",
+    violet = "#7C3AED",
+    light = "#D9C9F9";
+  expect(edge_color(text, violet, light, 0, 0.9)).toBe(text);
+  const newest = edge_color(text, violet, light, 1, 0);
+  expect(newest).toMatch(/^#[0-9a-f]{8}$/);
+  const alpha = parseInt(newest.slice(7), 16);
+  // See-through while forming, but never alpha 0, which Android treats as "no color" and shows as plain text.
+  expect(alpha).toBeGreaterThan(0);
+  expect(alpha).toBeLessThan(128);
+  expect(edge_color(text, violet, light, 0.5, 0.5)).not.toBe(edge_color(text, violet, light, 0.5, 0));
 });

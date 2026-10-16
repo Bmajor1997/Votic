@@ -12,10 +12,13 @@ export type SavedPassage = {
   pinned?: boolean;
   tags?: string[];
 };
+/** How a document came into Votic. Documents added before this was recorded have none. */
+export type DocumentOrigin = "file" | "webpage" | "scan" | "guide";
 export type VoticDocument = {
   id: string;
   title: string;
   sourceName: string;
+  origin?: DocumentOrigin;
   notebookKind?: "quick-notes";
   plainText: string;
   importedAt: number;

@@ -5,7 +5,7 @@ import { Alert, View } from "react-native";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
-import { IMPORT_TYPES, validate_import } from "./importDocument";
+import { IMPORT_TYPES, import_origin, validate_import } from "./importDocument";
 import { read_imported_text } from "./readImportedText";
 
 export type ImportFailure = { name: string | null; message: string };
@@ -43,7 +43,10 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
         throw new Error("Votic could not access this file. Please choose it again from your device.");
       const text = await read_imported_text(asset.name, await response.arrayBuffer());
       if (!text.trim()) throw new Error("This document does not contain readable text.");
-      addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
+      addTextDocument(asset.name, text, {
+        playbackRate: defaultPlaybackRate,
+        origin: import_origin(asset.name),
+      });
       open_from(sourceRef, transition);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Votic could not read this document.";

@@ -19,7 +19,10 @@ export default function ImportWebScreen() {
     setBusy(true);
     try {
       const page = await import_web_page(url);
-      addTextDocument(page.title + ".txt", page.text, { playbackRate: defaultPlaybackRate });
+      addTextDocument(page.title + ".txt", page.text, {
+        playbackRate: defaultPlaybackRate,
+        origin: "webpage",
+      });
       router.replace("/reader");
     } catch (error) {
       Alert.alert("Could not import webpage", error instanceof Error ? error.message : "Try another link.");

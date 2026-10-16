@@ -37,6 +37,19 @@ describe("Statistics activity overview", () => {
     expect(height(/^bar-.*-listening$/)).toEqual([66]);
   });
 
+  it("shows where reading and listening time comes from", async () => {
+    await seed_activity();
+    await render_with_providers(<Statistics />);
+    expect(screen.getByRole("header", { name: "Where your time goes" })).toBeTruthy();
+    // The seeded document isn't in the library, so its source is unknown rather than guessed.
+    expect(screen.getByText("All of your time in this period was with earlier documents.")).toBeTruthy();
+    expect(
+      screen.getByLabelText(
+        "Earlier documents, 30 minutes, 100 percent. Reading 20 minutes, listening 10 minutes, 1 document.",
+      ),
+    ).toBeTruthy();
+  });
+
   it("shows accurate accessible totals and keeps the chart table available", async () => {
     const saved = await seed_activity();
     await render_with_providers(<Statistics />);

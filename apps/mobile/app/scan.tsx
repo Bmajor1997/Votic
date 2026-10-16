@@ -85,7 +85,10 @@ export default function ScanDocumentScreen() {
         month: "short",
         day: "numeric",
       });
-      addTextDocument(`Scanned document - ${stamp}.txt`, text, { playbackRate: defaultPlaybackRate });
+      addTextDocument(`Scanned document - ${stamp}.txt`, text, {
+        playbackRate: defaultPlaybackRate,
+        origin: "scan",
+      });
       router.replace("/reader");
     } catch (error) {
       Alert.alert(

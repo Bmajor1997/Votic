@@ -25,6 +25,7 @@ import { useActivity } from "../src/activity/ActivityProvider";
 import { ASK_CATEGORY_LABELS } from "../src/activity/askCategories";
 import { FadingScrollView } from "../src/components/FadingScrollView";
 import { TimeChart, series_colors } from "../src/activity/TimeChart";
+import { SOURCE_PHRASES, source_breakdown, type SourceKind } from "../src/activity/sourceBreakdown";
 import { DocumentCover } from "../src/components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { progress_label, readable_title } from "../src/documents/documentDisplay";
@@ -152,6 +153,7 @@ export default function Statistics() {
             <Card title={kind === "all" ? "Your time, month by month" : "Your time, day by day"}>
               <TimeChart points={chart_series(log, period, now)} title={`Time for ${period.label}`} />
             </Card>
+            <SourcesCard period={period} />
             <InsightsPreview period={period} onOpen={() => open_section("insights")} />
             <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
               Explore your activity
@@ -326,6 +328,77 @@ function DocumentsPreview({ period, onOpen }: { period: Period; onOpen: () => vo
       }
       onOpen={onOpen}
     />
+  );
+}
+const SOURCE_ICONS: Record<SourceKind, IconName> = {
+  file: "document-text-outline",
+  webpage: "globe-outline",
+  scan: "camera-outline",
+  guide: "book-outline",
+  earlier: "time-outline",
+};
+/** What people read and listen to: uploaded files, webpages, or scans, by time in the period. */
+function SourcesCard({ period }: { period: Period }) {
+  const { theme } = useVoticTheme();
+  const { log } = useActivity();
+  const { documents } = useDocumentLibrary();
+  const sources = source_breakdown(document_ranking(log, period.start, period.end), documents);
+  const total = sources.reduce((sum, source) => sum + source.total, 0);
+  const top = sources[0];
+  const share = (value: number) => (total ? Math.round((value / total) * 100) : 0);
+  return (
+    <Card title="Where your time goes">
+      {top ? (
+        <Text style={[s.sourceHeadline, { color: theme.text }]}>
+          {sources.length === 1
+            ? `All of your time in this period was with ${SOURCE_PHRASES[top.kind]}.`
+            : `Most of your time in this period was with ${SOURCE_PHRASES[top.kind]} (${share(top.total)}%).`}
+        </Text>
+      ) : (
+        <EmptyLine text="Read or listen to a document to see whether you spend more time with uploaded files, webpages, or scans." />
+      )}
+      {sources.map((source) => (
+        <View
+          key={source.kind}
+          accessible
+          accessibilityLabel={`${source.label}, ${spoken_duration(source.total)}, ${share(source.total)} percent. Reading ${spoken_duration(source.reading)}, listening ${spoken_duration(source.listening)}, ${source.documents} ${source.documents === 1 ? "document" : "documents"}.`}
+          style={[s.sourceRow, { borderBottomColor: theme.border }]}
+        >
+          <View style={[s.sourceIcon, { backgroundColor: theme.surfaceMuted }]}>
+            <Ionicons
+              accessible={false}
+              name={SOURCE_ICONS[source.kind]}
+              size={20}
+              color={theme.accentText}
+            />
+          </View>
+          <View style={s.grow}>
+            <View style={s.sourceTitleRow}>
+              <Text style={[s.docTitle, s.grow, { color: theme.text }]}>{source.label}</Text>
+              <Text style={[s.docTitle, { color: theme.text }]}>{format_duration(source.total)}</Text>
+            </View>
+            <View style={[s.sourceTrack, { backgroundColor: theme.surfaceMuted }]}>
+              <View
+                style={[
+                  s.sourceFill,
+                  { backgroundColor: theme.accent, width: `${Math.max(2, share(source.total))}%` },
+                ]}
+              />
+            </View>
+            <Text style={[s.sub, { color: theme.mutedText }]}>
+              Reading {format_duration(source.reading)} · Listening {format_duration(source.listening)} ·{" "}
+              {source.documents} {source.documents === 1 ? "document" : "documents"}
+            </Text>
+          </View>
+        </View>
+      ))}
+      {sources.some((source) => source.kind === "earlier") ? (
+        <Text style={[s.sub, { color: theme.mutedText }]}>
+          Earlier documents were added before Votic began noting whether a document was uploaded, imported
+          from a webpage, or scanned.
+        </Text>
+      ) : null}
+    </Card>
   );
 }
 function InsightsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
@@ -765,6 +838,18 @@ function PeriodArrow({
 }
 
 const s = StyleSheet.create({
+  sourceHeadline: { fontSize: 16, lineHeight: 23, fontWeight: "600" },
+  sourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sourceIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  sourceTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  sourceTrack: { height: 8, borderRadius: 4, overflow: "hidden", marginVertical: 6 },
+  sourceFill: { height: 8, borderRadius: 4 },
   intro: { ...typography.body, marginBottom: spacing.sm },
   sectionTitle: { ...typography.sectionTitle, marginTop: spacing.sm },
   eyebrow: { ...typography.eyebrow, flexShrink: 1 },
