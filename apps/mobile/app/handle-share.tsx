@@ -4,36 +4,20 @@ import { clearSharedPayloads, useIncomingShare } from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { extract_document, scan_document_image } from "../src/api/voticApi";
 import { spacing, radii } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
-  can_read_locally,
-  clean_local_document_text,
+  IMPORT_TYPES,
   supported_document,
+  UNSUPPORTED_TYPE_MESSAGE,
   validate_import,
-  validate_loaded_bytes,
 } from "../src/documents/importDocument";
+import { read_imported_text } from "../src/documents/readImportedText";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 function fallback_name(mimeType: string | null) {
-  const extension: Record<string, string> = {
-    "application/pdf": "pdf",
-    "text/plain": "txt",
-    "text/markdown": "md",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-    "application/vnd.ms-powerpoint": "ppt",
-    "application/epub+zip": "epub",
-    "application/rtf": "rtf",
-    "application/vnd.oasis.opendocument.text": "odt",
-    "text/html": "html",
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  };
-  return `Shared document.${extension[mimeType || ""] || "file"}`;
+  return `Shared document.${IMPORT_TYPES[mimeType || ""] || "file"}`;
 }
 
 export default function HandleShare() {
@@ -58,8 +42,7 @@ export default function HandleShare() {
         const name = payload.originalName || fallback_name(payload.contentMimeType);
 
         if (!uri) throw new Error("Votic could not access the shared document.");
-        if (!supported_document(name))
-          throw new Error("Share a TXT, Markdown, PDF, Word, PowerPoint, or EPUB document.");
+        if (!supported_document(name)) throw new Error(UNSUPPORTED_TYPE_MESSAGE);
 
         setStatus(`Importing ${name}…`);
         validate_import({
@@ -72,14 +55,9 @@ export default function HandleShare() {
         const response = await fetch(uri);
         if (!response.ok) throw new Error("Votic could not access the shared document.");
         const bytes = await response.arrayBuffer();
-        validate_loaded_bytes(bytes.byteLength);
 
         setStatus(`Reading ${name}…`);
-        const text = can_read_locally(name)
-          ? clean_local_document_text(new TextDecoder().decode(bytes))
-          : /\.(jpe?g|png|webp)$/i.test(name)
-            ? await scan_document_image(name, bytes)
-            : await extract_document(name, bytes);
+        const text = await read_imported_text(name, bytes);
 
         if (!text.trim()) throw new Error("This document does not contain readable text.");
 

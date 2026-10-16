@@ -263,7 +263,7 @@ function ReaderContent() {
   // What applies to the whole conversation sits in the header's menu rather than under the answers.
   // Summaries cover both sides of the conversation; Quick notes opens the Notes editor.
   const conversationActions: AskConversationAction[] = [
-    { label: "Quick notes", icon: "create-outline", onPress: quickNote.openQuickNote },
+    { label: "Quick notes", icon: "create-outline", onPress: quickNote.open_quick_note },
     {
       label: "Summarize",
       icon: "sparkles-outline",
@@ -711,8 +711,13 @@ function ReaderContent() {
     setSummarizing(true);
     setAskError("");
     try {
-      const request = conversation_summary_request(askMessages);
-      const answer = await ask_votic(CONVERSATION_SUMMARY_PROMPT, request.document, request.history);
+      const request = conversation_summary_request(askMessages, explanationStyle);
+      const answer = await ask_votic(
+        CONVERSATION_SUMMARY_PROMPT,
+        request.document,
+        request.history,
+        explanationStyle,
+      );
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
       if (!answered_from_context(request, answer)) {

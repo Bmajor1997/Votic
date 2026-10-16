@@ -2,16 +2,11 @@ import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { RefObject, useState } from "react";
 import { Alert, View } from "react-native";
-import { extract_document, scan_document_image } from "../api/voticApi";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
-import {
-  can_read_locally,
-  clean_local_document_text,
-  validate_import,
-  validate_loaded_bytes,
-} from "./importDocument";
+import { IMPORT_TYPES, validate_import } from "./importDocument";
+import { read_imported_text } from "./readImportedText";
 
 export type ImportFailure = { name: string | null; message: string };
 
@@ -34,21 +29,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
     let name: string | null = null;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "text/plain",
-          "text/markdown",
-          "application/pdf",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          "application/vnd.ms-powerpoint",
-          "application/epub+zip",
-          "application/rtf",
-          "application/vnd.oasis.opendocument.text",
-          "text/html",
-          "image/jpeg",
-          "image/png",
-          "image/webp",
-        ],
+        type: Object.keys(IMPORT_TYPES),
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -60,12 +41,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       const response = await fetch(asset.uri);
       if (!response.ok)
         throw new Error("Votic could not access this file. Please choose it again from your device.");
-      const bytes = await response.arrayBuffer();
-      validate_loaded_bytes(bytes.byteLength);
-      let text: string;
-      if (can_read_locally(asset.name)) text = clean_local_document_text(new TextDecoder().decode(bytes));
-      else if (/\.(jpe?g|png|webp)$/i.test(asset.name)) text = await scan_document_image(asset.name, bytes);
-      else text = await extract_document(asset.name, bytes);
+      const text = await read_imported_text(asset.name, await response.arrayBuffer());
       if (!text.trim()) throw new Error("This document does not contain readable text.");
       addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
       open_from(sourceRef, transition);

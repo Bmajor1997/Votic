@@ -8,11 +8,11 @@ import type { NoteItem } from "./notesList";
 export function useQuickNoteEditor() {
   const { addQuickNote } = useDocumentLibrary();
   const [item, setItem] = useState<NoteItem | null>(null);
-  function openQuickNote() {
+  function open_quick_note() {
     setItem(new_quick_note_item());
   }
   return {
-    openQuickNote,
+    open_quick_note,
     editor: (
       <NoteEditor
         item={item}

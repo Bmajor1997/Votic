@@ -429,7 +429,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
             </View>
             <AskConversationMenu
               actions={[
-                { label: "Quick notes", icon: "create-outline", onPress: quickNote.openQuickNote },
+                { label: "Quick notes", icon: "create-outline", onPress: quickNote.open_quick_note },
                 {
                   label: "Summarize",
                   icon: "sparkles-outline",
