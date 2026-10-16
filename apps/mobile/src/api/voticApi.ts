@@ -93,7 +93,7 @@ export async function extract_document(name: string, bytes: ArrayBuffer) {
       headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent(name) },
       body: bytes,
     },
-    30_000,
+    180_000,
   );
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not read this document."));

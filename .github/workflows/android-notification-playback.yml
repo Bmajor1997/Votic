@@ -44,6 +44,22 @@ jobs:
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_TELEMETRY: "1"
+      - name: Install Android NDK with download recovery
+        env:
+          VOTIC_NDK_VERSION: "27.1.12297006"
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;$VOTIC_NDK_VERSION" &&
+              test -f "$ANDROID_HOME/ndk/$VOTIC_NDK_VERSION/source.properties" &&
+              test -x "$ANDROID_HOME/ndk/$VOTIC_NDK_VERSION/ndk-build"; then
+              exit 0
+            fi
+            echo "NDK download attempt $attempt failed; removing the incomplete installation."
+            rm -rf "$ANDROID_HOME/ndk/$VOTIC_NDK_VERSION" "$ANDROID_HOME/.temp"
+          done
+          exit 1
       - name: Compile notification playback and process its manifest
         working-directory: apps/mobile/android
         run: ./gradlew :votic-playback:compileDebugKotlin :votic-playback:processDebugManifest --no-daemon --max-workers=2

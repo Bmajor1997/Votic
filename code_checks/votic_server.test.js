@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { once } from "node:events";
 import { request as http_request } from "node:http";
 import { create_votic_server, load_server_config, validate_production_security } from "../votic_server.js";
+import { PdfOcrRequiredError } from "../app_parts/document_file_tools.js";
 const test_prices = JSON.stringify(Object.fromEntries(["ocr-model", "document-model", "review-model"].map((model) => [model, { input: 0.1, cached: 0.01, cache_write: 0.125, output: 0.5 }])));
 
 async function with_server(options, run) {
@@ -506,16 +507,17 @@ test("web imports do not expose internal network error details", async () => {
 });
 
 test("reads scanned PDFs through private OCR, and refuses rather than cutting a long one short", async () => {
-  const scanned = async () => { throw new Error("This PDF has no selectable text. Scanned PDFs need OCR, which is not included yet."); };
+  const scanned = async () => { throw new PdfOcrRequiredError(); };
+  const render = async () => [Buffer.from("bounded-page-image")];
   const upload = (base) => fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan.pdf" }, body: pdf });
   let apiBody, reply = { output_text: "Chapter one\n\nScanned words." };
   const fetch_impl = async (_url, options) => { apiBody = JSON.parse(options.body); return { ok: true, async json() { return reply; } }; };
-  await with_server({ env: { OPENAI_API_KEY: "test-key", OPENAI_OCR_MODEL: "ocr-model" }, fetchImpl: fetch_impl, extractDocument: scanned }, async (base) => {
+  await with_server({ env: { OPENAI_API_KEY: "test-key", OPENAI_OCR_MODEL: "ocr-model" }, fetchImpl: fetch_impl, extractDocument: scanned, renderPdfForOcr: render }, async (base) => {
     const response = await upload(base);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { text: "Chapter one\n\nScanned words." });
     assert.equal(apiBody.store, false);
-    assert.match(apiBody.input[0].content[1].file_data, /^data:application\/pdf;base64,/);
+    assert.match(apiBody.input[0].content[1].image_url, /^data:image\/png;base64,/);
     reply = { status: "incomplete", output_text: "Chapter one" };
     const long = await upload(base);
     assert.equal(long.status, 413);
@@ -523,7 +525,7 @@ test("reads scanned PDFs through private OCR, and refuses rather than cutting a 
     reply = { output_text: "" };
     assert.equal((await upload(base)).status, 422);
   });
-  await with_server({ env: { OPENAI_API_KEY: "test-key", OPENAI_OCR_MODEL: "ocr-model" }, fetchImpl: async () => ({ ok: false, status: 500, async json() { return { error: { message: "provider detail" } }; } }), extractDocument: scanned }, async (base) => {
+  await with_server({ env: { OPENAI_API_KEY: "test-key", OPENAI_OCR_MODEL: "ocr-model" }, fetchImpl: async () => ({ ok: false, status: 500, async json() { return { error: { message: "provider detail" } }; } }), extractDocument: scanned, renderPdfForOcr: render }, async (base) => {
     const failed = await upload(base);
     assert.equal(failed.status, 503);
     assert.doesNotMatch(JSON.stringify(await failed.json()), /provider detail/);
