@@ -197,7 +197,7 @@ function Chip({
         },
       ]}
     >
-      <Text style={[s.chipText, { color: selected ? theme.accent : theme.text }]}>{label}</Text>
+      <Text style={[s.chipText, { color: selected ? theme.accentText : theme.text }]}>{label}</Text>
     </Pressable>
   );
 }

@@ -34,7 +34,7 @@ export function Choice<T extends string>({
         },
       ]}
     >
-      <Text style={[s.choiceText, { color: selected ? theme.accent : theme.text }]}>{label}</Text>
+      <Text style={[s.choiceText, { color: selected ? theme.accentText : theme.text }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -65,19 +65,19 @@ export function SeekableProgress({
   const [draft, setDraft] = useState<number | null>(null);
   const width = useRef(1);
   const shown = draft ?? value;
-  function valueFromEvent(event: GestureResponderEvent) {
+  function value_from_event(event: GestureResponderEvent) {
     return Math.max(0, Math.min(1, event.nativeEvent.locationX / width.current));
   }
   function begin(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
+    const next = value_from_event(event);
     onSeekStart();
     setDraft(next);
   }
   function move(event: GestureResponderEvent) {
-    setDraft(valueFromEvent(event));
+    setDraft(value_from_event(event));
   }
   function finish(event: GestureResponderEvent) {
-    const next = valueFromEvent(event);
+    const next = value_from_event(event);
     setDraft(null);
     onSeek(next);
   }
@@ -159,7 +159,11 @@ export function VoiceChoice({
           { backgroundColor: selected ? theme.accent : theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
         ]}
       >
-        <Ionicons name={previewing ? "stop" : "play"} size={18} color={selected ? "#FFF" : theme.accent} />
+        <Ionicons
+          name={previewing ? "stop" : "play"}
+          size={18}
+          color={selected ? "#FFF" : theme.accentText}
+        />
       </Pressable>
       <Pressable
         accessibilityRole="radio"
@@ -168,7 +172,7 @@ export function VoiceChoice({
         onPress={onSelect}
         style={({ pressed }) => [s.voiceSelect, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <Text style={[s.voiceName, { color: selected ? theme.accent : theme.text }]}>{name}</Text>
+        <Text style={[s.voiceName, { color: selected ? theme.accentText : theme.text }]}>{name}</Text>
         {selected ? <Ionicons name="checkmark-circle" size={19} color={theme.accent} /> : null}
       </Pressable>
     </View>
@@ -201,13 +205,13 @@ export function ToolButton({
         { backgroundColor: active ? theme.sentenceHighlight : "transparent", opacity: pressed ? 0.65 : 1 },
       ]}
     >
-      <Ionicons name={icon} size={19} color={active ? theme.accent : theme.text} />
+      <Ionicons name={icon} size={19} color={active ? theme.accentText : theme.text} />
       <Text
         numberOfLines={1}
         maxFontSizeMultiplier={1.1}
         adjustsFontSizeToFit
         minimumFontScale={0.72}
-        style={[s.toolLabel, { color: active ? theme.accent : theme.text }]}
+        style={[s.toolLabel, { color: active ? theme.accentText : theme.text }]}
       >
         {label}
       </Text>

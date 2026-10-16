@@ -4,30 +4,21 @@ import { clearSharedPayloads, useIncomingShare } from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { extractDocument } from "../src/api/voticApi";
 import { spacing, radii } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
-  canReadLocally,
-  cleanLocalDocumentText,
-  supportedDocument,
-  validateImport,
-  validateLoadedBytes,
+  IMPORT_TYPES,
+  import_origin,
+  supported_document,
+  UNSUPPORTED_TYPE_MESSAGE,
+  validate_import,
 } from "../src/documents/importDocument";
+import { read_imported_text } from "../src/documents/readImportedText";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
-function fallbackName(mimeType: string | null) {
-  const extension: Record<string, string> = {
-    "application/pdf": "pdf",
-    "text/plain": "txt",
-    "text/markdown": "md",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation": "pptx",
-    "application/vnd.ms-powerpoint": "ppt",
-    "application/epub+zip": "epub",
-  };
-  return `Shared document.${extension[mimeType || ""] || "file"}`;
+function fallback_name(mimeType: string | null) {
+  return `Shared document.${IMPORT_TYPES[mimeType || ""] || "file"}`;
 }
 
 export default function HandleShare() {
@@ -43,20 +34,19 @@ export default function HandleShare() {
     if (isResolving || started.current || error || !resolvedSharedPayloads.length) return;
     started.current = true;
 
-    const importSharedDocument = async () => {
+    const import_shared_document = async () => {
       try {
         if (resolvedSharedPayloads.length !== 1) throw new Error("Share one document at a time with Votic.");
 
         const payload = resolvedSharedPayloads[0];
         const uri = payload.contentUri;
-        const name = payload.originalName || fallbackName(payload.contentMimeType);
+        const name = payload.originalName || fallback_name(payload.contentMimeType);
 
         if (!uri) throw new Error("Votic could not access the shared document.");
-        if (!supportedDocument(name))
-          throw new Error("Share a TXT, Markdown, PDF, Word, PowerPoint, or EPUB document.");
+        if (!supported_document(name)) throw new Error(UNSUPPORTED_TYPE_MESSAGE);
 
         setStatus(`Importing ${name}…`);
-        validateImport({
+        validate_import({
           name,
           size: payload.contentSize,
           uri,
@@ -66,16 +56,13 @@ export default function HandleShare() {
         const response = await fetch(uri);
         if (!response.ok) throw new Error("Votic could not access the shared document.");
         const bytes = await response.arrayBuffer();
-        validateLoadedBytes(bytes.byteLength);
 
         setStatus(`Reading ${name}…`);
-        const text = canReadLocally(name)
-          ? cleanLocalDocumentText(new TextDecoder().decode(bytes))
-          : await extractDocument(name, bytes);
+        const text = await read_imported_text(name, bytes);
 
         if (!text.trim()) throw new Error("This document does not contain readable text.");
 
-        addTextDocument(name, text, { playbackRate: defaultPlaybackRate });
+        addTextDocument(name, text, { playbackRate: defaultPlaybackRate, origin: import_origin(name) });
         clearSharedPayloads();
         router.replace("/reader");
       } catch (caught) {
@@ -84,7 +71,7 @@ export default function HandleShare() {
       }
     };
 
-    void importSharedDocument();
+    void import_shared_document();
   }, [addTextDocument, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads]);
 
   const problem = failure || error?.message || null;

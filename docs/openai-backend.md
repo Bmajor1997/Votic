@@ -12,7 +12,15 @@ node --env-file=.env.backend.local votic_server.js
 
 Do not put this file in `apps/mobile`, use `EXPO_PUBLIC_OPENAI_*`, paste the key into chat, or put its value in a terminal command. No actual secret was used in automated tests. Before committing, check `git status` and `git check-ignore .env.backend.local`. The public server serves only its existing asset allowlist, never environment files or the ledger.
 
-For a hosted backend, enter `OPENAI_API_KEY` directly in **the Votic backend service's Environment/Secrets settings**. The repository does not identify a hosting provider, so a provider-specific screen cannot yet be named. Do not enter it in Expo/EAS mobile build variables. Set `NODE_ENV=production`, `FIREBASE_PROJECT_ID`, and `VOTIC_AI_USAGE_DB` to a path on a private persistent volume. Restart the backend after saving. Production startup refuses to enable AI without account authentication and persistent accounting.
+For a hosted backend, enter `OPENAI_API_KEY` directly in **the Votic backend service's Environment/Secrets settings**. The repository does not identify a hosting provider, so a provider-specific screen cannot yet be named. Do not enter it in Expo/EAS mobile build variables. Set `NODE_ENV=production`, `FIREBASE_PROJECT_ID`, and `VOTIC_AI_USAGE_DB` to a path on a private persistent volume. Also configure the RevenueCat secret described below. Restart the backend after saving. Production startup requires account authentication and Premium verification; production AI also requires persistent accounting.
+
+## Verify Premium on the backend
+
+Set `REVENUECAT_SECRET_API_KEY` in the backend's secret settings, using a RevenueCat secret API key with customer-read access. Set `REVENUECAT_ENTITLEMENT_ID` to the entitlement used by the mobile app (default `pro`). Never put the secret in an `EXPO_PUBLIC_*` variable or mobile build. The public SDK keys do not replace this backend configuration.
+
+After verifying the Firebase token, the backend looks up that verified UID using RevenueCat's [subscriber endpoint](https://www.revenuecat.com/docs/api-v1/customers). It requires an unexpired entitlement, including a valid billing grace period or lifetime access, before `/api/help`, `/api/review`, `/api/scan`, `/api/extract`, `/api/import-url`, `/api/voice-question-status`, or `/api/transcribe-question` can run. Client-provided account IDs and subscription flags cannot grant access. A confirmed inactive subscription returns 403; failed, timed-out, or malformed RevenueCat responses return 503 before extraction or paid provider work.
+
+Checks are fresh for every protected request, without an application entitlement cache. Production refuses to start without the secret. Local development without this key retains the existing development behavior; setting the key enables verification locally too. Tests use mock credentials and RevenueCat responses.
 
 Responses Write is needed for text/image calls. The initial model is `gpt-6-luna`; existing `OPENAI_MODEL`, `OPENAI_DOCUMENT_MODEL`, `OPENAI_REVIEW_MODEL`, and `OPENAI_OCR_MODEL` overrides remain supported. An alternate model requires an explicit pricing entry in `VOTIC_AI_PRICES_JSON`, for example `{"model-id":{"input":1,"cached":0.1,"cache_write":1.25,"output":5}}` (USD per million tokens). Check that model's prices before enabling it. Requests force Standard processing, `store:false`, and GPT-6 reasoning effort `none`, with existing bounded output sizes.
 
@@ -55,7 +63,17 @@ Multiple processes on **one host sharing the same SQLite file** coordinate reser
 
 The backend sends multipart audio to `/v1/audio/transcriptions` using `gpt-4o-mini-transcribe`, records usage with feature `ask-votic-transcription`, and returns only `{text}`. No upload is saved. Transcripts over Ask Votic's 1,000-character question limit are rejected. Transcription and the subsequent answer are separate paid requests, both counted. Enable the transcription endpoint permission on the restricted backend key when turning voice on; speech-generation permission is not needed.
 
-Mobile `transcribeVoiceQuestion(bytes)` uses the existing authenticated backend client. A future recorder should obtain microphone consent, produce supported WAV, show an editable transcript, and submit it through the existing Ask Votic function only after user confirmation. No microphone UI was added in this foundation change. V1 spoken answers and narration continue with `expo-speech` / device TTS.
+Mobile Ask Votic now checks `POST /api/voice-question-status` after microphone permission and before opening capture. This authenticated endpoint returns `{ready:true}` only when server-side sign-in verification, the backend key, and the voice opt-in are configured. It does not call the provider or reserve paid usage. Deploy the backend and mobile changes together; an older server has no readiness endpoint.
+
+The recorder captures up to 60 seconds of 16-bit PCM using the hardware's actual sample rate/channels, builds a WAV, and sends it via `transcribeVoiceQuestion(bytes, signal)`. Stop releases capture, then shows processing and an editable transcript; sending the question remains a separate user action. A failed transcription retains the bounded WAV in memory for an explicit Retry, preserving typed text. Cancel, discard, backgrounding, navigation away, and unmount abort requests and clear audio. There are no automatic paid retries. Canceling an in-flight upload cannot guarantee that the provider has not already processed it.
+
+### If the phone records but words never appear
+
+- In the **backend** environment, configure `OPENAI_API_KEY`, `FIREBASE_PROJECT_ID` (the same project as mobile sign-in), and `VOTIC_VOICE_QUESTIONS_ENABLED=true`; restart the server. Without `FIREBASE_PROJECT_ID`, the default development authorizer cannot produce a verified UID even if the phone sends a token.
+- For production, also configure `NODE_ENV=production` and persistent `VOTIC_AI_USAGE_DB` as described above. Keep all OpenAI secrets on the backend.
+- Sign in on the phone. Configure mobile `EXPO_PUBLIC_VOTIC_API_URL` to the reachable backend address. An Expo/Metro tunnel exposes the JavaScript bundler, not automatically the backend on port 4173; a remote phone needs a separately reachable backend address. Rebuild/reload the bundle after changing public environment settings.
+- Ensure the restricted backend OpenAI key allows the audio transcription endpoint and the project can use `gpt-4o-mini-transcribe`. The readiness check establishes local configuration, not provider credentials or model access; validate with one short real recording.
+- Verify the full Android flow with pauses, keyboard open/closed, small screens, larger font scaling, denied permission, cancellation, unavailable service, and retry. Automated tests mock microphone input and provider responses; an Android bundle export cannot prove real-device transcription or layout. V1 spoken answers and narration continue with `expo-speech` / device TTS.
 
 ## Verification
 

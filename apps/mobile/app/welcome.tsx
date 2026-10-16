@@ -1,19 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "../src/auth/AuthProvider";
-import { SocialAuthButtons, useSocialAuth } from "../src/auth/SocialAuthButtons";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { spacing } from "../src/design/tokens";
-import { TextButton } from "../src/onboarding/components";
+import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
 import { WelcomeArtwork } from "../src/onboarding/WelcomeArtwork";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
+/**
+ * The first screen. Apple and Google create the account or sign in; "Continue with email" creates a new
+ * account; "Sign in" (top right) is for existing email accounts.
+ */
 export default function Welcome() {
   const { theme } = useVoticTheme();
-  const auth = useAuth();
-  const social = useSocialAuth();
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [error, setError] = useState("");
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -22,9 +25,9 @@ export default function Welcome() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Sign in"
-            disabled={social.busy !== null}
-            accessibilityState={{ disabled: social.busy !== null }}
-            onPress={() => router.push({ pathname: "/sign-in", params: { mode: "sign-in" } })}
+            disabled={socialBusy}
+            accessibilityState={{ disabled: socialBusy }}
+            onPress={() => router.push("/sign-in")}
             style={({ pressed }) => [
               s.login,
               { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
@@ -45,47 +48,31 @@ export default function Welcome() {
               A place to read, listen, and keep your ideas.
             </Text>
           </View>
-          <SocialAuthButtons
-            busy={social.busy}
-            onContinue={(provider) => void social.continueWith(provider)}
-          />
+          <SocialSignIn onBusyChange={setSocialBusy} onError={setError} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue with email"
-            disabled={social.busy !== null}
-            accessibilityState={{ disabled: social.busy !== null }}
-            onPress={() => router.push("/sign-in")}
+            disabled={socialBusy}
+            accessibilityState={{ disabled: socialBusy }}
+            onPress={() => router.push("/create-account")}
             style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
           >
-            <Ionicons name="mail-outline" size={20} color="#FFF" />
-            <Text style={s.emailText}>Continue with email</Text>
+            <Ionicons name="mail-outline" size={20} color={theme.onAccent} />
+            <Text style={[s.emailText, { color: theme.onAccent }]}>Continue with email</Text>
           </Pressable>
-          {social.error ? (
+          {error ? (
             <Text accessibilityRole="alert" style={[s.message, { color: theme.text }]}>
-              {social.error}
+              {error}
             </Text>
           ) : null}
-          {!auth.configured ? (
-            <View style={s.notice}>
-              <Text style={[s.message, { color: theme.mutedText }]}>
-                Account sign-in is unavailable in this preview.
-              </Text>
-              {auth.canContinueWithoutAccount ? (
-                <TextButton
-                  label="Continue without an account (development)"
-                  onPress={auth.continueWithoutAccount}
-                />
-              ) : null}
-            </View>
-          ) : null}
-          <Text style={[s.legal, { color: theme.mutedText }]}>
-            By continuing, you agree to Votic&apos;s Terms and Privacy Policy.
-          </Text>
+          <NotConfiguredNotice />
+          <LegalLine />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
 const s = StyleSheet.create({
   safe: { flex: 1 },
   content: {
@@ -113,8 +100,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  emailText: { color: "#FFF", fontSize: 16, fontWeight: "700" },
-  notice: { alignItems: "center" },
+  emailText: { fontSize: 16, fontWeight: "700" },
   message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
-  legal: { fontSize: 12, lineHeight: 18, textAlign: "center", marginTop: 6 },
 });

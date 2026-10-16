@@ -4,17 +4,20 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth/AuthProvider";
 import { radii, spacing } from "../design/tokens";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
-import { cleanLocalDocumentText } from "../documents/importDocument";
-import { VoticDocument } from "../documents/types";
-import { openFrom, useDocumentImport } from "../documents/useDocumentImport";
+import { clean_local_document_text } from "../documents/importDocument";
+import { readable_documents, VoticDocument } from "../documents/types";
+import { open_from, useDocumentImport } from "../documents/useDocumentImport";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
 import { PrimaryButton, SecondaryButton } from "./components";
 import { useOnboarding } from "./OnboardingProvider";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "./voticGuide";
 
-export function gettingStartedSteps(documents: VoticDocument[], askedVotic: boolean) {
+export function getting_started_steps(everything: VoticDocument[], askedVotic: boolean) {
+  // Quick Notes is a notebook, and Votic's own answers saved to Notes aren't passages the person saved.
+  const documents = readable_documents(everything);
   return [
     { label: "Add a document", done: documents.length > 0 },
     {
@@ -25,7 +28,9 @@ export function gettingStartedSteps(documents: VoticDocument[], askedVotic: bool
     },
     {
       label: "Save a passage",
-      done: documents.some((document) => (document.savedPassages || []).length > 0),
+      done: documents.some((document) =>
+        (document.savedPassages || []).some((passage) => !(passage.tags || []).includes("votic")),
+      ),
     },
     { label: "Ask Votic a question", done: askedVotic },
   ];
@@ -42,26 +47,33 @@ export function GettingStartedCard() {
   const uploadRef = useRef<View>(null);
   const guideRef = useRef<View>(null);
   const { importing, importDocument } = useDocumentImport(uploadRef);
+  const startTarget = useWalkthroughTarget("home.start");
   if (onboarding.checklistDismissed) return null;
 
-  const steps = gettingStartedSteps(documents, onboarding.askedVotic);
+  const steps = getting_started_steps(documents, onboarding.askedVotic);
+  const hasDocuments = readable_documents(documents).length > 0;
   const remaining = steps.filter((step) => !step.done).length;
   const firstName = user?.displayName?.trim().split(/\s+/)[0];
 
-  function openGuide() {
+  function open_guide() {
     if (transition.transitioning) return;
     const existing = documents.find((document) => document.sourceName === VOTIC_GUIDE_SOURCE_NAME);
     if (existing) openDocument(existing.id);
     else
-      addTextDocument(VOTIC_GUIDE_SOURCE_NAME, cleanLocalDocumentText(VOTIC_GUIDE_TEXT), {
+      addTextDocument(VOTIC_GUIDE_SOURCE_NAME, clean_local_document_text(VOTIC_GUIDE_TEXT), {
         playbackRate: defaultPlaybackRate,
+        origin: "guide",
       });
     // The guide asks people to press Play, so it opens with the listening controls.
-    openFrom(guideRef, transition, { mode: "listen" });
+    open_from(guideRef, transition, { mode: "listen" });
   }
 
   return (
-    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View
+      ref={startTarget}
+      collapsable={false}
+      style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}
+    >
       <View style={s.header}>
         <View style={s.headerCopy}>
           <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
@@ -70,7 +82,7 @@ export function GettingStartedCard() {
           <Text style={[s.subtitle, { color: theme.mutedText }]}>
             {remaining === 0
               ? "You've tried everything Votic does best."
-              : documents.length
+              : hasDocuments
                 ? `${remaining} quick ${remaining === 1 ? "step" : "steps"} to get the most from Votic.`
                 : "Start with a document. Votic will show you around as you go."}
           </Text>
@@ -85,7 +97,7 @@ export function GettingStartedCard() {
           <Ionicons name="close" size={22} color={theme.mutedText} />
         </Pressable>
       </View>
-      {documents.length === 0 ? (
+      {!hasDocuments ? (
         <View style={s.actions}>
           <View ref={uploadRef} collapsable={false}>
             <PrimaryButton
@@ -99,7 +111,7 @@ export function GettingStartedCard() {
             <SecondaryButton
               label="Try the Votic guide"
               icon={<Ionicons name="headset-outline" size={20} color={theme.text} />}
-              onPress={openGuide}
+              onPress={open_guide}
             />
           </View>
         </View>
@@ -115,7 +127,7 @@ export function GettingStartedCard() {
             <Ionicons
               name={step.done ? "checkmark-circle" : "ellipse-outline"}
               size={22}
-              color={step.done ? theme.accent : theme.mutedText}
+              color={step.done ? theme.accentText : theme.mutedText}
             />
             <Text
               style={[

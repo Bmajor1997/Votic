@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/votic_widget_bg_activity"
+  android:orientation="horizontal"
+  android:padding="@dimen/votic_widget_padding">
+  <LinearLayout
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:orientation="vertical">
+    <TextView
+      android:id="@+id/week_label"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:letterSpacing="0.06"
+      android:maxLines="1"
+      android:text="@string/votic_widget_this_week"
+      android:textColor="@color/votic_activity_detail"
+      android:textSize="11sp"
+      android:textStyle="bold" />
+    <TextView
+      android:id="@+id/week_total"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="2dp"
+      android:maxLines="1"
+      android:text="@string/votic_widget_no_activity"
+      android:textColor="@color/votic_activity_ink"
+      android:textSize="26sp"
+      android:textStyle="bold" />
+    <ProgressBar
+      android:id="@+id/week_split"
+      style="?android:attr/progressBarStyleHorizontal"
+      android:layout_width="match_parent"
+      android:layout_height="6dp"
+      android:layout_marginTop="6dp"
+      android:importantForAccessibility="no"
+      android:max="100"
+      android:progress="0"
+      android:progressDrawable="@drawable/votic_widget_progress_activity" />
+    <LinearLayout
+      android:id="@+id/week_legend"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:orientation="vertical">
+      <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+          android:layout_width="7dp"
+          android:layout_height="7dp"
+          android:importantForAccessibility="no"
+          android:src="@drawable/votic_widget_dot_activity_strong" />
+        <TextView
+          android:id="@+id/week_reading"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:maxLines="1"
+          android:textColor="@color/votic_activity_detail"
+          android:textSize="11sp" />
+      </LinearLayout>
+      <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+        <ImageView
+          android:layout_width="7dp"
+          android:layout_height="7dp"
+          android:importantForAccessibility="no"
+          android:src="@drawable/votic_widget_dot_activity_art" />
+        <TextView
+          android:id="@+id/week_listening"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:maxLines="1"
+          android:textColor="@color/votic_activity_detail"
+          android:textSize="11sp" />
+      </LinearLayout>
+    </LinearLayout>
+    <TextView
+      android:id="@+id/week_mix"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:maxLines="1"
+      android:textColor="@color/votic_activity_detail"
+      android:textSize="11sp"
+      android:visibility="gone" />
+    <TextView
+      android:id="@+id/week_empty"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:layout_marginTop="4dp"
+      android:ellipsize="end"
+      android:maxLines="3"
+      android:text="@string/votic_widget_week_empty"
+      android:textColor="@color/votic_activity_detail"
+      android:textSize="12sp"
+      android:visibility="gone" />
+    <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1" />
+    <LinearLayout
+      android:id="@+id/week_streak_row"
+      android:layout_width="wrap_content"
+      android:layout_height="wrap_content"
+      android:gravity="center_vertical"
+      android:orientation="horizontal"
+      android:visibility="gone">
+      <ImageView
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/votic_widget_ic_flame"
+        android:tint="@color/votic_activity_strong" />
+      <TextView
+        android:id="@+id/week_streak"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:maxLines="1"
+        android:textColor="@color/votic_activity_strong"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+    </LinearLayout>
+  </LinearLayout>
+  <LinearLayout
+    android:id="@+id/week_bars"
+    android:layout_width="wrap_content"
+    android:layout_height="match_parent"
+    android:layout_weight="0"
+    android:gravity="bottom|center_horizontal"
+    android:importantForAccessibility="no"
+    android:orientation="horizontal" android:layout_marginStart="12dp"/>
+</LinearLayout>

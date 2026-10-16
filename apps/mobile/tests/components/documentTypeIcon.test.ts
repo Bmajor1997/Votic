@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { documentTypeColor } from "../../src/components/DocumentTypeIcon";
+import { document_type_color } from "../../src/components/DocumentTypeIcon";
 
 describe("document type colors", () => {
   it.each([
@@ -11,6 +11,6 @@ describe("document type colors", () => {
     ["book.epub", "#7C3AED"],
     ["readme.md", "#059669"],
   ])("colors %s as %s", (name, color) => {
-    expect(documentTypeColor(name)).toBe(color);
+    expect(document_type_color(name)).toBe(color);
   });
 });

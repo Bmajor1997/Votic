@@ -12,10 +12,13 @@ export type SavedPassage = {
   pinned?: boolean;
   tags?: string[];
 };
+/** How a document came into Votic. Documents added before this was recorded have none. */
+export type DocumentOrigin = "file" | "webpage" | "scan" | "guide";
 export type VoticDocument = {
   id: string;
   title: string;
   sourceName: string;
+  origin?: DocumentOrigin;
   notebookKind?: "quick-notes";
   plainText: string;
   importedAt: number;
@@ -31,3 +34,8 @@ export type VoticDocument = {
   savedPassages?: SavedPassage[];
   reviewResponses?: Record<string, string>;
 };
+
+/** Documents to read or listen to. Quick Notes is a notebook, so it stays out of the library and Home. */
+export function readable_documents<T extends Pick<VoticDocument, "notebookKind">>(documents: T[]) {
+  return documents.filter((document) => !document.notebookKind);
+}

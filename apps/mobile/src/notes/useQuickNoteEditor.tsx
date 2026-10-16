@@ -1,0 +1,28 @@
+import { useState } from "react";
+import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
+import { NoteEditor } from "./components/NoteEditor";
+import { new_quick_note_item, note_from_draft } from "./noteDraft";
+import type { NoteItem } from "./notesList";
+
+/** The same manual editor and Quick Notes notebook used by the Notes tab. */
+export function useQuickNoteEditor() {
+  const { addQuickNote } = useDocumentLibrary();
+  const [item, setItem] = useState<NoteItem | null>(null);
+  function open_quick_note() {
+    setItem(new_quick_note_item());
+  }
+  return {
+    open_quick_note,
+    editor: (
+      <NoteEditor
+        item={item}
+        onClose={() => setItem(null)}
+        onSave={({ passage }, draft) => {
+          if (!draft.note.trim()) return;
+          addQuickNote(note_from_draft(passage, draft));
+          setItem(null);
+        }}
+      />
+    ),
+  };
+}

@@ -3,9 +3,10 @@ import { ComponentProps, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentTypeIcon } from "../../components/DocumentTypeIcon";
 import { radii, spacing } from "../../design/tokens";
-import { readableTitle } from "../../documents/documentDisplay";
+import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
-import { useVoticPurpose } from "../../personalization/PurposeProvider";
+import { notebook_actions } from "../../personalization/suggestions";
+import { usePersonalization } from "../../personalization/usePersonalization";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 
 /** A notebook's summary and study actions, shown above its notes. */
@@ -22,31 +23,13 @@ export function NotebookHeader({
   onShare: () => void;
 }) {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
+  const personalization = usePersonalization();
   const [toolsOpen, setToolsOpen] = useState(false);
   const passages = notebook.savedPassages || [];
   const notes = passages.filter((passage) => passage.note.trim()).length;
   const saved = passages.length - notes;
-  const studyAction =
-    purpose === "learning"
-      ? { icon: "school-outline" as const, label: "Quiz me", question: "Quiz me on these notes" }
-      : purpose === "work"
-        ? {
-            icon: "checkbox-outline" as const,
-            label: "Action items",
-            question: "Find the action items and decisions in my notes",
-          }
-        : purpose === "research"
-          ? {
-              icon: "flask-outline" as const,
-              label: "Key findings",
-              question: "Identify the key findings and evidence in my notes",
-            }
-          : {
-              icon: "key-outline" as const,
-              label: "Key points",
-              question: "Find the most important points in my notes",
-            };
+  // Chosen from the person's personalization answers, or their legacy purpose if they have none.
+  const { studyAction, explainLabel } = notebook_actions(personalization.answers, personalization.purpose);
   return (
     <View style={s.container}>
       <Pressable
@@ -63,7 +46,7 @@ export function NotebookHeader({
           <DocumentTypeIcon sourceName={notebook.sourceName} size={44} />
           <View style={s.copy}>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              {readableTitle(notebook.title)}
+              {readable_title(notebook.title)}
             </Text>
             <Text style={[s.counts, { color: theme.mutedText }]}>
               {notes} {notes === 1 ? "note" : "notes"} · {saved} saved {saved === 1 ? "passage" : "passages"}
@@ -110,7 +93,7 @@ export function NotebookHeader({
             />
             <NotebookAction
               icon="bulb-outline"
-              label={purpose === "learning" ? "Explain key ideas" : "Explain"}
+              label={explainLabel}
               onPress={() => onAsk("Explain the key ideas in my notes")}
             />
           </View>

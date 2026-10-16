@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { SavedPassage, VoticDocument } from "../documents/types";
-import { advancedFilterCount, availableTags, dateLabel, noteGroups, NotesView, shareText } from "./notesList";
+import {
+  advanced_filter_count,
+  available_tags,
+  date_label,
+  note_groups,
+  notes_summary,
+  NotesView,
+  share_text,
+} from "./notesList";
 
 const DAY = 86_400_000;
 const NOW = 100 * DAY;
@@ -37,7 +45,7 @@ const documents = [
 ];
 const all: NotesView = { query: "", filter: "all", dateFilter: "all", tagFilter: null, notebookId: null };
 const ids = (view: Partial<NotesView>) =>
-  noteGroups(documents, { ...all, ...view }, NOW).map((group) => [
+  note_groups(documents, { ...all, ...view }, NOW).map((group) => [
     group.document.id,
     group.passages.map((item) => item.id),
   ]);
@@ -83,26 +91,38 @@ describe("note groups", () => {
 
 describe("filter helpers", () => {
   it("counts every filter that differs from the default of all notes", () => {
-    expect(advancedFilterCount({ filter: "all", dateFilter: "all", tagFilter: null })).toBe(0);
+    expect(advanced_filter_count({ filter: "all", dateFilter: "all", tagFilter: null })).toBe(0);
     // Notes or Saved passages now live in the filter sheet too.
-    expect(advancedFilterCount({ filter: "notes", dateFilter: "all", tagFilter: null })).toBe(1);
-    expect(advancedFilterCount({ filter: "pinned", dateFilter: "week", tagFilter: "memory" })).toBe(3);
+    expect(advanced_filter_count({ filter: "notes", dateFilter: "all", tagFilter: null })).toBe(1);
+    expect(advanced_filter_count({ filter: "pinned", dateFilter: "week", tagFilter: "memory" })).toBe(3);
   });
   it("lists each tag once, sorted", () => {
-    expect(availableTags(documents)).toEqual(["cells", "memory"]);
+    expect(available_tags(documents)).toEqual(["cells", "memory"]);
   });
 });
 
 describe("sharing and dates", () => {
   it("formats notes for sharing with their source and tags", () => {
-    expect(shareText([{ document: documents[1], passage: documents[1].savedPassages![0] }], "My notes")).toBe(
-      "My notes\n\n1. Cells divide\nCells divide.\nSource: Biology\nTags: #cells\n\nShared from Votic",
-    );
+    expect(
+      share_text([{ document: documents[1], passage: documents[1].savedPassages![0] }], "My notes"),
+    ).toBe("My notes\n\n1. Cells divide\nCells divide.\nSource: Biology\nTags: #cells\n\nShared from Votic");
   });
   it("labels today and yesterday", () => {
     const today = new Date(2026, 8, 29, 15);
-    expect(dateLabel(new Date(2026, 8, 29, 9).getTime(), today)).toBe("Today");
-    expect(dateLabel(new Date(2026, 8, 28, 23).getTime(), today)).toBe("Yesterday");
-    expect(dateLabel(new Date(2026, 8, 20).getTime(), today)).not.toMatch(/Today|Yesterday/);
+    expect(date_label(new Date(2026, 8, 29, 9).getTime(), today)).toBe("Today");
+    expect(date_label(new Date(2026, 8, 28, 23).getTime(), today)).toBe("Yesterday");
+    expect(date_label(new Date(2026, 8, 20).getTime(), today)).not.toMatch(/Today|Yesterday/);
+  });
+});
+
+describe("notes_summary", () => {
+  it("counts notes and saved passages apart, by notebook", () => {
+    expect(
+      notes_summary([{ passages: [{ note: "An idea" }, { note: "" }] }, { passages: [{ note: "  " }] }]),
+    ).toBe("1 note · 2 saved passages in 2 notebooks");
+    expect(notes_summary([{ passages: [{ note: "A" }, { note: "B" }] }])).toBe("2 notes in 1 notebook");
+  });
+  it("never says 0 items from 0 documents", () => {
+    expect(notes_summary([])).toBe("No matching notes");
   });
 });

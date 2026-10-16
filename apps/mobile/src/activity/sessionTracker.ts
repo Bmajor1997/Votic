@@ -20,13 +20,13 @@ export type TrackerInput = { documentId: string | null; appActive: boolean; play
  * - otherwise reading, but only within two minutes of the last interaction,
  * - never both at once: time while listening is listening only.
  */
-export function createSessionTracker(record: Recorder, now: () => number = Date.now) {
+export function create_session_tracker(record: Recorder, now: () => number = Date.now) {
   let input: TrackerInput = { documentId: null, appActive: true, playing: false };
   let lastEngaged = -Infinity;
   let lastSync = now();
   let segment: { kind: ActivityKind; documentId: string; start: number } | null = null;
 
-  function kindAt(at: number): ActivityKind | null {
+  function kind_at(at: number): ActivityKind | null {
     if (!input.documentId || !input.appActive) return null;
     if (input.playing) return "listening";
     return at - lastEngaged < READING_IDLE_MS ? "reading" : null;
@@ -44,7 +44,7 @@ export function createSessionTracker(record: Recorder, now: () => number = Date.
     segment = null;
   }
   function open(at: number) {
-    const kind = kindAt(at);
+    const kind = kind_at(at);
     segment = kind && input.documentId ? { kind, documentId: input.documentId, start: at } : null;
   }
 

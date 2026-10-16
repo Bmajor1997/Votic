@@ -4,7 +4,7 @@ import { useAccessibilityPreferences } from "../../accessibility/AccessibilityPr
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
 import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
-import { DeviceVoice, voticVoiceName } from "../voices";
+import { DeviceVoice, votic_voice_names } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
 
@@ -34,11 +34,12 @@ export function ReaderSettingsSheet({
   voices: DeviceVoice[];
   previewVoiceIdentifier: string | null;
   /** Starts or stops a preview of the voice at this position in `voices`. */
-  onPreviewVoice: (voice: DeviceVoice, voiceIndex: number) => void;
+  onPreviewVoice: (voice: DeviceVoice, name: string) => void;
   onSelectVoice: (voice: DeviceVoice) => void;
 }) {
   const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
+  const voiceNames = votic_voice_names(voices);
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
     <Modal
@@ -238,16 +239,19 @@ export function ReaderSettingsSheet({
                 <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
                 <Setting label="Voice">
                   {voices.length ? (
-                    voices.map((voice, voiceIndex) => (
-                      <VoiceChoice
-                        key={voice.identifier}
-                        name={voticVoiceName(voiceIndex)}
-                        selected={accessibility.voiceIdentifier === voice.identifier}
-                        previewing={previewVoiceIdentifier === voice.identifier}
-                        onPreview={() => onPreviewVoice(voice, voiceIndex)}
-                        onSelect={() => onSelectVoice(voice)}
-                      />
-                    ))
+                    voices.map((voice) => {
+                      const name = voiceNames[voice.identifier];
+                      return (
+                        <VoiceChoice
+                          key={voice.identifier}
+                          name={name}
+                          selected={accessibility.voiceIdentifier === voice.identifier}
+                          previewing={previewVoiceIdentifier === voice.identifier}
+                          onPreview={() => onPreviewVoice(voice, name)}
+                          onSelect={() => onSelectVoice(voice)}
+                        />
+                      );
+                    })
                   ) : (
                     <Text style={[s.emptyVoices, { color: theme.mutedText }]}>
                       Your device voice will be used.

@@ -35,24 +35,6 @@ export function build_worksheet_export(document, responses = {}) {
   });
   return sections.join("\n\n---\n\n");
 }
-export function build_worksheet_blocks(document, responses = {}) {
-  return document.sections.flatMap((section) => [
-    { type: "heading", text: section.heading },
-    ...section.sentences.map((sentence) => {
-      const output = [];
-      for (let word_index = 0; word_index < sentence.words.length; word_index++) {
-        const word = sentence.words[word_index], type = worksheet_control_type(word.text);
-        const control_id = worksheet_control_id(sentence.index, word_index);
-        if (type === "checkbox") output.push((responses[control_id] ?? /[☑☒]/.test(word.text)) ? "[x]" : "[ ]");
-        else if (type === "answer") {
-          output.push(String(responses[control_id] || "[No response]").trim() || "[No response]");
-          while (worksheet_control_type(sentence.words[word_index + 1]?.text) === "answer") word_index++;
-        } else output.push(word.text);
-      }
-      return { type: "paragraph", text: output.join(" ") };
-    }),
-  ]);
-}
 export function speech_segment(sentence, wordIndex = 0) {
   const safeIndex = Math.min(Math.max(0, Math.floor(Number(wordIndex) || 0)), Math.max(0, sentence.words.length - 1));
   const start = sentence.words[safeIndex]?.start ?? 0;

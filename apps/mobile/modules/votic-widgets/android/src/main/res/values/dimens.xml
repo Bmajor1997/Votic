@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <dimen name="votic_widget_radius">22dp</dimen>
+  <dimen name="votic_widget_inner_radius">10dp</dimen>
+  <dimen name="votic_widget_padding">14dp</dimen>
+</resources>

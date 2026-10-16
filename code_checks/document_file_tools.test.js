@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { Document, HeadingLevel, Packer, Paragraph, Table, TableCell, TableRow } from "docx";
 import JSZip from "jszip";
-import { clean_extracted_text, create_completed_docx, extract_document, html_to_document_text, reconstruct_pdf_page_text } from "../app_parts/document_file_tools.js";
+import { clean_extracted_text, extract_document, html_to_document_text, reconstruct_pdf_page_text } from "../app_parts/document_file_tools.js";
 
 test("preserves headings and table cells from Word conversion", () => {
   const text = html_to_document_text("<h1>Plan</h1><h2>Checks</h2><table><tr><td>☐ Ready</td><td>__________</td></tr></table>");
@@ -93,21 +93,6 @@ test("rejects EPUB files without a publication manifest", async () => {
   await assert.rejects(extract_document("broken.epub", await archive.generateAsync({ type: "nodebuffer" })), /publication manifest/);
 });
 
-test("creates a valid completed Word worksheet with explicit structure", async () => {
-  const buffer = await create_completed_docx("Completed Plan", [
-    { type: "heading", text: "Tasks" },
-    { type: "paragraph", text: "[x] Approved." },
-    { type: "paragraph", text: "Short answer" },
-  ]);
-  assert.equal(buffer.subarray(0, 2).toString(), "PK");
-  const extracted = await extract_document("completed.docx", buffer);
-  assert.match(extracted, /Completed Plan/);
-  assert.match(extracted, /## Tasks/);
-  assert.match(extracted, /Short answer/);
-  assert.doesNotMatch(extracted, /## Short answer/);
-});
-
-
 test("rejects ZIP-based documents with oversized expanded entries", async () => {
   const archive = new JSZip();
   archive.file("ppt/slides/slide1.xml", "x".repeat(8_000_001));
@@ -151,4 +136,35 @@ test("preserves unusual Unicode as inert document text", async () => {
   assert.match(text, /Résumé/);
   assert.match(text, /日本語/);
   assert.match(text, /<script>alert\(1\)<\/script>/);
+});
+
+test("extracts plain text from RTF", async () => {
+  const text = await extract_document("notes.rtf", Buffer.from("{\\rtf1\\ansi Hello\\par World}"));
+  assert.match(text, /Hello/);
+  assert.match(text, /World/);
+});
+test("extracts ODT paragraphs", async () => {
+  const archive = new JSZip();
+  archive.file("mimetype", "application/vnd.oasis.opendocument.text");
+  archive.file("content.xml", '<office:document-content><office:body><office:text><text:p>Hello ODT</text:p></office:text></office:body></office:document-content>');
+  const text = await extract_document("notes.odt", await archive.generateAsync({type:"nodebuffer"}));
+  assert.match(text, /Hello ODT/);
+});
+test("extracts HTML without executable markup", async () => {
+  const text = await extract_document("page.html", Buffer.from("<html><body><h1>Title</h1><p>Paragraph</p><script>alert(1)</script></body></html>"));
+  assert.match(text, /Title/);
+  assert.match(text, /Paragraph/);
+  assert.doesNotMatch(text, /alert\(1\)/);
+});
+test("leaves styles, scripts and comments out of an uploaded HTML file and keeps list numbers", async () => {
+  const html = "<html><head><title>Hidden</title><style>body{color:red}</style></head><body><h1>Guide</h1>" +
+    "<p>Fish &amp; chips</p><SCRIPT>steal('</p>')</SCRIPT><!-- private --><ol><li>One</li><li>Two</li></ol></body></html>";
+  assert.equal(await extract_document("page.htm", Buffer.from(html)), "# Guide\n\nFish & chips\n\n1. One\n2. Two");
+});
+test("reads hostile or broken HTML in linear time", async () => {
+  for (const html of ["<ol>".repeat(200_000), "<div>".repeat(200_000), "<a".repeat(500_000), "<!--".repeat(300_000), "<script>".repeat(200_000), "<ul>" + "<li>x".repeat(100_000)]) {
+    const started = Date.now();
+    await extract_document("page.html", Buffer.from(html)).catch(() => "");
+    assert.ok(Date.now() - started < 2000, `took ${Date.now() - started} ms`);
+  }
 });

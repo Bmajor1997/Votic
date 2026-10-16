@@ -1,5 +1,6 @@
 const fs = require("fs");
 const cp = require("child_process");
+const { blocking_mobile_findings } = require("./check-mobile-audit.cjs");
 
 let audit = {};
 try {
@@ -8,11 +9,14 @@ try {
   audit = JSON.parse(error.stdout || "{}");
 }
 
-const vulnerabilities = audit.vulnerabilities || {};
+const blocking = blocking_mobile_findings(audit);
+const vulnerabilities = audit.vulnerabilities;
 const metadata = audit.metadata?.vulnerabilities || {};
 const rows = Object.entries(vulnerabilities)
-  .filter(([, v]) => ["low", "moderate"].includes(v.severity))
-  .sort((a,b) => a[1].severity.localeCompare(b[1].severity) || a[0].localeCompare(b[0]));
+  .sort((a,b) => {
+    const severity = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };
+    return (severity[a[1].severity] ?? 5) - (severity[b[1].severity] ?? 5) || a[0].localeCompare(b[0]);
+  });
 
 function recommendation(name, v) {
   const fix = v.fixAvailable;
@@ -38,13 +42,17 @@ const lines = [
   `- Moderate: ${metadata.moderate || 0}`,
   `- Low: ${metadata.low || 0}`,
   "",
-  "High and critical dependency findings fail CI. Low and moderate findings are tracked below. Semgrep and Gitleaks remain separate checks for Votic source code and secrets.",
+  "Counts include inherited/transitive package entries, not distinct demonstrated application exploits. This production-dependency scan can include Expo build tooling because Expo is a production dependency.",
   "",
-  "## Low and moderate findings",
+  `Current mobile gate: ${blocking.length} unapproved high/critical package entries. The gate permits only its documented advisory exceptions; passing does not mean zero vulnerabilities. See check-mobile-audit.cjs and osv-scanner.toml.`,
+  "",
+  "Semgrep and Gitleaks remain separate checks for source code and secrets. Package-manager major upgrades or downgrades require compatibility and exposure review; they are not applied automatically.",
+  "",
+  "## Dependency findings",
   ""
 ];
 
-if (!rows.length) lines.push("No low or moderate dependency vulnerabilities reported.");
+if (!rows.length) lines.push("No dependency vulnerabilities reported.");
 for (const [name, v] of rows) {
   const via = (v.via || []).map(x => typeof x === "string" ? x : (x.title || x.name || x.url)).filter(Boolean);
   lines.push(
@@ -60,4 +68,4 @@ for (const [name, v] of rows) {
 }
 
 fs.mkdirSync("../../security", { recursive: true });
-fs.writeFileSync("../../security/mobile-dependency-report.md", lines.join("\n") + "\n");
+fs.writeFileSync("../../security/mobile-dependency-report.md", lines.join("\n").trimEnd() + "\n");

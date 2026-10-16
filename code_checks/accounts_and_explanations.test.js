@@ -16,8 +16,8 @@ const document = { title: "Field Guide", sections: [{ heading: "Intro", text: "R
 const ask = (base, body, headers = {}) => fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 function capturing_ai(answer = { answer: "Income from sales.", sectionIndex: null, sectionTitle: null }) {
   const requests = [];
-  const fetchImpl = async (_url, options) => { requests.push(JSON.parse(options.body)); return { ok: true, async json() { return { output_text: JSON.stringify(answer) }; } }; };
-  return { requests, fetchImpl };
+  const fetch_impl = async (_url, options) => { requests.push(JSON.parse(options.body)); return { ok: true, async json() { return { output_text: JSON.stringify(answer) }; } }; };
+  return { requests, fetchImpl: fetch_impl };
 }
 
 test("shapes document answers with the chosen explanation style", async () => {
@@ -36,12 +36,16 @@ test("shapes document answers with the chosen explanation style", async () => {
   });
 });
 
-test("rejects an unknown explanation style", async () => {
-  await with_server({}, async (base) => {
-    const response = await ask(base, { question: "How do I upload?", explanationStyle: "poetic" });
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /invalid explanation style/);
-    assert.equal((await ask(base, { question: "How do I upload?", explanationStyle: { toString: "quick" } })).status, 400);
+test("treats a missing or unknown explanation style as no preference", async () => {
+  const ai = capturing_ai();
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl: ai.fetchImpl }, async (base) => {
+    for (const explanationStyle of [undefined, "poetic", { toString: "quick" }])
+      assert.equal((await ask(base, { question: "What is revenue?", document, explanationStyle })).status, 200);
+    const [missing, unknown, object] = ai.requests;
+    // An older or newer app never gets an error, and never changes the default instructions.
+    assert.equal(unknown.instructions, missing.instructions);
+    assert.equal(object.instructions, missing.instructions);
+    assert.equal(unknown.max_output_tokens, missing.max_output_tokens);
   });
 });
 

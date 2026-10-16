@@ -20,7 +20,7 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
   const locked = useRef(false);
   const [progress] = useState(() => new Animated.Value(0));
 
-  const openReader = useCallback(
+  const open_reader = useCallback(
     (source: DocumentSourceRect, navigate: () => void) => {
       if (locked.current) return;
       locked.current = true;
@@ -33,7 +33,7 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
     [progress, reduceMotion],
   );
 
-  const beginReader = useCallback(() => {
+  const begin_reader = useCallback(() => {
     if (reduceMotion) {
       progress.setValue(1);
       locked.current = false;
@@ -49,7 +49,7 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
   }, [progress, reduceMotion]);
 
   // Closing always wins, even mid-opening: stop the opening animation and go back.
-  const closeReader = useCallback(
+  const close_reader = useCallback(
     (navigate: () => void) => {
       locked.current = true;
       setTransitioning(true);
@@ -71,8 +71,15 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
   );
 
   const value = useMemo(
-    () => ({ openReader, beginReader, closeReader, sourceRect, progress, transitioning }),
-    [openReader, beginReader, closeReader, sourceRect, progress, transitioning],
+    () => ({
+      openReader: open_reader,
+      beginReader: begin_reader,
+      closeReader: close_reader,
+      sourceRect,
+      progress,
+      transitioning,
+    }),
+    [open_reader, begin_reader, close_reader, sourceRect, progress, transitioning],
   );
   return <TransitionContext.Provider value={value}>{children}</TransitionContext.Provider>;
 }

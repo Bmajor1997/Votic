@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { automaticNoteTitle, cleanTags, noteTypeLabel } from "./noteMetadata";
+import { automatic_note_title, clean_tags, note_type_label } from "./noteMetadata";
 describe("note metadata", () => {
   it("creates a concise title from note text", () =>
     expect(
-      automaticNoteTitle({ note: "Memory improves with chunking. More detail.", text: "", title: undefined }),
+      automatic_note_title({
+        note: "Memory improves with chunking. More detail.",
+        text: "",
+        title: undefined,
+      }),
     ).toBe("Memory improves with chunking"));
   it("keeps an explicit title", () =>
-    expect(automaticNoteTitle({ note: "Body", text: "Source", title: "Exam review" })).toBe("Exam review"));
-  it("defaults old notes to Note", () => expect(noteTypeLabel()).toBe("Note"));
+    expect(automatic_note_title({ note: "Body", text: "Source", title: "Exam review" })).toBe("Exam review"));
+  it("defaults old notes to Note", () => expect(note_type_label()).toBe("Note"));
   it("cleans, deduplicates, and limits tags", () =>
-    expect(cleanTags("exam, memory, exam, cognition")).toEqual(["exam", "memory", "cognition"]));
+    expect(clean_tags("exam, memory, exam, cognition")).toEqual(["exam", "memory", "cognition"]));
 });

@@ -1,6 +1,5 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
-import { Document, HeadingLevel, Packer, Paragraph } from "docx";
 import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
@@ -10,16 +9,37 @@ const MAX_ARCHIVE_ENTRY_BYTES = 8_000_000;
 const MAX_ARCHIVE_TOTAL_BYTES = 40_000_000;
 const MAX_POWERPOINT_SLIDES = 1000;
 
-function validate_archive(archive) {
+const ARCHIVE_TOO_LARGE = "This document archive expands beyond Votic's processing limit.";
+
+/** Expands one entry while counting real bytes, stopping as soon as a limit is passed. */
+function measure_entry(entry, limit) {
+  return new Promise((resolve, reject) => {
+    let size = 0, settled = false;
+    const stream = entry.internalStream("uint8array");
+    stream.on("data", (chunk) => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > limit) {
+        settled = true;
+        stream.pause();
+        reject(new Error(limit < MAX_ARCHIVE_ENTRY_BYTES ? ARCHIVE_TOO_LARGE : "This document archive contains an oversized file."));
+      }
+    }).on("error", (error) => { if (!settled) { settled = true; reject(error); } })
+      .on("end", () => { if (!settled) { settled = true; resolve(size); } });
+    stream.resume();
+  });
+}
+
+// Sizes in the archive's headers are claims an attacker controls, so every entry is also expanded once
+// with a running count. A small file can no longer expand to gigabytes before it is rejected.
+async function validate_archive(archive) {
   const entries = Object.values(archive.files).filter((entry) => !entry.dir);
   if (entries.length > MAX_ARCHIVE_ENTRIES) throw new Error("This document archive contains too many files.");
   let total = 0;
   for (const entry of entries) {
-    const size = Number(entry?._data?.uncompressedSize);
-    if (!Number.isSafeInteger(size) || size < 0) continue;
-    if (size > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
-    total += size;
-    if (total > MAX_ARCHIVE_TOTAL_BYTES) throw new Error("This document archive expands beyond Votic's processing limit.");
+    const declared = Number(entry?._data?.uncompressedSize);
+    if (Number.isSafeInteger(declared) && declared > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
+    total += await measure_entry(entry, Math.min(MAX_ARCHIVE_ENTRY_BYTES, MAX_ARCHIVE_TOTAL_BYTES - total));
   }
   return archive;
 }
@@ -34,6 +54,9 @@ async function safe_archive_text(file) {
 }
 
 export async function extract_document(name, buffer) {
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8")));
+  if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
+  if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
   if (/\.ppt$/i.test(name)) return extract_legacy_powerpoint(buffer);
   if (/\.pptx$/i.test(name)) return extract_powerpoint(buffer);
@@ -161,10 +184,13 @@ export function powerpoint_xml_text(xml, { notes = false } = {}) {
     .join("\n");
 }
 
+// A malformed character reference (beyond Unicode) is dropped instead of failing the whole document.
+function code_point(value) { return Number.isInteger(value) && value >= 0 && value <= 0x10ffff ? String.fromCodePoint(value) : ""; }
+
 function decode_powerpoint_xml(text) {
   return String(text)
-    .replace(/&#x([0-9a-f]+);/gi, (_match, value) => String.fromCodePoint(parseInt(value, 16)))
-    .replace(/&#(\d+);/g, (_match, value) => String.fromCodePoint(Number(value)))
+    .replace(/&#x([0-9a-f]+);/gi, (_match, value) => code_point(parseInt(value, 16)))
+    .replace(/&#(\d+);/g, (_match, value) => code_point(Number(value)))
     .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 }
 
@@ -184,7 +210,14 @@ export function reconstruct_pdf_page_text(items) {
 
   const lines = [];
   for (const fragment of fragments) {
-    const line = lines.find((candidate) => Math.abs(candidate.y - fragment.y) <= Math.max(2, Math.min(candidate.height, fragment.height) * .45));
+    // Fragments arrive top to bottom, so only the most recent lines can match. Searching back from the newest
+    // line and stopping once lines are far above keeps text-dense pages linear instead of quadratic.
+    let line;
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const candidate = lines[index];
+      if (Math.abs(candidate.y - fragment.y) <= Math.max(2, Math.min(candidate.height, fragment.height) * .45)) { line = candidate; break; }
+      if (candidate.y - fragment.y > Math.max(4, candidate.height, fragment.height) * 4) break;
+    }
     if (line) {
       line.fragments.push(fragment);
       const count = line.fragments.length;
@@ -265,19 +298,105 @@ function is_page_number(line) { return /^(?:page\s+)?\d+(?:\s+of\s+\d+)?$/i.test
 
 function decode_html(text) {
   return text.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (_, entity) => {
-    if (entity[0] === "#") return String.fromCodePoint(parseInt(entity.slice(entity[1]?.toLowerCase() === "x" ? 2 : 1), entity[1]?.toLowerCase() === "x" ? 16 : 10));
+    if (entity[0] === "#") return code_point(parseInt(entity.slice(entity[1]?.toLowerCase() === "x" ? 2 : 1), entity[1]?.toLowerCase() === "x" ? 16 : 10));
     return ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " })[entity.toLowerCase()];
   });
 }
 
-export async function create_completed_docx(title, blocks) {
-  const safeTitle = String(title || "Completed worksheet").slice(0, 300);
-  const children = [new Paragraph({ text: safeTitle, heading: HeadingLevel.TITLE })];
-  for (const block of blocks) {
-    if (!block || !["heading", "paragraph"].includes(block.type) || typeof block.text !== "string") continue;
-    const text = block.text.trim().slice(0, 100_000);
-    if (!text) continue;
-    children.push(new Paragraph(block.type === "heading" ? { text, heading: HeadingLevel.HEADING_1 } : { text }));
+// Elements whose contents are never part of the readable page.
+const HIDDEN_HTML = new Set(["script", "style", "noscript", "template", "head", "svg", "math", "iframe", "object"]);
+const HTML_BLOCKS = new Set(["p", "div", "section", "article", "main", "header", "footer", "aside", "blockquote", "pre", "table", "tr", "ul", "ol", "dl", "dt", "dd", "figure", "figcaption", "hr"]);
+
+/**
+ * Readable text from an uploaded HTML file, in one forward pass. Unlike html_to_document_text (for the tidy HTML
+ * mammoth makes from Word files), it never pairs tags with a search, so broken or hostile markup stays fast, and it
+ * drops scripts, styles and other hidden contents instead of reading them aloud.
+ */
+export function html_file_text(html) {
+  const lower = html.toLowerCase(), parts = [], lists = [];
+  let i = 0;
+  while (i < html.length) {
+    const open = html.indexOf("<", i);
+    if (open === -1) { parts.push(html_text_run(html.slice(i))); break; }
+    if (open > i) parts.push(html_text_run(html.slice(i, open)));
+    if (html.startsWith("<!--", open)) {
+      const end = html.indexOf("-->", open + 4);
+      if (end === -1) break;
+      i = end + 3;
+      continue;
+    }
+    const close = html.indexOf(">", open + 1);
+    // No later ">" means no later tag can finish either; the rest is not readable markup.
+    if (close === -1) break;
+    const tag = /^(\/?)([a-z][a-z0-9:-]*)/i.exec(html.slice(open + 1, Math.min(close, open + 64)));
+    i = close + 1;
+    if (!tag) { parts.push(html_text_run(html.slice(open, close + 1))); continue; }
+    const ending = Boolean(tag[1]), name = tag[2].toLowerCase();
+    if (!ending && HIDDEN_HTML.has(name) && !html.slice(open, close + 1).endsWith("/>")) {
+      const end = lower.indexOf(`</${name}`, i);
+      if (end === -1) break;
+      const after = html.indexOf(">", end);
+      if (after === -1) break;
+      i = after + 1;
+      continue;
+    }
+    if (/^h[1-6]$/.test(name)) parts.push(ending ? "\n\n" : name === "h1" ? "\n# " : "\n## ");
+    else if (name === "br") parts.push("\n");
+    else if (name === "ol" || name === "ul") { if (ending) lists.pop(); else lists.push(name === "ol" ? 0 : null); parts.push("\n"); }
+    else if (name === "li") {
+      if (!ending) {
+        const depth = lists.length - 1;
+        if (depth >= 0 && lists[depth] !== null) parts.push(`\n${(lists[depth] += 1)}. `);
+        else parts.push("\n• ");
+      }
+    }
+    else if (name === "td" || name === "th") { if (ending) parts.push(" | "); }
+    else if (HTML_BLOCKS.has(name)) parts.push("\n");
   }
-  return Packer.toBuffer(new Document({ sections: [{ children }] }));
+  return parts.join("")
+    .replace(/[ \t]+\|[ \t]*(?=\n|$)/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+function html_text_run(text) { return decode_html(text.replace(/\s+/g, " ")); }
+
+/** Minimal RTF plain-text reader: handles common escapes and ignores hidden destinations. */
+export function extract_rtf(buffer) {
+  const source = buffer.toString("latin1");
+  if (!source.startsWith("{\\rtf")) throw new Error("This is not a valid RTF document.");
+  const stack = []; let skip = false, pending = false, unicodeSkip = 1, text = "";
+  for (let i = 0; i < source.length; i++) {
+    const c = source[i];
+    if (c === "{") { stack.push({ skip, unicodeSkip }); pending = true; continue; }
+    if (c === "}") { const state = stack.pop(); if (!state) throw new Error("Malformed RTF document."); skip = state.skip; unicodeSkip = state.unicodeSkip; pending = false; continue; }
+    if (c !== "\\") { if (!skip && c !== "\r" && c !== "\n") text += c; continue; }
+    const next = source[++i];
+    if (next === "*" && pending) { skip = true; pending = false; continue; }
+    if (next === "'" && /^[0-9a-f]{2}$/i.test(source.slice(i+1,i+3))) { if (!skip) text += Buffer.from([parseInt(source.slice(i+1,i+3),16)]).toString("latin1"); i += 2; continue; }
+    if (next === "\\" || next === "{" || next === "}") { if (!skip) text += next; continue; }
+    const m = source.slice(i).match(/^([a-zA-Z]+)(-?\d+)? ?/);
+    if (!m) { if (!skip && next === "~") text += " "; continue; }
+    i += m[0].length-1; const word=m[1].toLowerCase(), arg=m[2] == null ? null : Number(m[2]);
+    if (["fonttbl","colortbl","stylesheet","info","pict","object","header","footer","generator"].includes(word)) skip = true;
+    if (word === "uc" && arg !== null) unicodeSkip=Math.max(0,Math.min(10,arg));
+    if (!skip && word === "u" && arg !== null) { text += String.fromCharCode((arg+65536)%65536); i += unicodeSkip; }
+    if (!skip && ["par","line"].includes(word)) text += "\n";
+    if (!skip && word === "tab") text += "\t";
+    pending = false;
+  }
+  if (stack.length) throw new Error("Malformed RTF document.");
+  return clean_extracted_text(text);
+}
+export async function extract_odt(buffer) {
+  const archive = await load_safe_archive(buffer);
+  const mimetype = archive.file("mimetype");
+  if (!mimetype || (await safe_archive_text(mimetype)).trim() !== "application/vnd.oasis.opendocument.text") throw new Error("This is not a valid ODT document.");
+  const content = archive.file("content.xml");
+  if (!content) throw new Error("This ODT document is missing its content.");
+  const xml = await safe_archive_text(content);
+  const readable = xml.replace(/<text:tab\b[^>]*\/>/g,"\t").replace(/<text:line-break\b[^>]*\/>/g,"\n")
+    .replace(/<\/text:(?:p|h|list-item)>/g,"\n").replace(/<[^>]*>/g," ");
+  return clean_extracted_text(decode_powerpoint_xml(readable));
 }

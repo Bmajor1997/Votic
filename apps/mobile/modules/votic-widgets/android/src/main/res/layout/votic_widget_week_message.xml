@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/votic_widget_bg_activity"
+  android:orientation="vertical"
+  android:padding="@dimen/votic_widget_padding">
+  <ImageView
+    android:id="@+id/message_icon"
+    android:layout_width="26dp"
+    android:layout_height="26dp"
+    android:importantForAccessibility="no"
+    android:src="@drawable/votic_widget_ic_note_add"
+    android:tint="@color/votic_activity_strong" />
+  <FrameLayout
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1" />
+  <TextView
+    android:id="@+id/message_title"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:ellipsize="end"
+    android:maxLines="2"
+    android:textColor="@color/votic_activity_ink"
+    android:textSize="17sp"
+    android:textStyle="bold" />
+  <TextView
+    android:id="@+id/message_body"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="2dp"
+    android:ellipsize="end"
+    android:maxLines="3"
+    android:textColor="@color/votic_activity_detail"
+    android:textSize="13sp" />
+  <FrameLayout
+    android:id="@+id/message_action_slot"
+    android:layout_width="match_parent"
+    android:layout_height="36dp"
+    android:layout_marginTop="10dp"
+    android:visibility="gone">
+    <FrameLayout
+        android:id="@+id/message_action"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/votic_widget_pill_activity_filled" >
+        <TextView
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_gravity="center"
+          android:drawableStart="@drawable/votic_widget_ic_add"
+          android:drawablePadding="6dp"
+          android:drawableTint="@color/votic_activity_on_strong"
+          android:gravity="center_vertical"
+          android:maxLines="1"
+          android:text="@string/votic_widget_add_document"
+          android:textColor="@color/votic_activity_on_strong"
+          android:textSize="14sp"
+          android:textStyle="bold" />
+      </FrameLayout>
+  </FrameLayout>
+</LinearLayout>

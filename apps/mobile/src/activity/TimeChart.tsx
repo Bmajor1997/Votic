@@ -2,13 +2,13 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { ChartPoint, formatDuration, spokenDuration } from "./activityModel";
+import { ChartPoint, format_duration, spoken_duration } from "./activityModel";
 
 /**
  * Validated categorical pair (blue, then orange) for listening and reading, with light and dark
  * steps. They stay the same whatever accent someone picks, so the chart always reads the same.
  */
-export function seriesColors(isDark: boolean) {
+export function series_colors(isDark: boolean) {
   return isDark ? { listening: "#3987e5", reading: "#d95926" } : { listening: "#2a78d6", reading: "#eb6834" };
 }
 
@@ -16,30 +16,31 @@ const CHART_HEIGHT = 132;
 // Each maximum has a whole-number halfway mark, so the middle gridline label is exact.
 const NICE_MINUTES = [10, 20, 30, 60, 90, 120, 180, 240, 360, 480, 720, 1200, 2400, 4800, 9600];
 
-function scaleMax(points: ChartPoint[]) {
-  const largest = Math.max(...points.map((point) => point.reading + point.listening), 0) / 60_000;
+function scale_max(points: ChartPoint[]) {
+  // Bars stand side by side, so the scale fits the taller of the two, not their sum.
+  const largest = Math.max(...points.map((point) => Math.max(point.reading, point.listening)), 0) / 60_000;
   return (NICE_MINUTES.find((value) => value >= largest) ?? Math.ceil(largest / 60) * 60) * 60_000;
 }
-function axisLabel(ms: number) {
+function axis_label(ms: number) {
   const minutes = Math.round(ms / 60_000);
   return minutes >= 60 ? `${Math.round((minutes / 60) * 10) / 10} h` : `${minutes} min`;
 }
 function describe(point: ChartPoint) {
   if (!point.reading && !point.listening) return `${point.longLabel}: no activity`;
-  return `${point.longLabel}: reading ${spokenDuration(point.reading)}, listening ${spokenDuration(point.listening)}`;
+  return `${point.longLabel}: reading ${spoken_duration(point.reading)}, listening ${spoken_duration(point.listening)}`;
 }
 
-/** Stacked daily (or monthly) bars of reading and listening, with a legend and a table view. */
+/** Daily (or monthly) reading and listening bars side by side, with a legend and a table view. */
 export function TimeChart({ points, title }: { points: ChartPoint[]; title: string }) {
   const { theme } = useVoticTheme();
-  const colors = seriesColors(theme.isDark);
+  const colors = series_colors(theme.isDark);
   const [selected, setSelected] = useState<string | null>(null);
   const [table, setTable] = useState(false);
-  const max = scaleMax(points);
+  const max = scale_max(points);
   const empty = points.every((point) => !point.reading && !point.listening);
   const selectedPoint = points.find((point) => point.key === selected);
   // Month views label every fifth day so labels never collide.
-  const showLabel = (index: number) => points.length <= 12 || index === 0 || (index + 1) % 5 === 0;
+  const show_label = (index: number) => points.length <= 12 || index === 0 || (index + 1) % 5 === 0;
 
   return (
     <View style={s.wrap}>
@@ -69,7 +70,7 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
             >
               <Text style={[s.tableLabel, { color: theme.text }]}>{point.longLabel}</Text>
               <Text style={[s.tableValue, { color: theme.mutedText }]}>
-                {formatDuration(point.reading)} reading · {formatDuration(point.listening)} listening
+                {format_duration(point.reading)} reading · {format_duration(point.listening)} listening
               </Text>
             </View>
           ))}
@@ -78,15 +79,15 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
         <>
           <Text accessibilityLiveRegion="polite" style={[s.readout, { color: theme.text }]}>
             {selectedPoint
-              ? `${selectedPoint.longLabel} · ${formatDuration(selectedPoint.reading)} reading · ${formatDuration(selectedPoint.listening)} listening`
+              ? `${selectedPoint.longLabel} · ${format_duration(selectedPoint.reading)} reading · ${format_duration(selectedPoint.listening)} listening`
               : empty
                 ? "No reading or listening in this period."
                 : "Tap a bar for details."}
           </Text>
           <View style={s.plot}>
             <View style={s.axis}>
-              <Text style={[s.axisText, { color: theme.mutedText }]}>{axisLabel(max)}</Text>
-              <Text style={[s.axisText, { color: theme.mutedText }]}>{axisLabel(max / 2)}</Text>
+              <Text style={[s.axisText, { color: theme.mutedText }]}>{axis_label(max)}</Text>
+              <Text style={[s.axisText, { color: theme.mutedText }]}>{axis_label(max / 2)}</Text>
               <Text style={[s.axisText, { color: theme.mutedText }]}>0</Text>
             </View>
             <View style={s.bars}>
@@ -111,35 +112,25 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
                     onPress={() => setSelected(active ? null : point.key)}
                     style={s.slot}
                   >
-                    <View style={[s.column, { height: CHART_HEIGHT }]}>
-                      {/* Reading sits on top of listening, separated by a 2px surface gap. */}
-                      {readingHeight > 0 ? (
+                    <View style={[s.pair, { height: CHART_HEIGHT }]}>
+                      {/* Reading, then listening, both rising from the baseline with a 2px gap between. */}
+                      {[
+                        { key: "reading", height: readingHeight, color: colors.reading },
+                        { key: "listening", height: listeningHeight, color: colors.listening },
+                      ].map((bar) => (
                         <View
+                          key={bar.key}
+                          testID={`bar-${point.key}-${bar.key}`}
                           style={[
-                            s.segment,
-                            s.top,
+                            s.bar,
                             {
-                              height: Math.max(2, readingHeight),
-                              backgroundColor: colors.reading,
-                              opacity: selected && !active ? 0.45 : 1,
-                              marginBottom: listeningHeight > 0 ? 2 : 0,
-                            },
-                          ]}
-                        />
-                      ) : null}
-                      {listeningHeight > 0 ? (
-                        <View
-                          style={[
-                            s.segment,
-                            readingHeight > 0 ? null : s.top,
-                            {
-                              height: Math.max(2, listeningHeight),
-                              backgroundColor: colors.listening,
+                              height: bar.height > 0 ? Math.max(2, bar.height) : 0,
+                              backgroundColor: bar.color,
                               opacity: selected && !active ? 0.45 : 1,
                             },
                           ]}
                         />
-                      ) : null}
+                      ))}
                     </View>
                     <Text
                       numberOfLines={1}
@@ -149,7 +140,7 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
                         { color: active ? theme.text : theme.mutedText, fontWeight: active ? "800" : "600" },
                       ]}
                     >
-                      {showLabel(index) ? point.label : " "}
+                      {show_label(index) ? point.label : " "}
                     </Text>
                   </Pressable>
                 );
@@ -188,9 +179,8 @@ const s = StyleSheet.create({
   bars: { flex: 1, flexDirection: "row", alignItems: "flex-start" },
   grid: { position: "absolute", left: 0, right: 0, height: StyleSheet.hairlineWidth },
   slot: { flex: 1, alignItems: "center", minHeight: 44 },
-  column: { width: "70%", maxWidth: 24, justifyContent: "flex-end" },
-  segment: { width: "100%" },
-  top: { borderTopLeftRadius: 4, borderTopRightRadius: 4 },
+  pair: { width: "80%", maxWidth: 30, flexDirection: "row", alignItems: "flex-end", gap: 2 },
+  bar: { flex: 1, borderTopLeftRadius: 4, borderTopRightRadius: 4 },
   label: { fontSize: 12, marginTop: 6 },
   tableRow: {
     minHeight: 48,

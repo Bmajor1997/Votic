@@ -1,3 +1,11 @@
+class AiProviderError extends Error {
+  constructor(status, code) {
+    super("AI unavailable");
+    this.provider_status = status;
+    this.provider_code = typeof code === "string" ? code : null;
+  }
+}
+
 import { createHash } from "node:crypto";
 import { model_prices } from "./ai_usage.js";
 
@@ -53,13 +61,16 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
         // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
         store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
         finished = true;
-        throw new Error("AI unavailable");
+        // Keep the provider's status and error code (never its message, which can echo part of the key).
+        const body = await response.json().catch(() => null);
+        throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
       }
       const result = await response.json();
       const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
       store.finish(request_id, { status, result, provider_request_id });
       finished = true;
-      if (status !== "completed") throw new Error("AI response did not complete");
+      // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
+      if (status !== "completed") throw Object.assign(new Error("AI response did not complete"), { incomplete: status === "incomplete" });
       return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
     } catch (error) {
       if (!finished) store.finish(request_id, { status: "unknown" });
@@ -103,4 +114,13 @@ export async function transcribe_voice(bytes, { env, fetch_impl, timeout_ms }) {
     if (typeof result.text !== "string" || !result.text.trim() || result.text.length > 1000) throw new Error("Invalid voice question");
     return result.text.trim();
   } finally { clearTimeout(timer); }
+}
+
+/** A safe, loggable reason an AI request failed: the provider's status and code, a timeout, or Votic's own check. */
+export function ai_failure_reason(error) {
+  if (error?.provider_status) return { status: error.provider_status, code: error.provider_code ?? null };
+  if (error?.name === "AbortError") return { reason: "timed out" };
+  // A JSON parse error quotes the start of the model's reply, which can repeat the person's document.
+  if (error instanceof SyntaxError) return { reason: "invalid AI response" };
+  return { reason: String(error?.message || "unknown").slice(0, 160) };
 }

@@ -4,14 +4,14 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
-import { buildComprehensionQuestions, selfCheckFeedback } from "../src/reader/comprehension";
+import { build_comprehension_questions, self_check_feedback } from "../src/reader/comprehension";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 export default function CheckUnderstandingScreen() {
   const { theme } = useVoticTheme();
   const { activeDocument } = useDocumentLibrary();
   const questions = useMemo(
-    () => buildComprehensionQuestions(activeDocument?.plainText || "", activeDocument?.progress || 1),
+    () => build_comprehension_questions(activeDocument?.plainText || "", activeDocument?.progress || 1),
     [activeDocument?.plainText, activeDocument?.progress],
   );
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -61,7 +61,7 @@ export default function CheckUnderstandingScreen() {
               {checked[q.id] ? (
                 <View style={[s.feedback, { backgroundColor: theme.surfaceMuted }]}>
                   <Text style={[s.feedbackTitle, { color: theme.text }]}>
-                    {selfCheckFeedback(answers[q.id] || "", q.answerHint)}
+                    {self_check_feedback(answers[q.id] || "", q.answerHint)}
                   </Text>
                   <Text style={[s.source, { color: theme.mutedText }]}>
                     Compare with the passage: “{q.answerHint.slice(0, 360)}

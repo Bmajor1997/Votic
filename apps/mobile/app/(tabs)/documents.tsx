@@ -12,24 +12,29 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { documentTypeColor } from "../../src/components/DocumentTypeIcon";
+import { document_type_color } from "../../src/components/DocumentTypeIcon";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
-import { Screen, ScrollFadeItem } from "../../src/components/Screen";
+import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
   SORTS,
   Sort,
-  fileTypeLabel,
-  progressLabel,
-  readableTitle,
-  sortDocuments,
+  file_type_label,
+  progress_label,
+  readable_title,
+  sort_documents,
 } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { VoticDocument } from "../../src/documents/types";
+import { readable_documents, VoticDocument } from "../../src/documents/types";
 import { useDocumentImport } from "../../src/documents/useDocumentImport";
+import {
+  useWalkthrough,
+  useWalkthroughTarget,
+  useWalkthroughTrigger,
+} from "../../src/walkthrough/WalkthroughProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { sheetStyles } from "../../src/reader/components/sheetStyles";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
@@ -41,7 +46,10 @@ export default function Documents() {
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
   const uploadRef = useRef<View>(null);
-  const { documents, collections, loaded, openDocument, addCollection } = useDocumentLibrary();
+  const library = useDocumentLibrary();
+  const { collections, loaded, openDocument, addCollection } = library;
+  // Quick Notes lives in Notes; it isn't a document to read.
+  const documents = useMemo(() => readable_documents(library.documents), [library.documents]);
   const { importing, processingName, failure, dismissFailure, importDocument } = useDocumentImport(
     uploadRef,
     {
@@ -56,6 +64,16 @@ export default function Documents() {
   const [addDocumentOpen, setAddDocumentOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
+  const walkthrough = useWalkthrough();
+  const uploadTarget = useWalkthroughTarget("documents.upload");
+  const searchTarget = useWalkthroughTarget("documents.search");
+  const newCollectionTarget = useWalkthroughTarget("documents.newCollection");
+  const optionsTarget = useWalkthroughTarget("documents.documentOptions");
+  const documentTarget = useWalkthroughTarget("documents.document");
+  const filtersTarget = useWalkthroughTarget("documents.filters");
+  useWalkthroughTrigger([{ id: "documents" }, { id: "documents.collections", when: documents.length > 0 }], {
+    hasDocuments: documents.length > 0,
+  });
 
   const visible = useMemo(() => {
     const scoped =
@@ -68,11 +86,11 @@ export default function Documents() {
     const matching = search
       ? scoped.filter(
           (document) =>
-            readableTitle(document.title).toLowerCase().includes(search) ||
+            readable_title(document.title).toLowerCase().includes(search) ||
             document.sourceName.toLowerCase().includes(search),
         )
       : scoped;
-    return sortDocuments(matching, sort);
+    return sort_documents(matching, sort);
   }, [documents, collection, query, sort]);
   const filterCount = (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
   const collectionLabel =
@@ -90,7 +108,7 @@ export default function Documents() {
       transition.openReader({ x, y, width, height }, () => router.push("/reader")),
     );
   }
-  function createCollection() {
+  function create_collection() {
     const clean = collectionName.trim();
     if (!clean) return;
     addCollection(clean);
@@ -102,6 +120,7 @@ export default function Documents() {
   const actions = (
     <View style={s.titleActions}>
       <Pressable
+        ref={newCollectionTarget}
         accessibilityRole="button"
         accessibilityLabel="New collection"
         onPress={() => setCreateOpen(true)}
@@ -111,11 +130,15 @@ export default function Documents() {
       </Pressable>
       <View ref={uploadRef} collapsable={false}>
         <Pressable
+          ref={uploadTarget}
           accessibilityRole="button"
           accessibilityLabel="Add document"
           accessibilityState={{ busy: importing }}
           disabled={importing}
-          onPress={() => setAddDocumentOpen(true)}
+          onPress={() => {
+            walkthrough.pressed("documents.upload");
+            setAddDocumentOpen(true);
+          }}
           style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
         >
           {importing ? (
@@ -132,7 +155,11 @@ export default function Documents() {
   return (
     <Screen title="Documents" titleAction={actions}>
       {documents.length ? (
-        <View style={[s.search, { backgroundColor: theme.surfaceMuted }]}>
+        <View
+          ref={searchTarget}
+          collapsable={false}
+          style={[s.search, { backgroundColor: theme.surfaceMuted }]}
+        >
           <Ionicons name="search" size={19} color={theme.mutedText} />
           <TextInput
             accessibilityLabel="Search documents"
@@ -153,6 +180,7 @@ export default function Documents() {
             </Pressable>
           ) : null}
           <Pressable
+            ref={filtersTarget}
             accessibilityRole="button"
             accessibilityLabel={filterCount ? `Sort and filter, ${filterCount} active` : "Sort and filter"}
             onPress={() => setFiltersOpen(true)}
@@ -164,7 +192,7 @@ export default function Documents() {
               },
             ]}
           >
-            <Ionicons name="options-outline" size={20} color={filterCount ? theme.accent : theme.text} />
+            <Ionicons name="options-outline" size={20} color={filterCount ? theme.accentText : theme.text} />
           </Pressable>
         </View>
       ) : null}
@@ -244,13 +272,14 @@ export default function Documents() {
           {visible.length ? (
             <View style={s.libraryCards}>
               {visible.map((document, index) => {
-                const title = readableTitle(document.title);
+                const title = readable_title(document.title);
                 const percent = Math.round(document.progress * 100);
                 return (
-                  <ScrollFadeItem key={document.id}>
+                  <View key={document.id}>
                     <View
                       ref={(node) => {
                         cardRefs.current[document.id] = node;
+                        if (index === 0) documentTarget(node);
                       }}
                       collapsable={false}
                       style={[
@@ -262,7 +291,7 @@ export default function Documents() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Open ${title}`}
-                        accessibilityHint={`${fileTypeLabel(document.sourceName)}. ${progressLabel(document)}`}
+                        accessibilityHint={`${file_type_label(document.sourceName)}. ${progress_label(document)}`}
                         onPress={() => open(document)}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
@@ -271,7 +300,7 @@ export default function Documents() {
                             s.coverWell,
                             {
                               backgroundColor:
-                                documentTypeColor(document.sourceName) + (theme.isDark ? "26" : "12"),
+                                document_type_color(document.sourceName) + (theme.isDark ? "26" : "12"),
                             },
                           ]}
                         >
@@ -285,7 +314,7 @@ export default function Documents() {
                             {title}
                           </Text>
                           <Text style={[s.rowMeta, { color: theme.mutedText }]}>
-                            {fileTypeLabel(document.sourceName)}
+                            {file_type_label(document.sourceName)}
                             {document.collection ? ` · ${document.collection}` : ""}
                           </Text>
                           {document.progress >= 1 ? (
@@ -320,6 +349,7 @@ export default function Documents() {
                         </View>
                       </Pressable>
                       <Pressable
+                        ref={index === 0 ? optionsTarget : undefined}
                         accessibilityRole="button"
                         accessibilityLabel={`More options for ${title}`}
                         onPress={() => setMenuDocument(document)}
@@ -328,7 +358,7 @@ export default function Documents() {
                         <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
                       </Pressable>
                     </View>
-                  </ScrollFadeItem>
+                  </View>
                 );
               })}
             </View>
@@ -355,7 +385,7 @@ export default function Documents() {
         <View style={s.empty}>
           <DocumentsEmptyAnimation />
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            Add your first document
+            Your Documents page is empty
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
             Add a file from your device or a connected cloud storage provider to read and listen.
@@ -620,7 +650,7 @@ export default function Documents() {
               placeholderTextColor={theme.mutedText}
               maxLength={40}
               returnKeyType="done"
-              onSubmitEditing={createCollection}
+              onSubmitEditing={create_collection}
               style={[
                 s.collectionInput,
                 { borderColor: theme.border, color: theme.text, backgroundColor: theme.background },
@@ -631,7 +661,7 @@ export default function Documents() {
               accessibilityLabel="Save collection"
               accessibilityState={{ disabled: !collectionName.trim() }}
               disabled={!collectionName.trim()}
-              onPress={createCollection}
+              onPress={create_collection}
               style={[s.done, { backgroundColor: collectionName.trim() ? theme.accent : theme.surfaceMuted }]}
             >
               <Text style={[s.uploadText, { color: collectionName.trim() ? "#FFF" : theme.mutedText }]}>
@@ -658,7 +688,7 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
       <Ionicons
         name={selected ? "radio-button-on" : "radio-button-off"}
         size={22}
-        color={selected ? theme.accent : theme.mutedText}
+        color={selected ? theme.accentText : theme.mutedText}
       />
       <Text style={[s.choiceText, { color: theme.text }]}>{label}</Text>
     </Pressable>

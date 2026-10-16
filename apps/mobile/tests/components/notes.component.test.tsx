@@ -1,14 +1,21 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
+import * as Speech from "expo-speech";
 import { Alert, AlertButton } from "react-native";
-import { createDocumentStore } from "../../src/documents/documentStorage";
+import { create_document_store } from "../../src/documents/documentStorage";
 import Notes from "../../app/(tabs)/notes";
 import { router } from "../mocks/expoRouter";
-import { renderWithProviders, testDocument } from "../renderWithProviders";
+import { render_with_providers, test_document } from "../renderWithProviders";
+
+jest.mock("expo-speech", () => ({
+  speak: jest.fn(),
+  stop: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  maxSpeechInputLength: 4000,
+}));
 
 // Reader saves passages as "passage-<sentence>", so both documents have a passage-3.
 const documents = [
-  testDocument("doc-psy", "Psychology", {
+  test_document("doc-psy", "Psychology", {
     savedPassages: [
       {
         id: "passage-3",
@@ -21,7 +28,7 @@ const documents = [
       { id: "passage-8", sentenceIndex: 8, text: "A saved quote.", note: "", createdAt: 1, updatedAt: 2 },
     ],
   }),
-  testDocument("doc-bio", "Biology", {
+  test_document("doc-bio", "Biology", {
     savedPassages: [
       {
         id: "passage-3",
@@ -39,14 +46,14 @@ const documents = [
 
 describe("Notes", () => {
   it("groups notes and saved passages by document", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     expect(screen.getByRole("button", { name: "Open Psychology notebook" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Biology notebook" })).toBeTruthy();
     expect(screen.getByText("1 note · 1 passage")).toBeTruthy();
   });
 
   it("shows a written note and a saved passage differently", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByText("Chunking helps memory."));
     expect(screen.getByText("YOUR NOTE")).toBeTruthy();
@@ -56,7 +63,7 @@ describe("Notes", () => {
   });
 
   it("adds a note to a saved passage", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "More options for saved passage" }));
     expect(screen.getByText("Note options")).toBeTruthy();
@@ -70,7 +77,7 @@ describe("Notes", () => {
 
   it("asks before removing a note, then removes it", async () => {
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getAllByRole("button", { name: "More options for note" })[0]);
     await fireEvent.press(screen.getByText("Remove from Notes"));
@@ -82,7 +89,7 @@ describe("Notes", () => {
   });
 
   it("selects a passage in one document without selecting the same passage id in another", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
     await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Biology" })[0]);
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(1);
@@ -92,7 +99,7 @@ describe("Notes", () => {
 
 describe("Notes search, filters, and notebooks", () => {
   it("searches notes, titles, and tags", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.changeText(screen.getByLabelText("Search notes"), "mitosis");
     expect(screen.getByRole("button", { name: "Open Biology notebook" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Psychology notebook" })).toBeNull();
@@ -103,7 +110,7 @@ describe("Notes search, filters, and notebooks", () => {
   });
 
   it("filters by type and tag from the filter sheet, and clears filters", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByRole("header", { name: "Filter Notes" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("checkbox", { name: "Key Points" }));
@@ -122,7 +129,7 @@ describe("Notes search, filters, and notebooks", () => {
   });
 
   it("opens a notebook with its counts and Ask Votic actions", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     expect(screen.getByText("1 note · 1 saved passage")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Biology notebook" })).toBeNull();
@@ -147,7 +154,7 @@ describe("Notes search, filters, and notebooks", () => {
   });
 
   it("pins a note", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "More options for saved passage" }));
     await fireEvent.press(screen.getByText("Pin note"));
@@ -155,7 +162,7 @@ describe("Notes search, filters, and notebooks", () => {
   });
 
   it("asks Votic about selected notes by document and passage", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
     await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Biology" })[0]);
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about 1 selected notes" }));
@@ -169,7 +176,7 @@ describe("Notes search, filters, and notebooks", () => {
   });
 
   it("opens a note's passage in the Reader", async () => {
-    await renderWithProviders(<Notes />, { documents });
+    await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Biology notebook" }));
     await fireEvent.press(screen.getByText("Mitosis has phases."));
     await fireEvent.press(screen.getByRole("button", { name: "Open this passage in Reader" }));
@@ -179,10 +186,11 @@ describe("Notes search, filters, and notebooks", () => {
 
 describe("Quick Notes", () => {
   it("creates standalone notes without a document and keeps them in one notebook", async () => {
-    await renderWithProviders(<Notes />, { documents: [] });
+    await render_with_providers(<Notes />, { documents: [] });
     await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
     expect(screen.getByRole("button", { name: "Save note", disabled: true })).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Note text"), "Remember the meeting questions.");
+    await fireEvent.press(screen.getByRole("button", { name: "Note details" }));
     await fireEvent.changeText(screen.getByLabelText("Note tags"), "work, meeting");
     await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
     expect(screen.getByRole("button", { name: "Open Quick Notes notebook" })).toBeTruthy();
@@ -196,19 +204,126 @@ describe("Quick Notes", () => {
     await act(async () => {
       jest.advanceTimersByTime(1200);
     });
-    const saved = await createDocumentStore().loadDocuments();
+    const saved = await create_document_store("test-user").loadDocuments();
     const quick = saved.find((document) => document.notebookKind === "quick-notes");
     expect(quick?.savedPassages).toHaveLength(2);
     expect(quick?.plainText).toContain("A second independent thought.");
     expect(screen.getByText("Remember the meeting questions.")).toBeTruthy();
   });
   it("opens an empty document notebook and adds a note without saving a passage", async () => {
-    await renderWithProviders(<Notes />, { documents: [testDocument("empty-doc", "My Document")] });
+    await render_with_providers(<Notes />, { documents: [test_document("empty-doc", "My Document")] });
     await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
     await fireEvent.changeText(screen.getByLabelText("Note text"), "My own observation.");
     await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
     expect(screen.getByText("My own observation.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Ask Votic about My Document notebook" })).toBeTruthy();
+  });
+});
+
+describe("Note Workspace", () => {
+  async function open_note() {
+    await render_with_providers(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
+    await fireEvent.press(screen.getByText("Chunking helps memory."));
+  }
+  it("asks about only the opened note and scopes each smart prompt", async () => {
+    await open_note();
+    expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Summarize" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Note smart actions" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Explain Simply" }));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: "/assistant",
+      params: {
+        notesDocumentId: "doc-psy",
+        notesPassageId: "passage-3",
+        initialQuestion: "Explain this note more simply, using only this note and its saved source passage.",
+      },
+    });
+  });
+  it.each(["Summarize", "Key Points", "Check My Understanding", "Create Questions", "Clean Up Note"])(
+    "scopes %s to this note",
+    async (label) => {
+      await open_note();
+      await fireEvent.press(screen.getByRole("button", { name: "Note smart actions" }));
+      await fireEvent.press(screen.getByRole("button", { name: label }));
+      expect(router.push).toHaveBeenLastCalledWith({
+        pathname: "/assistant",
+        params: {
+          notesDocumentId: "doc-psy",
+          notesPassageId: "passage-3",
+          initialQuestion: expect.any(String),
+        },
+      });
+    },
+  );
+  it("edits in place and reopens the workspace with saved content", async () => {
+    await open_note();
+    await fireEvent.press(screen.getByRole("button", { name: "Edit this note" }));
+    await fireEvent.changeText(screen.getByLabelText("Note text"), "An updated thought.");
+    await fireEvent.changeText(screen.getByLabelText("Note title"), "Memory tools");
+    await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
+    expect(screen.getByRole("header", { name: "Memory tools" })).toBeTruthy();
+    expect(screen.getAllByText("An updated thought.").length).toBeGreaterThan(0);
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this note" }));
+    expect(router.push).toHaveBeenLastCalledWith({
+      pathname: "/assistant",
+      params: { notesDocumentId: "doc-psy", notesPassageId: "passage-3" },
+    });
+  });
+  it("reads the note rather than the source and stops audio on close", async () => {
+    await open_note();
+    const before = (Speech.speak as jest.Mock).mock.calls.length;
+    await fireEvent.press(screen.getByRole("button", { name: "Listen" }));
+    await act(async () => {});
+    expect((Speech.speak as jest.Mock).mock.calls.slice(before)[0]).toEqual([
+      "Chunking helps memory.",
+      expect.objectContaining({ rate: 1, voice: undefined }),
+    ]);
+    const stops = (Speech.stop as jest.Mock).mock.calls.length;
+    await fireEvent.press(screen.getByRole("button", { name: "Close note" }));
+    expect((Speech.stop as jest.Mock).mock.calls.length).toBeGreaterThan(stops);
+  });
+  it("ignores late speech completion after closing the workspace", async () => {
+    await open_note();
+    await fireEvent.press(screen.getByRole("button", { name: "Listen" }));
+    await act(async () => {});
+    const calls = (Speech.speak as jest.Mock).mock.calls;
+    const options = calls[calls.length - 1][1] as Speech.SpeechOptions;
+    await fireEvent.press(screen.getByRole("button", { name: "Close note" }));
+    const count = calls.length;
+    await act(async () => {
+      options.onDone?.();
+    });
+    expect((Speech.speak as jest.Mock).mock.calls).toHaveLength(count);
+  });
+  it("reports native speech failures and lets the user retry", async () => {
+    await open_note();
+    await fireEvent.press(screen.getByRole("button", { name: "Listen" }));
+    await act(async () => {});
+    const calls = (Speech.speak as jest.Mock).mock.calls;
+    const options = calls[calls.length - 1][1] as Speech.SpeechOptions;
+    await act(async () => {
+      options.onError?.(new Error("Device voice failed"));
+    });
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+  });
+  it("keeps standalone notes independent of Reader source links", async () => {
+    await render_with_providers(<Notes />, {
+      documents: [
+        test_document("quick", "Quick Notes", {
+          notebookKind: "quick-notes",
+          savedPassages: [
+            { id: "q", sentenceIndex: 0, text: "", note: "Standalone idea.", createdAt: 1, updatedAt: 1 },
+          ],
+        }),
+      ],
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Open Quick Notes notebook" }));
+    await fireEvent.press(screen.getByText("Standalone idea."));
+    expect(screen.queryByRole("button", { name: "Open this passage in Reader" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
   });
 });

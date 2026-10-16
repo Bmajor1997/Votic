@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildNotesAskDocument,
-  noteSelectionId,
-  notesAskScopeLabel,
-  notesForAskVotic,
+  build_notes_ask_document,
+  note_selection_id,
+  notes_ask_scope_label,
+  notes_for_ask_votic,
 } from "./askVoticNotesContext";
 import { VoticDocument } from "../documents/types";
 
@@ -35,21 +35,21 @@ const documents: VoticDocument[] = [
 
 describe("Ask Votic notes context", () => {
   it("includes written notes and their source passage", () => {
-    const context = buildNotesAskDocument(documents, { documentId: "doc-1" });
+    const context = build_notes_ask_document(documents, { documentId: "doc-1" });
     expect(context?.title).toBe("Notes from Psychology");
     expect(context?.sections).toHaveLength(2);
     expect(context?.sections[0].text).toContain("Chunking can reduce memory load.");
     expect(context?.sections[0].text).toContain("Working memory is limited.");
   });
   it("can scope Ask Votic to one note", () => {
-    const context = buildNotesAskDocument(documents, { documentId: "doc-1", passageId: "p1" });
+    const context = build_notes_ask_document(documents, { documentId: "doc-1", passageId: "p1" });
     expect(context?.sections).toHaveLength(1);
-    expect(notesAskScopeLabel(documents, { documentId: "doc-1", passageId: "p1" })).toBe(
+    expect(notes_ask_scope_label(documents, { documentId: "doc-1", passageId: "p1" })).toBe(
       "Asking about: 1 note · Psychology",
     );
   });
   it("includes saved passages without a user note, labelled with their source document and location", () => {
-    const context = buildNotesAskDocument(documents, { documentId: "doc-1", passageId: "p2" });
+    const context = build_notes_ask_document(documents, { documentId: "doc-1", passageId: "p2" });
     expect(context?.sections).toEqual([
       {
         heading: "Saved passage 1 — Psychology",
@@ -58,7 +58,7 @@ describe("Ask Votic notes context", () => {
     ]);
   });
   it("sends every note and saved passage in a notebook", () => {
-    const context = buildNotesAskDocument(documents, { documentId: "doc-1" });
+    const context = build_notes_ask_document(documents, { documentId: "doc-1" });
     expect(context?.sections.map((section) => section.heading)).toEqual([
       "Note 1 — Psychology",
       "Saved passage 2 — Psychology",
@@ -72,7 +72,7 @@ describe("Ask Votic notes context", () => {
         savedPassages: [{ id: "blank", sentenceIndex: 0, text: "  ", note: "", createdAt: 1, updatedAt: 1 }],
       },
     ];
-    expect(buildNotesAskDocument(empty, { documentId: "doc-1" })).toBeUndefined();
+    expect(build_notes_ask_document(empty, { documentId: "doc-1" })).toBeUndefined();
   });
 });
 
@@ -104,16 +104,18 @@ describe("multi-select notes scope", () => {
     },
   ];
   it("selects a passage in one document without also selecting the same passage id in another", () => {
-    const items = notesForAskVotic(twoDocuments, { passageIds: [noteSelectionId("doc-b", "passage-3")] });
+    const items = notes_for_ask_votic(twoDocuments, {
+      passageIds: [note_selection_id("doc-b", "passage-3")],
+    });
     expect(items.map((item) => item.document.id)).toEqual(["doc-b"]);
     expect(
-      buildNotesAskDocument(twoDocuments, { passageIds: [noteSelectionId("doc-b", "passage-3")] })
+      build_notes_ask_document(twoDocuments, { passageIds: [note_selection_id("doc-b", "passage-3")] })
         ?.sections[0].text,
     ).toContain("Rome fell.");
   });
   it("combines selections across documents and keeps each source title", () => {
-    const context = buildNotesAskDocument(twoDocuments, {
-      passageIds: [noteSelectionId("doc-a", "passage-3"), noteSelectionId("doc-b", "passage-3")],
+    const context = build_notes_ask_document(twoDocuments, {
+      passageIds: [note_selection_id("doc-a", "passage-3"), note_selection_id("doc-b", "passage-3")],
     });
     expect(context?.title).toBe("My Votic notes");
     expect(context?.sections.map((section) => section.heading)).toEqual([
@@ -150,8 +152,8 @@ describe("selected note ids", () => {
     },
   ];
   it("keeps selected passage IDs scoped to their document", () => {
-    const context = buildNotesAskDocument(documentsWithDuplicatePassageIds, {
-      passageIds: [noteSelectionId("doc-2", "p1")],
+    const context = build_notes_ask_document(documentsWithDuplicatePassageIds, {
+      passageIds: [note_selection_id("doc-2", "p1")],
     });
     expect(context?.sections).toHaveLength(1);
     expect(context?.sections[0].heading).toContain("Biology");

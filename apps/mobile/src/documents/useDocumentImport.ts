@@ -2,16 +2,11 @@ import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { RefObject, useState } from "react";
 import { Alert, View } from "react-native";
-import { extractDocument } from "../api/voticApi";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
-import {
-  canReadLocally,
-  cleanLocalDocumentText,
-  validateImport,
-  validateLoadedBytes,
-} from "./importDocument";
+import { IMPORT_TYPES, import_origin, validate_import } from "./importDocument";
+import { read_imported_text } from "./readImportedText";
 
 export type ImportFailure = { name: string | null; message: string };
 
@@ -28,21 +23,13 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
   const [processingName, setProcessingName] = useState<string | null>(null);
   const [failure, setFailure] = useState<ImportFailure | null>(null);
 
-  async function importDocument() {
+  async function import_document() {
     setImporting(true);
     setFailure(null);
     let name: string | null = null;
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "text/plain",
-          "text/markdown",
-          "application/pdf",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-          "application/vnd.ms-powerpoint",
-          "application/epub+zip",
-        ],
+        type: Object.keys(IMPORT_TYPES),
         copyToCacheDirectory: true,
         multiple: false,
       });
@@ -50,18 +37,17 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       const asset = result.assets[0];
       name = asset.name;
       setProcessingName(asset.name);
-      validateImport({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
+      validate_import({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
       const response = await fetch(asset.uri);
       if (!response.ok)
         throw new Error("Votic could not access this file. Please choose it again from your device.");
-      const bytes = await response.arrayBuffer();
-      validateLoadedBytes(bytes.byteLength);
-      let text: string;
-      if (canReadLocally(asset.name)) text = cleanLocalDocumentText(new TextDecoder().decode(bytes));
-      else text = await extractDocument(asset.name, bytes);
+      const text = await read_imported_text(asset.name, await response.arrayBuffer());
       if (!text.trim()) throw new Error("This document does not contain readable text.");
-      addTextDocument(asset.name, text, { playbackRate: defaultPlaybackRate });
-      openFrom(sourceRef, transition);
+      addTextDocument(asset.name, text, {
+        playbackRate: defaultPlaybackRate,
+        origin: import_origin(asset.name),
+      });
+      open_from(sourceRef, transition);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Votic could not read this document.";
       if (inlineErrors) setFailure({ name, message });
@@ -72,11 +58,17 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
     }
   }
 
-  return { importing, processingName, failure, dismissFailure: () => setFailure(null), importDocument };
+  return {
+    importing,
+    processingName,
+    failure,
+    dismissFailure: () => setFailure(null),
+    importDocument: import_document,
+  };
 }
 
 /** Grows the Reader out of `sourceRef`, or opens it directly when there is nothing on screen to grow from. */
-export function openFrom(
+export function open_from(
   sourceRef: RefObject<View | null>,
   transition: ReturnType<typeof useDocumentTransition>,
   params?: Record<string, string>,

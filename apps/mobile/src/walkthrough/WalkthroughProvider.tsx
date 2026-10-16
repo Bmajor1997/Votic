@@ -1,0 +1,358 @@
+import { useFocusEffect } from "expo-router";
+import {
+  PropsWithChildren,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  FLOWS,
+  FlowContext,
+  FlowId,
+  SECTIONS,
+  SectionId,
+  TargetId,
+  WalkthroughStep,
+  applicable_steps,
+} from "./walkthroughFlows";
+import { Rect } from "./placement";
+import {
+  EMPTY_WALKTHROUGH,
+  FlowStatus,
+  WalkthroughState,
+  load_walkthrough_state,
+  save_walkthrough_state,
+} from "./walkthroughState";
+import { useAuth } from "../auth/AuthProvider";
+
+type Measure = () => Promise<Rect | null>;
+export type MeasureNode = (node: unknown) => Promise<Rect | null>;
+export type ActiveFlow = { id: FlowId; context: FlowContext; steps: WalkthroughStep[]; index: number };
+
+type WalkthroughContextValue = {
+  hydrated: boolean;
+  state: WalkthroughState;
+  active: ActiveFlow | null;
+  /** Shows a section or tip if it hasn't been finished, skipped, or learned already and nothing else is showing. */
+  request: (id: FlowId, context?: FlowContext) => boolean;
+  next: () => void;
+  skip: () => void;
+  /** Hides the current flow without recording anything, e.g. when its screen is left. It shows again next time. */
+  dismiss: (id: FlowId) => void;
+  /** Screens call this when a highlighted control is used for real. */
+  pressed: (target: TargetId) => void;
+  isDone: (id: FlowId) => boolean;
+  /** Replay: forgets one section, or every walkthrough and tip. */
+  reset: (id: SectionId | "all") => void;
+  registerTarget: (id: TargetId, measure: Measure | null) => void;
+  measureTarget: (id: TargetId) => Promise<Rect | null>;
+  measureNode: MeasureNode;
+};
+
+const WalkthroughContext = createContext<WalkthroughContextValue | null>(null);
+
+const measure_in_window: MeasureNode = (node) =>
+  new Promise((resolve) => {
+    const view = node as {
+      measureInWindow?: (callback: (x: number, y: number, width: number, height: number) => void) => void;
+    } | null;
+    if (!view?.measureInWindow) return resolve(null);
+    view.measureInWindow((x, y, width, height) =>
+      resolve(width > 0 && height > 0 ? { x, y, width, height } : null),
+    );
+  });
+
+/**
+ * Progressive, contextual coaching. Separate from account onboarding: it only runs inside Votic, and it
+ * remembers each section and tip on its own, so one walkthrough never marks another as seen.
+ */
+export function WalkthroughProvider({
+  children,
+  measureNode = measure_in_window,
+  now = Date.now,
+}: PropsWithChildren<{ measureNode?: MeasureNode; now?: () => number }>) {
+  // Progress belongs to the signed-in account. It's kept with the account it was loaded for, so another
+  // account's progress never shows, or is saved over, while this one loads.
+  const { user, sessionRestored } = useAuth();
+  const uid = user?.uid ?? null;
+  const [loaded, setLoaded] = useState<{ uid: string; state: WalkthroughState } | null>(null);
+  const [shown, setShown] = useState<{ uid: string; flow: ActiveFlow } | null>(null);
+  const hydrated = Boolean(uid && loaded?.uid === uid);
+  const state = hydrated && loaded ? loaded.state : EMPTY_WALKTHROUGH;
+  const active = shown && shown.uid === uid ? shown.flow : null;
+  const targets = useRef(new Map<TargetId, Measure>());
+  const activeRef = useRef<ActiveFlow | null>(null);
+  const stateRef = useRef(state);
+  const uidRef = useRef(uid);
+  useEffect(() => {
+    activeRef.current = active;
+    stateRef.current = state;
+    uidRef.current = uid;
+  });
+  const set_active = useCallback((flow: ActiveFlow | null) => {
+    const owner = uidRef.current;
+    setShown(flow && owner ? { uid: owner, flow } : null);
+  }, []);
+  /** Changes and saves the signed-in account's progress. */
+  const set_state = useCallback((change: (previous: WalkthroughState) => WalkthroughState) => {
+    setLoaded((previous) => {
+      if (!previous || previous.uid !== uidRef.current) return previous;
+      const next = change(previous.state);
+      void save_walkthrough_state(previous.uid, next).catch(() => {});
+      return { uid: previous.uid, state: next };
+    });
+  }, []);
+
+  // Sections replayed from Settings. They show even when automatic coaching was declined.
+  const replaying = useRef(new Set<FlowId>());
+  const isNewAccount = Boolean(user?.isNewAccount);
+  useEffect(() => {
+    if (!uid) return;
+    let current = true;
+    void load_walkthrough_state({ uid, isNewAccount, sessionRestored }, now())
+      .catch(() => EMPTY_WALKTHROUGH)
+      .then((progress) => {
+        if (!current) return;
+        replaying.current.clear();
+        activeRef.current = null;
+        stateRef.current = progress;
+        setLoaded({ uid, state: progress });
+      });
+    return () => {
+      current = false;
+    };
+    // Only a change of account reloads progress; the facts above are read as they were at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uid]);
+
+  const record = useCallback(
+    (id: FlowId, status: FlowStatus) => {
+      set_state((previous) => {
+        const next: WalkthroughState = {
+          ...previous,
+          flows: { ...previous.flows, [id]: { status, at: now() } },
+        };
+        stateRef.current = next;
+        return next;
+      });
+    },
+    [now, set_state],
+  );
+
+  /** The first step at or after `from` whose control is on screen (or that needs no control). */
+  const first_showable = useCallback((steps: WalkthroughStep[], from: number) => {
+    for (let index = from; index < steps.length; index += 1) {
+      const target = steps[index].target;
+      if (!target || targets.current.has(target)) return index;
+    }
+    return -1;
+  }, []);
+
+  const requestRef = useRef<(id: FlowId) => boolean>(() => false);
+  const finish = useCallback(
+    (status: FlowStatus) => {
+      const current = activeRef.current;
+      if (!current) return;
+      activeRef.current = null;
+      set_active(null);
+      replaying.current.delete(current.id);
+      record(current.id, status);
+      // A one-time "You're all set" after the Reader walkthrough is completed (not skipped), but only once
+      // Home has been covered too. Otherwise the Reader offers it on a later visit (see app/reader.tsx).
+      if (current.id === "reader" && status === "completed" && stateRef.current.flows.home)
+        setTimeout(() => requestRef.current("allSet"), ALL_SET_DELAY_MS);
+    },
+    [record, set_active],
+  );
+
+  const advance = useCallback(() => {
+    const current = activeRef.current;
+    if (!current) return;
+    const index = first_showable(current.steps, current.index + 1);
+    if (index < 0) return finish("completed");
+    const next = { ...current, index };
+    activeRef.current = next;
+    set_active(next);
+  }, [finish, first_showable, set_active]);
+
+  // Stable actions (they only read refs), so screens can depend on them without re-running effects.
+  const hydratedRef = useRef(hydrated);
+  useEffect(() => {
+    hydratedRef.current = hydrated;
+  });
+  const request = useCallback(
+    (id: FlowId, context: FlowContext = {}) => {
+      if (!hydratedRef.current || activeRef.current || stateRef.current.flows[id]) return false;
+      // "I'll explore on my own" turns off automatic coaching; replays from Settings still show.
+      if (stateRef.current.flows.intro?.status === "skipped" && id !== "intro" && !replaying.current.has(id))
+        return false;
+      const steps = applicable_steps(FLOWS[id], context);
+      const index = first_showable(steps, 0);
+      if (index < 0) return false;
+      const flow = { id, context, steps, index };
+      activeRef.current = flow;
+      set_active(flow);
+      return true;
+    },
+    [first_showable, set_active],
+  );
+  useEffect(() => {
+    requestRef.current = request;
+  }, [request]);
+  const skip = useCallback(() => finish("skipped"), [finish]);
+  const dismiss = useCallback(
+    (id: FlowId) => {
+      if (activeRef.current?.id !== id) return;
+      activeRef.current = null;
+      set_active(null);
+    },
+    [set_active],
+  );
+  const pressed = useCallback(
+    (target: TargetId) => {
+      const current = activeRef.current;
+      const step = current?.steps[current.index];
+      if (!current || !step?.interactive || step.target !== target) return;
+      if (step.completesOnPress) return finish("completed");
+      // Let the press update the screen (e.g. expand the dock) before looking for the next control.
+      setTimeout(advance, 120);
+    },
+    [advance, finish],
+  );
+  const reset = useCallback(
+    (id: SectionId | "all") => {
+      // Replaying one section is a deliberate request; "show all again" starts over, welcome card included.
+      if (id === "all") replaying.current.clear();
+      else replaying.current.add(id);
+      if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
+        activeRef.current = null;
+        set_active(null);
+      }
+      set_state((previous) => {
+        const flows = { ...previous.flows };
+        if (id === "all") for (const key of Object.keys(flows)) delete flows[key as FlowId];
+        else delete flows[id];
+        const next = { ...previous, flows };
+        stateRef.current = next;
+        return next;
+      });
+    },
+    [set_active, set_state],
+  );
+  const register_target = useCallback((id: TargetId, measure: Measure | null) => {
+    if (measure) targets.current.set(id, measure);
+    else targets.current.delete(id);
+  }, []);
+  const measure_target = useCallback(
+    (id: TargetId) => targets.current.get(id)?.() ?? Promise.resolve(null),
+    [],
+  );
+
+  const value = useMemo<WalkthroughContextValue>(
+    () => ({
+      hydrated,
+      state,
+      active,
+      request,
+      next: advance,
+      skip,
+      dismiss,
+      pressed,
+      isDone: (id) => Boolean(state.flows[id]),
+      reset,
+      registerTarget: register_target,
+      measureTarget: measure_target,
+      measureNode,
+    }),
+    [
+      hydrated,
+      state,
+      active,
+      request,
+      advance,
+      skip,
+      dismiss,
+      pressed,
+      reset,
+      register_target,
+      measure_target,
+      measureNode,
+    ],
+  );
+  return <WalkthroughContext.Provider value={value}>{children}</WalkthroughContext.Provider>;
+}
+
+export function useWalkthrough() {
+  const value = useContext(WalkthroughContext);
+  if (!value) throw new Error("useWalkthrough must be used inside WalkthroughProvider");
+  return value;
+}
+
+/** Attaches a walkthrough target id to a real control: `ref={useWalkthroughTarget("documents.upload")}`. */
+export function useWalkthroughTarget(id: TargetId) {
+  const { registerTarget, measureNode } = useWalkthrough();
+  return useCallback(
+    (node: unknown) => registerTarget(id, node ? () => measureNode(node) : null),
+    [id, registerTarget, measureNode],
+  );
+}
+
+/** Waits for layout and screen transitions to settle before pointing at anything. */
+export const TRIGGER_DELAY_MS = 450;
+/** A short pause between the Reader walkthrough's last card and "You're all set". */
+export const ALL_SET_DELAY_MS = 400;
+
+/**
+ * Shows the first eligible flow when this screen is focused, and hides an unfinished one (without
+ * recording it) when the screen is left, so it shows again on the next visit.
+ */
+export function useWalkthroughTrigger(
+  candidates: { id: FlowId; when?: boolean }[],
+  context: FlowContext = {},
+) {
+  const { request, dismiss, hydrated, state } = useWalkthrough();
+  // Read when the screen is focused, not tracked: a walkthrough finishing, or the screen's content changing,
+  // never starts another one during the same visit. The one exception is "Show me around", below.
+  const latest = useRef({ candidates, context, flows: state.flows });
+  useEffect(() => {
+    latest.current = { candidates, context, flows: state.flows };
+  });
+  const focused = useRef(false);
+  const shown = useRef<FlowId | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const show_next = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      const { candidates: options, context: facts, flows } = latest.current;
+      const eligible = options.find((candidate) => candidate.when !== false && !flows[candidate.id]);
+      if (eligible && request(eligible.id, facts)) shown.current = eligible.id;
+    }, TRIGGER_DELAY_MS);
+  }, [request]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hydrated) return;
+      focused.current = true;
+      show_next();
+      return () => {
+        focused.current = false;
+        if (timer.current) clearTimeout(timer.current);
+        if (shown.current) dismiss(shown.current);
+        shown.current = null;
+      };
+    }, [hydrated, show_next, dismiss]),
+  );
+  // "Show me around" leads straight into the coaching for the screen the person is on (Home).
+  const introStatus = state.flows.intro?.status;
+  const previousIntro = useRef(introStatus);
+  useEffect(() => {
+    const before = previousIntro.current;
+    previousIntro.current = introStatus;
+    if (!before && introStatus === "completed" && focused.current) show_next();
+  }, [introStatus, show_next]);
+}
+
+export { SECTIONS };

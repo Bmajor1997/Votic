@@ -2,13 +2,13 @@ import type { TextStyle } from "react-native";
 import type { ReaderFont, ReadingSpacing, TextSize } from "../accessibility/AccessibilityProvider";
 
 /** Words in a passage, with their character offsets (used to follow speech word by word). */
-export function wordMatches(text: string) {
+export function word_matches(text: string) {
   return [...text.matchAll(/\S+/g)];
 }
 
 /** The passage and word at a 0–1 position through the document, measured in words. */
-export function locationForProgress(passages: string[], progress: number) {
-  const counts = passages.map((passage) => wordMatches(passage).length);
+export function location_for_progress(passages: string[], progress: number) {
+  const counts = passages.map((passage) => word_matches(passage).length);
   const total = counts.reduce((sum, count) => sum + count, 0);
   if (!total) return { sentenceIndex: 0, wordIndex: 0 };
   let target = Math.min(total - 1, Math.max(0, Math.floor(Math.max(0, Math.min(1, progress)) * total)));
@@ -31,7 +31,7 @@ export const READING_LINE = 0.45;
  * very top the line starts at the first word, and at the end of the document it reaches the last
  * word, so progress runs from 0% to 100% as someone scrolls.
  */
-export function locationAtScroll(
+export function location_at_scroll(
   passages: string[],
   layouts: Record<number, { y: number; height: number }>,
   scroll: { offset: number; viewport: number; contentHeight: number },
@@ -39,7 +39,7 @@ export function locationAtScroll(
   if (!passages.length || !scroll.viewport) return null;
   const last = passages.length - 1;
   if (scroll.contentHeight > 0 && scroll.offset + scroll.viewport >= scroll.contentHeight - 4)
-    return { sentenceIndex: last, wordIndex: Math.max(0, wordMatches(passages[last]).length - 1) };
+    return { sentenceIndex: last, wordIndex: Math.max(0, word_matches(passages[last]).length - 1) };
   const offset = Math.max(0, scroll.offset);
   // The line eases down from the top edge, so a document scrolled to the top reads as 0%.
   const line = offset + Math.min(offset, scroll.viewport * READING_LINE);
@@ -48,15 +48,15 @@ export function locationAtScroll(
     const layout = layouts[index];
     if (!layout) continue;
     if (layout.y > line) break;
-    const words = Math.max(1, wordMatches(passages[index]).length);
+    const words = Math.max(1, word_matches(passages[index]).length);
     const within = layout.height ? Math.max(0, Math.min(1, (line - layout.y) / layout.height)) : 0;
     found = { sentenceIndex: index, wordIndex: Math.min(words - 1, Math.floor(within * words)) };
   }
   return found ?? { sentenceIndex: 0, wordIndex: 0 };
 }
 
-export function progressForLocation(passages: string[], sentenceIndex: number, wordIndex: number) {
-  const counts = passages.map((passage) => wordMatches(passage).length);
+export function progress_for_location(passages: string[], sentenceIndex: number, wordIndex: number) {
+  const counts = passages.map((passage) => word_matches(passage).length);
   const total = counts.reduce((sum, count) => sum + count, 0);
   if (total <= 1) return total ? 1 : 0;
   const before = counts.slice(0, Math.max(0, sentenceIndex)).reduce((sum, count) => sum + count, 0);
@@ -65,8 +65,8 @@ export function progressForLocation(passages: string[], sentenceIndex: number, w
 }
 
 /** The part of a passage to speak when resuming from a word, and where it starts. */
-export function speechSegment(text: string, startWord: number) {
-  const words = wordMatches(text);
+export function speech_segment(text: string, startWord: number) {
+  const words = word_matches(text);
   const safe = Math.max(0, Math.min(startWord, Math.max(0, words.length - 1)));
   const start = words[safe]?.index ?? 0;
   return { text: text.slice(start), startChar: start, startWord: safe, words };
@@ -76,7 +76,7 @@ export function speechSegment(text: string, startWord: number) {
  * The passage word being spoken at a TTS word boundary. `charIndex` is relative to `segment.text`
  * (iOS and Android both report offsets into the exact string that was spoken).
  */
-export function wordAtSpeechOffset(segment: ReturnType<typeof speechSegment>, charIndex: number) {
+export function word_at_speech_offset(segment: ReturnType<typeof speech_segment>, charIndex: number) {
   if (!Number.isFinite(charIndex)) return null;
   const sourceOffset = segment.startChar + Math.max(0, charIndex);
   let word = segment.startWord;
@@ -88,7 +88,7 @@ export function wordAtSpeechOffset(segment: ReturnType<typeof speechSegment>, ch
 }
 
 /** A passage split for display. Words are numbered exactly like `wordMatches`; whitespace has `word: null`. */
-export function passageTokens(text: string) {
+export function passage_tokens(text: string) {
   let word = -1;
   return text
     .split(/(\s+)/)
@@ -96,7 +96,7 @@ export function passageTokens(text: string) {
     .map((token) => ({ text: token, word: /^\s+$/.test(token) ? null : (word += 1) }));
 }
 
-export function timeSpentLabel(seconds: number) {
+export function time_spent_label(seconds: number) {
   if (seconds < 30) return "<1 min";
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
@@ -105,14 +105,14 @@ export function timeSpentLabel(seconds: number) {
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
 }
 
-export function clockLabel(seconds: number) {
+export function clock_label(seconds: number) {
   const safe = Math.max(0, Math.round(seconds));
   const minutes = Math.floor(safe / 60);
   return `${minutes}:${String(safe % 60).padStart(2, "0")}`;
 }
 
 /** Text style for the document body from the reader's text preferences. */
-export function readerType(
+export function reader_type(
   textSize: TextSize,
   readingSpacing: ReadingSpacing,
   readerFont: ReaderFont,
@@ -126,4 +126,9 @@ export function readerType(
     letterSpacing: textSpacing === "wide" ? 0.75 : 0,
     fontFamily: readerFont === "serif" ? "serif" : readerFont === "accessible" ? "sans-serif" : undefined,
   };
+}
+
+/** "1 passage left", "2 passages left". */
+export function passages_left_label(count: number) {
+  return `${count} ${count === 1 ? "passage" : "passages"} left`;
 }

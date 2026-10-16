@@ -1,5 +1,5 @@
 import { jest } from "@jest/globals";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 
 /** A stand-in for expo-router: records navigation and the Stack screens a layout declares. */
 export const router = {
@@ -11,6 +11,11 @@ export const router = {
 export const searchParams: { current: Record<string, string> } = { current: {} };
 export function useLocalSearchParams() {
   return searchParams.current;
+}
+
+/** Screens rendered in a test count as focused while mounted; unmounting is leaving them. */
+export function useFocusEffect(effect: () => void | (() => void)) {
+  useEffect(() => effect(), [effect]);
 }
 
 export const stackScreens: { name: string; options?: Record<string, unknown> }[] = [];
@@ -27,7 +32,7 @@ Stack.Protected = function StackProtected({ guard, children }: { guard: boolean;
   return guard ? <>{children}</> : null;
 };
 
-export function resetExpoRouterMock() {
+export function reset_expo_router_mock() {
   router.push.mockReset();
   router.back.mockReset();
   router.canGoBack.mockReset().mockReturnValue(true);

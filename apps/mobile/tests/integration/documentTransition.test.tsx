@@ -16,7 +16,7 @@ function wrapper({ children }: PropsWithChildren) {
     </AccessibilityProvider>
   );
 }
-async function renderTransition() {
+async function render_transition() {
   const hook = await renderHook(() => useDocumentTransition(), { wrapper });
   await act(async () => {});
   return hook;
@@ -24,7 +24,7 @@ async function renderTransition() {
 
 describe("Reader open/close transition", () => {
   it("opens from the tapped card, then closes back to it", async () => {
-    const { result } = await renderTransition();
+    const { result } = await render_transition();
     const openReader = jest.fn();
     const closeReader = jest.fn();
     await act(async () => result.current.openReader(card, openReader));
@@ -40,7 +40,7 @@ describe("Reader open/close transition", () => {
   });
 
   it("still closes when Close is pressed while the Reader is opening", async () => {
-    const { result } = await renderTransition();
+    const { result } = await render_transition();
     const closeReader = jest.fn();
     await act(async () => result.current.openReader(card, () => {}));
     await act(async () => result.current.beginReader());
@@ -50,7 +50,7 @@ describe("Reader open/close transition", () => {
   });
 
   it("ignores a second open while the first is still running", async () => {
-    const { result } = await renderTransition();
+    const { result } = await render_transition();
     const first = jest.fn();
     const second = jest.fn();
     await act(async () => result.current.openReader(card, first));
@@ -61,7 +61,7 @@ describe("Reader open/close transition", () => {
 
   it("closes immediately with Reduce Motion", async () => {
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion: true }));
-    const { result } = await renderTransition();
+    const { result } = await render_transition();
     const closeReader = jest.fn();
     await act(async () => result.current.openReader(card, () => {}));
     await act(async () => result.current.beginReader());

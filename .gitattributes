@@ -1,0 +1,2 @@
+# Unix line endings in the repository on every platform, so Windows editors and tools cannot mix them in.
+* text=auto eol=lf

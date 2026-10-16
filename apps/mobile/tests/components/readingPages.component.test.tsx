@@ -3,7 +3,7 @@ import { fireEvent, screen } from "@testing-library/react-native";
 import { useState } from "react";
 import { FlatList, Pressable, Text } from "react-native";
 import { ReadingPages } from "../../src/reader/components/ReadingPages";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 const passages = ["Alpha beta gamma delta epsilon zeta"];
 function Harness() {
   const [word, setWord] = useState(0);
@@ -34,7 +34,7 @@ function Harness() {
 }
 it("keeps a swiped page through saved-location echoes and background renders, while allowing external seeks", async () => {
   const scroll = jest.spyOn(FlatList.prototype, "scrollToOffset");
-  await renderWithProviders(<Harness />);
+  await render_with_providers(<Harness />);
   await fireEvent(screen.getByTestId("reading-pages"), "layout", {
     nativeEvent: { layout: { width: 390, height: 232 } },
   });
@@ -55,4 +55,28 @@ it("keeps a swiped page through saved-location echoes and background renders, wh
   await fireEvent.press(screen.getByRole("button", { name: "Seek start" }));
   expect(screen.getByText("Page 1 of 3")).toBeTruthy();
   expect(scroll).toHaveBeenLastCalledWith({ offset: 0, animated: false });
+});
+
+it("opens a saved spot on its own page, so the page shown matches the page label", async () => {
+  await render_with_providers(
+    <ReadingPages
+      passages={passages}
+      index={0}
+      wordIndex={4}
+      textStyle={{ fontSize: 18 }}
+      onLocation={() => {}}
+      onReady={() => {}}
+    />,
+  );
+  await fireEvent(screen.getByTestId("reading-pages"), "layout", {
+    nativeEvent: { layout: { width: 390, height: 232 } },
+  });
+  await fireEvent(screen.getByTestId("reading-measurement", { includeHiddenElements: true }), "textLayout", {
+    nativeEvent: {
+      lines: ["Alpha beta", "gamma delta", "epsilon zeta"].map((text) => ({ text, height: 200 })),
+    },
+  });
+  expect(screen.getByText("Page 3 of 3")).toBeTruthy();
+  // The list starts on that page rather than relying on a scroll before its pages exist.
+  expect(screen.getByTestId("reading-page-list").props.initialScrollIndex).toBe(2);
 });

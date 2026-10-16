@@ -6,13 +6,13 @@ export const NOTE_TYPES: { value: NoteType; label: string }[] = [
   { value: "question", label: "Question" },
   { value: "definition", label: "Definition" },
 ];
-export function noteType(value?: NoteType) {
+export function note_type(value?: NoteType) {
   return value || "note";
 }
-export function noteTypeLabel(value?: NoteType) {
-  return NOTE_TYPES.find((item) => item.value === noteType(value))?.label || "Note";
+export function note_type_label(value?: NoteType) {
+  return NOTE_TYPES.find((item) => item.value === note_type(value))?.label || "Note";
 }
-export function automaticNoteTitle(passage: Pick<SavedPassage, "note" | "text" | "title">) {
+export function automatic_note_title(passage: Pick<SavedPassage, "note" | "text" | "title">) {
   const explicit = passage.title?.trim();
   if (explicit) return explicit;
   const source = passage.note.trim() || passage.text.trim();
@@ -23,7 +23,7 @@ export function automaticNoteTitle(passage: Pick<SavedPassage, "note" | "text" |
       .find(Boolean) || "Untitled note";
   return first.length > 54 ? first.slice(0, 51).trimEnd() + "…" : first;
 }
-export function cleanTags(value: string) {
+export function clean_tags(value: string) {
   return [
     ...new Set(
       value

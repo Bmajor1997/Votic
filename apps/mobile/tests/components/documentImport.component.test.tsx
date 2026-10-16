@@ -3,12 +3,12 @@ import { fireEvent, screen } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, StyleSheet } from "react-native";
 import Documents from "../../app/(tabs)/documents";
-import { extractDocument } from "../../src/api/voticApi";
+import { extract_document } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
-import { renderWithProviders } from "../renderWithProviders";
+import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
-jest.mock("../../src/api/voticApi", () => ({ extractDocument: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({ extract_document: jest.fn() }));
 const realFetch = global.fetch;
 afterEach(() => {
   global.fetch = realFetch;
@@ -25,7 +25,7 @@ describe("document import", () => {
       arrayBuffer: async () => new ArrayBuffer(26_000_000),
     })) as unknown as typeof fetch;
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
-    await renderWithProviders(<Documents />);
+    await render_with_providers(<Documents />);
     await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
     await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
     // The Documents page explains the failure in place, with a way to try again.
@@ -33,12 +33,12 @@ describe("document import", () => {
     expect(screen.getByText("Document is too large. The current limit is 25 MB.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Choose another file" })).toBeTruthy();
     expect(alert).not.toHaveBeenCalled();
-    expect(extractDocument).not.toHaveBeenCalled();
+    expect(extract_document).not.toHaveBeenCalled();
   });
 });
 
 it("keeps import choices scrollable with bottom safe-area clearance and working destinations", async () => {
-  await renderWithProviders(<Documents />);
+  await render_with_providers(<Documents />);
   await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
   expect(screen.getByTestId("document-import-options")).toBeTruthy();
   expect(

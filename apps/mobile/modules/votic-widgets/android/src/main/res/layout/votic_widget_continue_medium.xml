@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:id="@+id/widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/votic_widget_bg_chapter"
+  android:orientation="vertical"
+  android:padding="@dimen/votic_widget_padding">
+  <include
+    layout="@layout/votic_widget_continue_top"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
+</LinearLayout>

@@ -6,11 +6,15 @@ export class SignInCancelled extends Error {
   }
 }
 
+export const PASSWORD_REQUIREMENTS =
+  "At least 8 characters, with an uppercase letter, a lowercase letter, a number, and a symbol.";
+
 const MESSAGES: Record<string, string> = {
   "auth/invalid-email": "Enter a valid email address.",
   "auth/missing-email": "Enter your email address.",
   "auth/missing-password": "Enter your password.",
-  "auth/weak-password": "Use at least 8 characters, including a letter and a number.",
+  "auth/weak-password": PASSWORD_REQUIREMENTS,
+  "auth/password-does-not-meet-requirements": PASSWORD_REQUIREMENTS,
   "auth/email-already-in-use": "An account already uses this email. Sign in instead.",
   "auth/invalid-credential": "That email and password don't match. Try again or reset your password.",
   "auth/wrong-password": "That email and password don't match. Try again or reset your password.",
@@ -25,7 +29,7 @@ const MESSAGES: Record<string, string> = {
 };
 
 /** A short, plain explanation of an authentication failure. Never exposes raw provider codes. */
-export function authErrorMessage(error: unknown) {
+export function auth_error_message(error: unknown) {
   const code =
     error && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
   if (MESSAGES[code]) return MESSAGES[code];
@@ -34,13 +38,15 @@ export function authErrorMessage(error: unknown) {
 }
 
 /** Checks a new password before it is sent, so people see the rule while typing rather than after a round trip. */
-export function passwordProblem(password: string) {
+export function password_problem(password: string) {
   if (password.length < 8) return "Use at least 8 characters.";
-  if (!/[a-z]/i.test(password)) return "Include at least one letter.";
+  if (!/[A-Z]/.test(password)) return "Include at least one uppercase letter.";
+  if (!/[a-z]/.test(password)) return "Include at least one lowercase letter.";
   if (!/\d/.test(password)) return "Include at least one number.";
+  if (!/[^\p{L}\p{N}\s]/u.test(password)) return "Include at least one symbol (for example, !, @, or #).";
   return null;
 }
 
-export function looksLikeEmail(value: string) {
+export function looks_like_email(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

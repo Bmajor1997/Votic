@@ -26,21 +26,21 @@ const RULES: [AskCategory, RegExp][] = [
  * What Statistics keeps about one question: when, its type, whether it began a conversation, and
  * the suggestion's label if a built-in suggestion was used exactly. Typed text is not kept.
  */
-export function askEventFor(
+export function ask_event_for(
   question: string,
   options: { newConversation: boolean; builtInPrompts?: string[]; at?: number },
 ) {
   const text = question.trim();
   return {
     at: options.at ?? Date.now(),
-    category: categorizeQuestion(text),
+    category: categorize_question(text),
     newConversation: options.newConversation,
     ...(options.builtInPrompts?.includes(text) ? { prompt: text } : {}),
   };
 }
 
 /** The first matching type in a fixed order; anything else is "Other questions". */
-export function categorizeQuestion(question: string): AskCategory {
+export function categorize_question(question: string): AskCategory {
   const text = question.trim();
   for (const [category, rule] of RULES) if (rule.test(text)) return category;
   // A short "What is X?" asks for a definition; longer "what is" questions stay uncategorized.

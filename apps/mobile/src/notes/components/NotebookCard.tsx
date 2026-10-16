@@ -1,10 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { documentTypeColor } from "../../components/DocumentTypeIcon";
-import { readableTitle } from "../../documents/documentDisplay";
+import { document_type_color } from "../../components/DocumentTypeIcon";
+import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
-import { dateLabel } from "../notesList";
+import { date_label } from "../notesList";
 
 export function NotebookCard({
   document,
@@ -19,7 +19,7 @@ export function NotebookCard({
   const entries = document.savedPassages || [];
   const notes = entries.filter((entry) => entry.note.trim()).length;
   const passages = entries.length - notes;
-  const color = documentTypeColor(document.sourceName);
+  const color = document_type_color(document.sourceName);
   const latest = Math.max(document.importedAt, ...entries.map((entry) => entry.updatedAt));
   const counts = entries.length
     ? `${notes} ${notes === 1 ? "note" : "notes"} · ${passages} ${passages === 1 ? "passage" : "passages"}`
@@ -62,12 +62,12 @@ export function NotebookCard({
       </View>
       <View style={s.copy}>
         <Text numberOfLines={3} style={[s.title, { color: theme.text }]}>
-          {readableTitle(document.title)}
+          {readable_title(document.title)}
         </Text>
         <Text style={[s.counts, { color: theme.mutedText }]}>{counts}</Text>
         <View style={s.footer}>
           <Text style={[s.date, { color: theme.mutedText }]}>
-            {entries.length ? dateLabel(latest) : "Ready for ideas"}
+            {entries.length ? date_label(latest) : "Ready for ideas"}
           </Text>
           <Ionicons name="arrow-forward" size={16} color={theme.accentText} />
         </View>

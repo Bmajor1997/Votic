@@ -140,7 +140,7 @@ function SavePassageForm({
                   },
                 ]}
               >
-                <Text style={[s.typeText, { color: selected ? theme.accent : theme.text }]}>
+                <Text style={[s.typeText, { color: selected ? theme.accentText : theme.text }]}>
                   {item.label}
                 </Text>
               </Pressable>

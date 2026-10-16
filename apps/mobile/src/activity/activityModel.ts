@@ -31,31 +31,31 @@ export type ActivityLog = {
 export const ACTIVE_DAY_MS = 60_000;
 const MAX_ASK_EVENTS = 5000;
 
-export function emptyLog(now = Date.now()): ActivityLog {
+export function empty_log(now = Date.now()): ActivityLog {
   return { version: 1, trackingStartedAt: now, buckets: {}, ask: [] };
 }
 
 function pad(value: number) {
   return String(value).padStart(2, "0");
 }
-export function dayKey(date: Date) {
+export function day_key(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
-function hourKey(date: Date) {
-  return `${dayKey(date)}T${pad(date.getHours())}`;
+function hour_key(date: Date) {
+  return `${day_key(date)}T${pad(date.getHours())}`;
 }
-export function dateFromDayKey(key: string) {
+export function date_from_day_key(key: string) {
   const [year, month, day] = key.split("-").map(Number);
   return new Date(year, month - 1, day);
 }
-function addDays(date: Date, days: number) {
+function add_days(date: Date, days: number) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
 }
 
 /** Adds time to the log, split at each local hour (and so at midnight). Returns a new log. */
-export function addInterval(
+export function add_interval(
   log: ActivityLog,
   documentId: string,
   kind: ActivityKind,
@@ -70,7 +70,7 @@ export function addInterval(
     const nextHour = new Date(at);
     nextHour.setMinutes(60, 0, 0);
     const chunkEnd = Math.min(end, nextHour.getTime());
-    const key = hourKey(at);
+    const key = hour_key(at);
     const hour = { ...buckets[key] };
     const current = hour[documentId] ?? { reading: 0, listening: 0 };
     hour[documentId] = { ...current, [kind]: current[kind] + (chunkEnd - cursor) };
@@ -80,12 +80,12 @@ export function addInterval(
   return { ...log, buckets };
 }
 
-export function addAskEvent(log: ActivityLog, event: AskEvent): ActivityLog {
+export function add_ask_event(log: ActivityLog, event: AskEvent): ActivityLog {
   return { ...log, ask: [...log.ask, event].slice(-MAX_ASK_EVENTS) };
 }
 
 /** Accepts only well-formed saved data, so a damaged entry cannot break Statistics. */
-export function parseLog(raw: string | null): ActivityLog | null {
+export function parse_log(raw: string | null): ActivityLog | null {
   if (!raw) return null;
   try {
     const value = JSON.parse(raw);
@@ -135,32 +135,32 @@ const LONG_MONTHS = [
 ];
 export const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export function startOfWeek(date: Date) {
+export function start_of_week(date: Date) {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
   return start;
 }
-function shortDate(date: Date) {
+function short_date(date: Date) {
   return `${MONTHS[date.getMonth()]} ${date.getDate()}`;
 }
 
 /** The week (Monday to Sunday) or month `offset` periods before the current one, or all time. */
-export function periodFor(
+export function period_for(
   kind: PeriodKind,
   offset = 0,
   now = new Date(),
   trackingStartedAt = now.getTime(),
 ): Period {
   if (kind === "week") {
-    const start = addDays(startOfWeek(now), -7 * offset);
-    const end = addDays(start, 7);
-    const last = addDays(end, -1);
+    const start = add_days(start_of_week(now), -7 * offset);
+    const end = add_days(start, 7);
+    const last = add_days(end, -1);
     const label =
       offset === 0
         ? "This week"
         : offset === 1
           ? "Last week"
-          : `${shortDate(start)} – ${shortDate(last)}${last.getFullYear() !== now.getFullYear() ? `, ${last.getFullYear()}` : ""}`;
+          : `${short_date(start)} – ${short_date(last)}${last.getFullYear() !== now.getFullYear() ? `, ${last.getFullYear()}` : ""}`;
     return { kind, start, end, label, offset };
   }
   if (kind === "month") {
@@ -177,34 +177,34 @@ export function periodFor(
   return {
     kind,
     start,
-    end: addDays(now, 1),
-    label: `Since ${shortDate(start)}, ${start.getFullYear()}`,
+    end: add_days(now, 1),
+    label: `Since ${short_date(start)}, ${start.getFullYear()}`,
     offset: 0,
   };
 }
 
 /** The period of the same length just before this one, for comparisons. All time has none. */
-export function previousPeriod(period: Period, now = new Date()): Period | null {
-  return period.kind === "all" ? null : periodFor(period.kind, period.offset + 1, now);
+export function previous_period(period: Period, now = new Date()): Period | null {
+  return period.kind === "all" ? null : period_for(period.kind, period.offset + 1, now);
 }
 
 /** Earlier periods exist only once measurement started before this one began. */
-export function hasEarlierPeriod(period: Period, trackingStartedAt: number) {
+export function has_earlier_period(period: Period, trackingStartedAt: number) {
   return period.kind !== "all" && period.start.getTime() > trackingStartedAt;
 }
 
 // ---------- Totals ----------
 
-function bucketDate(key: string) {
-  return new Date(dateFromDayKey(key.slice(0, 10)).getTime() + Number(key.slice(11)) * 3_600_000);
+function bucket_date(key: string) {
+  return new Date(date_from_day_key(key.slice(0, 10)).getTime() + Number(key.slice(11)) * 3_600_000);
 }
-function inRange(key: string, start: Date, end: Date) {
-  const day = dateFromDayKey(key.slice(0, 10));
+function in_range(key: string, start: Date, end: Date) {
+  const day = date_from_day_key(key.slice(0, 10));
   return day >= new Date(start.getFullYear(), start.getMonth(), start.getDate()) && day < end;
 }
 
 /** Reading and listening per local day, across all documents. */
-export function dailyTotals(log: ActivityLog) {
+export function daily_totals(log: ActivityLog) {
   const days = new Map<string, TimeSplit>();
   for (const [key, hour] of Object.entries(log.buckets)) {
     const day = key.slice(0, 10);
@@ -223,8 +223,8 @@ export function summarize(log: ActivityLog, start: Date, end: Date): PeriodSumma
   let reading = 0;
   let listening = 0;
   let activeDays = 0;
-  for (const [day, split] of dailyTotals(log)) {
-    const date = dateFromDayKey(day);
+  for (const [day, split] of daily_totals(log)) {
+    const date = date_from_day_key(day);
     if (date < start || date >= end) continue;
     reading += split.reading;
     listening += split.listening;
@@ -235,18 +235,18 @@ export function summarize(log: ActivityLog, start: Date, end: Date): PeriodSumma
 
 export type ChartPoint = TimeSplit & { key: string; label: string; longLabel: string };
 /** Daily bars for a week or month; monthly bars (up to 12) for all time. */
-export function chartSeries(log: ActivityLog, period: Period, now = new Date()): ChartPoint[] {
-  const days = dailyTotals(log);
+export function chart_series(log: ActivityLog, period: Period, now = new Date()): ChartPoint[] {
+  const days = daily_totals(log);
   if (period.kind !== "all") {
     const points: ChartPoint[] = [];
-    for (let day = new Date(period.start); day < period.end; day = addDays(day, 1)) {
-      const key = dayKey(day);
+    for (let day = new Date(period.start); day < period.end; day = add_days(day, 1)) {
+      const key = day_key(day);
       const split = days.get(key) ?? { reading: 0, listening: 0 };
       points.push({
         ...split,
         key,
         label: period.kind === "week" ? WEEKDAYS[(day.getDay() + 6) % 7].slice(0, 1) : String(day.getDate()),
-        longLabel: `${WEEKDAYS[(day.getDay() + 6) % 7]}, ${shortDate(day)}`,
+        longLabel: `${WEEKDAYS[(day.getDay() + 6) % 7]}, ${short_date(day)}`,
       });
     }
     return points;
@@ -275,9 +275,9 @@ export function chartSeries(log: ActivityLog, period: Period, now = new Date()):
 
 // ---------- Activity ----------
 
-export function activeDaySet(log: ActivityLog) {
+export function active_day_set(log: ActivityLog) {
   const active = new Set<string>();
-  for (const [day, split] of dailyTotals(log))
+  for (const [day, split] of daily_totals(log))
     if (split.reading + split.listening >= ACTIVE_DAY_MS) active.add(day);
   return active;
 }
@@ -287,20 +287,20 @@ export function activeDaySet(log: ActivityLog) {
  * has no activity yet (so a streak is not "lost" first thing in the morning).
  */
 export function streaks(log: ActivityLog, now = new Date()) {
-  const active = activeDaySet(log);
+  const active = active_day_set(log);
   let current = 0;
   let cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  if (!active.has(dayKey(cursor))) cursor = addDays(cursor, -1);
-  while (active.has(dayKey(cursor))) {
+  if (!active.has(day_key(cursor))) cursor = add_days(cursor, -1);
+  while (active.has(day_key(cursor))) {
     current += 1;
-    cursor = addDays(cursor, -1);
+    cursor = add_days(cursor, -1);
   }
   let longest = 0;
   let run = 0;
   let previous: Date | null = null;
   for (const key of [...active].sort()) {
-    const date = dateFromDayKey(key);
-    run = previous && dayKey(addDays(previous, 1)) === key ? run + 1 : 1;
+    const date = date_from_day_key(key);
+    run = previous && day_key(add_days(previous, 1)) === key ? run + 1 : 1;
     longest = Math.max(longest, run);
     previous = date;
   }
@@ -308,15 +308,15 @@ export function streaks(log: ActivityLog, now = new Date()) {
 }
 
 /** One month as calendar weeks (Monday first); null pads the days outside the month. */
-export function monthCalendar(log: ActivityLog, month: Date) {
-  const active = activeDaySet(log);
+export function month_calendar(log: ActivityLog, month: Date) {
+  const active = active_day_set(log);
   const first = new Date(month.getFullYear(), month.getMonth(), 1);
   const cells: ({ day: number; key: string; active: boolean } | null)[] = Array.from(
     { length: (first.getDay() + 6) % 7 },
     () => null,
   );
-  for (let date = first; date.getMonth() === first.getMonth(); date = addDays(date, 1))
-    cells.push({ day: date.getDate(), key: dayKey(date), active: active.has(dayKey(date)) });
+  for (let date = first; date.getMonth() === first.getMonth(); date = add_days(date, 1))
+    cells.push({ day: date.getDate(), key: day_key(date), active: active.has(day_key(date)) });
   while (cells.length % 7) cells.push(null);
   return {
     label: `${LONG_MONTHS[first.getMonth()]} ${first.getFullYear()}`,
@@ -328,11 +328,11 @@ export function monthCalendar(log: ActivityLog, month: Date) {
 
 export type DocumentTime = TimeSplit & { documentId: string; total: number; lastActiveAt: number };
 /** Documents ranked by time spent reading or listening in the period. */
-export function documentRanking(log: ActivityLog, start: Date, end: Date): DocumentTime[] {
+export function document_ranking(log: ActivityLog, start: Date, end: Date): DocumentTime[] {
   const byDocument = new Map<string, DocumentTime>();
   for (const [key, hour] of Object.entries(log.buckets)) {
-    if (!inRange(key, start, end)) continue;
-    const at = bucketDate(key).getTime();
+    if (!in_range(key, start, end)) continue;
+    const at = bucket_date(key).getTime();
     for (const [documentId, split] of Object.entries(hour)) {
       const entry = byDocument.get(documentId) ?? {
         documentId,
@@ -353,7 +353,7 @@ export function documentRanking(log: ActivityLog, start: Date, end: Date): Docum
 
 // ---------- Ask Votic ----------
 
-export function askSummary(log: ActivityLog, start: Date, end: Date) {
+export function ask_summary(log: ActivityLog, start: Date, end: Date) {
   const events = log.ask.filter((event) => event.at >= start.getTime() && event.at < end.getTime());
   const categories = new Map<AskCategory, number>();
   const prompts = new Map<string, number>();
@@ -394,9 +394,9 @@ export function insights(log: ActivityLog, period: Period, now = new Date()) {
   const weekday = Array.from({ length: 7 }, () => 0);
   const timeOfDay = new Map<string, number>(TIME_OF_DAY.map((slot) => [slot.id, 0]));
   for (const [key, hour] of Object.entries(log.buckets)) {
-    if (!inRange(key, period.start, period.end)) continue;
+    if (!in_range(key, period.start, period.end)) continue;
     const total = Object.values(hour).reduce((sum, split) => sum + split.reading + split.listening, 0);
-    const date = bucketDate(key);
+    const date = bucket_date(key);
     weekday[(date.getDay() + 6) % 7] += total;
     const hourOfDay = date.getHours() < 5 ? date.getHours() + 24 : date.getHours();
     const slot = TIME_OF_DAY.find((candidate) => hourOfDay >= candidate.from && hourOfDay < candidate.to);
@@ -404,7 +404,7 @@ export function insights(log: ActivityLog, period: Period, now = new Date()) {
   }
   const topWeekday = weekday.indexOf(Math.max(...weekday));
   const topSlotId = [...timeOfDay.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const previous = previousPeriod(period, now);
+  const previous = previous_period(period, now);
   const previousSummary = previous ? summarize(log, previous.start, previous.end) : null;
   // A comparison needs real activity on both sides, or a percentage would mislead.
   const comparable = previousSummary && previousSummary.total >= 10 * 60_000 && summary.total >= 10 * 60_000;
@@ -427,7 +427,7 @@ export function insights(log: ActivityLog, period: Period, now = new Date()) {
 // ---------- Formatting ----------
 
 /** "2 h 5 min", "45 min", "under 1 min", or "0 min". */
-export function formatDuration(ms: number) {
+export function format_duration(ms: number) {
   const minutes = Math.round(ms / 60_000);
   if (ms > 0 && minutes === 0) return "under 1 min";
   if (minutes < 60) return `${minutes} min`;
@@ -437,7 +437,7 @@ export function formatDuration(ms: number) {
 }
 
 /** The same duration for screen readers, with words instead of abbreviations. */
-export function spokenDuration(ms: number) {
+export function spoken_duration(ms: number) {
   const minutes = Math.round(ms / 60_000);
   if (ms > 0 && minutes === 0) return "less than a minute";
   const hours = Math.floor(minutes / 60);

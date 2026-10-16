@@ -1,10 +1,10 @@
-import { splitPassages } from "../documents/passages";
+import { split_passages } from "../documents/passages";
 
 export type ComprehensionQuestion = { id: string; prompt: string; answerHint: string; sourceIndex: number };
 const meaningful = (text: string) => text.replace(/\s+/g, " ").trim();
 
-export function buildComprehensionQuestions(text: string, position = 1): ComprehensionQuestion[] {
-  const passages = splitPassages(text)
+export function build_comprehension_questions(text: string, position = 1): ComprehensionQuestion[] {
+  const passages = split_passages(text)
     .map(meaningful)
     .filter((p) => p.length >= 45);
   if (!passages.length) return [];
@@ -27,7 +27,7 @@ export function buildComprehensionQuestions(text: string, position = 1): Compreh
   }));
 }
 
-export function selfCheckFeedback(answer: string, source: string) {
+export function self_check_feedback(answer: string, source: string) {
   const words = (value: string) =>
     new Set(
       (value.toLocaleLowerCase().match(/[a-z0-9']{4,}/g) || []).filter(

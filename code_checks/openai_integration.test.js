@@ -187,3 +187,48 @@ test("durable daily caps survive handler/process restart and identity spoofing c
     assert.equal(store.records().length, 1); assert.equal(store.records()[0].user_id, "user:verified");
   } finally { store.close(); }
 });
+
+
+test("voice readiness fails before recording when configuration is missing, without paid calls", async () => {
+  for (const [settings, authorizer, message] of [
+    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /verify sign-in/],
+    [env, () => ({ uid: "voice-user" }), /not enabled/],
+    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /not enabled/],
+  ]) {
+    await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
+      const response = await post(base, "/api/voice-question-status", {});
+      assert.equal(response.status, 503);
+      assert.match((await response.json()).error, message);
+      assert.equal(store.records().length, 0);
+    });
+  }
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, authorize: (r) => r.headers.authorization ? { uid: "voice-user" } : true }, async (base, store) => {
+    assert.equal((await post(base, "/api/voice-question-status", {})).status, 401);
+    const ready = await fetch(base + "/api/voice-question-status", { method: "POST", headers: { Authorization: "verified-by-test-authorizer" } });
+    assert.deepEqual(await ready.json(), { ready: true });
+    assert.equal(store.records().length, 0);
+  });
+});
+
+test("voice readiness checks do not use up the transcription rate limit", async () => {
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true", VOTIC_HELP_RATE_LIMIT: "1" }, authorize: () => ({ uid: "voice-user" }), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base) => {
+    assert.equal((await post(base, "/api/voice-question-status", {})).status, 200);
+    const upload = await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") });
+    assert.equal(upload.status, 400);
+    assert.equal((await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") })).status, 429);
+  });
+});
+
+test("AI fallbacks log the provider's status and error code, never the key or provider message", async () => {
+  const warnings = [];
+  await with_server({
+    logger: { warn: (...args) => warnings.push(args), error() {} },
+    fetchImpl: async () => ({ ok: false, status: 401, headers: { get: () => null }, json: async () => ({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }) }),
+  }, async (base) => {
+    const answer = await (await post(base, "/api/help", { question: "What is this about?", document })).json();
+    assert.match(answer.answer, /could not answer from this document/);
+  });
+  const logged = warnings.find(([message]) => /document help unavailable/.test(message));
+  assert.deepEqual(logged?.[1], { status: 401, code: "invalid_api_key" });
+  assert.ok(!JSON.stringify(warnings).includes(env.OPENAI_API_KEY));
+});

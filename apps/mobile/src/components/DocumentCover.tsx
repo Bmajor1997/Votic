@@ -1,12 +1,12 @@
 import { StyleSheet, Text, View } from "react-native";
-import { coverExcerpt, fileTypeLabel } from "../documents/documentDisplay";
+import { cover_excerpt, file_type_label } from "../documents/documentDisplay";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { documentTypeColor } from "./DocumentTypeIcon";
+import { document_type_color } from "./DocumentTypeIcon";
 
 /** A short code that fits on the smallest cover; the full type name is shown in metadata. */
-function coverTypeCode(sourceName: string) {
-  const label = fileTypeLabel(sourceName);
+function cover_type_code(sourceName: string) {
+  const label = file_type_label(sourceName);
   return label === "PowerPoint"
     ? "PPT"
     : label === "Word"
@@ -39,8 +39,8 @@ export function DocumentCover({
 }) {
   const { theme } = useVoticTheme();
   const spec = SIZES[size];
-  const color = documentTypeColor(document.sourceName);
-  const excerpt = coverExcerpt(document);
+  const color = document_type_color(document.sourceName);
+  const excerpt = cover_excerpt(document);
   // Line widths follow the opening words, so each document has its own recognizable texture.
   const words = excerpt.split(" ");
   const widths = Array.from({ length: spec.lines }, (_, index) => {
@@ -68,7 +68,7 @@ export function DocumentCover({
           allowFontScaling={false}
           style={[s.type, { fontSize: size === "lg" ? 9 : 7 }]}
         >
-          {coverTypeCode(document.sourceName)}
+          {cover_type_code(document.sourceName)}
         </Text>
       </View>
       {size === "lg" && excerpt ? (

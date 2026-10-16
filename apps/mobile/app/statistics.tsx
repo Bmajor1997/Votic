@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { ComponentProps, ReactNode, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   ACTIVE_DAY_MS,
@@ -9,24 +9,26 @@ import {
   INSIGHT_MIN_MS,
   Period,
   PeriodKind,
-  askSummary,
-  chartSeries,
-  documentRanking,
-  formatDuration,
-  hasEarlierPeriod,
+  ask_summary,
+  chart_series,
+  document_ranking,
+  format_duration,
+  has_earlier_period,
   insights,
-  monthCalendar,
-  periodFor,
-  spokenDuration,
+  month_calendar,
+  period_for,
+  spoken_duration,
   streaks,
   summarize,
 } from "../src/activity/activityModel";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { ASK_CATEGORY_LABELS } from "../src/activity/askCategories";
-import { TimeChart, seriesColors } from "../src/activity/TimeChart";
+import { FadingScrollView } from "../src/components/FadingScrollView";
+import { TimeChart, series_colors } from "../src/activity/TimeChart";
+import { SOURCE_PHRASES, source_breakdown, type SourceKind } from "../src/activity/sourceBreakdown";
 import { DocumentCover } from "../src/components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
-import { progressLabel, readableTitle } from "../src/documents/documentDisplay";
+import { progress_label, readable_title } from "../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -44,7 +46,7 @@ const KINDS: { value: PeriodKind; label: string }[] = [
   { value: "all", label: "All time" },
 ];
 
-function longDate(ms: number) {
+function long_date(ms: number) {
   return new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
@@ -59,10 +61,10 @@ export default function Statistics() {
   const { log, sampleData, setSampleData } = useActivity();
   const { documents } = useDocumentLibrary();
   const now = new Date();
-  const period = periodFor(kind, offset, now, log.trackingStartedAt);
-  const canGoBack = hasEarlierPeriod(period, log.trackingStartedAt);
+  const period = period_for(kind, offset, now, log.trackingStartedAt);
+  const canGoBack = has_earlier_period(period, log.trackingStartedAt);
 
-  function openSection(next: Section) {
+  function open_section(next: Section) {
     router.push({ pathname: "/statistics", params: { section: next, kind, offset: String(offset) } });
   }
 
@@ -78,10 +80,15 @@ export default function Statistics() {
           <Ionicons name="chevron-back" size={26} color={theme.text} />
         </Pressable>
         <Text accessibilityRole="header" numberOfLines={2} style={[s.title, { color: theme.text }]}>
-          {section ? SECTION_TITLES[section] : "Statistics"}
+          {section ? SECTION_TITLES[section] : "Your Votic activity"}
         </Text>
       </View>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <FadingScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        {!section ? (
+          <Text style={[s.intro, { color: theme.mutedText }]}>
+            Your reading, listening, and moments of discovery.
+          </Text>
+        ) : null}
         <View accessibilityRole="radiogroup" style={[s.segmented, { backgroundColor: theme.surfaceMuted }]}>
           {KINDS.map((item) => {
             const active = item.value === kind;
@@ -132,7 +139,7 @@ export default function Statistics() {
         ) : log.trackingStartedAt > period.start.getTime() ? (
           <Notice
             icon="information-circle-outline"
-            text={`Votic started measuring on ${longDate(log.trackingStartedAt)}. Earlier reading and listening isn't included.`}
+            text={`Votic started measuring on ${long_date(log.trackingStartedAt)}. Earlier reading and listening isn't included.`}
           />
         ) : null}
 
@@ -143,13 +150,17 @@ export default function Statistics() {
         {!section ? (
           <>
             <Overview period={period} />
-            <Card>
-              <TimeChart points={chartSeries(log, period, now)} title={`Time for ${period.label}`} />
+            <Card title={kind === "all" ? "Your time, month by month" : "Your time, day by day"}>
+              <TimeChart points={chart_series(log, period, now)} title={`Time for ${period.label}`} />
             </Card>
-            <AskPreview period={period} onOpen={() => openSection("ask")} />
-            <ActivityPreview period={period} onOpen={() => openSection("activity")} />
-            <DocumentsPreview period={period} onOpen={() => openSection("documents")} />
-            <InsightsPreview period={period} onOpen={() => openSection("insights")} />
+            <SourcesCard period={period} />
+            <InsightsPreview period={period} onOpen={() => open_section("insights")} />
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+              Explore your activity
+            </Text>
+            <AskPreview period={period} onOpen={() => open_section("ask")} />
+            <ActivityPreview period={period} onOpen={() => open_section("activity")} />
+            <DocumentsPreview period={period} onOpen={() => open_section("documents")} />
             <Text style={[s.footnote, { color: theme.mutedText }]}>
               Reading counts while the Reader is open and you&apos;re scrolling or using it, and pauses after
               two minutes without activity. Listening counts while narration plays. Time spent listening
@@ -167,7 +178,7 @@ export default function Statistics() {
             ) : null}
           </>
         ) : null}
-      </ScrollView>
+      </FadingScrollView>
     </SafeAreaView>
   );
 }
@@ -177,130 +188,289 @@ function Overview({ period }: { period: Period }) {
   const { log } = useActivity();
   const summary = summarize(log, period.start, period.end);
   const comparison = insights(log, period).comparison;
-  const colors = seriesColors(theme.isDark);
+  const ask = ask_summary(log, period.start, period.end);
+  // Preserve the rounding rule: the visible total equals the two time tiles.
+  const total = (Math.round(summary.reading / 60_000) + Math.round(summary.listening / 60_000)) * 60_000;
   return (
-    <Card>
-      <View accessible accessibilityLabel={`Total time, ${spokenDuration(summary.total)}`}>
-        <Text style={[s.label, { color: theme.mutedText }]}>Reading and listening</Text>
-        {/* Built from the rounded parts, so the total always equals Reading plus Listening. */}
-        <Text style={[s.hero, { color: theme.text }]}>
-          {formatDuration(
-            (Math.round(summary.reading / 60_000) + Math.round(summary.listening / 60_000)) * 60_000,
-          )}
-        </Text>
-        {comparison ? (
-          <Text style={[s.sub, { color: theme.mutedText }]}>
-            {Math.abs(Math.round(comparison.change * 100))}% {comparison.change >= 0 ? "more" : "less"} than{" "}
-            {comparison.previousLabel}
+    <>
+      <View style={[s.heroCard, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
+        <View style={s.heroHeading}>
+          <Text style={[s.eyebrow, { color: theme.heroMuted }]}>TIME WITH YOUR DOCUMENTS</Text>
+          <Ionicons accessible={false} name="book-outline" size={26} color={theme.heroText} />
+        </View>
+        <View accessible accessibilityLabel={`Total time, ${spoken_duration(summary.total)}`}>
+          <Text style={[s.hero, { color: theme.heroText }]}>{format_duration(total)}</Text>
+          <Text style={[s.sub, { color: theme.heroMuted }]}>Reading and listening in this period</Text>
+        </View>
+        <View style={[s.heroNote, { borderTopColor: theme.border }]}>
+          <Ionicons
+            accessible={false}
+            name={comparison ? "analytics-outline" : "leaf-outline"}
+            size={18}
+            color={theme.heroText}
+          />
+          <Text style={[s.heroNoteText, { color: theme.heroMuted }]}>
+            {comparison
+              ? `${Math.abs(Math.round(comparison.change * 100))}% ${comparison.change >= 0 ? "more" : "less"} time than ${comparison.previousLabel}`
+              : summary.total
+                ? "Every moment is a chance to explore at your own pace."
+                : "Start with a document. Your activity will appear here."}
           </Text>
-        ) : null}
+        </View>
       </View>
-      <View style={s.stats}>
-        <Stat
+      <View style={s.metricGrid}>
+        <MetricTile
           label="Reading"
-          value={formatDuration(summary.reading)}
-          spoken={spokenDuration(summary.reading)}
-          swatch={colors.reading}
+          value={format_duration(summary.reading)}
+          spoken={spoken_duration(summary.reading)}
+          icon="book-outline"
         />
-        <Stat
+        <MetricTile
           label="Listening"
-          value={formatDuration(summary.listening)}
-          spoken={spokenDuration(summary.listening)}
-          swatch={colors.listening}
+          value={format_duration(summary.listening)}
+          spoken={spoken_duration(summary.listening)}
+          icon="headset-outline"
+          tinted
         />
-        <Stat label="Active days" value={String(summary.activeDays)} />
+        <MetricTile label="Active days" value={String(summary.activeDays)} icon="calendar-outline" tinted />
+        <MetricTile
+          label="Questions asked"
+          value={String(ask.questions)}
+          icon="chatbubble-ellipses-outline"
+        />
       </View>
-    </Card>
+    </>
   );
 }
-
+function MetricTile({
+  label,
+  value,
+  spoken,
+  icon,
+  tinted = false,
+}: {
+  label: string;
+  value: string;
+  spoken?: string;
+  icon: IconName;
+  tinted?: boolean;
+}) {
+  const { theme } = useVoticTheme();
+  const { width, fontScale } = useWindowDimensions();
+  const stacked = width < 360 || fontScale > 1.3;
+  return (
+    <View
+      accessible
+      accessibilityLabel={`${label}, ${spoken ?? value}`}
+      style={[
+        s.metricTile,
+        {
+          flexBasis: stacked ? "100%" : "46%",
+          backgroundColor: tinted ? theme.brandTint : theme.surfaceMuted,
+          borderColor: theme.border,
+        },
+      ]}
+    >
+      <Ionicons
+        accessible={false}
+        name={icon}
+        size={24}
+        color={label === "Questions asked" ? theme.aiStatusText : theme.accentText}
+      />
+      <Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[s.metricLabel, { color: theme.mutedText }]}>{label}</Text>
+    </View>
+  );
+}
 function AskPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
   const { log } = useActivity();
-  const ask = askSummary(log, period.start, period.end);
+  const ask = ask_summary(log, period.start, period.end);
   return (
-    <PreviewCard icon="sparkles-outline" title="Ask Votic" onOpen={onOpen}>
-      {ask.questions ? (
-        <View style={s.stats}>
-          <Stat label="Questions" value={String(ask.questions)} />
-          <Stat label="Conversations" value={String(ask.conversations)} />
-          <Stat
-            label="Most asked"
-            value={ask.categories[0] ? ASK_CATEGORY_LABELS[ask.categories[0].category] : "—"}
-            small
-          />
-        </View>
-      ) : (
-        <EmptyLine text="No questions in this period. Ask Votic about anything you're reading." />
-      )}
-    </PreviewCard>
+    <ExploreRow
+      icon="sparkles-outline"
+      title="Ask Votic"
+      detail={
+        ask.questions
+          ? `${ask.questions} questions · ${ask.conversations} conversations`
+          : "Explore the questions you ask about your documents."
+      }
+      onOpen={onOpen}
+    />
   );
 }
-
 function ActivityPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
   const { log } = useActivity();
   const streak = streaks(log);
   const summary = summarize(log, period.start, period.end);
   return (
-    <PreviewCard icon="calendar-outline" title="Activity" onOpen={onOpen}>
-      <View style={s.stats}>
-        <Stat label="Active days" value={String(summary.activeDays)} />
-        <Stat label="Current streak" value={`${streak.current} ${streak.current === 1 ? "day" : "days"}`} />
-        <Stat label="Longest streak" value={`${streak.longest} ${streak.longest === 1 ? "day" : "days"}`} />
-      </View>
-    </PreviewCard>
+    <ExploreRow
+      icon="calendar-outline"
+      title="Activity"
+      detail={`${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"} in this period · Current streak: ${streak.current} ${streak.current === 1 ? "day" : "days"}`}
+      onOpen={onOpen}
+    />
   );
 }
-
 function DocumentsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+  const { log } = useActivity();
+  const { documents } = useDocumentLibrary();
+  const top = document_ranking(log, period.start, period.end)
+    .map((entry) => ({ entry, document: documents.find((document) => document.id === entry.documentId) }))
+    .find((item) => item.document);
+  return (
+    <ExploreRow
+      icon="documents-outline"
+      title="Documents"
+      detail={
+        top?.document
+          ? `Most read: ${readable_title(top.document.title)} · ${format_duration(top.entry.total)}`
+          : "See the documents you spend time reading and listening to."
+      }
+      onOpen={onOpen}
+    />
+  );
+}
+const SOURCE_ICONS: Record<SourceKind, IconName> = {
+  file: "document-text-outline",
+  webpage: "globe-outline",
+  scan: "camera-outline",
+  guide: "book-outline",
+  earlier: "time-outline",
+};
+/** What people read and listen to: uploaded files, webpages, or scans, by time in the period. */
+function SourcesCard({ period }: { period: Period }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
   const { documents } = useDocumentLibrary();
-  const top = documentRanking(log, period.start, period.end)
-    .map((entry) => ({ entry, document: documents.find((document) => document.id === entry.documentId) }))
-    .filter((item) => item.document)[0];
+  const sources = source_breakdown(document_ranking(log, period.start, period.end), documents);
+  const total = sources.reduce((sum, source) => sum + source.total, 0);
+  const top = sources[0];
+  const share = (value: number) => (total ? Math.round((value / total) * 100) : 0);
   return (
-    <PreviewCard icon="documents-outline" title="Documents" onOpen={onOpen}>
-      {top?.document ? (
-        <View style={s.docRow}>
-          <DocumentCover document={top.document} size="sm" />
+    <Card title="Where your time goes">
+      {top ? (
+        <Text style={[s.sourceHeadline, { color: theme.text }]}>
+          {sources.length === 1
+            ? `All of your time in this period was with ${SOURCE_PHRASES[top.kind]}.`
+            : `Most of your time in this period was with ${SOURCE_PHRASES[top.kind]} (${share(top.total)}%).`}
+        </Text>
+      ) : (
+        <EmptyLine text="Read or listen to a document to see whether you spend more time with uploaded files, webpages, or scans." />
+      )}
+      {sources.map((source) => (
+        <View
+          key={source.kind}
+          accessible
+          accessibilityLabel={`${source.label}, ${spoken_duration(source.total)}, ${share(source.total)} percent. Reading ${spoken_duration(source.reading)}, listening ${spoken_duration(source.listening)}, ${source.documents} ${source.documents === 1 ? "document" : "documents"}.`}
+          style={[s.sourceRow, { borderBottomColor: theme.border }]}
+        >
+          <View style={[s.sourceIcon, { backgroundColor: theme.surfaceMuted }]}>
+            <Ionicons
+              accessible={false}
+              name={SOURCE_ICONS[source.kind]}
+              size={20}
+              color={theme.accentText}
+            />
+          </View>
           <View style={s.grow}>
-            <Text style={[s.label, { color: theme.mutedText }]}>Most read</Text>
-            <Text numberOfLines={2} style={[s.docTitle, { color: theme.text }]}>
-              {readableTitle(top.document.title)}
-            </Text>
+            <View style={s.sourceTitleRow}>
+              <Text style={[s.docTitle, s.grow, { color: theme.text }]}>{source.label}</Text>
+              <Text style={[s.docTitle, { color: theme.text }]}>{format_duration(source.total)}</Text>
+            </View>
+            <View style={[s.sourceTrack, { backgroundColor: theme.surfaceMuted }]}>
+              <View
+                style={[
+                  s.sourceFill,
+                  { backgroundColor: theme.accent, width: `${Math.max(2, share(source.total))}%` },
+                ]}
+              />
+            </View>
             <Text style={[s.sub, { color: theme.mutedText }]}>
-              {formatDuration(top.entry.total)} in this period
+              Reading {format_duration(source.reading)} · Listening {format_duration(source.listening)} ·{" "}
+              {source.documents} {source.documents === 1 ? "document" : "documents"}
             </Text>
           </View>
         </View>
-      ) : (
-        <EmptyLine text="Documents you read or listen to in this period appear here." />
-      )}
-    </PreviewCard>
+      ))}
+      {sources.some((source) => source.kind === "earlier") ? (
+        <Text style={[s.sub, { color: theme.mutedText }]}>
+          Earlier documents were added before Votic began noting whether a document was uploaded, imported
+          from a webpage, or scanned.
+        </Text>
+      ) : null}
+    </Card>
   );
 }
-
 function InsightsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+  const { theme } = useVoticTheme();
   const { log } = useActivity();
   const result = insights(log, period);
+  const observation =
+    result.enough && result.mostActiveTime
+      ? `You read and listen most ${result.mostActiveTime.id === "night" ? "at night" : `in the ${result.mostActiveTime.label.toLowerCase()}`}.`
+      : `Your personal insights take shape after ${INSIGHT_MIN_MS / 60_000} minutes across ${INSIGHT_MIN_DAYS} different days in this period.`;
   return (
-    <PreviewCard icon="bulb-outline" title="Personal insights" onOpen={onOpen}>
-      {result.enough ? (
-        <View style={s.stats}>
-          <Stat label="Listening share" value={`${Math.round(result.listeningShare * 100)}%`} />
-          <Stat label="Most active time" value={result.mostActiveTime?.label ?? "—"} small />
-        </View>
-      ) : (
-        <EmptyLine text="Insights appear once there's enough activity to be meaningful." />
-      )}
-    </PreviewCard>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Personal insights details"
+      accessibilityHint={`${observation} Opens your reading and listening insights`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        s.insightCard,
+        { backgroundColor: pressed ? theme.brandTint : theme.surfaceMuted, borderColor: theme.border },
+      ]}
+    >
+      <View style={s.heroHeading}>
+        <Text style={[s.eyebrow, { color: theme.accentText }]}>A LITTLE ABOUT YOUR RHYTHM</Text>
+        <Ionicons accessible={false} name="bulb-outline" size={24} color={theme.accentText} />
+      </View>
+      <Text style={[s.insightObservation, { color: theme.text }]}>{observation}</Text>
+      <View style={s.insightLink}>
+        <Text style={[s.details, { color: theme.accentText }]}>Personal insights</Text>
+        <Ionicons accessible={false} name="arrow-forward" size={20} color={theme.accentText} />
+      </View>
+    </Pressable>
+  );
+}
+function ExploreRow({
+  icon,
+  title,
+  detail,
+  onOpen,
+}: {
+  icon: IconName;
+  title: string;
+  detail: string;
+  onOpen: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title} details`}
+      accessibilityHint={`${detail} Opens detailed statistics for the selected period`}
+      onPress={onOpen}
+      style={({ pressed }) => [
+        s.exploreRow,
+        { backgroundColor: pressed ? theme.surfaceMuted : theme.surface, borderColor: theme.border },
+      ]}
+    >
+      <View style={[s.exploreIcon, { backgroundColor: theme.brandTint }]}>
+        <Ionicons accessible={false} name={icon} size={24} color={theme.accentText} />
+      </View>
+      <View style={s.grow}>
+        <Text style={[s.cardTitle, { color: theme.text }]}>{title}</Text>
+        <Text style={[s.exploreDetail, { color: theme.mutedText }]}>{detail}</Text>
+      </View>
+      <Ionicons accessible={false} name="chevron-forward" size={20} color={theme.mutedText} />
+    </Pressable>
   );
 }
 
 function AskDetail({ period }: { period: Period }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
-  const ask = askSummary(log, period.start, period.end);
+  const ask = ask_summary(log, period.start, period.end);
   const largest = Math.max(1, ...ask.categories.map((item) => item.count));
   return (
     <>
@@ -368,7 +538,7 @@ function ActivityDetail({ period }: { period: Period }) {
   const [monthOffset, setMonthOffset] = useState(0);
   const now = new Date();
   const month = new Date(now.getFullYear(), now.getMonth() - monthOffset, 1);
-  const calendar = monthCalendar(log, month);
+  const calendar = month_calendar(log, month);
   const trackingMonth = new Date(log.trackingStartedAt);
   const earliest =
     month.getFullYear() * 12 + month.getMonth() <=
@@ -456,7 +626,7 @@ function DocumentsDetail({ period }: { period: Period }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
   const { documents, openDocument } = useDocumentLibrary();
-  const ranked = documentRanking(log, period.start, period.end)
+  const ranked = document_ranking(log, period.start, period.end)
     .map((entry) => ({ entry, document: documents.find((document) => document.id === entry.documentId) }))
     .filter(
       (item): item is { entry: (typeof item)["entry"]; document: NonNullable<(typeof item)["document"]> } =>
@@ -471,7 +641,7 @@ function DocumentsDetail({ period }: { period: Period }) {
     <Pressable
       key={document.id + (index ?? "r")}
       accessibilityRole="button"
-      accessibilityLabel={`${index !== undefined ? `${index + 1}. ` : ""}${readableTitle(document.title)}, ${spokenDuration(entry.total)}, ${progressLabel(document)}. Open.`}
+      accessibilityLabel={`${index !== undefined ? `${index + 1}. ` : ""}${readable_title(document.title)}, ${spoken_duration(entry.total)}, ${progress_label(document)}. Open.`}
       onPress={() => open(document.id)}
       style={({ pressed }) => [
         s.docRow,
@@ -483,10 +653,10 @@ function DocumentsDetail({ period }: { period: Period }) {
       <DocumentCover document={document} size="sm" />
       <View style={s.grow}>
         <Text numberOfLines={2} style={[s.docTitle, { color: theme.text }]}>
-          {readableTitle(document.title)}
+          {readable_title(document.title)}
         </Text>
         <Text style={[s.sub, { color: theme.mutedText }]}>
-          {formatDuration(entry.total)} · {progressLabel(document)}
+          {format_duration(entry.total)} · {progress_label(document)}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={18} color={theme.mutedText} />
@@ -514,12 +684,12 @@ function InsightsDetail({ period }: { period: Period }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
   const result = insights(log, period);
-  const colors = seriesColors(theme.isDark);
+  const colors = series_colors(theme.isDark);
   if (!result.enough)
     return (
       <Card>
         <EmptyLine
-          text={`Insights appear after at least ${INSIGHT_MIN_MS / 60_000} minutes of reading or listening on ${INSIGHT_MIN_DAYS} different days in this period. So far: ${formatDuration(result.summary.total)} on ${result.summary.activeDays} ${result.summary.activeDays === 1 ? "day" : "days"}.`}
+          text={`Insights appear after at least ${INSIGHT_MIN_MS / 60_000} minutes of reading or listening on ${INSIGHT_MIN_DAYS} different days in this period. So far: ${format_duration(result.summary.total)} on ${result.summary.activeDays} ${result.summary.activeDays === 1 ? "day" : "days"}.`}
         />
       </Card>
     );
@@ -569,9 +739,9 @@ function InsightsDetail({ period }: { period: Period }) {
         </Card>
       ) : null}
       <Text style={[s.footnote, { color: theme.mutedText }]}>
-        Based on {formatDuration(result.summary.total)} across {result.summary.activeDays} active days in this
-        period. &ldquo;Most active&rdquo; means when you read or listen the most, not how productive that time
-        was. Comparisons appear only when both periods have at least 10 minutes.
+        Based on {format_duration(result.summary.total)} across {result.summary.activeDays} active days in
+        this period. &ldquo;Most active&rdquo; means when you read or listen the most, not how productive that
+        time was. Comparisons appear only when both periods have at least 10 minutes.
       </Text>
     </>
   );
@@ -586,36 +756,6 @@ function Card({ title, children }: { title?: string; children: ReactNode }) {
           {title}
         </Text>
       ) : null}
-      {children}
-    </View>
-  );
-}
-
-function PreviewCard({
-  icon,
-  title,
-  onOpen,
-  children,
-}: {
-  icon: IconName;
-  title: string;
-  onOpen: () => void;
-  children: ReactNode;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${title} details`}
-        onPress={onOpen}
-        style={({ pressed }) => [s.previewHeader, { opacity: pressed ? 0.65 : 1 }]}
-      >
-        <Ionicons name={icon} size={20} color={theme.accentText} />
-        <Text style={[s.cardTitle, s.grow, { color: theme.text }]}>{title}</Text>
-        <Text style={[s.details, { color: theme.accentText }]}>Details</Text>
-        <Ionicons name="chevron-forward" size={16} color={theme.accentText} />
-      </Pressable>
       {children}
     </View>
   );
@@ -698,6 +838,73 @@ function PeriodArrow({
 }
 
 const s = StyleSheet.create({
+  sourceHeadline: { fontSize: 16, lineHeight: 23, fontWeight: "600" },
+  sourceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  sourceIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  sourceTitleRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
+  sourceTrack: { height: 8, borderRadius: 4, overflow: "hidden", marginVertical: 6 },
+  sourceFill: { height: 8, borderRadius: 4 },
+  intro: { ...typography.body, marginBottom: spacing.sm },
+  sectionTitle: { ...typography.sectionTitle, marginTop: spacing.sm },
+  eyebrow: { ...typography.eyebrow, flexShrink: 1 },
+  heroCard: { borderWidth: 1, borderRadius: radii.sheet, padding: spacing.xl, gap: spacing.lg },
+  heroHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  heroNote: {
+    borderTopWidth: 1,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  heroNoteText: { fontSize: 15, lineHeight: 23, flex: 1 },
+  metricGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  metricTile: {
+    flexGrow: 1,
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  metricValue: { fontSize: 26, fontWeight: "800", letterSpacing: -0.4 },
+  metricLabel: { fontSize: 15, lineHeight: 22, fontWeight: "600" },
+  insightCard: {
+    minHeight: controlSizes.minimumTouch,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  insightObservation: { ...typography.sectionTitle, lineHeight: 29 },
+  insightLink: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  exploreRow: {
+    minHeight: 88,
+    borderWidth: 1,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  exploreIcon: {
+    width: controlSizes.minimumTouch,
+    height: controlSizes.minimumTouch,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exploreDetail: { fontSize: 14, lineHeight: 21, marginTop: spacing.xs },
   safe: { flex: 1 },
   topBar: {
     minHeight: 56,
@@ -714,10 +921,11 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.section, gap: spacing.md },
-  segmented: { flexDirection: "row", padding: 3, borderRadius: 12, gap: 2 },
+  segmented: { flexDirection: "row", flexWrap: "wrap", padding: 3, borderRadius: 12, gap: 2 },
   segment: {
-    flex: 1,
-    minHeight: 44,
+    flexGrow: 1,
+    flexBasis: "auto",
+    minHeight: controlSizes.minimumTouch,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: "transparent",
@@ -738,16 +946,9 @@ const s = StyleSheet.create({
   noticeText: { flex: 1, fontSize: 14, lineHeight: 20 },
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   cardTitle: { fontSize: 17, fontWeight: "800" },
-  previewHeader: {
-    minHeight: controlSizes.minimumTouch,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginVertical: -spacing.sm,
-  },
   details: { fontSize: 14, fontWeight: "800" },
   label: { fontSize: 14 },
-  hero: { fontSize: 40, lineHeight: 46, fontWeight: "800", letterSpacing: -0.8, marginTop: 2 },
+  hero: { fontSize: 44, lineHeight: 54, fontWeight: "800", letterSpacing: -0.8, marginTop: 2 },
   sub: { fontSize: 14, lineHeight: 20 },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg },
   stat: { minWidth: 92, flexGrow: 1, gap: 2 },

@@ -47,13 +47,15 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 ### Mobile-first implementation status
 
-Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and personalization; required accounts (email, Google, Sign in with Apple through Firebase); and onboarding: Welcome, sign-in, four skippable personalization steps, a Getting Started card on Home, the Votic guide document, and one-time tips beside the Reader's Listen, Bookmark, and Ask Votic controls. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
+Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and personalization; required accounts (email, Google, Sign in with Apple through Firebase); onboarding: Welcome, Create account and Sign in (email, Google, Sign in with Apple), five optional personalization questions saved per account, the Votic Premium subscription screen (RevenueCat), "Votic is ready for you", a Getting Started card on Home, the Votic guide document, and a contextual walkthrough for Home, Documents, Notes, and the Reader that can be replayed from Settings. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
 Not yet implemented: syncing preferences and the library across devices (both stay on the device), background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
 ### Run the mobile app
 
 From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
+
+For an Android emulator or connected Android device, run `npm run android` from `apps/mobile/` with the Android SDK installed. This regenerates Android resources from the Expo configuration, then builds and installs Votic, including its blue V launcher icon. It also refreshes icons in an existing generated Android project. After that, `npm start` is sufficient for JavaScript-only changes. Launcher icon changes require another native build; restarting Metro or reloading JavaScript cannot update the installed launcher resources.
 
 ### Statistics: what Votic measures
 
@@ -72,7 +74,7 @@ Statistics (from Home's weekly summary or Settings) uses measurements recorded o
 - Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
 ### Accounts
 
-Votic requires an account. The app signs people in with Firebase Authentication; without Firebase settings, Welcome explains that sign-in isn't set up, and only development builds offer "Continue without an account".
+Votic requires an account in production. The app signs people in with Firebase Authentication. Without Firebase settings, local development and EAS builds made with the `preview` profile offer "Explore Votic without an account" for testing. The preview marker is set by `app.config.js` on the EAS build worker and is disabled for production and unmarked release builds. Testing entry reuses the local development session; it does not create a Firebase account or provide a Firebase ID token. Account deletion and server endpoints requiring authentication still require a real account. Normal personalization and onboarding remain available.
 
 1. In the Firebase console, create a project, add an iOS and an Android app, and turn on the **Email/Password**, **Google**, and **Apple** sign-in providers.
 2. Set these before `npm start` or an EAS build (they are read at build time):
@@ -88,6 +90,14 @@ Votic requires an account. The app signs people in with Firebase Authentication;
 4. Set `FIREBASE_PROJECT_ID` on the Votic server so every `/api/*` request must carry a valid Firebase ID token. Each signed-in account then gets its own `VOTIC_AI_CLIENT_DAILY_LIMIT` allowance instead of sharing one per network address.
 
 Settings includes **Sign out** and **Delete account**. Documents and notes stay on the device either way.
+
+### Votic Premium
+
+Votic requires the Votic Premium subscription, sold through the App Store and Google Play with RevenueCat. Without RevenueCat keys (and always in Expo Go) the subscription screen says purchases aren't available, and only development builds can continue past it. Set `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`, and optionally `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID` (default `pro`), `EXPO_PUBLIC_VOTIC_TERMS_URL`, and `EXPO_PUBLIC_VOTIC_PRIVACY_URL`. The backend also requires `REVENUECAT_SECRET_API_KEY` and optionally `REVENUECAT_ENTITLEMENT_ID` (default `pro`) to verify Premium for the signed-in account before API work. Keep this secret on the backend. Store, RevenueCat, and trial setup are in [apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md](apps/mobile/docs/ACCOUNTS_AND_SUBSCRIPTIONS.md).
+
+### Home-screen widgets
+
+Votic has two widgets on iPhone and Android. **Continue** shows the document in progress, with Listen and Read; larger sizes add Up next and this week. **This Week** shows reading and listening time day by day. iPhone also has Lock Screen versions. The app shares a small snapshot (titles, progress, and daily totals, never document text or notes), and taps open Votic through `votic://widget` links. Widgets need a development or release build. Before the first build, set `ios.appleTeamId` in `app.json` and verify the configured Android package `com.votic.app`. See [apps/mobile/docs/HOME_SCREEN_WIDGETS.md](apps/mobile/docs/HOME_SCREEN_WIDGETS.md) for setup, how the widgets update, and what still needs checking on a device.
 ## Run the existing web prototype
 
 Requires Node.js 20 or newer. Install the project dependencies once:

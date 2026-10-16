@@ -5,11 +5,9 @@ import {
   ActivityIndicator,
   Pressable,
   ScrollView,
-  StyleProp,
   StyleSheet,
   Text,
   View,
-  ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
@@ -52,9 +50,11 @@ export function PrimaryButton({
         pressed && { opacity: 0.88 },
       ]}
     >
-      {busy ? <ActivityIndicator color="#FFF" /> : null}
-      {!busy && icon ? <Ionicons name={icon} size={20} color={disabled ? theme.mutedText : "#FFF"} /> : null}
-      <Text style={[s.primaryText, { color: disabled ? theme.mutedText : "#FFF" }]}>{label}</Text>
+      {busy ? <ActivityIndicator color={theme.onAccent} /> : null}
+      {!busy && icon ? (
+        <Ionicons name={icon} size={20} color={disabled ? theme.mutedText : theme.onAccent} />
+      ) : null}
+      <Text style={[s.primaryText, { color: disabled ? theme.mutedText : theme.onAccent }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -155,7 +155,7 @@ export function OptionRow({
         },
       ]}
     >
-      {icon ? <Ionicons name={icon} size={22} color={selected ? theme.accent : theme.mutedText} /> : null}
+      {icon ? <Ionicons name={icon} size={22} color={selected ? theme.accentText : theme.mutedText} /> : null}
       <View style={s.optionCopy}>
         <Text style={[s.optionLabel, { color: theme.text }]}>{label}</Text>
         {detail ? <Text style={[s.optionDetail, { color: theme.mutedText }]}>{detail}</Text> : null}
@@ -169,7 +169,7 @@ export function OptionRow({
           },
         ]}
       >
-        {selected ? <Ionicons name="checkmark" size={15} color="#FFF" /> : null}
+        {selected ? <Ionicons name="checkmark" size={15} color={theme.onAccent} /> : null}
       </View>
     </Pressable>
   );
@@ -258,66 +258,6 @@ export function StepScaffold({
         {footer}
       </View>
     </SafeAreaView>
-  );
-}
-
-/**
- * A one-time tip shown beside the control it explains. It never blocks the screen:
- * people can keep using Votic, and "Got it" or using the control dismisses it.
- */
-export function CoachMark({
-  title,
-  body,
-  arrow,
-  onDismiss,
-  style,
-}: {
-  title: string;
-  body: string;
-  arrow: { edge: "top" | "bottom"; align: "left" | "center" | "right"; inset?: number };
-  onDismiss: () => void;
-  style?: StyleProp<ViewStyle>;
-}) {
-  const { theme } = useVoticTheme();
-  useEffect(() => {
-    AccessibilityInfo.announceForAccessibility?.(`Tip: ${title}. ${body}`);
-  }, [title, body]);
-  const arrowPosition: ViewStyle =
-    arrow.align === "left"
-      ? { alignSelf: "flex-start", marginLeft: arrow.inset ?? 28 }
-      : arrow.align === "right"
-        ? { alignSelf: "flex-end", marginRight: arrow.inset ?? 28 }
-        : { alignSelf: "center" };
-  return (
-    <View pointerEvents="box-none" style={style}>
-      {arrow.edge === "top" ? (
-        <View style={[s.arrow, s.arrowUp, arrowPosition, { borderBottomColor: theme.text }]} />
-      ) : null}
-      <View
-        accessibilityRole="alert"
-        accessibilityLiveRegion="polite"
-        style={[s.coach, { backgroundColor: theme.text }]}
-      >
-        <View style={s.coachCopy}>
-          <Text style={[s.coachTitle, { color: theme.background }]}>{title}</Text>
-          <Text style={[s.coachBody, { color: theme.background }]}>{body}</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Got it. Dismiss tip: ${title}`}
-          onPress={onDismiss}
-          style={({ pressed }) => [
-            s.coachButton,
-            { borderColor: theme.background, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          <Text style={[s.coachButtonText, { color: theme.background }]}>Got it</Text>
-        </Pressable>
-      </View>
-      {arrow.edge === "bottom" ? (
-        <View style={[s.arrow, s.arrowDown, arrowPosition, { borderTopColor: theme.text }]} />
-      ) : null}
-    </View>
   );
 }
 
@@ -416,28 +356,4 @@ const s = StyleSheet.create({
     paddingBottom: spacing.md,
     borderTopWidth: 1,
   },
-  coach: {
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-  },
-  coachCopy: { flex: 1, gap: 3 },
-  coachTitle: { fontSize: 15, fontWeight: "800" },
-  coachBody: { fontSize: 14, lineHeight: 19 },
-  coachButton: {
-    minHeight: 44,
-    minWidth: 72,
-    borderWidth: 1.5,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.md,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  coachButtonText: { fontSize: 14, fontWeight: "800" },
-  arrow: { width: 0, height: 0, borderLeftWidth: 9, borderRightWidth: 9, borderColor: "transparent" },
-  arrowUp: { borderBottomWidth: 9 },
-  arrowDown: { borderTopWidth: 9 },
 });

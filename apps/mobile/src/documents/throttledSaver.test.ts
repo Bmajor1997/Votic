@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createThrottledSaver } from "./throttledSaver";
+import { create_throttled_saver } from "./throttledSaver";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -11,7 +11,7 @@ afterEach(() => {
 describe("throttled saver", () => {
   it("collapses a burst of changes into one save of the latest value", async () => {
     const save = vi.fn();
-    const saver = createThrottledSaver<number>(save, 1000);
+    const saver = create_throttled_saver<number>(save, 1000);
     for (let word = 1; word <= 50; word += 1) saver.schedule(word);
     expect(save).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1000);
@@ -20,7 +20,7 @@ describe("throttled saver", () => {
   });
   it("keeps saving on schedule while changes never stop", async () => {
     const save = vi.fn();
-    const saver = createThrottledSaver<number>(save, 1000);
+    const saver = create_throttled_saver<number>(save, 1000);
     // A word every 300ms for 5 seconds would starve a debounce forever.
     for (let tick = 1; tick <= 17; tick += 1) {
       saver.schedule(tick);
@@ -31,7 +31,7 @@ describe("throttled saver", () => {
   });
   it("saves immediately on flush and skips the pending timer", async () => {
     const save = vi.fn();
-    const saver = createThrottledSaver<string>(save, 1000);
+    const saver = create_throttled_saver<string>(save, 1000);
     saver.schedule("closing");
     await saver.flush();
     expect(save).toHaveBeenCalledWith("closing");
@@ -40,7 +40,7 @@ describe("throttled saver", () => {
   });
   it("does nothing on flush when nothing changed", async () => {
     const save = vi.fn();
-    const saver = createThrottledSaver<string>(save, 1000);
+    const saver = create_throttled_saver<string>(save, 1000);
     await saver.flush();
     expect(save).not.toHaveBeenCalled();
   });
@@ -57,7 +57,7 @@ describe("throttled saver", () => {
           })
         : void order.push(value),
     );
-    const saver = createThrottledSaver<string>(save, 1000);
+    const saver = create_throttled_saver<string>(save, 1000);
     saver.schedule("first");
     void saver.flush();
     saver.schedule("second");
@@ -71,7 +71,7 @@ describe("throttled saver", () => {
   it("reports a failed save and keeps saving later changes", async () => {
     const onError = vi.fn();
     const save = vi.fn().mockRejectedValueOnce(new Error("disk full")).mockResolvedValue(undefined);
-    const saver = createThrottledSaver<number>(save, 1000, onError);
+    const saver = create_throttled_saver<number>(save, 1000, onError);
     saver.schedule(1);
     await saver.flush();
     saver.schedule(2);

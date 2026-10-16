@@ -1,25 +1,27 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { formatDuration, spokenDuration } from "../activity/activityModel";
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
+import { format_duration, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
-import { DocumentCover } from "../components/DocumentCover";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { positionLabel, progressLabel, readableTitle } from "../documents/documentDisplay";
+import { progress_label, readable_title } from "../documents/documentDisplay";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import {
-  NoteItem,
-  ResumeMode,
-  changeLabel,
-  homeInsight,
-  lastSession,
-  relativeDay,
-  resumeModeFor,
-  weekActivity,
-} from "./homeModel";
+import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
+import { NoteItem, change_label, home_insight, relative_day, week_activity } from "./homeModel";
+
+import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
+import { document_widget_tone, widget_palette } from "./widgetDesign";
 
 type Target = (node: View | null) => void;
 
@@ -54,160 +56,94 @@ export function SectionHeader({
   );
 }
 
-// ---------- Continue ----------
+// ---------- This week ----------
 
 /**
- * The one thing Home is for: picking up where you left off. The way the document was last used (listening or
- * reading) comes first; the other way is right beside it. The cover and title open it the same way.
+ * Continue before there's anything to continue: the same card, saying so, with the way to add a first
+ * document where Continue Listening and Continue Reading will be.
  */
-export function ContinueWidget({
-  document,
-  onOpen,
+export function EmptyContinueWidget({
+  onAdd,
+  importing,
+  addRef,
   targetRef,
 }: {
-  document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>, mode: ResumeMode) => void;
+  onAdd: () => void;
+  importing: boolean;
+  addRef: React.RefObject<View | null>;
   targetRef?: Target;
 }) {
   const { theme } = useVoticTheme();
-  const { log, hydrated } = useActivity();
-  const cardRef = useRef<View>(null);
-  const listenRef = useRef<View>(null);
-  const readRef = useRef<View>(null);
-  const title = readableTitle(document.title);
-  const percent = Math.round(document.progress * 100);
-  const started = document.progress > 0;
-  const mode = hydrated ? resumeModeFor(log, document.id) : "read";
-  const last = hydrated ? lastSession(log, document.id) : null;
-  // The card already says "Continue", so the buttons stay short; screen readers hear the full action.
-  const listenLabel = started ? "Resume listening" : "Listen";
-  const readLabel = started ? "Resume reading" : "Read";
-  const lastLine = last ? `${last.mode === "listen" ? "Listened" : "Read"} ${whenPhrase(last.at)}` : null;
-
-  const listen = (
-    <ResumeButton
-      key="listen"
-      sourceRef={listenRef}
-      primary={mode === "listen"}
-      icon="play"
-      label="Listen"
-      accessibilityLabel={`${listenLabel} to ${title}`}
-      accessibilityHint="Opens the Reader and plays from where you left off"
-      onPress={() => onOpen(listenRef, "listen")}
-    />
-  );
-  const read = (
-    <ResumeButton
-      key="read"
-      sourceRef={readRef}
-      primary={mode === "read"}
-      icon="book-outline"
-      label="Read"
-      accessibilityLabel={`${readLabel} ${title}`}
-      accessibilityHint="Opens the document for reading, without audio controls"
-      onPress={() => onOpen(readRef, "read")}
-    />
-  );
+  const colors = widget_palette(theme.isDark, "chapter");
   return (
     <View
-      ref={(node) => {
-        cardRef.current = node;
-        targetRef?.(node);
-      }}
+      ref={targetRef}
       collapsable={false}
-      style={[s.continue, { backgroundColor: theme.sentenceHighlight, borderColor: theme.border }]}
+      testID="home-empty-continue"
+      style={[
+        s.emptyContinue,
+        theme.elevation,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+      ]}
     >
-      {/* Tapping the document itself resumes the usual way. Screen readers use the two buttons below. */}
-      <Pressable
-        accessible={false}
-        onPress={() => onOpen(cardRef, mode)}
-        style={({ pressed }) => [s.continueTop, { opacity: pressed ? 0.75 : 1 }]}
-      >
-        <DocumentCover document={document} size="lg" />
-        <View style={s.grow}>
-          <Text numberOfLines={3} style={[s.continueTitle, { color: theme.text }]}>
-            {title}
-          </Text>
-          <Text style={[s.meta, { color: theme.mutedText }]}>
-            {lastLine ? `${positionLabel(document)} · ${lastLine}` : positionLabel(document)}
-          </Text>
-          {started ? (
-            <View
-              accessible
-              accessibilityRole="progressbar"
-              accessibilityLabel={`${title} progress`}
-              accessibilityValue={{ min: 0, max: 100, now: percent }}
-              style={[s.track, s.continueTrack, { backgroundColor: theme.border }]}
-            >
-              <View style={[s.fill, { backgroundColor: theme.accent, width: `${Math.max(2, percent)}%` }]} />
-            </View>
-          ) : null}
-          <Text style={[s.meta, { color: theme.mutedText }]}>{progressLabel(document)}</Text>
+      <WidgetHalo color={colors.art} />
+      <View style={s.emptyContinueTop}>
+        <View style={[s.emptyCover, { borderColor: colors.border, backgroundColor: theme.surface }]}>
+          <Ionicons name="document-outline" size={30} color={colors.detail} />
         </View>
-      </Pressable>
-      <View style={s.continueActions}>{mode === "listen" ? [listen, read] : [read, listen]}</View>
-    </View>
-  );
-}
-
-/** "today", "yesterday", "3 days ago", or "on Sep 27". */
-function whenPhrase(time: number) {
-  const day = relativeDay(time);
-  if (day === "Today" || day === "Yesterday") return day.toLowerCase();
-  return day.endsWith("ago") ? day : `on ${day}`;
-}
-
-function ResumeButton({
-  sourceRef,
-  primary,
-  icon,
-  label,
-  accessibilityLabel,
-  accessibilityHint,
-  onPress,
-}: {
-  sourceRef: React.RefObject<View | null>;
-  primary: boolean;
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  accessibilityLabel: string;
-  accessibilityHint: string;
-  onPress: () => void;
-}) {
-  const { theme } = useVoticTheme();
-  return (
-    <View ref={sourceRef} collapsable={false} style={s.half}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-        accessibilityHint={accessibilityHint}
-        onPress={onPress}
-        style={({ pressed }) => [
-          s.resume,
-          primary
-            ? { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }
-            : {
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: pressed ? theme.surfaceMuted : theme.surface,
-              },
-        ]}
-      >
-        <Ionicons name={icon} size={19} color={primary ? theme.onAccent : theme.text} />
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-          style={[s.resumeText, { color: primary ? theme.onAccent : theme.text }]}
+        <View style={s.grow}>
+          <Text style={[s.emptyContinueTitle, { color: colors.ink }]}>Ready when you are</Text>
+          <Text style={[s.emptyMessage, { color: colors.detail }]}>
+            Add a PDF, Word, PowerPoint, EPUB, or text file, then listen or read along.
+          </Text>
+        </View>
+      </View>
+      <View ref={addRef} collapsable={false}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add document"
+          accessibilityState={{ busy: importing }}
+          disabled={importing}
+          onPress={onAdd}
+          style={({ pressed }) => [
+            s.emptyAdd,
+            { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
+          ]}
         >
-          {label}
-        </Text>
-      </Pressable>
+          {importing ? (
+            <ActivityIndicator color={theme.onAccent} />
+          ) : (
+            <Ionicons name="add" size={20} color={theme.onAccent} />
+          )}
+          <Text style={[s.emptyAddText, { color: theme.onAccent }]}>Add document</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
-// ---------- This week ----------
+/** What a Home section says before it has anything to show. */
+function EmptyPanel({
+  icon,
+  title,
+  message,
+  color,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>["name"];
+  title: string;
+  message: string;
+  color: { border: string; ink: string; detail: string };
+}) {
+  return (
+    <View accessible style={[s.emptyPanel, { borderColor: color.border }]}>
+      <Ionicons name={icon} size={22} color={color.detail} />
+      <View style={s.grow}>
+        <Text style={[s.emptyPanelTitle, { color: color.ink }]}>{title}</Text>
+        <Text style={[s.emptyMessage, { color: color.detail }]}>{message}</Text>
+      </View>
+    </View>
+  );
+}
 
 /**
  * This week at a glance: total time, how it splits between reading and listening, a small day-by-day
@@ -215,19 +151,21 @@ function ResumeButton({
  */
 export function WeekWidget() {
   const { theme } = useVoticTheme();
+  const colors = widget_palette(theme.isDark, "activity");
   const { log, hydrated } = useActivity();
   const { documents } = useDocumentLibrary();
+  const weekTarget = useWalkthroughTarget("home.week");
   // Until the log has loaded, nothing is shown rather than a misleading "0 min".
   if (!hydrated) return null;
-  const week = weekActivity(log);
-  const insight = homeInsight(log, documents);
+  const week = week_activity(log);
+  const insight = home_insight(log, documents);
   const peak = Math.max(...week.days.map((day) => day.total), 1);
   const listeningShare = week.total ? week.listening / week.total : 0;
   const spoken = week.total
     ? [
-        `This week: ${spokenDuration(week.total)}`,
-        `reading ${spokenDuration(week.reading)}, listening ${spokenDuration(week.listening)}`,
-        week.change !== null ? changeLabel(week.change) : null,
+        `This week: ${spoken_duration(week.total)}`,
+        `reading ${spoken_duration(week.reading)}, listening ${spoken_duration(week.listening)}`,
+        week.change !== null ? change_label(week.change) : null,
         insight,
         "Open Statistics.",
       ]
@@ -236,37 +174,57 @@ export function WeekWidget() {
     : "This week: no reading or listening yet. Open Statistics.";
   return (
     <Pressable
+      ref={weekTarget}
+      testID="home-week-card"
       accessibilityRole="button"
       accessibilityLabel={spoken}
+      accessibilityHint="Shows your reading and listening activity"
       onPress={() => router.push("/statistics")}
       style={({ pressed }) => [
         s.week,
         theme.elevation,
-        { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+        { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
       ]}
     >
+      <WidgetHalo color={colors.art} />
       {/* Says where the card leads, since Statistics no longer has its own row on Home. */}
       <View style={s.weekHeader}>
-        <Text style={[s.eyebrow, { color: theme.mutedText }]}>THIS WEEK</Text>
+        <View style={s.weekIdentity}>
+          <View
+            accessible={false}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            style={[s.widgetIcon, { backgroundColor: colors.art }]}
+          >
+            <Ionicons name="stats-chart" size={18} color={colors.ink} />
+          </View>
+          <Text style={[s.eyebrow, { color: colors.detail }]}>THIS WEEK</Text>
+        </View>
         <View style={s.weekLink}>
-          <Text style={[s.weekLinkText, { color: theme.accentText }]}>Statistics</Text>
-          <Ionicons name="chevron-forward" size={15} color={theme.accentText} />
+          <Text style={[s.weekLinkText, { color: colors.ink }]}>Statistics</Text>
+          <Ionicons name="chevron-forward" size={15} color={colors.ink} />
         </View>
       </View>
       <View style={s.weekTop}>
         <View style={s.grow}>
           {week.total ? (
             <>
-              <Text style={[s.weekTotal, { color: theme.text }]}>{formatDuration(week.total)}</Text>
+              <Text style={[s.weekTotal, { color: colors.ink }]}>{format_duration(week.total)}</Text>
               {week.change !== null ? (
-                <Text style={[s.meta, { color: theme.mutedText }]}>{changeLabel(week.change)}</Text>
+                <Text style={[s.meta, { color: colors.detail }]}>{change_label(week.change)}</Text>
               ) : null}
             </>
           ) : (
-            <Text style={[s.weekEmpty, { color: theme.text }]}>Read or listen to see your week here</Text>
+            <>
+              <Text style={[s.weekEmpty, { color: colors.ink }]}>No activity</Text>
+              <Text style={[s.meta, { color: colors.detail }]}>
+                Your reading and listening time will show here once you start.
+              </Text>
+            </>
           )}
         </View>
-        {week.total ? (
+        {/* The day strip stays, empty, so the card looks the same before there's any activity. */}
+        {week.days.length ? (
           <View style={s.days} importantForAccessibility="no-hide-descendants">
             {week.days.map((day, index) => (
               <View key={index} style={s.day}>
@@ -276,7 +234,7 @@ export function WeekWidget() {
                       s.dayBar,
                       {
                         height: day.total ? Math.max(4, (day.total / peak) * 40) : 4,
-                        backgroundColor: day.total ? theme.accent : theme.border,
+                        backgroundColor: day.total ? colors.strong : colors.border,
                       },
                     ]}
                   />
@@ -285,7 +243,7 @@ export function WeekWidget() {
                   style={[
                     s.dayLabel,
                     {
-                      color: day.isToday ? theme.text : theme.mutedText,
+                      color: day.isToday ? colors.ink : colors.detail,
                       fontWeight: day.isToday ? "800" : "600",
                     },
                   ]}
@@ -300,21 +258,21 @@ export function WeekWidget() {
       {week.total ? (
         <View style={s.split} importantForAccessibility="no-hide-descendants">
           {/* Reading in the accent, listening in a lighter step of it, so both read as time spent. */}
-          <View style={[s.track, s.splitTrack, { backgroundColor: theme.wordHighlight }]}>
+          <View style={[s.track, s.splitTrack, { backgroundColor: colors.art }]}>
             <View
-              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: theme.accent }]}
+              style={[s.fill, { width: `${(1 - listeningShare) * 100}%`, backgroundColor: colors.strong }]}
             />
           </View>
           <View style={s.splitLabels}>
-            <Text style={[s.meta, { color: theme.mutedText }]}>Reading {formatDuration(week.reading)}</Text>
-            <Text style={[s.meta, { color: theme.mutedText }]}>
-              Listening {formatDuration(week.listening)}
+            <Text style={[s.meta, { color: colors.detail }]}>Reading {format_duration(week.reading)}</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>
+              Listening {format_duration(week.listening)}
             </Text>
           </View>
         </View>
       ) : null}
       {insight ? (
-        <Text style={[s.insight, { color: theme.text, borderTopColor: theme.border }]}>{insight}</Text>
+        <Text style={[s.insight, { color: colors.ink, borderTopColor: colors.border }]}>{insight}</Text>
       ) : null}
     </Pressable>
   );
@@ -336,6 +294,19 @@ export function RecentShelf({
   targetRef?: Target;
   optionsTargetRef?: Target;
 }) {
+  const { theme } = useVoticTheme();
+  if (!documents.length)
+    return (
+      <View style={s.section}>
+        <SectionHeader title="Recent files" />
+        <EmptyPanel
+          icon="time-outline"
+          title="Your shelf starts here"
+          message="Everything you open lines up here, so you can jump back in anytime."
+          color={widget_palette(theme.isDark, "chapter")}
+        />
+      </View>
+    );
   return (
     <View ref={targetRef} collapsable={false} style={s.section}>
       <SectionHeader
@@ -370,50 +341,65 @@ function RecentCard({
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widget_palette(theme.isDark, document_widget_tone(document.sourceName));
+  const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
   return (
     <View
       ref={ref}
       collapsable={false}
-      style={[s.recent, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}
+      testID="home-recent-card"
+      style={[
+        s.recent,
+        theme.elevation,
+        {
+          width: Math.min(280, 156 * Math.max(1, fontScale)),
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        },
+      ]}
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
-        accessibilityHint={progressLabel(document)}
+        accessibilityHint={progress_label(document)}
         onPress={() => onOpen(ref)}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <View style={[s.recentCover, { backgroundColor: theme.surfaceMuted }]}>
-          <DocumentCover document={document} size="lg" />
+        <View style={[s.recentCover, { backgroundColor: colors.art }]}>
+          <WidgetHalo color={colors.strong} />
+          <HomeDocumentArtwork document={document} />
         </View>
-        <Text numberOfLines={2} style={[s.recentTitle, { color: theme.text }]}>
+        <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={[s.recentTitle, { color: colors.ink }]}>
           {title}
         </Text>
         {document.progress >= 1 ? (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Finished</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Finished</Text>
         ) : document.progress > 0 ? (
           <View style={s.recentProgress}>
-            <View style={[s.track, s.grow, { backgroundColor: theme.border }]}>
-              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: theme.accent }]} />
+            <View style={[s.track, s.grow, { backgroundColor: colors.border }]}>
+              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: colors.strong }]} />
             </View>
-            <Text style={[s.meta, { color: theme.mutedText }]}>{percent}%</Text>
+            <Text style={[s.meta, { color: colors.detail }]}>{percent}%</Text>
           </View>
         ) : (
-          <Text style={[s.meta, { color: theme.mutedText }]}>Not started</Text>
+          <Text style={[s.meta, { color: colors.detail }]}>Not started</Text>
         )}
       </Pressable>
       <Pressable
         ref={moreRef}
         accessibilityRole="button"
         accessibilityLabel={`More options for ${title}`}
+        accessibilityHint="Shows document actions"
         onPress={onMore}
         hitSlop={4}
         style={s.recentMore}
       >
-        <Ionicons name="ellipsis-horizontal" size={19} color={theme.mutedText} />
+        <View style={[s.moreBadge, { backgroundColor: colors.surface }]}>
+          <Ionicons name="ellipsis-horizontal" size={19} color={colors.ink} />
+        </View>
       </Pressable>
     </View>
   );
@@ -427,15 +413,23 @@ function RecentCard({
  */
 export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
+  const colors = widget_palette(theme.isDark, "notes");
+  const { fontScale } = useWindowDimensions();
+  const notesTarget = useWalkthroughTarget("home.notes");
   return (
-    <View style={s.section}>
+    <View ref={notes.length ? notesTarget : undefined} collapsable={false} style={s.section}>
       <SectionHeader
         title="Recent notes"
-        actionLabel="See all notes"
+        actionLabel={notes.length ? "See all notes" : undefined}
         onAction={() => router.push("/notes")}
       />
       {!notes.length ? (
-        <Text style={{ color: theme.mutedText }}>Your saved notes will appear here.</Text>
+        <EmptyPanel
+          icon="create-outline"
+          title="No notes"
+          message="Save a passage while you read and it lands here, ready to revisit."
+          color={colors}
+        />
       ) : null}
       <Shelf>
         {notes.map((item) => {
@@ -444,33 +438,58 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
           const [heading, body = ""] = [passage.title, passage.note, passage.text]
             .map((part) => part?.trim())
             .filter((part): part is string => Boolean(part));
-          const source = readableTitle(document.title);
+          const source = readable_title(document.title);
           return (
             <Pressable
               key={document.id + passage.id}
+              testID="home-note-card"
               accessibilityRole="button"
-              accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relativeDay(passage.updatedAt)}.`}
+              accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relative_day(passage.updatedAt)}.`}
               accessibilityHint="Opens the document at this passage"
               onPress={() => onOpen(item)}
               style={({ pressed }) => [
                 s.note,
                 theme.elevation,
-                { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+                {
+                  width: Math.min(320, 232 * Math.max(1, fontScale)),
+                  borderColor: colors.border,
+                  backgroundColor: pressed ? colors.art : colors.surface,
+                },
               ]}
             >
+              <View
+                accessible={false}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                style={s.noteMark}
+              >
+                <View style={[s.widgetIcon, { backgroundColor: colors.art }]}>
+                  <Ionicons name="create-outline" size={18} color={colors.ink} />
+                </View>
+                <View style={[s.noteRule, { backgroundColor: colors.border }]} />
+              </View>
               <View style={s.noteTop}>
-                {passage.pinned ? <Ionicons name="pin" size={14} color={theme.accentText} /> : null}
-                <Text numberOfLines={2} style={[s.noteHeading, { color: theme.text }]}>
+                {passage.pinned ? <Ionicons name="pin" size={14} color={colors.strong} /> : null}
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 2}
+                  style={[s.noteHeading, { color: colors.ink }]}
+                >
                   {heading}
                 </Text>
               </View>
               {body ? (
-                <Text numberOfLines={3} style={[s.noteBody, { color: theme.mutedText }]}>
+                <Text
+                  numberOfLines={fontScale > 1.2 ? undefined : 3}
+                  style={[s.noteBody, { color: colors.detail }]}
+                >
                   {body}
                 </Text>
               ) : null}
-              <Text numberOfLines={1} style={[s.noteSource, { color: theme.mutedText }]}>
-                {source} · {relativeDay(passage.updatedAt)}
+              <Text
+                numberOfLines={fontScale > 1.2 ? undefined : 1}
+                style={[s.noteSource, { color: colors.detail }]}
+              >
+                {source} · {relative_day(passage.updatedAt)}
               </Text>
             </Pressable>
           );
@@ -509,33 +528,22 @@ const s = StyleSheet.create({
   track: { height: 5, borderRadius: 3, overflow: "hidden" },
   fill: { height: "100%", borderRadius: 3 },
 
-  continue: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.lg },
-  continueTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  continueTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2, marginBottom: 2 },
-  continueTrack: { marginVertical: spacing.xs },
-  continueActions: { flexDirection: "row", gap: spacing.sm },
-  half: { flex: 1, minWidth: 0 },
-  resume: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-  },
-  resumeText: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
-
-  week: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  week: { overflow: "hidden", borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
   weekHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+    flexWrap: "wrap",
   },
+  weekIdentity: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  widgetIcon: { width: 32, height: 32, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  noteMark: { flexDirection: "row", alignItems: "center", gap: spacing.md, marginBottom: spacing.xs },
+  noteRule: { height: 2, flex: 1, borderRadius: 1 },
+  moreBadge: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekLinkText: { fontSize: 14, fontWeight: "800" },
-  weekTop: { flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
+  weekTop: { flexWrap: "wrap", flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
   weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
   weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
   days: { flexDirection: "row", gap: 5 },
@@ -559,7 +567,8 @@ const s = StyleSheet.create({
   recent: { width: 156, padding: spacing.sm, borderWidth: 1, borderRadius: radii.lg },
   recentMain: { gap: spacing.xs },
   recentCover: {
-    height: 132,
+    height: 144,
+    overflow: "hidden",
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
@@ -589,4 +598,44 @@ const s = StyleSheet.create({
   noteHeading: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: "700" },
   noteBody: { fontSize: 14, lineHeight: 19 },
   noteSource: { fontSize: 12, marginTop: "auto", paddingTop: spacing.xs },
+
+  emptyContinue: {
+    overflow: "hidden",
+    borderWidth: 1,
+    borderRadius: 24,
+    padding: spacing.xl,
+    gap: spacing.lg,
+  },
+  emptyContinueTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
+  emptyContinueTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
+  emptyCover: {
+    width: 76,
+    height: 100,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyAdd: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  emptyAddText: { fontSize: 16, fontWeight: "800" },
+  emptyPanel: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+  },
+  emptyPanelTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  emptyMessage: { fontSize: 14, lineHeight: 20, marginTop: 2 },
 });

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="votic_widget_continue_name">Continue</string>
+  <string name="votic_widget_continue_description">Pick up where you left off. Listen or read in one tap.</string>
+  <string name="votic_widget_week_name">This Week</string>
+  <string name="votic_widget_week_description">Your reading and listening time this week, day by day.</string>
+  <string name="votic_widget_continue_eyebrow">CONTINUE</string>
+  <string name="votic_widget_up_next">UP NEXT</string>
+  <string name="votic_widget_this_week">THIS WEEK</string>
+  <string name="votic_widget_listen">Listen</string>
+  <string name="votic_widget_read">Read</string>
+  <string name="votic_widget_add_document">Add document</string>
+  <string name="votic_widget_loading">Votic</string>
+  <!-- Shown in the widget picker preview and until Votic shares its first update. -->
+  <string name="votic_widget_sample_title">Your document</string>
+  <string name="votic_widget_sample_status">Pick up where you left off</string>
+  <string name="votic_widget_no_activity">No activity</string>
+  <string name="votic_widget_week_empty">Your reading and listening time will show here once you start.</string>
+</resources>

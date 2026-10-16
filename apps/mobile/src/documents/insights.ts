@@ -2,7 +2,7 @@ import { VoticDocument } from "./types";
 
 const WORDS_PER_MINUTE = 200;
 
-export function estimatedMinutesRemaining(document: VoticDocument) {
+export function estimated_minutes_remaining(document: VoticDocument) {
   const totalWords = document.plainText.match(/\S+/g)?.length || 0;
   const remainingWords = Math.max(0, Math.round(totalWords * (1 - document.progress)));
   return Math.max(
@@ -11,14 +11,14 @@ export function estimatedMinutesRemaining(document: VoticDocument) {
   );
 }
 
-export function documentTimeSpent(document?: VoticDocument | null) {
+export function document_time_spent(document?: VoticDocument | null) {
   return Object.values(document?.activity || {}).reduce(
     (total, activity) => total + (activity.readingSeconds || 0),
     0,
   );
 }
 
-export function startOfCurrentWeek(now = new Date()) {
+export function start_of_current_week(now = new Date()) {
   const start = new Date(now);
   const day = start.getDay();
   const distance = day === 0 ? 6 : day - 1;
@@ -27,14 +27,7 @@ export function startOfCurrentWeek(now = new Date()) {
   return start;
 }
 
-export function weeklyInsights(documents: VoticDocument[], now = new Date()) {
-  const start = startOfCurrentWeek(now);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 7);
-  return periodInsights(documents, start, end);
-}
-
-export function periodInsights(documents: VoticDocument[], start: Date, end: Date) {
+export function period_insights(documents: VoticDocument[], start: Date, end: Date) {
   let readingSeconds = 0;
   let listeningSeconds = 0;
   const activeDays = new Set<string>();
@@ -68,32 +61,32 @@ export function periodInsights(documents: VoticDocument[], start: Date, end: Dat
   };
 }
 
-export function weeklyComparison(documents: VoticDocument[], now = new Date()) {
-  const currentStart = startOfCurrentWeek(now);
+export function weekly_comparison(documents: VoticDocument[], now = new Date()) {
+  const currentStart = start_of_current_week(now);
   const previousStart = new Date(currentStart);
   previousStart.setDate(previousStart.getDate() - 7);
   const currentEnd = new Date(currentStart);
   currentEnd.setDate(currentEnd.getDate() + 7);
-  const current = periodInsights(documents, currentStart, currentEnd);
-  const previous = periodInsights(documents, previousStart, currentStart);
+  const current = period_insights(documents, currentStart, currentEnd);
+  const previous = period_insights(documents, previousStart, currentStart);
   const change = previous.readingMinutes
     ? Math.round(((current.readingMinutes - previous.readingMinutes) / previous.readingMinutes) * 100)
     : null;
   return { current, previous, change };
 }
 
-export function recentWeekActivity(documents: VoticDocument[], count = 4, now = new Date()) {
-  const currentStart = startOfCurrentWeek(now);
+export function recent_week_activity(documents: VoticDocument[], count = 4, now = new Date()) {
+  const currentStart = start_of_current_week(now);
   return Array.from({ length: count }, (_, offset) => {
     const start = new Date(currentStart);
     start.setDate(start.getDate() - (count - offset - 1) * 7);
     const end = new Date(start);
     end.setDate(end.getDate() + 7);
-    return { start, ...periodInsights(documents, start, end) };
+    return { start, ...period_insights(documents, start, end) };
   });
 }
 
-export function mostRecentIncomplete(documents: VoticDocument[]) {
+export function most_recent_incomplete(documents: VoticDocument[]) {
   return documents
     .filter((document) => document.progress < 1)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))[0];

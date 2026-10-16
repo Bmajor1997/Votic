@@ -8,10 +8,16 @@ export const fakeAuth = {
   user: SIGNED_IN as VoticUser | null,
   accounts: new Map<string, string>(),
   calls: [] as string[],
+  /** Whether Apple and Google sign-ins create a new account (true) or sign in to an existing one. */
+  socialCreatesAccount: true,
+  /** False behaves like a build without Firebase settings, where development builds can be explored. */
+  configured: true,
   reset(user: VoticUser | null = SIGNED_IN) {
     fakeAuth.user = user;
+    fakeAuth.configured = true;
     fakeAuth.accounts.clear();
     fakeAuth.calls.length = 0;
+    fakeAuth.socialCreatesAccount = true;
     listeners.clear();
   },
   setUser(user: VoticUser | null) {
@@ -24,9 +30,9 @@ function failure(code: string) {
   return Object.assign(new Error(code), { code });
 }
 
-export function createAuthBackend(): AuthBackend {
+export function create_auth_backend(): AuthBackend {
   return {
-    configured: true,
+    configured: fakeAuth.configured,
     googleAvailable: true,
     appleAvailable: async () => true,
     subscribe(listener) {
@@ -38,7 +44,7 @@ export function createAuthBackend(): AuthBackend {
       fakeAuth.calls.push("createAccount");
       if (fakeAuth.accounts.has(email)) throw failure("auth/email-already-in-use");
       fakeAuth.accounts.set(email, password);
-      fakeAuth.setUser({ uid: "new-" + email, email, displayName: null });
+      fakeAuth.setUser({ uid: "new-" + email, email, displayName: null, isNewAccount: true });
     },
     async signIn(email, password) {
       fakeAuth.calls.push("signIn");
@@ -50,11 +56,21 @@ export function createAuthBackend(): AuthBackend {
     },
     async signInWithApple() {
       fakeAuth.calls.push("signInWithApple");
-      fakeAuth.setUser({ uid: "apple", email: null, displayName: "Apple Reader" });
+      fakeAuth.setUser({
+        uid: "apple",
+        email: null,
+        displayName: "Apple Reader",
+        isNewAccount: fakeAuth.socialCreatesAccount,
+      });
     },
     async signInWithGoogle() {
       fakeAuth.calls.push("signInWithGoogle");
-      fakeAuth.setUser({ uid: "google", email: "g@example.com", displayName: "Google Reader" });
+      fakeAuth.setUser({
+        uid: "google",
+        email: "g@example.com",
+        displayName: "Google Reader",
+        isNewAccount: fakeAuth.socialCreatesAccount,
+      });
     },
     async signOut() {
       fakeAuth.calls.push("signOut");

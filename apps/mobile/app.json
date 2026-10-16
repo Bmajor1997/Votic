@@ -4,12 +4,22 @@
     "slug": "votic",
     "version": "0.1.0",
     "orientation": "default",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "votic",
     "plugins": [
       "expo-router",
+      "@bacons/apple-targets",
       "expo-splash-screen",
       "expo-apple-authentication",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow Votic to listen while you ask a voice question.",
+          "recordAudioAndroid": true,
+          "enableBackgroundRecording": false
+        }
+      ],
       [
         "expo-camera",
         {
@@ -46,11 +56,17 @@
     "ios": {
       "bundleIdentifier": "com.votic.app",
       "supportsTablet": true,
-      "usesAppleSignIn": true
+      "usesAppleSignIn": true,
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.votic.app"]
+      }
     },
     "android": {
+      "package": "com.votic.app",
+      "icon": "./assets/icon.png",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       }
     }

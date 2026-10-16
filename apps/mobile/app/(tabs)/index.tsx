@@ -1,38 +1,56 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
-import { DocumentCover } from "../../src/components/DocumentCover";
-import { NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
-import { homeNotes } from "../../src/home/homeModel";
-import { HomeEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork";
+import { widget_palette } from "../../src/home/widgetDesign";
+import { EmptyContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
+import { home_notes } from "../../src/home/homeModel";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
-import { positionLabel, progressLabel, readableTitle } from "../../src/documents/documentDisplay";
+import { position_label, progress_label, readable_title } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
-import { mostRecentIncomplete } from "../../src/documents/insights";
-import { VoticDocument } from "../../src/documents/types";
-import { openFrom, useDocumentImport } from "../../src/documents/useDocumentImport";
+import { most_recent_incomplete } from "../../src/documents/insights";
+import { readable_documents, VoticDocument } from "../../src/documents/types";
+import { open_from, useDocumentImport } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
 export default function Home() {
   const { theme } = useVoticTheme();
-  const { documents, loaded, openDocument } = useDocumentLibrary();
+  const { documents: everything, loaded, openDocument } = useDocumentLibrary();
+  // Quick Notes is a notebook: its notes still show under Recent notes, but it isn't a document to continue.
+  const documents = readable_documents(everything);
   const { checklistDismissed } = useOnboarding();
   const transition = useDocumentTransition();
   const addRef = useRef<View>(null);
   const { importing, importDocument } = useDocumentImport(addRef);
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
-  const featured = mostRecentIncomplete(documents);
+  const featured = most_recent_incomplete(documents);
   const recent = [...documents]
     .filter((document) => document.id !== featured?.id)
     .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))
     .slice(0, 8);
-  const notes = homeNotes(documents);
+  const notes = home_notes(everything);
+  // With nothing added yet, Home keeps its usual sections, each saying what will show up there.
+  const empty = loaded && !documents.length;
+  const continueTarget = useWalkthroughTarget("home.continue");
+  const recentTarget = useWalkthroughTarget("home.recent");
+  const startTarget = useWalkthroughTarget("home.start");
+  const optionsTarget = useWalkthroughTarget("home.documentOptions");
+  useWalkthroughTrigger(
+    [{ id: "intro" }, { id: "home" }, { id: "home.documentOptions", when: recent.length > 0 }],
+    {
+      hasDocuments: documents.length > 0,
+      hasContinue: Boolean(featured),
+      hasStart: !checklistDismissed || !documents.length,
+      hasRecent: recent.length > 0,
+      hasNotes: notes.length > 0,
+    },
+  );
 
   return (
     <Screen title="Home" hideTitle>
@@ -50,25 +68,37 @@ export default function Home() {
           </Text>
         </View>
       ) : null}
+      {empty ? (
+        <EmptyContinueWidget
+          onAdd={() => void importDocument()}
+          importing={importing}
+          addRef={addRef}
+          // While the getting-started checklist is up, that's where the Home walkthrough starts.
+          targetRef={checklistDismissed ? startTarget : undefined}
+        />
+      ) : null}
       {featured ? (
         <ContinueCard
           document={featured}
+          targetRef={continueTarget}
           onOpen={(source, listen) => {
             if (transition.transitioning) return;
             openDocument(featured.id);
             // Listen opens with narration controls and starts playing; Read opens without audio controls.
-            openFrom(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
+            open_from(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
           }}
         />
       ) : null}
       {loaded ? <WeekWidget /> : null}
-      {recent.length ? (
+      {recent.length || empty ? (
         <RecentShelf
           documents={recent}
+          targetRef={recentTarget}
+          optionsTargetRef={optionsTarget}
           onOpen={(document, source) => {
             if (transition.transitioning) return;
             openDocument(document.id);
-            openFrom(source, transition, { mode: "read" });
+            open_from(source, transition, { mode: "read" });
           }}
           onMore={setMenuDocument}
         />
@@ -82,34 +112,6 @@ export default function Home() {
             router.push("/reader");
           }}
         />
-      ) : null}
-      {loaded && !documents.length && checklistDismissed ? (
-        <View style={s.empty}>
-          <HomeEmptyAnimation />
-          <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            Your reading starts here
-          </Text>
-          <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Add a PDF, Word, PowerPoint, EPUB, or text file to read and listen.
-          </Text>
-          <View ref={addRef} collapsable={false} style={s.emptyAction}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Add document"
-              accessibilityState={{ busy: importing }}
-              disabled={importing}
-              onPress={() => void importDocument()}
-              style={[s.primary, { backgroundColor: theme.accent }]}
-            >
-              {importing ? (
-                <ActivityIndicator color="#FFF" />
-              ) : (
-                <Ionicons name="add" size={20} color="#FFF" />
-              )}
-              <Text style={s.primaryText}>Add document</Text>
-            </Pressable>
-          </View>
-        </View>
       ) : null}
       <DocumentActionsSheet
         document={menuDocument}
@@ -127,40 +129,42 @@ export default function Home() {
 function ContinueCard({
   document,
   onOpen,
+  targetRef,
 }: {
   document: VoticDocument;
   onOpen: (source: React.RefObject<View | null>, listen: boolean) => void;
+  targetRef?: (node: View | null) => void;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widget_palette(theme.isDark, "chapter");
   const listenRef = useRef<View>(null);
   const readRef = useRef<View>(null);
-  const title = readableTitle(document.title);
+  const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
-  const started = document.progress > 0;
-  const listenLabel = started ? "Resume listening" : "Listen";
-  const readLabel = started ? "Resume reading" : "Read";
+  const { width } = useWindowDimensions();
+  const compact = width <= 350;
+  const listenLabel = "Continue Listening";
+  const readLabel = "Continue Reading";
   return (
-    <View style={[s.featured, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
-      <View
-        pointerEvents="none"
-        accessible={false}
-        importantForAccessibility="no-hide-descendants"
-        style={[s.heroGlow, { backgroundColor: theme.isDark ? "#244F81" : "#C2D8FF" }]}
-      />
-      <Text style={[s.heroEyebrow, { color: theme.heroMuted }]}>YOUR NEXT CHAPTER</Text>
+    <View
+      ref={targetRef}
+      collapsable={false}
+      testID="home-continue-card"
+      style={[s.featured, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
+    >
+      <WidgetHalo color={colors.art} />
+      <Text style={[s.heroEyebrow, { color: colors.detail }]}>YOUR NEXT CHAPTER</Text>
       <View style={s.featuredTop}>
-        <DocumentCover document={document} size="lg" />
+        <HomeDocumentArtwork document={document} featured />
         <View style={s.featuredCopy}>
-          <Text numberOfLines={3} style={[s.featuredTitle, { color: theme.heroText }]}>
-            {title}
-          </Text>
-          <Text style={[s.featuredMeta, { color: theme.heroMuted }]}>{positionLabel(document)}</Text>
+          <Text style={[s.featuredTitle, { color: colors.ink }]}>{title}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{position_label(document)}</Text>
           <View
             accessible
             accessibilityRole="progressbar"
             accessibilityLabel={`${title} progress`}
             accessibilityValue={{ min: 0, max: 100, now: percent }}
-            style={[s.track, { backgroundColor: theme.border }]}
+            style={[s.track, { backgroundColor: colors.art }]}
           >
             <View
               style={[
@@ -169,14 +173,14 @@ function ContinueCard({
               ]}
             />
           </View>
-          <Text style={[s.featuredMeta, { color: theme.heroMuted }]}>{progressLabel(document)}</Text>
+          <Text style={[s.featuredMeta, { color: colors.detail }]}>{progress_label(document)}</Text>
         </View>
       </View>
-      <View style={s.featuredActions}>
-        <View ref={listenRef} collapsable={false} style={s.half}>
+      <View testID="home-continue-actions" style={s.featuredActions}>
+        <View ref={listenRef} collapsable={false} style={s.listenAction}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${listenLabel} to ${title}`}
+            accessibilityLabel={`${listenLabel}: ${title}`}
             accessibilityHint="Opens the Reader and plays from where you left off"
             onPress={() => onOpen(listenRef, true)}
             style={({ pressed }) => [
@@ -185,35 +189,23 @@ function ContinueCard({
               { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <Ionicons name="play" size={19} color="#FFF" />
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              style={[s.primaryText, s.shrink]}
-            >
-              {listenLabel}
-            </Text>
+            <Text style={[s.primaryText, s.continueLabel, compact && s.compactLabel]}>{listenLabel}</Text>
           </Pressable>
         </View>
-        <View ref={readRef} collapsable={false} style={s.half}>
+        <View ref={readRef} collapsable={false} style={s.readAction}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${readLabel} ${title}`}
+            accessibilityLabel={`${readLabel}: ${title}`}
             accessibilityHint="Opens the document for reading, without audio controls"
             onPress={() => onOpen(readRef, false)}
             style={({ pressed }) => [
               s.secondary,
               s.featuredButton,
-              { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
+              { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
             ]}
           >
-            <Ionicons name="book-outline" size={19} color={theme.text} />
             <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-              style={[s.secondaryText, s.shrink, { color: theme.text }]}
+              style={[s.secondaryText, s.continueLabel, compact && s.compactLabel, { color: colors.ink }]}
             >
               {readLabel}
             </Text>
@@ -238,28 +230,28 @@ const s = StyleSheet.create({
     gap: 4,
   },
   addText: { fontSize: 15, fontWeight: "700" },
-  heroGlow: {
-    position: "absolute",
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    right: -90,
-    top: -100,
-    opacity: 0.5,
-  },
   heroEyebrow: { ...typography.eyebrow },
   featured: { overflow: "hidden", borderWidth: 1, borderRadius: 24, padding: spacing.xl, gap: spacing.lg },
-  featuredTop: { flexDirection: "row", gap: spacing.lg, alignItems: "flex-start" },
-  featuredCopy: { flex: 1, gap: spacing.xs },
+  featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "flex-start" },
+  featuredCopy: { flex: 1, minWidth: 140, gap: spacing.xs },
   featuredTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
-  // Listen and Read share one row in equal halves.
-  featuredActions: { flexDirection: "row", gap: spacing.sm },
-  half: { flex: 1, minWidth: 0 },
-  shrink: { flexShrink: 1 },
-  featuredButton: { paddingHorizontal: spacing.sm, gap: 6 },
+  // Always side by side, with the longer Listening label given a little more room. With large text a label
+  // wraps onto a second line inside its own button, so both stay complete and in the same order.
+  featuredActions: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    gap: spacing.sm,
+    marginHorizontal: -spacing.md,
+  },
+  listenAction: { flex: 18, minWidth: 0 },
+  readAction: { flex: 16, minWidth: 0 },
+  continueLabel: { flexShrink: 1, textAlign: "center" },
+  compactLabel: { fontSize: 14 },
+  // Fills its half, so both buttons match in height when one label wraps.
+  featuredButton: { flexGrow: 1, paddingHorizontal: spacing.xs, paddingVertical: spacing.md },
   grow: { flex: 1, minWidth: 0 },
   primary: {
     minHeight: 50,
