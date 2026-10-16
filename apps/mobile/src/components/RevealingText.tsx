@@ -20,7 +20,7 @@ export const UNWRITTEN_INK = "#00000001";
 export function edge_color(text: string, violet: string, light: string, position: number, band: number) {
   if (!HEX.test(text) || !HEX.test(violet) || !HEX.test(light)) return text;
   const glow = mix(text, violet, Math.min(1, position));
-  const shine = Math.max(0, 1 - Math.abs(position - band) / 0.18) * 0.55;
+  const shine = Math.max(0, 1 - Math.abs(position - band) / 0.2) * 0.72;
   const forming = position > FORMING ? (position - FORMING) / (1 - FORMING) : 0;
   const color = mix(glow, light, Math.min(1, shine + forming * 0.6));
   if (!forming) return color;
