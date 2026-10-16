@@ -3,7 +3,7 @@ import { act, screen } from "@testing-library/react-native";
 import { AIResponse, AIThinking, AIStatus } from "../../src/components/AIResponse";
 import { render_with_providers } from "../renderWithProviders";
 
-it("sweeps a violet band across the thinking label and stops on unmount", async () => {
+it("sweeps a clearly lighter band of light across the thinking label and stops on unmount", async () => {
   const clear = jest.spyOn(global, "clearInterval");
   const view = await render_with_providers(<AIThinking />);
   const label = screen.getByLabelText("Thinking");
@@ -14,8 +14,11 @@ it("sweeps a violet band across the thinking label and stops on unmount", async 
       (letter) => letter.props.style.color,
     );
   const initialColors = colors();
-  expect(initialColors).toContain("#7c3aed");
-  expect(initialColors).toContain("#2563eb");
+  // Resting letters are blue; the band's center is much lighter, so the sweep is easy to see.
+  expect(initialColors.map((color) => color.toLowerCase())).toContain("#2563eb");
+  const brightness = (color: string) =>
+    [1, 3, 5].reduce((sum, start) => sum + parseInt(color.slice(start, start + 2), 16), 0);
+  expect(Math.max(...initialColors.map(brightness))).toBeGreaterThan(brightness("#2563eb") + 150);
   expect(screen.queryByText("…")).toBeNull();
   await act(async () => jest.advanceTimersByTime(400));
   expect(colors()).not.toEqual(initialColors);
