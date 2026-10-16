@@ -63,6 +63,7 @@
     },
     "android": {
       "package": "com.votic.app",
+      "icon": "./assets/icon.png",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

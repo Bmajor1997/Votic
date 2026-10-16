@@ -55,6 +55,8 @@ Not yet implemented: syncing preferences and the library across devices (both st
 
 From `apps/mobile/`, install once with `npm install`, then run `npm start` (Expo). Start the Votic server from the repository root with `npm start` so a development build on the same network can reach it on port 4173. Before pushing mobile changes, run `npm run test:reliability` (Vitest), `npm run test:components` (Jest), `npm run typecheck`, `npm run lint`, and `npm run format:check` (or `npm run format` to fix formatting).
 
+For an Android emulator or connected Android device, run `npm run android` from `apps/mobile/` with the Android SDK installed. This regenerates Android resources from the Expo configuration, then builds and installs Votic, including its blue V launcher icon. It also refreshes icons in an existing generated Android project. After that, `npm start` is sufficient for JavaScript-only changes. Launcher icon changes require another native build; restarting Metro or reloading JavaScript cannot update the installed launcher resources.
+
 ### Statistics: what Votic measures
 
 Statistics (from Home's weekly summary or Settings) uses measurements recorded on the device in `src/activity/`. Nothing is sent to a server or an analytics service, and older activity is not reconstructed: the page says when measurement began on the device.
