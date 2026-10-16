@@ -50,7 +50,6 @@ import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
-import { BorderShimmer } from "../src/components/BorderShimmer";
 import { SendArrow } from "../src/components/SendArrow";
 import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
 import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../src/ask/conversationSummary";
@@ -1655,16 +1654,6 @@ function ReaderContent() {
                         { borderColor: theme.accent, backgroundColor: theme.surface },
                       ]}
                     >
-                      <BorderShimmer
-                        fill={theme.surface}
-                        radius={
-                          askVoicePhase === "error"
-                            ? radii.lg
-                            : askComposerHeight > ASK_INPUT_MIN_HEIGHT + 12
-                              ? 24
-                              : 999
-                        }
-                      />
                       {showAskRecording ? (
                         <View style={s.askRecordingInput}>
                           <VoiceRecordingArea
