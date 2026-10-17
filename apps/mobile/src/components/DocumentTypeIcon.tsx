@@ -1,27 +1,13 @@
-import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, View } from "react-native";
+import { file_type_colors, resolve_file_type } from "../documents/fileTypes";
+import { FileTypeIcon, FileTypeIconProps } from "./FileTypeIcon";
 
+/** Compatibility for existing callers. All file metadata lives in documents/fileTypes. */
 export function document_type_color(sourceName: string) {
-  const name = sourceName.toLowerCase();
-  if (name.endsWith(".pdf")) return "#DC2626";
-  if (/\.(doc|docx)$/.test(name)) return "#2563EB";
-  if (/\.(ppt|pptx)$/.test(name)) return "#EA580C";
-  if (name.endsWith(".epub")) return "#7C3AED";
-  return "#059669";
+  return file_type_colors(resolve_file_type({ filename: sourceName }), false).accent;
 }
-
-export function DocumentTypeIcon({ sourceName, size = 44 }: { sourceName: string; size?: number }) {
-  const color = document_type_color(sourceName);
-  return (
-    <View
-      style={[
-        s.icon,
-        { width: size, height: size, borderRadius: Math.round(size * 0.23), backgroundColor: color + "18" },
-      ]}
-    >
-      <Ionicons name="document-text-outline" size={Math.round(size * 0.53)} color={color} />
-    </View>
-  );
+export function DocumentTypeIcon({
+  sourceName,
+  ...props
+}: Omit<FileTypeIconProps, "filename"> & { sourceName: string }) {
+  return <FileTypeIcon filename={sourceName} {...props} />;
 }
-
-const s = StyleSheet.create({ icon: { alignItems: "center", justifyContent: "center", flexShrink: 0 } });

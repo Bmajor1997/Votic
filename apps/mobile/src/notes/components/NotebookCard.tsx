@@ -1,3 +1,4 @@
+import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { document_type_color } from "../../components/DocumentTypeIcon";
@@ -48,11 +49,11 @@ export function NotebookCard({
       >
         <View style={[s.spine, { backgroundColor: color }]} />
         <View style={[s.icon, { backgroundColor: theme.surface }]}>
-          <Ionicons
-            name={document.notebookKind === "quick-notes" ? "create-outline" : "book-outline"}
-            size={28}
-            color={theme.accentText}
-          />
+          {document.notebookKind === "quick-notes" ? (
+            <Ionicons name="create-outline" size={28} color={theme.accentText} />
+          ) : (
+            <FileTypeIcon filename={document.sourceName} decorative />
+          )}
         </View>
         <Text style={[s.label, { color: theme.accentText }]}>
           {document.notebookKind === "quick-notes" ? "PERSONAL" : "DOCUMENT"}

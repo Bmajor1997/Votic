@@ -619,6 +619,7 @@ function ReaderContent() {
           source={
             message.link
               ? {
+                  filename: activeDocument?.sourceName,
                   label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
                   accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
                   onPress: () => open_ask_answer_link(message.link!),

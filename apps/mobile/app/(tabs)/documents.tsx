@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { document_type_color } from "../../src/components/DocumentTypeIcon";
+import { FileTypeIcon } from "../../src/components/FileTypeIcon";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
@@ -204,6 +204,7 @@ export default function Documents() {
           accessibilityLabel={`Processing ${processingName}`}
           style={[s.status, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
+          <FileTypeIcon filename={processingName} status="processing" decorative />
           <ActivityIndicator color={theme.accentText} />
           <View style={s.grow}>
             <Text numberOfLines={2} style={[s.statusTitle, { color: theme.text }]}>
@@ -220,7 +221,7 @@ export default function Documents() {
           accessibilityRole="alert"
           style={[s.status, { borderColor: "#DC2626", backgroundColor: theme.surface }]}
         >
-          <Ionicons name="alert-circle" size={22} color="#DC2626" />
+          <FileTypeIcon filename={failure.name} status="failed" decorative />
           <View style={s.grow}>
             <Text style={[s.statusTitle, { color: theme.text }]}>
               {failure.name ? `Couldn't add ${failure.name}` : "Couldn't add that document"}
@@ -295,17 +296,7 @@ export default function Documents() {
                         onPress={() => open(document)}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
-                        <View
-                          style={[
-                            s.coverWell,
-                            {
-                              backgroundColor:
-                                document_type_color(document.sourceName) + (theme.isDark ? "26" : "12"),
-                            },
-                          ]}
-                        >
-                          <DocumentCover document={document} size="md" />
-                        </View>
+                        <DocumentCover document={document} size="md" />
                         <View style={s.rowCopy}>
                           {sort === "recent" && index === 0 && document.lastOpenedAt ? (
                             <Text style={[s.recentLabel, { color: theme.accentText }]}>RECENTLY OPENED</Text>
@@ -313,7 +304,7 @@ export default function Documents() {
                           <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
                             {title}
                           </Text>
-                          <Text style={[s.rowMeta, { color: theme.mutedText }]}>
+                          <Text numberOfLines={1} style={[s.rowMeta, { color: theme.mutedText }]}>
                             {file_type_label(document.sourceName)}
                             {document.collection ? ` · ${document.collection}` : ""}
                           </Text>
@@ -754,7 +745,6 @@ const s = StyleSheet.create({
   summary: { fontSize: 14, flexShrink: 1 },
   libraryCards: { gap: spacing.md },
   recentLabel: { ...typography.eyebrow, fontSize: 10 },
-  coverWell: { padding: spacing.sm, borderRadius: radii.md },
   row: {
     borderWidth: 1,
     borderRadius: radii.lg,

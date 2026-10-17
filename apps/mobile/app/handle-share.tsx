@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { FileTypeIcon } from "../src/components/FileTypeIcon";
 import { router } from "expo-router";
 import { clearSharedPayloads, useIncomingShare } from "expo-sharing";
 import { useEffect, useRef, useState } from "react";
@@ -28,6 +28,7 @@ export default function HandleShare() {
   const { resolvedSharedPayloads, isResolving, error } = useIncomingShare();
   const started = useRef(false);
   const [status, setStatus] = useState("Preparing your document…");
+  const [fileIdentity, setFileIdentity] = useState<{ filename?: string; mimeType?: string | null }>({});
   const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,6 +42,8 @@ export default function HandleShare() {
         const payload = resolvedSharedPayloads[0];
         const uri = payload.contentUri;
         const name = payload.originalName || fallback_name(payload.contentMimeType);
+
+        setFileIdentity({ filename: name, mimeType: payload.contentMimeType });
 
         if (!uri) throw new Error("Votic could not access the shared document.");
         if (!supported_document(name)) throw new Error(UNSUPPORTED_TYPE_MESSAGE);
@@ -79,13 +82,7 @@ export default function HandleShare() {
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <View style={s.content}>
-        <View style={[s.icon, { backgroundColor: theme.surfaceMuted }]}>
-          <Ionicons
-            name={problem ? "alert-circle-outline" : "document-text-outline"}
-            size={32}
-            color={theme.accent}
-          />
-        </View>
+        <FileTypeIcon {...fileIdentity} size={64} status={problem ? "failed" : "processing"} />
         <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
           {problem ? "Couldn't add that document" : "Adding to Votic"}
         </Text>
@@ -121,14 +118,6 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.md,
-  },
-  icon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.sm,
   },
   title: { fontSize: 24, lineHeight: 30, fontWeight: "800", textAlign: "center" },
   copy: { fontSize: 16, lineHeight: 23, textAlign: "center" },

@@ -1,3 +1,4 @@
+import { resolve_file_type } from "./fileTypes";
 import { estimated_minutes_remaining } from "./insights";
 import { split_passages } from "./passages";
 import { VoticDocument } from "./types";
@@ -14,13 +15,7 @@ export function readable_title(title: string) {
 }
 
 export function file_type_label(sourceName: string) {
-  const name = sourceName.toLowerCase();
-  if (name.endsWith(".pdf")) return "PDF";
-  if (/\.docx?$/.test(name)) return "Word";
-  if (/\.pptx?$/.test(name)) return "PowerPoint";
-  if (name.endsWith(".epub")) return "EPUB";
-  if (name.endsWith(".md")) return "Markdown";
-  return "Text";
+  return resolve_file_type({ filename: sourceName }).label;
 }
 
 /** "Passage 12 of 80" from the saved reading position. */
@@ -35,17 +30,6 @@ export function progress_label(document: VoticDocument) {
   if (!document.progress) return "Not started";
   const minutes = estimated_minutes_remaining(document);
   return `${Math.round(document.progress * 100)}% · about ${minutes} min left`;
-}
-
-/** The first few words of the document, used for its text cover. */
-export function cover_excerpt(document: VoticDocument, words = 28) {
-  return document.plainText
-    .replace(/^#+\s*/gm, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(" ")
-    .slice(0, words)
-    .join(" ");
 }
 
 export type Sort = "recent" | "added" | "title" | "progress";

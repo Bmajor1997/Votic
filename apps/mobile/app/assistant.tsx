@@ -534,6 +534,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                             source={
                               link && target
                                 ? {
+                                    filename: target.sourceName,
                                     label: `Passage ${link.sentenceIndex + 1} · ${target.title}`,
                                     accessibilityLabel: `Open ${target.title} at passage ${link.sentenceIndex + 1} in Reader`,
                                     onPress: () => open_answer_link(link),

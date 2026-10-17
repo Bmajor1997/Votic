@@ -1,10 +1,11 @@
+import { FileTypeIcon } from "../components/FileTypeIcon";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 type Props = {
   /** Where the answer came from in a document. Opens the Reader at that passage. */
-  source?: { label: string; accessibilityLabel: string; onPress: () => void } | null;
+  source?: { filename?: string; label: string; accessibilityLabel: string; onPress: () => void } | null;
   /** Saving this one answer to Notes. Left out when the answer can't be saved (such as a limit notice). */
   save?: { saved: boolean; onPress: () => void; label?: string; savedLabel?: string } | null;
   listen?: { playing: boolean; failed: boolean; disabled?: boolean; onPress: () => void } | null;
@@ -29,7 +30,7 @@ export function AskAnswerFooter({ source, save, listen, style }: Props) {
             hitSlop={6}
             style={({ pressed }) => [s.source, { opacity: pressed ? 0.6 : 1 }]}
           >
-            <Ionicons name="book-outline" size={14} color={theme.linkText} />
+            <FileTypeIcon filename={source.filename} size={24} decorative />
             <Text numberOfLines={1} style={[s.sourceText, { color: theme.linkText }]}>
               {source.label}
             </Text>
@@ -88,7 +89,7 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   spacer: { flex: 1 },
   listen: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
-  source: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 5, minHeight: 32 },
+  source: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 6, minHeight: 44 },
   sourceText: { flexShrink: 1, fontSize: 12, fontWeight: "700" },
   save: {
     minWidth: 44,
