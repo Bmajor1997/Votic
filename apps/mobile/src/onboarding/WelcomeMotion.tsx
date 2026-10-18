@@ -38,15 +38,15 @@ export function BrandMark({ size = 88, flight }: { size?: number; flight?: Fligh
   const wingMotion = (value: Animated.Value | undefined) =>
     value && {
       transform: [
-        { translateX: value.interpolate({ inputRange: [0, 1], outputRange: [0, 620] }) },
-        { translateY: value.interpolate({ inputRange: [0, 1], outputRange: [0, -36] }) },
+        { translateX: value.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, -7, 620] }) },
+        { translateY: value.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, 0, -36] }) },
         { rotate: value.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-8deg"] }) },
       ],
     };
   const strokeMotion = flight && {
     transform: [
-      { translateX: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: [0, -280] }) },
-      { translateY: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: [0, -1100] }) },
+      { translateX: flight.stroke.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, 0, -280] }) },
+      { translateY: flight.stroke.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, 6, -1100] }) },
       { rotate: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-24deg"] }) },
     ],
   };
@@ -119,12 +119,12 @@ export function useMarkFlight() {
         return;
       }
       flying.current = true;
-      // Each piece pulls back a touch before it takes off (Easing.back), then speeds away.
+      // Each piece nudges back a few points before it takes off (see the interpolations), then speeds away.
       const takeOff = (value: Animated.Value, duration: number) =>
         Animated.timing(value, {
           toValue: 1,
           duration,
-          easing: Easing.in(Easing.back(1.7)),
+          easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         });
       Animated.parallel([
