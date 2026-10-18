@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { reset_account_deletion_state } from "../src/storage/accountDeletion";
 import { beforeEach, jest } from "@jest/globals";
 import { fakeAuth } from "./mocks/authBackend";
 import { reset_expo_router_mock } from "./mocks/expoRouter";
@@ -27,6 +28,7 @@ jest.mock("../src/subscription/subscriptionService", () => require("./mocks/subs
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 beforeEach(async () => {
+  reset_account_deletion_state();
   await AsyncStorage.clear();
   reset_expo_router_mock();
   fakeAuth.reset();

@@ -27,6 +27,7 @@ import {
   primary_action_label,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
+import { store_deadline } from "../src/subscription/storeDeadline";
 import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -107,7 +108,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   useEffect(() => {
     if (unavailable) return;
     let current = true;
-    service.getPlans().then(
+    store_deadline(service.getPlans()).then(
       (found) => {
         if (!current) return;
         setPlans(found);
@@ -128,7 +129,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     setPlans(null);
     setMessage(null);
     setAttempt((value) => value + 1);
-    if (entitlement.status === "unknown") void subscription.refresh();
+    if (entitlement.status === "unknown") void subscription.refresh().catch(() => {});
   }
 
   // A trial that has already been used is never promised again, whatever the product offers.
@@ -222,6 +223,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             </Text>
             <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
           </View>
+          {subscription.recoveryError ? (
+            <Text accessibilityRole="alert" style={{ color: theme.text }}>
+              {subscription.recoveryError}
+            </Text>
+          ) : null}
           {PREMIUM_FEATURES.map((feature, index) => (
             <View
               key={feature.title}

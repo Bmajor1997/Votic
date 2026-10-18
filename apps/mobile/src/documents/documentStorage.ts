@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { account_storage_key } from "../storage/accountStorage";
+import { write_account_data } from "../storage/accountDeletion";
 import { VoticDocument } from "./types";
 const LEGACY_KEY = "votic.mobile.documents.v1",
   COLLECTIONS_KEY = "votic.mobile.collections.v1";
@@ -168,8 +169,8 @@ export function create_document_store(uid?: string) {
   }
 
   return {
-    loadDocuments: load_documents,
-    saveDocuments: save_documents,
+    loadDocuments: () => write_account_data(uid, load_documents).then((value) => value ?? []),
+    saveDocuments: (documents: VoticDocument[]) => write_account_data(uid, () => save_documents(documents)),
     unavailableDocuments: unavailable_documents,
   };
 }
@@ -184,7 +185,9 @@ export async function load_collections(uid?: string): Promise<string[]> {
   return value.map((item) => (item as string).trim()).filter(Boolean);
 }
 export async function save_collections(collections: string[], uid?: string) {
-  await AsyncStorage.setItem(account_storage_key(COLLECTIONS_KEY, uid), JSON.stringify(collections));
+  await write_account_data(uid, () =>
+    AsyncStorage.setItem(account_storage_key(COLLECTIONS_KEY, uid), JSON.stringify(collections)),
+  );
 }
 function valid_metadata(value: any): value is StoredDocument {
   return (

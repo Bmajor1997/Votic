@@ -20,6 +20,11 @@ import { WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
 import { NotificationPlaybackSync } from "../src/playback/NotificationPlaybackSync";
 import { WidgetSync } from "../src/widgets/WidgetSync";
 import { useReaderFonts } from "../src/reader/readerFonts";
+import { AppErrorScreen } from "../src/components/AppErrorScreen";
+
+export function ErrorBoundary({ retry }: { retry: () => Promise<void> }) {
+  return <AppErrorScreen retry={retry} />;
+}
 
 // Keep the launch screen up until Votic knows whether to show Welcome, setup, or Home.
 Promise.resolve(SplashScreen.preventAutoHideAsync?.()).catch(() => {});

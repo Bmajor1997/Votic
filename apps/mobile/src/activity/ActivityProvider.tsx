@@ -1,6 +1,7 @@
 import { useAccountData } from "../storage/AccountDataProvider";
 import { account_storage_key } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { write_account_data } from "../storage/accountDeletion";
 import {
   PropsWithChildren,
   createContext,
@@ -59,7 +60,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
     dirty.current = false;
     const snapshot = JSON.stringify(latest.current);
     saving.current = saving.current
-      .then(() => AsyncStorage.setItem(storageKey, snapshot))
+      .then(() => write_account_data(uid, () => AsyncStorage.setItem(storageKey, snapshot)))
       .catch(() => {
         dirty.current = true;
       });

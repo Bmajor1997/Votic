@@ -46,7 +46,13 @@
               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
               "application/vnd.openxmlformats-officedocument.presentationml.presentation",
               "application/vnd.ms-powerpoint",
-              "application/epub+zip"
+              "application/epub+zip",
+              "application/rtf",
+              "application/vnd.oasis.opendocument.text",
+              "text/html",
+              "image/jpeg",
+              "image/png",
+              "image/webp"
             ],
             "multipleShareMimeTypes": []
           }

@@ -38,7 +38,7 @@ test("mixed PDFs and selectable scan watermarks require OCR; truly blank pages d
   assert.match(await extract_document("blank-page.pdf", mixed_pdf(false)), /Selectable first page/);
   const heading = "A lengthy selectable heading above scanned content. ".repeat(3);
   await assert.rejects(extract_document("partial-ocr.pdf", mixed_pdf(true, heading, 500)), { code: "PDF_OCR_REQUIRED" });
-  assert.match(await extract_document("small-logo.pdf", mixed_pdf(true, heading, 20)), /lengthy selectable heading/);
+  await assert.rejects(extract_document("small-scanned-region.pdf", mixed_pdf(true, heading, 20)), { code: "PDF_OCR_REQUIRED" });
   assert.equal(await parse_document_isolated("article.html", Buffer.from("<h1>Article</h1><p>Complete text.</p>")), "# Article\n\nComplete text.");
 });
 
@@ -72,7 +72,7 @@ test("mixed-PDF HTTP import OCRs the whole document instead of returning partial
     assert.equal(JSON.parse(init.body).input[0].content[1].type, "input_file");
     return { ok: true, json: async () => ({ output_text: "Selectable first page.\nScanned second page." }) };
   } }, async (base) => {
-    const response = await upload(base, mixed_pdf());
+    const response = await upload(base, mixed_pdf(true, "A lengthy selectable heading above scanned content. ".repeat(3), 20));
     assert.equal(response.status, 200);
     assert.match((await response.json()).text, /Scanned second page/);
     assert.equal(calls, 1);

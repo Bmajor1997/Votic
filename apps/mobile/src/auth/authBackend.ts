@@ -19,6 +19,7 @@ import {
 } from "@firebase/auth";
 import { Platform } from "react-native";
 import { SignInCancelled, password_problem } from "./authErrors";
+import { account_deletion_request } from "../api/voticApi";
 
 export type VoticUser = {
   uid: string;
@@ -41,7 +42,8 @@ export type AuthBackend = {
   signInWithApple: () => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
-  deleteAccount: () => Promise<void>;
+  deleteAccount: (expectedUid?: string) => Promise<void>;
+  prepareDeleteAccount: (expectedUid?: string) => Promise<void>;
   idToken: () => Promise<string | null>;
 };
 
@@ -196,9 +198,17 @@ function create_firebase_backend(): AuthBackend {
           ?.GoogleSignin.signOut()
           .catch(() => null);
     },
-    async deleteAccount() {
+    async prepareDeleteAccount(expectedUid) {
       const user = firebase_auth().currentUser;
-      if (!user) return;
+      if (!user || (expectedUid && user.uid !== expectedUid))
+        throw unavailable("The signed-in account changed. Please retry.");
+      await account_deletion_request("prepare", await user.getIdToken());
+    },
+    async deleteAccount(expectedUid) {
+      const user = firebase_auth().currentUser;
+      if (!user || (expectedUid && user.uid !== expectedUid))
+        throw unavailable("The signed-in account changed. Please retry.");
+      await account_deletion_request("complete", await user.getIdToken());
       await deleteUser(user);
       if (googleConfigured)
         await load_google_module()
@@ -228,6 +238,7 @@ function create_unconfigured_backend(): AuthBackend {
     signInWithGoogle: not_set_up,
     signOut: async () => {},
     deleteAccount: async () => {},
+    prepareDeleteAccount: not_set_up,
     idToken: async () => null,
   };
 }

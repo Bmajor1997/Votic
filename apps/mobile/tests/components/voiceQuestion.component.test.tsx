@@ -371,7 +371,9 @@ describe("Ask Votic recording composer", () => {
     await render_with_providers(<AskVotic />, { reduceMotion: true });
     await start();
     await capture();
-    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    const handler = (state: "active" | "background" | "inactive") => {
+      for (const [event, callback] of listener.mock.calls) if (event === "change") callback(state);
+    };
     await act(async () => handler("background"));
     expect(stream.stop).toHaveBeenCalledTimes(1);
     expect(transcribe_voice_question).not.toHaveBeenCalled();
@@ -389,7 +391,9 @@ describe("Ask Votic recording composer", () => {
     );
     await render_with_providers(<AskVotic />, { reduceMotion: true });
     await start();
-    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    const handler = (state: "active" | "background" | "inactive") => {
+      for (const [event, callback] of listener.mock.calls) if (event === "change") callback(state);
+    };
     await act(async () => handler("background"));
     await act(async () => handler("active"));
     await act(async () =>
@@ -410,7 +414,9 @@ describe("Ask Votic recording composer", () => {
     );
     await render_with_providers(<AskVotic />, { reduceMotion: true });
     await start();
-    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    const handler = (state: "active" | "background" | "inactive") => {
+      for (const [event, callback] of listener.mock.calls) if (event === "change") callback(state);
+    };
     await act(async () => handler("background"));
     await act(async () =>
       finish({ granted: true } as Awaited<ReturnType<typeof requestRecordingPermissionsAsync>>),
@@ -424,7 +430,9 @@ describe("Ask Votic recording composer", () => {
     await render_with_providers(<AskVotic />, { reduceMotion: true });
     await start();
     await capture();
-    const handler = listener.mock.calls.find(([event]) => event === "change")![1];
+    const handler = (state: "active" | "background" | "inactive") => {
+      for (const [event, callback] of listener.mock.calls) if (event === "change") callback(state);
+    };
     await act(async () => handler("inactive"));
     expect(stream.stop).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Stop voice input" })).toBeTruthy();
