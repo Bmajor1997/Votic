@@ -582,6 +582,7 @@ function ReaderContent() {
             style={[s.askAnswerText, { color: theme.text }]}
           />
           <AskAnswerFooter
+            reportText={message.text}
             listen={{
               playing: answerListening.playingKey === String(messageIndex),
               failed: answerListening.errorKey === String(messageIndex),
@@ -610,6 +611,7 @@ function ReaderContent() {
           style={[s.askAnswerText, { color: theme.text }]}
         />
         <AskAnswerFooter
+          reportText={!message.fallback ? message.text : undefined}
           listen={{
             playing: answerListening.playingKey === String(messageIndex),
             failed: answerListening.errorKey === String(messageIndex),
@@ -660,6 +662,7 @@ function ReaderContent() {
             style={[s.askAnswerText, { color: theme.text }]}
           />
           <AskAnswerFooter
+            reportText={conversationSummary.text}
             listen={{
               playing: answerListening.playingKey === "summary",
               failed: answerListening.errorKey === "summary",

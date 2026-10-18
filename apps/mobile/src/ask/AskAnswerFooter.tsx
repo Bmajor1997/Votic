@@ -2,6 +2,7 @@ import { FileTypeIcon } from "../components/FileTypeIcon";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { ReportAnswerButton } from "./ReportAnswerButton";
 
 type Props = {
   /** Where the answer came from in a document. Opens the Reader at that passage. */
@@ -10,15 +11,16 @@ type Props = {
   save?: { saved: boolean; onPress: () => void; label?: string; savedLabel?: string } | null;
   listen?: { playing: boolean; failed: boolean; disabled?: boolean; onPress: () => void } | null;
   style?: StyleProp<ViewStyle>;
+  reportText?: string;
 };
 
 /**
  * The quiet row under an Ask Votic answer: the source passage, read-aloud control, and bookmark.
  * Actions on the whole conversation live in the conversation menu instead, so they don't repeat under answers.
  */
-export function AskAnswerFooter({ source, save, listen, style }: Props) {
+export function AskAnswerFooter({ source, save, listen, style, reportText }: Props) {
   const { theme } = useVoticTheme();
-  if (!source && !save && !listen) return null;
+  if (!source && !save && !listen && !reportText) return null;
   return (
     <View>
       <View style={[s.row, style]}>
@@ -76,6 +78,7 @@ export function AskAnswerFooter({ source, save, listen, style }: Props) {
           </Pressable>
         ) : null}
       </View>
+      {reportText ? <ReportAnswerButton key={reportText} answer={reportText} /> : null}
       {listen?.failed ? (
         <Text accessibilityRole="alert" style={[s.savedText, { color: theme.text }]}>
           Couldn’t read this answer aloud. Tap the speaker to try again.

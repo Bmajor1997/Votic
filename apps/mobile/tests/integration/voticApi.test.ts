@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { set_auth_token_provider } from "../../src/api/authToken";
 import {
   ask_votic,
+  extract_document,
+  report_ai_answer,
   check_voice_question_availability,
   transcribe_voice_question,
 } from "../../src/api/voticApi";
@@ -13,6 +15,48 @@ afterEach(() => {
 });
 
 describe("Votic API requests", () => {
+  it("allows PDF OCR to finish after 30 seconds and cancels at 45 seconds", async () => {
+    let signal: AbortSignal | null | undefined;
+    let finish!: (value: Response) => void;
+    global.fetch = jest.fn(async (_url: unknown, init?: RequestInit) => {
+      signal = init?.signal;
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    }) as typeof fetch;
+    const pending = extract_document("mixed.pdf", new ArrayBuffer(4));
+    await jest.advanceTimersByTimeAsync(40_000);
+    expect(signal?.aborted).toBe(false);
+    finish(new Response(JSON.stringify({ text: "Both pages" })));
+    expect(await pending).toBe("Both pages");
+    const outcome = expect(extract_document("mixed.pdf", new ArrayBuffer(4))).rejects.toThrow(
+      "took too long",
+    );
+    await jest.advanceTimersByTimeAsync(45_000);
+    await outcome;
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it("authenticates reports and sends only the bounded answer, reason and consent", async () => {
+    const fetchMock = jest.fn(
+      async (_url: unknown, _init?: RequestInit) =>
+        new Response(JSON.stringify({ id: "report-id" }), { status: 201 }),
+    );
+    global.fetch = fetchMock as typeof fetch;
+    await expect(report_ai_answer("Answer", "other")).rejects.toThrow("Sign in to report");
+    expect(fetchMock).not.toHaveBeenCalled();
+    set_auth_token_provider(async () => "id-token");
+    await report_ai_answer("a".repeat(9000), "harmful");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toContain("/api/report-answer");
+    expect((init?.headers as Record<string, string>).Authorization).toBe("Bearer id-token");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      answer: "a".repeat(8000),
+      reason: "harmful",
+      consent: true,
+    });
+  });
+
   it("rejects oversized multibyte context before refreshing credentials or sending it", async () => {
     const token = jest.fn(async () => "id-token");
     set_auth_token_provider(token);

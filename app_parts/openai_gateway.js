@@ -7,7 +7,7 @@ class AiProviderError extends Error {
 }
 
 import { createHash } from "node:crypto";
-import { model_prices } from "./ai_usage.js";
+import { AI_EXECUTION_TIMEOUT_MS, model_prices } from "./ai_usage.js";
 
 export function response_text(result) {
   if (Array.isArray(result.output)) return result.output
@@ -50,36 +50,53 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
     const output_bound = transcription ? 2000 : payload.max_output_tokens;
     const request_id = store.reserve({ user_id, feature, model, input_bound, output_bound, rates });
     let finished = false;
+    const controller = new AbortController();
+    let reject_cancellation;
+    const cancellation = new Promise((_, reject) => { reject_cancellation = reject; });
+    const cancel = () => {
+      controller.abort();
+      const error = new Error("AI request timed out or was canceled");
+      error.name = "AbortError";
+      reject_cancellation(error);
+    };
+    const timer = setTimeout(cancel, AI_EXECUTION_TIMEOUT_MS);
+    options.signal?.addEventListener("abort", cancel, { once: true });
     try {
-      const response = await fetch_impl(url, {
-        ...options,
-        ...(payload ? { body: JSON.stringify(payload) } : {}),
-        headers: { ...options.headers, "X-Client-Request-Id": request_id },
-      });
-      const provider_request_id = response.headers?.get?.("x-request-id") || null;
-      if (!response.ok) {
-        // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
-        store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
+      if (options.signal?.aborted) cancel();
+      const execute = async () => {
+        if (controller.signal.aborted) throw new Error("AI request canceled");
+        const response = await fetch_impl(url, {
+          ...options,
+          signal: controller.signal,
+          ...(payload ? { body: JSON.stringify(payload) } : {}),
+          headers: { ...options.headers, "X-Client-Request-Id": request_id },
+        });
+        const provider_request_id = response.headers?.get?.("x-request-id") || null;
+        if (!response.ok) {
+          // 4xx is a provider rejection. 5xx may have spent tokens: retain the reservation.
+          store.finish(request_id, { status: "provider-error", provider_request_id, rejected: response.status >= 400 && response.status < 500 });
+          finished = true;
+          // Keep the provider's status and error code (never its message, which can echo part of the key).
+          const body = await response.json().catch(() => null);
+          throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
+        }
+        const result = await response.json();
+        const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
+        store.finish(request_id, { status, result, provider_request_id });
         finished = true;
-        // Keep the provider's status and error code (never its message, which can echo part of the key).
-        const body = await response.json().catch(() => null);
-        throw new AiProviderError(response.status, body?.error?.code ?? body?.error?.type);
-      }
-      const result = await response.json();
-      const status = result.status === "incomplete" || result.status === "failed" ? result.status : "completed";
-      store.finish(request_id, { status, result, provider_request_id });
-      finished = true;
-      // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
-      if (status !== "completed") {
-        const error = new Error("AI response did not complete");
-        error.incomplete = status === "incomplete";
-        throw error;
-      }
-      return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
+        // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
+        if (status !== "completed") {
+          const error = new Error("AI response did not complete");
+          error.incomplete = status === "incomplete";
+          throw error;
+        }
+        return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
+      };
+      return await Promise.race([execute(), cancellation]);
     } catch (error) {
       if (!finished) store.finish(request_id, { status: "unknown" });
       throw error;
-    }
+    } finally { clearTimeout(timer); options.signal?.removeEventListener("abort", cancel); }
   };
 }
 

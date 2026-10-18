@@ -524,6 +524,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                           : undefined;
                         return (
                           <AskAnswerFooter
+                            reportText={!m.fallback ? m.text : undefined}
                             style={s.answerFooter}
                             listen={{
                               playing: answerListening.playingKey === String(i),

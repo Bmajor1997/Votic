@@ -53,7 +53,29 @@ The private `ai_usage` table records a generated request UUID, verified user ide
 
 Missing or malformed usage is stored as **null**, never fabricated as zero; full reservations remain charged to allowance. Timeouts, unparseable provider replies, 5xx errors and crashed pending calls also retain reservations. Completed but incomplete/invalid answers still account for provider usage. Provider 4xx rejections release the token/cost reservation but retain the attempt for abuse limits. There are no automatic retries.
 
-Operators may inspect the table with an offline SQLite tool on the backend host. Reconcile unknown/pending charges with provider request IDs before manually adjusting any reservation; never clear the table to reset a limit. Pending rows from a crash also consume concurrency until reconciled. Back up the ledger, restrict directory access to the backend account, and keep the same file on restart. No document text, questions, audio, API keys, Firebase tokens, or raw provider errors are stored or logged.
+Operators may inspect the table with an offline SQLite tool on the backend host. Reconcile unknown/pending charges with provider request IDs before manually adjusting any reservation; never clear the table to reset a limit. Paid requests have a 60-second execution deadline. On a later reservation, pending rows older than 90 seconds become `unknown` and stop consuming concurrency, including after a crash/restart. Their reserved tokens and cost remain charged; a late provider usage receipt can still settle them. Back up the ledger, restrict directory access to the backend account, and keep the same file on restart. Usage accounting stores no document text, questions, audio, API keys, Firebase tokens, or raw provider errors.
+
+## Document processing deadlines
+
+The mobile extraction request has a **45-second** end-to-end deadline, including credential refresh and reading the response. The server budgets 40 seconds from request handling through upload, parsing and any PDF OCR, leaving transport headroom. Each parser runs in a separate worker with a default 15-second deadline (`VOTIC_PARSER_TIMEOUT_MS`). Timeouts and disconnected clients terminate the worker before releasing the upload slot, including synchronous parser loops. Worker heap limits supplement existing file/archive limits; they are not an OS sandbox for native libraries.
+
+PDF extraction checks each page for scanned content, including sparse selectable headers and large images beneath partial text layers. Large illustrations and grouped images are conservatively routed to OCR too; small logos on text-rich pages remain local. A mixed document requiring OCR is sent in full through the existing private OCR route to preserve page order. If OCR is unavailable, the document exceeds the 12 MB OCR limit, or the provider truncates its response, the import fails explicitly rather than succeeding with missing pages. Whole-document OCR is a paid request and retains the existing allowance checks.
+
+## Private AI answer reports
+
+Ask Votic answers, Catch Me Up and conversation summaries have an in-app **Report** action. Users select a reason and explicitly consent to send up to 8,000 characters of the selected answer. Reports include the verified account identifier; no question, conversation history or document attachment is sent. An answer can itself quote document content. `POST /api/report-answer` requires sign-in, validates an exact schema, and is rate limited independently of paid AI. Reporting does not require Premium and does not call an AI provider.
+
+Reports are stored in the private ledger's separate `ai_reports` table. Production reporting refuses to acknowledge a report without persistent storage configured. There is no public report-reading API. On the backend host, use the existing private ledger environment:
+
+```sh
+node --env-file=.env.backend.local security/review-ai-reports.js
+node --env-file=.env.backend.local security/review-ai-reports.js --include-content
+node --env-file=.env.backend.local security/review-ai-reports.js --resolve=REPORT_ID
+```
+
+The first command prints metadata only; `--include-content` reveals the submitted answer for authorized review. Keep output off shared logs. Review open reports regularly, investigate unsafe answers, and adjust safety handling as needed; receiving reports alone does not provide moderation. Up to 100 reports are listed, with open reports first. Reports older than 30 days are purged on submission/review; schedule the metadata command daily for retention during quiet periods. Apply the same retention policy to backups. Update the hosted privacy policy and Play Data safety disclosures for this explicit report collection before release.
+
+Deploy the backend first, preserving the existing ledger. Deliver the mobile changes through a new Android build or an OTA update compatible with the installed native runtime. No native module or Android permission changes are required by these fixes.
 
 Multiple processes on **one host sharing the same SQLite file** coordinate reservations. Separate machines or isolated container disks do not share allowances: deploy one backend instance with a persistent volume, or replace the store with a transactional shared database before scaling horizontally. Do not use an ephemeral filesystem or network-mounted SQLite for this design.
 

@@ -30,8 +30,9 @@ async function api_fetch(
   init: RequestInit,
   timeoutMs = API_TIMEOUT_MS,
   signal?: AbortSignal,
-  requireSignIn = false,
+  requireSignIn: boolean | string = false,
 ) {
+  const signInMessage = typeof requireSignIn === "string" ? requireSignIn : "Sign in to use voice questions.";
   const url = votic_api_url() + path;
   const controller = new AbortController();
   let reject_cancellation: (error: Error) => void = () => {};
@@ -54,7 +55,7 @@ async function api_fetch(
   // Race the whole operation: refreshing credentials and reading the body must also finish in time.
   const request = async () => {
     const auth = await auth_headers();
-    if (requireSignIn && !auth.Authorization) throw new Error("Sign in to use voice questions.");
+    if (requireSignIn && !auth.Authorization) throw new Error(signInMessage);
     if (controller.signal.aborted) throw Object.assign(new Error("Aborted"), { name: "AbortError" });
     const response = await fetch(url, {
       ...init,
@@ -72,7 +73,7 @@ async function api_fetch(
     return await Promise.race([request(), timeout, cancellation]);
   } catch (error) {
     if (signal?.aborted) throw Object.assign(new Error("Voice input canceled."), { name: "AbortError" });
-    if (error instanceof Error && error.message === "Sign in to use voice questions.") throw error;
+    if (error instanceof Error && error.message === signInMessage) throw error;
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
     throw new Error("Votic could not connect. Check your connection and try again.");
@@ -93,13 +94,31 @@ export async function extract_document(name: string, bytes: ArrayBuffer) {
       headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent(name) },
       body: bytes,
     },
-    30_000,
+    45_000,
   );
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not read this document."));
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("This document does not contain readable text.");
   return result.text;
+}
+
+export async function report_ai_answer(answer: string, reason: string): Promise<void> {
+  const response = await api_fetch(
+    "/api/report-answer",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answer: answer.slice(0, 8000), reason, consent: true }),
+    },
+    API_TIMEOUT_MS,
+    undefined,
+    "Sign in to report an answer.",
+  );
+  if (!response.ok)
+    throw new Error(server_error(response.result, "Votic could not send your report. Please try again."));
+  if (typeof response.result.id !== "string")
+    throw new Error("Votic could not confirm your report. Please try again.");
 }
 
 export async function scan_document_image(name: string, bytes: ArrayBuffer) {

@@ -1,5 +1,6 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
+import { OPS, Util } from "pdfjs-dist/legacy/build/pdf.mjs";
 import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
@@ -53,6 +54,35 @@ async function safe_archive_text(file) {
   return text;
 }
 
+async function pdf_page_needs_ocr(page, text) {
+  const { fnArray, argsArray } = await page.getOperatorList();
+  const viewport = page.getViewport({ scale: 1 });
+  const page_area = viewport.width * viewport.height;
+  const images = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject,
+    OPS.paintInlineImageXObjectGroup, OPS.paintImageMaskXObjectGroup, OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat]);
+  let matrix = [1, 0, 0, 1, 0, 0], image_area = 0;
+  const stack = [];
+  for (let i = 0; i < fnArray.length; i++) {
+    const op = fnArray[i], args = argsArray[i];
+    if (op === OPS.save || op === OPS.paintFormXObjectBegin) {
+      stack.push(matrix);
+      if (op === OPS.paintFormXObjectBegin && args?.[0]) matrix = Util.transform(matrix, args[0]);
+    } else if (op === OPS.restore || op === OPS.paintFormXObjectEnd) matrix = stack.pop() || [1, 0, 0, 1, 0, 0];
+    else if (op === OPS.transform) matrix = Util.transform(matrix, args);
+    else if (images.has(op)) {
+      // Sparse selectable headers/page numbers do not make a scanned page selectable.
+      if (text.trim().length < 80) return true;
+      // Batched/repeated images carry per-image transforms; conservatively send them to OCR.
+      if ([OPS.paintInlineImageXObjectGroup, OPS.paintImageMaskXObjectGroup, OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat].includes(op)) return true;
+      // Also catch scans underneath substantial selectable headers or partial OCR layers.
+      // Conservatively OCR large illustrations, too; small logos on text-rich pages stay local.
+      image_area += Math.abs(matrix[0] * matrix[3] - matrix[1] * matrix[2]);
+      if (image_area >= page_area * 0.25) return true;
+    }
+  }
+  return false;
+}
+
 export async function extract_document(name, buffer) {
   if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8")));
   if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
@@ -82,11 +112,17 @@ export async function extract_document(name, buffer) {
       const page = await document.getPage(page_number);
       try {
         const content = await page.getTextContent({ includeMarkedContent: false, disableNormalization: false });
-        pages.push(reconstruct_pdf_page_text(content.items));
+        const text = reconstruct_pdf_page_text(content.items);
+        if (await pdf_page_needs_ocr(page, text)) {
+          const error = new Error("This PDF contains scanned pages that need OCR.");
+          error.code = "PDF_OCR_REQUIRED";
+          throw error;
+        }
+        pages.push(text);
       } finally { page.cleanup(); }
     }
     const text = pages.join("\f");
-    if (!text.trim()) throw new Error("This PDF has no selectable text. Scanned PDFs need OCR, which is not included yet.");
+    if (!text.trim()) throw new Error("This PDF has no selectable text and needs OCR.");
     return clean_extracted_text(text, { removeRepeatedPageArtifacts: true });
   } finally { await parser.destroy(); }
 }

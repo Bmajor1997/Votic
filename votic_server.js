@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { extract_document } from "./app_parts/document_file_tools.js";
+import { parse_document_isolated } from "./app_parts/document_parser.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT, VOTIC_MOBILE_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
@@ -46,6 +46,7 @@ export function load_server_config(env = process.env) {
     body_timeout_ms: positive_integer("VOTIC_BODY_TIMEOUT_MS", 15_000, 100, env),
     ai_timeout_ms: positive_integer("VOTIC_AI_TIMEOUT_MS", 12_000, 100, env),
     extract_concurrency: positive_integer("VOTIC_EXTRACT_CONCURRENCY", 2, 1, env),
+    parser_timeout_ms: positive_integer("VOTIC_PARSER_TIMEOUT_MS", 15_000, 100, env),
     rate_window_ms: positive_integer("VOTIC_RATE_WINDOW_MS", 60_000, 1_000, env),
     general_rate_limit: positive_integer("VOTIC_RATE_LIMIT", 120, 1, env),
     extract_rate_limit: positive_integer("VOTIC_EXTRACT_RATE_LIMIT", 10, 1, env),
@@ -123,6 +124,7 @@ export function create_votic_handler(options = {}) {
    if (entry.count > limit) throw new HttpError(429, "Too many requests. Please try again shortly.", { "Retry-After": String(Math.max(1, Math.ceil((entry.reset - now) / 1000))) });
  };
  const handler = async (request, response) => {
+  const request_started = Date.now();
   set_security_headers(response);
   try {
    const path = safe_request_path(request), client = client_address(request, config.trust_proxy);
@@ -134,6 +136,22 @@ export function create_votic_handler(options = {}) {
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
    const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature });
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
+   if (request.method === "POST" && path === "/api/report-answer") {
+    if (!identity?.uid) throw new HttpError(401, "Sign in to report an answer.");
+    if (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
+      throw new HttpError(503, "Answer reporting is temporarily unavailable. Please try again later.");
+    rate_limit(`${ai_client}:reports`, 5);
+    rate_limit(`${client}:reports`, 20);
+    const report = await read_json_body(request, 40_000, config.body_timeout_ms);
+    if (!report || typeof report !== "object" || Array.isArray(report) ||
+        Object.keys(report).some((key) => !["reason", "answer", "consent"].includes(key)) ||
+        !["harmful", "offensive", "inaccurate", "other"].includes(report.reason) ||
+        typeof report.answer !== "string" || !report.answer.trim() || report.answer.length > 8000 || report.consent !== true)
+      throw new HttpError(400, "Choose a reason and consent to share this answer for review.");
+    const id = usage_store.recordReport({ user_id: identity.uid, reason: report.reason, answer: report.answer.trim() });
+    send_json(response, 201, { id });
+    return;
+   }
    if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) {
     if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
     if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
@@ -145,19 +163,27 @@ export function create_votic_handler(options = {}) {
     const name = safe_filename(request);
     // Reserve before awaiting the body: simultaneous slow uploads must share the same limit.
     active_extractions += 1;
+    const controller = new AbortController();
+    // Leave transport headroom inside the phone's 45-second deadline, including initial checks/upload.
+    const remaining = () => Math.max(1, 40_000 - (Date.now() - request_started));
+    const deadline = setTimeout(() => controller.abort(), remaining());
+    const disconnected = () => { if (!response.writableEnded) controller.abort(); };
+    response.once("close", disconnected);
     try {
-      const body = await read_body(request, config.max_document_bytes, config.body_timeout_ms);
+      const body = await read_body(request, config.max_document_bytes, Math.min(config.body_timeout_ms, remaining()));
       if (!body.length) throw new HttpError(400, "The uploaded document is empty.");
       if (!valid_signature(name, body)) throw new HttpError(415, "The document contents do not match its filename.");
       let result;
-      try { result = await (options.extractDocument || extract_document)(name, body); }
+      try { result = await (options.extractDocument || parse_document_isolated)(name, body, { signal: controller.signal, timeoutMs: Math.min(config.parser_timeout_ms, remaining()), workerUrl: options.parserWorkerUrl }); }
       catch (error) {
-        if (!/\.pdf$/i.test(name) || !/no selectable text|scanned pdf/i.test(String(error?.message || ""))) throw error;
+        if (controller.signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
+        if (error.code === "PARSER_TIMEOUT") throw new HttpError(504, error.message);
+        if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;
         if (!env.OPENAI_API_KEY) throw new HttpError(503, "Scanned PDF OCR is not configured.");
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
         const limit = take_ai_call(ai_client);
         if (limit) throw new HttpError(limit === AI_LIMIT_MESSAGE ? 503 : 429, limit);
-        try { result = await extract_scanned_pdf_text(body, { env, fetch_impl: paid_fetch("pdf-ocr"), timeout_ms: Math.max(config.ai_timeout_ms, 45_000) }); }
+        try { result = await extract_scanned_pdf_text(body, { env, fetch_impl: paid_fetch("pdf-ocr"), timeout_ms: remaining(), signal: controller.signal }); }
         catch (ocr_error) {
           if (ocr_error instanceof HttpError || ocr_error.status === 429) throw ocr_error;
           // The transcription reached its length limit; part of a document is not offered as the whole of it.
@@ -172,7 +198,7 @@ export function create_votic_handler(options = {}) {
       if (error instanceof HttpError) throw error;
       throw new HttpError(400, extraction_error_message(error));
     }
-    finally { active_extractions -= 1; }
+    finally { clearTimeout(deadline); response.removeListener("close", disconnected); active_extractions -= 1; }
     return;
   }
    if (request.method === "POST" && path === "/api/import-url") {
@@ -319,7 +345,7 @@ async function read_json_body(request, limit, timeout_ms) {
 }
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
-function send_json(response, status, body, headers = {}) { set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
+function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
 function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request." }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
@@ -390,12 +416,12 @@ async function answer_document_question(question, document, history, { env, fetc
   } finally { clearTimeout(timer); }
 }
 /** One OpenAI transcription request shared by camera scans and scanned PDFs. */
-async function transcribe_with_openai(content, instructions, max_output_tokens, { env, fetch_impl, timeout_ms }) {
+async function transcribe_with_openai(content, instructions, max_output_tokens, { env, fetch_impl, timeout_ms, signal }) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), timeout_ms);
   try {
     const apiResponse = await fetch_impl("https://api.openai.com/v1/responses", {
       method: "POST",
-      signal: controller.signal,
+      signal: signal ? AbortSignal.any([signal, controller.signal]) : controller.signal,
       headers: { "Authorization": `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: env.OPENAI_OCR_MODEL || env.OPENAI_DOCUMENT_MODEL || env.OPENAI_MODEL || "gpt-6-luna",
