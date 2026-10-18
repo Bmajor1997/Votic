@@ -7,20 +7,21 @@ test.beforeEach(async ({ page }) => {
 });
 test("opens with a focused empty state and personalization", async ({ page }) => {
   await expect(page).toHaveTitle(/Votic/);
-  await expect(page.getByRole("heading", { name: "Turn a document into a listening experience." })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close Ask Votic", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Listen, learn, and pick up where you left off." })).toBeVisible();
   await expect(page.getByRole("button", { name: "Sections" })).toBeHidden();
   await expect(page.getByRole("button", { name: "Play" })).toBeHidden();
-  await expect(page.getByText("Supports PDF, Word (.docx), PowerPoint (.ppt and .pptx), EPUB, TXT, and Markdown files", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Personalize color" }).click();
   await page.getByRole("radio", { name: "Blue" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-highlight-theme", "blue");
   await page.getByRole("button", { name: "Done" }).click();
-  await page.locator("#emptyAddDocument").click();
+  await page.locator("#homeAddDocument").click();
   await expect(page.getByRole("heading", { name: "Add a document" })).toBeVisible();
+  await expect(page.locator("#documentFile")).toHaveAttribute("accept", /\.pdf.*\.docx/);
 });
 
 test("answers product questions in the Ask Votic side panel", async ({ page }) => {
-  await page.getByRole("button", { name: "Ask Votic" }).click();
+  await page.getByRole("button", { name: "Ask Votic", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Ask Votic" })).toBeVisible();
   await page.getByPlaceholder("Ask Votic…").fill("How do I change the reading speed?");
   await page.getByRole("button", { name: "Send" }).click();
@@ -33,7 +34,7 @@ test("Ask Votic becomes document-aware when a document is open", async ({ page }
   await page.getByRole("button", { name: "Add document" }).click();
   await page.locator("#documentFile").setInputFiles({ name: "context.md", mimeType: "text/markdown", buffer: Buffer.from("# Context\n\n## Main idea\nVotic should use this document as context.") });
   await page.getByRole("button", { name: "Open in reader" }).click();
-  await page.getByRole("button", { name: "Ask Votic" }).click();
+  await page.getByRole("button", { name: "Ask Votic", exact: true }).click();
   await expect(page.getByLabel("Use the current document as context")).toBeChecked();
   await expect(page.getByRole("button", { name: "Summarize this document" })).toBeVisible();
   await expect(page.getByRole("button", { name: "What are the key takeaways?" })).toBeVisible();
@@ -53,14 +54,14 @@ test("navigates between Home Documents and Settings", async ({ page }) => {
 
 test("saved documents appear in the Documents library and reopen", async ({ page }) => {
   await page.getByRole("button", { name: "Add document" }).first().click();
-  await page.getByLabel("Remember this document on this device").check();
+  await page.getByLabel(/Remember this document/).check();
   await page.locator("#documentFile").setInputFiles({ name: "library.md", mimeType: "text/markdown", buffer: Buffer.from("# Library document\n\n## Notes\nThis document should be saved.") });
   await page.getByRole("button", { name: "Open in reader" }).click();
   await page.getByRole("button", { name: /Documents/ }).click();
-  await expect(page.getByRole("heading", { name: "library" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Library document", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Open", exact: true }).click();
-  await expect(page.locator("#documentTitle")).toHaveText("library");
-  await page.getByRole("button", { name: "Ask Votic" }).click();
+  await expect(page.locator("#documentTitle")).toHaveText("Library document");
+  await page.getByRole("button", { name: "Ask Votic", exact: true }).click();
   await expect(page.getByLabel("Use the current document as context")).toBeChecked();
 });
 
@@ -71,9 +72,9 @@ test("uploads a heading-based reading document", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Field Notes" })).toBeVisible();
   await page.getByRole("button", { name: "Accessibility options" }).click();
   await page.getByRole("radio", { name: "Large", exact: true }).check();
-  await page.getByLabel("Extra spacing").check();
-  await page.getByLabel("Reduce animation and movement").check();
-  await page.getByLabel("Enlarge the current word").uncheck();
+  await page.getByRole("dialog", { name: "Accessibility options" }).getByRole("radio", { name: "Extra spacing", exact: true }).check();
+  await page.getByRole("dialog", { name: "Accessibility options" }).getByRole("checkbox", { name: "Reduce animation and movement" }).check();
+  await page.getByRole("dialog", { name: "Accessibility options" }).getByRole("checkbox", { name: "Enlarge the current word" }).uncheck();
   await expect(page.locator("html")).toHaveAttribute("data-text-size", "large");
   await expect(page.locator("html")).toHaveAttribute("data-reading-spacing", "extra");
   await expect(page.locator("html")).toHaveAttribute("data-reduce-motion", "true");
