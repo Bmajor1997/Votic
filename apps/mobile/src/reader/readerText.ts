@@ -1,5 +1,6 @@
 import type { TextStyle } from "react-native";
 import type { ReaderFont, ReadingSpacing, TextSize } from "../accessibility/AccessibilityProvider";
+import { ACCESSIBLE_FONT } from "./readerFontNames";
 
 /** Words in a passage, with their character offsets (used to follow speech word by word). */
 export function word_matches(text: string) {
@@ -124,7 +125,7 @@ export function reader_type(
     fontSize,
     lineHeight: Math.round(fontSize * lineScale),
     letterSpacing: textSpacing === "wide" ? 0.75 : 0,
-    fontFamily: readerFont === "serif" ? "serif" : readerFont === "accessible" ? "sans-serif" : undefined,
+    fontFamily: readerFont === "serif" ? "serif" : readerFont === "accessible" ? ACCESSIBLE_FONT : undefined,
   };
 }
 

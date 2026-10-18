@@ -100,19 +100,27 @@ export function AccountSetupProvider({
       if (!current) return;
       // Migrate legacy device preferences only into the restored account. A different/new account
       // gets defaults plus its own answers, never the account that just signed out's settings.
-      const baseline = sessionRestored
+      const baseline: AccountPreferences = sessionRestored
         ? {
             explanationStyle: devicePurpose.explanationStyle,
             highlightMode: deviceAccessibility.highlightMode,
             defaultPlaybackRate: devicePurpose.defaultPlaybackRate,
+            purpose: devicePurpose.purpose,
           }
         : DEFAULT_ACCOUNT_PREFERENCES;
-      const value = savedPreferences ?? {
-        ...baseline,
-        explanationStyle: state.answers.explanationStyle ?? baseline.explanationStyle,
-        highlightMode: highlight_mode_for(state.answers.listening) ?? baseline.highlightMode,
-      };
-      if (!savedPreferences) void save_account_preferences(uid, value).catch(() => {});
+      // Preferences saved before the purpose moved here take it from the device on the same terms.
+      const value: AccountPreferences = savedPreferences
+        ? {
+            ...savedPreferences,
+            purpose: savedPreferences.purpose === undefined ? baseline.purpose : savedPreferences.purpose,
+          }
+        : {
+            ...baseline,
+            explanationStyle: state.answers.explanationStyle ?? baseline.explanationStyle,
+            highlightMode: highlight_mode_for(state.answers.listening) ?? baseline.highlightMode,
+          };
+      if (!savedPreferences || savedPreferences.purpose === undefined)
+        void save_account_preferences(uid, value).catch(() => {});
       setPreferences({ uid, value });
       setStored({ uid, state });
     });
@@ -188,6 +196,8 @@ export function AccountSetupProvider({
   return (
     <AccountSetupContext.Provider value={value}>
       <AccountPurposePreferences
+        purpose={effective.purpose}
+        setPurpose={(purpose) => change_preferences({ purpose })}
         explanationStyle={effective.explanationStyle}
         setExplanationStyle={(explanationStyle) => change_preferences({ explanationStyle })}
         defaultPlaybackRate={effective.defaultPlaybackRate}

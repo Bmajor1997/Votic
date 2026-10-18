@@ -16,8 +16,11 @@ import * as subscriptions from "../mocks/subscriptionService";
 import { fakeAuth } from "../mocks/authBackend";
 import { render_with_providers, test_document } from "../renderWithProviders";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { account_preferences_key, load_account_preferences } from "../../src/onboarding/accountPreferences";
+import { ask_suggestions, DEFAULT_ASK_SUGGESTIONS } from "../../src/personalization/suggestions";
 
 it("migrates old device preferences into the restored session without copying them into the next account", async () => {
+  await AsyncStorage.setItem("votic.mobile.purpose.v1", "work");
   await AsyncStorage.setItem("votic.mobile.explanation-style.v1", "detailed");
   await AsyncStorage.setItem("votic.mobile.default-playback-rate.v1", "1.7");
   await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ highlightMode: "word" }));
@@ -25,14 +28,54 @@ it("migrates old device preferences into the restored session without copying th
     const purpose = useVoticPurpose();
     const access = useAccessibilityPreferences();
     return (
-      <Text testID="migration">{`${purpose.explanationStyle}:${purpose.defaultPlaybackRate}:${access.highlightMode}`}</Text>
+      <Text testID="migration">{`${purpose.purpose}:${purpose.explanationStyle}:${purpose.defaultPlaybackRate}:${access.highlightMode}`}</Text>
     );
   }
   await render_with_providers(<Probe />);
-  expect(screen.getByTestId("migration").props.children).toBe("detailed:1.7:word");
+  expect(screen.getByTestId("migration").props.children).toBe("work:detailed:1.7:word");
   await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
-  expect(screen.getByTestId("migration").props.children).toBe("adaptive:1:both");
+  expect(screen.getByTestId("migration").props.children).toBe("null:adaptive:1:both");
+});
+
+it("keeps what each account said Votic should help with, so a new account on the same phone starts fresh", async () => {
+  let purpose: ReturnType<typeof useVoticPurpose>;
+  function Probe() {
+    purpose = useVoticPurpose();
+    return <Text testID="purpose">{String(purpose.purpose)}</Text>;
+  }
+  const shown = () => screen.getByTestId("purpose").props.children;
+  await render_with_providers(<Probe />);
+  await act(async () => purpose!.setPurpose("research"));
+  expect(shown()).toBe("research");
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => {});
+  expect(shown()).toBe("null");
+  expect(ask_suggestions(null, purpose!.purpose)).toEqual(DEFAULT_ASK_SUGGESTIONS);
+  await act(async () => purpose!.setPurpose("learning"));
+  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => {});
+  expect(shown()).toBe("research");
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => {});
+  expect(shown()).toBe("learning");
+});
+
+it("gives preferences saved before the purpose moved per account the device's purpose only in the restored session", async () => {
+  await AsyncStorage.setItem("votic.mobile.purpose.v1", "accessibility");
+  const saved = { explanationStyle: "quick", highlightMode: "both", defaultPlaybackRate: 1 };
+  await AsyncStorage.setItem(account_preferences_key("test-user"), JSON.stringify(saved));
+  await AsyncStorage.setItem(account_preferences_key("B"), JSON.stringify(saved));
+  function Probe() {
+    return <Text testID="purpose">{String(useVoticPurpose().purpose)}</Text>;
+  }
+  await render_with_providers(<Probe />);
+  expect(screen.getByTestId("purpose").props.children).toBe("accessibility");
+  expect(await load_account_preferences("test-user")).toMatchObject({ purpose: "accessibility" });
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => {});
+  expect(screen.getByTestId("purpose").props.children).toBe("null");
+  expect(await load_account_preferences("B")).toMatchObject({ purpose: null });
 });
 
 it("rejects old-account store events while and after the next account is identified", async () => {

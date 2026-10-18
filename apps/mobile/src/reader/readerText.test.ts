@@ -12,6 +12,7 @@ import {
   word_matches,
 } from "./readerText";
 import { unique_english_voices, votic_voice_names, votic_voice_preview, device_voice_gender } from "./voices";
+import { ACCESSIBLE_FONT } from "./readerFontNames";
 
 // 3 + 2 + 5 = 10 words.
 const passages = ["One two three.", "Four five.", "Six seven eight nine ten."];
@@ -180,6 +181,12 @@ describe("reader text style", () => {
       letterSpacing: 0.75,
       fontFamily: "serif",
     });
+  });
+
+  it("uses the bundled Atkinson Hyperlegible for the easier-to-read font, not the system font", () => {
+    // "sans-serif" is the system font on Android, so the option used to change nothing.
+    expect(reader_type("default", "default", "accessible", "default").fontFamily).toBe(ACCESSIBLE_FONT);
+    expect(ACCESSIBLE_FONT).toBe("AtkinsonHyperlegible_400Regular");
   });
 });
 

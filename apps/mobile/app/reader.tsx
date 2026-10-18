@@ -101,6 +101,7 @@ import {
   useWalkthroughTarget,
   useWalkthroughTrigger,
 } from "../src/walkthrough/WalkthroughProvider";
+import { ACCESSIBLE_FONT_BOLD } from "../src/reader/readerFontNames";
 
 /** Read: the document without audio controls. Listen: the document with narration controls. */
 type ReaderMode = "read" | "listen";
@@ -1360,6 +1361,9 @@ function ReaderContent() {
                                               color: theme.text,
                                               fontWeight: "900",
                                               fontSize: (readingType.fontSize as number) + 2,
+                                              ...(accessibility.readerFont === "accessible" && {
+                                                fontFamily: ACCESSIBLE_FONT_BOLD,
+                                              }),
                                             }
                                           : undefined
                                       }

@@ -110,18 +110,30 @@ export function useVoticPurpose() {
 /** Override personalization's effective settings without overwriting the legacy device preferences. */
 export function AccountPurposePreferences({
   children,
+  purpose,
+  setPurpose,
   explanationStyle,
   setExplanationStyle,
   defaultPlaybackRate,
   setDefaultPlaybackRate,
 }: PropsWithChildren<
-  Pick<Value, "explanationStyle" | "setExplanationStyle" | "defaultPlaybackRate" | "setDefaultPlaybackRate">
+  Pick<
+    Value,
+    | "purpose"
+    | "setPurpose"
+    | "explanationStyle"
+    | "setExplanationStyle"
+    | "defaultPlaybackRate"
+    | "setDefaultPlaybackRate"
+  >
 >) {
   const parent = useVoticPurpose();
   return (
     <Context.Provider
       value={{
         ...parent,
+        purpose,
+        setPurpose,
         explanationStyle,
         setExplanationStyle,
         defaultPlaybackRate,

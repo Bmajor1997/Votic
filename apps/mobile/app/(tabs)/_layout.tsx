@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect, useState } from "react";
-import { Animated, ColorValue, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Animated, ColorValue, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
@@ -11,6 +11,11 @@ import { useWalkthrough } from "../../src/walkthrough/WalkthroughProvider";
 const TAB_BAR_HEIGHT = 64;
 // Home, Documents, Notes, Settings (Ask is hidden from the bar).
 const VISIBLE_TABS = 4;
+const SHIFT_TRANSITION = {
+  animation: "timing",
+  config: { duration: 150, easing: Easing.inOut(Easing.ease) },
+} as const;
+const INSTANT_TRANSITION = { animation: "timing", config: { duration: 0 } } as const;
 
 function AnimatedTabIcon({
   focused,
@@ -79,7 +84,10 @@ export default function TabLayout() {
         detachInactiveScreens={false}
         screenOptions={{
           headerShown: false,
-          animation: reduceMotion ? "none" : "shift",
+          // Keep the same animation and make it instant for Less motion. Switching it to "none" while the tabs
+          // are open left the hidden tabs faded out, so Home and Notes went blank until Votic restarted.
+          animation: "shift",
+          transitionSpec: reduceMotion ? INSTANT_TRANSITION : SHIFT_TRANSITION,
           sceneStyle: { backgroundColor: theme.background },
           tabBarActiveTintColor: theme.accentText,
           tabBarInactiveTintColor: theme.mutedText,

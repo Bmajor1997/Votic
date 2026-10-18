@@ -19,6 +19,7 @@ import { SubscriptionProvider, useSubscription } from "../src/subscription/Subsc
 import { WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
 import { NotificationPlaybackSync } from "../src/playback/NotificationPlaybackSync";
 import { WidgetSync } from "../src/widgets/WidgetSync";
+import { useReaderFonts } from "../src/reader/readerFonts";
 
 // Keep the launch screen up until Votic knows whether to show Welcome, setup, or Home.
 Promise.resolve(SplashScreen.preventAutoHideAsync?.()).catch(() => {});
@@ -118,6 +119,7 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
+  useReaderFonts();
   return (
     <OnboardingProvider>
       <ThemeProvider>
