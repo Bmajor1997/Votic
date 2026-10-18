@@ -370,8 +370,8 @@ function ReaderContent() {
     void Speech.getAvailableVoicesAsync()
       .then((available) => setVoices(unique_english_voices(available)))
       .catch(() => setVoices([]));
-    void load_pronunciations().then(setPronunciations);
-  }, []);
+    void load_pronunciations(uid).then(setPronunciations);
+  }, [uid]);
   useEffect(
     () => () => {
       speechSession.current += 1;

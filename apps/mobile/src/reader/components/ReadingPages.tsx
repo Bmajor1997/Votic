@@ -49,10 +49,13 @@ export function ReadingPages({
   const [measurement, setMeasurement] = useState<{ key: string; lines: Line[] } | null>(null);
   const text = useMemo(() => passages.join("\n\n"), [passages]);
   const offsets = useMemo(() => {
-    return passages.reduce<number[]>(
-      (starts, _, at) => [...starts, at === 0 ? 0 : starts[at - 1] + passages[at - 1].length + 2],
-      [],
-    );
+    const starts = new Array<number>(passages.length);
+    let offset = 0;
+    for (let at = 0; at < passages.length; at += 1) {
+      starts[at] = offset;
+      offset += passages[at].length + 2;
+    }
+    return starts;
   }, [passages]);
   const key = JSON.stringify([text, size, textStyle]);
   const pages = useMemo(

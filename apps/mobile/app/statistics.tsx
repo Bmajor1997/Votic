@@ -163,8 +163,9 @@ export default function Statistics() {
             <DocumentsPreview period={period} onOpen={() => open_section("documents")} />
             <Text style={[s.footnote, { color: theme.mutedText }]}>
               Reading counts while the Reader is open and you&apos;re scrolling or using it, and pauses after
-              two minutes without activity. Listening counts while narration plays. Time spent listening
-              isn&apos;t also counted as reading. Statistics stay on this device.
+              two minutes without activity. Listening counts while narration plays with Votic in the
+              foreground; background listening is not measured yet. Time spent listening isn&apos;t also
+              counted as reading. Statistics stay on this device.
             </Text>
             {__DEV__ ? (
               <View style={[s.devRow, { borderColor: theme.border }]}>

@@ -16,7 +16,7 @@ export const WIDGET_SNAPSHOT_KEY = "votic.widgets.snapshot.v1";
 
 type AndroidWidgets = { publish: (snapshot: string) => void };
 
-export function publish_widget_snapshot(snapshot: string) {
+export function publish_widget_snapshot(snapshot: string, strict = false) {
   try {
     if (Platform.OS === "ios") {
       // Loaded only on iPhone; the module reads a native global that other platforms don't have.
@@ -27,7 +27,8 @@ export function publish_widget_snapshot(snapshot: string) {
     } else if (Platform.OS === "android") {
       requireOptionalNativeModule<AndroidWidgets>("VoticWidgets")?.publish(snapshot);
     }
-  } catch {
+  } catch (error) {
+    if (strict) throw error;
     // Widgets are a convenience; failing to update them must never affect the app.
   }
 }

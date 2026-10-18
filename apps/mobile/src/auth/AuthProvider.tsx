@@ -1,7 +1,14 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { Pressable, Text, View } from "react-native";
+import * as Speech from "expo-speech";
+import { notification_player } from "../playback/notificationPlayback";
+import { publish_widget_snapshot } from "../widgets/widgetBridge";
+import { signed_out_snapshot } from "../widgets/widgetSnapshot";
+import { clear_import_cache } from "../documents/importCache";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { set_auth_token_provider } from "../api/authToken";
+import { resume_local_deletions } from "../storage/accountDeletion";
 import { AuthBackend, VoticUser, create_auth_backend } from "./authBackend";
 
 type AuthValue = {
@@ -20,6 +27,7 @@ type AuthValue = {
   signInWithGoogle: AuthBackend["signInWithGoogle"];
   signOut: () => Promise<void>;
   deleteAccount: AuthBackend["deleteAccount"];
+  prepareDeleteAccount: AuthBackend["prepareDeleteAccount"];
   /** Development and marked preview builds without Firebase can be explored. Production requires an account. */
   canContinueWithoutAccount: boolean;
   continueWithoutAccount: () => void;
@@ -39,6 +47,28 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [backend] = useState(create_auth_backend);
   const [user, setUser] = useState<VoticUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [deletionsRecovered, setDeletionsRecovered] = useState(false);
+  const [recoveryError, setRecoveryError] = useState(false);
+  const [recoveryAttempt, setRecoveryAttempt] = useState(0);
+  useEffect(() => {
+    let current = true;
+    void resume_local_deletions()
+      .then(async (recovered) => {
+        if (recovered) {
+          await Speech.stop();
+          await notification_player()?.stop();
+          publish_widget_snapshot(JSON.stringify(signed_out_snapshot()), true);
+          clear_import_cache();
+        }
+        if (current) setDeletionsRecovered(true);
+      })
+      .catch(() => {
+        if (current) setRecoveryError(true);
+      });
+    return () => {
+      current = false;
+    };
+  }, [recoveryAttempt]);
   const [sessionRestored, setSessionRestored] = useState(false);
   const reported = useRef(false);
   const reportedUid = useRef<string | null>(null);
@@ -93,11 +123,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return () => set_auth_token_provider(null);
   }, [backend]);
 
+  if (recoveryError)
+    return (
+      <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
+        <Text accessibilityRole="alert">
+          Votic could not finish checking pending account cleanup. Your library is hidden until cleanup can
+          finish.
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            setRecoveryError(false);
+            setRecoveryAttempt((value) => value + 1);
+          }}
+          style={{ minHeight: 48, justifyContent: "center" }}
+        >
+          <Text>Retry device cleanup</Text>
+        </Pressable>
+      </View>
+    );
   return (
     <AuthContext.Provider
       value={{
         user: user ?? (developmentUser ? DEVELOPMENT_USER : null),
-        hydrated: hydrated && exploreRestored,
+        hydrated: hydrated && exploreRestored && deletionsRecovered,
         sessionRestored: sessionRestored && !developmentUser,
         configured: backend.configured,
         googleAvailable: backend.googleAvailable,
@@ -113,6 +162,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           await backend.signOut();
         },
         deleteAccount: backend.deleteAccount,
+        prepareDeleteAccount: backend.prepareDeleteAccount,
         canContinueWithoutAccount,
         continueWithoutAccount() {
           if (!canContinueWithoutAccount) return;

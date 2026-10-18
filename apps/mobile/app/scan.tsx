@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
 import { File } from "expo-file-system";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -19,16 +19,33 @@ import { scan_document_image } from "../src/api/voticApi";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { useImportSession } from "../src/documents/useImportSession";
+import { remove_import_temp } from "../src/documents/importCache";
 
 type ScanPage = { uri: string; width?: number; height?: number };
 
 export default function ScanDocumentScreen() {
   const { theme } = useVoticTheme();
-  const { addTextDocument } = useDocumentLibrary();
+  const { addTextDocumentDurably } = useDocumentLibrary();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
   const [pages, setPages] = useState<ScanPage[]>([]);
+  const pagesRef = useRef(pages);
+  useEffect(() => {
+    pagesRef.current = pages;
+  }, [pages]);
+  const completedPages = useRef(new Map<string, string>());
+  const session = useImportSession(() => {
+    for (const page of pagesRef.current) {
+      try {
+        remove_import_temp(page.uri);
+      } catch {
+        /* Account cleanup retries. */
+      }
+    }
+    completedPages.current.clear();
+  });
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -43,6 +60,10 @@ export default function ScanDocumentScreen() {
     try {
       const photo = await cameraRef.current.takePictureAsync({ quality: 0.9, skipProcessing: false });
       if (photo?.uri) {
+        if (!session.active()) {
+          remove_import_temp(photo.uri);
+          return;
+        }
         setPages((value) => [...value, photo]);
         setCameraReady(false);
         setReviewing(true);
@@ -56,10 +77,18 @@ export default function ScanDocumentScreen() {
 
   async function finish_scan() {
     if (!pages.length || processing) return;
+    const job = session.start();
+    if (!job) return;
     setProcessing(true);
     try {
       const extracted: string[] = [];
       for (let index = 0; index < pages.length; index += 1) {
+        if (!job.current()) return;
+        const cached = completedPages.current.get(pages[index].uri);
+        if (cached !== undefined) {
+          extracted.push(cached);
+          continue;
+        }
         let bytes: ArrayBuffer;
         if (Platform.OS === "web") {
           const response = await fetch(pages[index].uri);
@@ -75,7 +104,9 @@ export default function ScanDocumentScreen() {
         }
         if (bytes.byteLength > 12_000_000)
           throw new Error("This photo is too large. Retake the page at a lower resolution.");
-        const text = await scan_document_image(`scan-page-${index + 1}.jpg`, bytes);
+        const text = await scan_document_image(`scan-page-${index + 1}.jpg`, bytes, job.signal);
+        if (!job.current()) return;
+        completedPages.current.set(pages[index].uri, text.trim());
         if (text.trim()) extracted.push(text.trim());
       }
       const text = extracted.join("\n\n");
@@ -85,17 +116,19 @@ export default function ScanDocumentScreen() {
         month: "short",
         day: "numeric",
       });
-      addTextDocument(`Scanned document - ${stamp}.txt`, text, {
+      await addTextDocumentDurably(`Scanned document - ${stamp}.txt`, text, {
         playbackRate: defaultPlaybackRate,
         origin: "scan",
       });
-      router.replace("/reader");
+      if (job.current()) router.replace("/reader");
     } catch (error) {
+      if (!job.current()) return;
       Alert.alert(
         "Could not read scan",
         error instanceof Error ? error.message : "Votic could not read these scanned pages.",
       );
     } finally {
+      job.finish();
       setProcessing(false);
     }
   }
@@ -235,6 +268,15 @@ export default function ScanDocumentScreen() {
                 accessibilityLabel="Retake page"
                 disabled={processing}
                 onPress={() => {
+                  const removed = pages.at(-1);
+                  if (removed) {
+                    completedPages.current.delete(removed.uri);
+                    try {
+                      remove_import_temp(removed.uri);
+                    } catch {
+                      /* Account cleanup retries. */
+                    }
+                  }
                   setPages((value) => value.slice(0, -1));
                   setReviewing(false);
                 }}

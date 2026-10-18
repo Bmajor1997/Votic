@@ -7,26 +7,33 @@ import { import_web_page } from "../src/api/voticApi";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { useImportSession } from "../src/documents/useImportSession";
 
 export default function ImportWebScreen() {
   const { theme } = useVoticTheme();
-  const { addTextDocument } = useDocumentLibrary();
+  const { addTextDocumentDurably } = useDocumentLibrary();
+  const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   async function submit() {
     if (busy) return;
+    const job = session.start();
+    if (!job) return;
     setBusy(true);
     try {
-      const page = await import_web_page(url);
-      addTextDocument(page.title + ".txt", page.text, {
+      const page = await import_web_page(url, job.signal);
+      if (!job.current()) return;
+      await addTextDocumentDurably(page.title + ".txt", page.text, {
         playbackRate: defaultPlaybackRate,
         origin: "webpage",
       });
-      router.replace("/reader");
+      if (job.current()) router.replace("/reader");
     } catch (error) {
+      if (!job.current()) return;
       Alert.alert("Could not import webpage", error instanceof Error ? error.message : "Try another link.");
     } finally {
+      job.finish();
       setBusy(false);
     }
   }

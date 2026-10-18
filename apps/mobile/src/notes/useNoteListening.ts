@@ -5,9 +5,11 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { split_passages } from "../documents/passages";
 import { normalize_playback_rate } from "../playback/rates";
 import { apply_pronunciations, load_pronunciations } from "../reader/pronunciationDictionary";
+import { useAuth } from "../auth/AuthProvider";
 
 /** A note owns audio only while its workspace is open; it never changes document progress. */
 export function useNoteListening(text: string, playbackRate: number) {
+  const uid = useAuth().user?.uid;
   const { voiceIdentifier } = useAccessibilityPreferences();
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
@@ -42,7 +44,7 @@ export function useNoteListening(text: string, playbackRate: number) {
     ownsAudio.current = true;
     try {
       await Speech.stop();
-      const pronunciations = await load_pronunciations();
+      const pronunciations = await load_pronunciations(uid);
       if (!current()) return;
       // Use Reader passage splitting; bound utterances for native engine length limits.
       const chunks = split_passages(text).flatMap((passage) => {

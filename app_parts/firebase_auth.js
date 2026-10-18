@@ -18,7 +18,7 @@ export function create_firebase_authorizer(project_id, { keys = createRemoteJWKS
         audience: project_id,
         algorithms: ["RS256"],
       });
-      return typeof payload.sub === "string" && payload.sub ? { uid: payload.sub } : false;
+      return typeof payload.sub === "string" && payload.sub ? { uid: payload.sub, ...(typeof payload.auth_time === "number" ? { auth_time: payload.auth_time } : {}) } : false;
     } catch {
       return false;
     }

@@ -1,11 +1,30 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { account_storage_key } from "../storage/accountStorage";
+import { write_account_data } from "../storage/accountDeletion";
 
 export type PronunciationEntry = { id: string; term: string; pronunciation: string };
 const KEY = "@votic/pronunciation-dictionary/v1";
 
-export async function load_pronunciations(): Promise<PronunciationEntry[]> {
+export async function load_pronunciations(uid?: string | null): Promise<PronunciationEntry[]> {
+  if (!uid) return [];
   try {
-    const raw = await AsyncStorage.getItem(KEY);
+    const key = account_storage_key(KEY, uid);
+    let raw = await AsyncStorage.getItem(key);
+    if (raw === null) {
+      const explicit = await AsyncStorage.getItem("votic.mobile.legacy-library-owner.v1");
+      const owner = explicit ?? (await AsyncStorage.getItem("votic.mobile.legacy-library-auto-owner.v1"));
+      // Never assign an unowned shared dictionary to whichever account happens to sign in first.
+      if (owner && JSON.parse(owner)?.uid === uid) {
+        raw = await AsyncStorage.getItem(KEY);
+        if (raw !== null) {
+          const legacy = raw;
+          await write_account_data(uid, async () => {
+            await AsyncStorage.setItem(key, legacy);
+            await AsyncStorage.removeItem(KEY);
+          });
+        }
+      }
+    }
     const parsed = raw ? JSON.parse(raw) : [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
@@ -21,8 +40,11 @@ export async function load_pronunciations(): Promise<PronunciationEntry[]> {
     return [];
   }
 }
-export async function save_pronunciations(entries: PronunciationEntry[]) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(entries.slice(0, 250)));
+export async function save_pronunciations(uid: string, entries: PronunciationEntry[]) {
+  if (!uid) throw new Error("Sign in to save pronunciations.");
+  await write_account_data(uid, () =>
+    AsyncStorage.setItem(account_storage_key(KEY, uid), JSON.stringify(entries.slice(0, 250))),
+  );
 }
 export function normalize_pronunciation_entry(term: string, pronunciation: string): PronunciationEntry {
   const cleanTerm = term.trim().replace(/\s+/g, " ").slice(0, 120);

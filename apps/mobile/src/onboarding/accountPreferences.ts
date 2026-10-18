@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { write_account_data } from "../storage/accountDeletion";
 import type { HighlightMode } from "../accessibility/AccessibilityProvider";
 import { PURPOSES, type ExplanationStyle, type VoticPurpose } from "../personalization/PurposeProvider";
 import { normalize_playback_rate } from "../playback/rates";
@@ -46,7 +47,9 @@ export async function load_account_preferences(uid: string): Promise<SavedAccoun
   }
 }
 export async function save_account_preferences(uid: string, value: AccountPreferences) {
-  await AsyncStorage.setItem(account_preferences_key(uid), JSON.stringify(value));
+  await write_account_data(uid, () =>
+    AsyncStorage.setItem(account_preferences_key(uid), JSON.stringify(value)),
+  );
 }
 export async function remove_account_preferences(uid: string) {
   await AsyncStorage.removeItem(account_preferences_key(uid));

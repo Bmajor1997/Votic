@@ -105,15 +105,26 @@ export function useMarkFlight() {
     glow: new Animated.Value(0),
   }));
   const flying = useRef(false);
+  const animation = useRef<Animated.CompositeAnimation | null>(null);
+  const generation = useRef(0);
+  const cancel = useCallback(() => {
+    generation.current += 1;
+    animation.current?.stop();
+    animation.current = null;
+    flying.current = false;
+  }, []);
   useFocusEffect(
     useCallback(() => {
+      cancel();
       flying.current = false;
       [...flight.wings, flight.stroke, flight.glow].forEach((value) => value.setValue(0));
-    }, [flight]),
+      return cancel;
+    }, [cancel, flight]),
   );
   const fly = useCallback(
     (then: () => void) => {
       if (flying.current) return;
+      const token = ++generation.current;
       if (reduceMotion) {
         then();
         return;
@@ -127,21 +138,23 @@ export function useMarkFlight() {
           easing: Easing.in(Easing.quad),
           useNativeDriver: true,
         });
-      Animated.parallel([
+      animation.current = Animated.parallel([
         Animated.stagger(
           130,
           flight.wings.map((wing) => takeOff(wing, 460)),
         ),
         Animated.sequence([Animated.delay(380), takeOff(flight.stroke, 520)]),
         Animated.timing(flight.glow, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ]).start(({ finished }) => {
+      ]);
+      animation.current.start(({ finished }) => {
+        if (token !== generation.current) return;
         if (finished) then();
         else flying.current = false;
       });
     },
     [flight, reduceMotion],
   );
-  return { fly, flight };
+  return { fly, flight, cancel };
 }
 
 const s = StyleSheet.create({

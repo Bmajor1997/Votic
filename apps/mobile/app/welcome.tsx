@@ -52,13 +52,22 @@ export default function Welcome() {
               A place to read, listen, and keep your ideas.
             </Text>
           </View>
-          <SocialSignIn onBusyChange={setSocialBusy} onError={setError} />
+          <SocialSignIn
+            onBusyChange={(busy) => {
+              if (busy) mark.cancel();
+              setSocialBusy(busy);
+            }}
+            onError={setError}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue with email"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => router.push("/create-account")}
+            onPress={() => {
+              mark.cancel();
+              router.push("/create-account");
+            }}
             style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
           >
             <Ionicons name="mail-outline" size={20} color={theme.onAccent} />

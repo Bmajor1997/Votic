@@ -9,10 +9,12 @@ import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
+import { AccountDeletionError, delete_account_data } from "./app_parts/account_deletion.js";
 import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
 const public_files = new Map([
+  ["/delete-account", ["account_deletion_page.html", "text/html; charset=utf-8"]],
   ["/", ["votic_home_page.html", "text/html; charset=utf-8"]],
   ["/votic_home_page.html", ["votic_home_page.html", "text/html; charset=utf-8"]],
   ["/main_look.css", ["main_look.css", "text/css; charset=utf-8"]],
@@ -136,6 +138,26 @@ export function create_votic_handler(options = {}) {
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
    const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature });
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
+   if (request.method === "POST" && path === "/api/delete-account") {
+    if (!identity?.uid) throw new HttpError(401, "Sign in before deleting your account.");
+    rate_limit(`${ai_client}:delete`, 10);
+    const body = await read_json_body(request, 1000, config.body_timeout_ms);
+    if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => key !== "phase") || !["prepare", "complete"].includes(body.phase))
+      throw new HttpError(400, "Choose a valid account deletion step.");
+    const result = await delete_account_data({ ...identity, phase: body.phase, env, store: usage_store, fetchImpl: options.accountDeletionFetchImpl || fetch_impl });
+    send_json(response, 200, result);
+    return;
+   }
+   if (path.startsWith("/api/") && identity?.uid && usage_store.accountDeletion(identity.uid)) {
+    const error = new HttpError(403, "This account is being deleted. Finish account deletion or sign out.");
+    error.code = "ACCOUNT_DELETED";
+    throw error;
+   }
+   if (request.method === "POST" && path === "/api/account-status") {
+    if (!identity?.uid) throw new HttpError(401, "Sign in to check your account.");
+    send_json(response, 200, { active: true });
+    return;
+   }
    if (request.method === "POST" && path === "/api/report-answer") {
     if (!identity?.uid) throw new HttpError(401, "Sign in to report an answer.");
     if (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
@@ -346,7 +368,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request." }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

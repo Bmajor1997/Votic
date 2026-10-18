@@ -14,6 +14,8 @@ import {
   validate_import,
 } from "../src/documents/importDocument";
 import { read_imported_text } from "../src/documents/readImportedText";
+import { useImportSession } from "../src/documents/useImportSession";
+import { remove_import_temp } from "../src/documents/importCache";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -23,7 +25,8 @@ function fallback_name(mimeType: string | null) {
 
 export default function HandleShare() {
   const { theme } = useVoticTheme();
-  const { addTextDocument } = useDocumentLibrary();
+  const { addTextDocumentDurably } = useDocumentLibrary();
+  const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const { resolvedSharedPayloads, isResolving, error } = useIncomingShare();
   const started = useRef(false);
@@ -36,6 +39,9 @@ export default function HandleShare() {
     started.current = true;
 
     const import_shared_document = async () => {
+      const job = session.start();
+      if (!job) return;
+      let temporaryUri: string | undefined;
       try {
         if (resolvedSharedPayloads.length !== 1) throw new Error("Share one document at a time with Votic.");
 
@@ -57,25 +63,40 @@ export default function HandleShare() {
         });
 
         const response = await fetch(uri);
+        temporaryUri = uri;
         if (!response.ok) throw new Error("Votic could not access the shared document.");
         const bytes = await response.arrayBuffer();
 
         setStatus(`Reading ${name}…`);
-        const text = await read_imported_text(name, bytes);
+        const text = await read_imported_text(name, bytes, job.signal);
+        if (!job.current()) return;
 
         if (!text.trim()) throw new Error("This document does not contain readable text.");
 
-        addTextDocument(name, text, { playbackRate: defaultPlaybackRate, origin: import_origin(name) });
+        await addTextDocumentDurably(name, text, {
+          playbackRate: defaultPlaybackRate,
+          origin: import_origin(name),
+        });
         clearSharedPayloads();
-        router.replace("/reader");
+        if (job.current()) router.replace("/reader");
       } catch (caught) {
+        if (!job.current()) return;
         clearSharedPayloads();
         setFailure(caught instanceof Error ? caught.message : "Votic could not import this shared document.");
+      } finally {
+        try {
+          remove_import_temp(temporaryUri);
+        } catch {
+          /* Account cleanup retries cached-file removal. */
+        }
+        if (!job.current() && session.active())
+          setFailure("Import canceled. Share the document again to retry.");
+        job.finish();
       }
     };
 
     void import_shared_document();
-  }, [addTextDocument, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads]);
+  }, [addTextDocumentDurably, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads, session]);
 
   const problem = failure || error?.message || null;
 

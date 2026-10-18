@@ -7,6 +7,8 @@ import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
 import { IMPORT_TYPES, import_origin, validate_import } from "./importDocument";
 import { read_imported_text } from "./readImportedText";
+import { useImportSession } from "./useImportSession";
+import { remove_import_temp } from "./importCache";
 
 export type ImportFailure = { name: string | null; message: string };
 
@@ -15,7 +17,8 @@ export type ImportFailure = { name: string | null; message: string };
  * By default a failure shows an alert; screens that show failures inline pass `inlineErrors`.
  */
 export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErrors = false } = {}) {
-  const { addTextDocument } = useDocumentLibrary();
+  const { addTextDocumentDurably } = useDocumentLibrary();
+  const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const transition = useDocumentTransition();
   const [importing, setImporting] = useState(false);
@@ -24,9 +27,12 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
   const [failure, setFailure] = useState<ImportFailure | null>(null);
 
   async function import_document() {
+    const job = session.start();
+    if (!job) return;
     setImporting(true);
     setFailure(null);
     let name: string | null = null;
+    let temporaryUri: string | undefined;
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: Object.keys(IMPORT_TYPES),
@@ -35,24 +41,34 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       });
       if (result.canceled) return;
       const asset = result.assets[0];
+      temporaryUri = asset.uri;
+      if (!job.current()) return;
       name = asset.name;
       setProcessingName(asset.name);
       validate_import({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
-      const response = await fetch(asset.uri);
+      const response = await fetch(asset.uri, { signal: job.signal });
       if (!response.ok)
         throw new Error("Votic could not access this file. Please choose it again from your device.");
-      const text = await read_imported_text(asset.name, await response.arrayBuffer());
+      const text = await read_imported_text(asset.name, await response.arrayBuffer(), job.signal);
+      if (!job.current()) return;
       if (!text.trim()) throw new Error("This document does not contain readable text.");
-      addTextDocument(asset.name, text, {
+      await addTextDocumentDurably(asset.name, text, {
         playbackRate: defaultPlaybackRate,
         origin: import_origin(asset.name),
       });
-      open_from(sourceRef, transition);
+      if (job.current()) open_from(sourceRef, transition);
     } catch (error) {
+      if (!job.current()) return;
       const message = error instanceof Error ? error.message : "Votic could not read this document.";
       if (inlineErrors) setFailure({ name, message });
       else Alert.alert("Could not import document", message);
     } finally {
+      try {
+        remove_import_temp(temporaryUri);
+      } catch {
+        /* Retried by account cache cleanup. */
+      }
+      job.finish();
       setImporting(false);
       setProcessingName(null);
     }

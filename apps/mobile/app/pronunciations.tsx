@@ -10,20 +10,28 @@ import {
   save_pronunciations,
 } from "../src/reader/pronunciationDictionary";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { useAuth } from "../src/auth/AuthProvider";
 
 export default function PronunciationDictionaryScreen() {
   const { theme } = useVoticTheme();
+  const uid = useAuth().user?.uid ?? "";
   const [entries, setEntries] = useState<PronunciationEntry[]>([]);
   const [term, setTerm] = useState("");
   const [pronunciation, setPronunciation] = useState("");
   useEffect(() => {
-    void load_pronunciations().then(setEntries);
-  }, []);
+    let current = true;
+    void load_pronunciations(uid).then((value) => {
+      if (current) setEntries(value);
+    });
+    return () => {
+      current = false;
+    };
+  }, [uid]);
   async function add() {
     try {
       const entry = normalize_pronunciation_entry(term, pronunciation);
       const next = [entry, ...entries.filter((item) => item.id !== entry.id)];
-      await save_pronunciations(next);
+      await save_pronunciations(uid, next);
       setEntries(next);
       setTerm("");
       setPronunciation("");
@@ -33,7 +41,7 @@ export default function PronunciationDictionaryScreen() {
   }
   async function remove(id: string) {
     const next = entries.filter((item) => item.id !== id);
-    await save_pronunciations(next);
+    await save_pronunciations(uid, next);
     setEntries(next);
   }
   return (

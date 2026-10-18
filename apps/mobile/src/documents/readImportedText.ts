@@ -7,9 +7,9 @@ import {
 } from "./importDocument";
 
 /** The text of an imported file: plain text is read on the phone, photos with text recognition, the rest by the server. */
-export async function read_imported_text(name: string, bytes: ArrayBuffer) {
+export async function read_imported_text(name: string, bytes: ArrayBuffer, signal?: AbortSignal) {
   validate_loaded_bytes(bytes.byteLength, name);
   if (can_read_locally(name)) return clean_local_document_text(new TextDecoder().decode(bytes));
-  if (is_page_photo(name)) return scan_document_image(name, bytes);
-  return extract_document(name, bytes);
+  if (is_page_photo(name)) return scan_document_image(name, bytes, signal);
+  return extract_document(name, bytes, signal);
 }

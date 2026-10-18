@@ -122,13 +122,26 @@ describe("Preview testing entry", () => {
   it.each(["preview", "production", "development", undefined])(
     "sets the build marker only for the preview profile (%s)",
     (profile) => {
+      if (profile === "production")
+        jest.replaceProperty(process, "env", {
+          ...process.env,
+          EXPO_PUBLIC_FIREBASE_API_KEY: "test-only",
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: "test-project",
+          EXPO_PUBLIC_FIREBASE_APP_ID: "test-app",
+          EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: "test-public-sdk-key",
+          EXPO_PUBLIC_VOTIC_API_URL: "https://api.example.com",
+          EXPO_PUBLIC_VOTIC_TERMS_URL: "https://example.com/terms",
+          EXPO_PUBLIC_VOTIC_PRIVACY_URL: "https://example.com/privacy",
+        });
       if (profile === undefined) delete process.env.EAS_BUILD_PROFILE;
       else process.env.EAS_BUILD_PROFILE = profile;
       const config = configureApp({
-        config: { extra: { previewTesting: true, eas: { projectId: "existing" } } },
+        config: {
+          extra: { previewTesting: true, eas: { projectId: "00000000-0000-4000-8000-000000000000" } },
+        },
       });
       expect(config.extra.previewTesting).toBe(profile === "preview");
-      expect(config.extra.eas.projectId).toBe("existing");
+      expect(config.extra.eas.projectId).toBe("00000000-0000-4000-8000-000000000000");
     },
   );
 });
