@@ -16,7 +16,7 @@ test("secret scan verifier accepts real colored output and rejects empty or brok
   }
 });
 
-for (const scenario of ["retry", "failed", "incomplete", "installed"]) {
+for (const scenario of ["retry", "failed", "incomplete", "installed", "sdkpath"]) {
   test(`Android NDK installation validates the toolchain and handles ${scenario}`, () => {
     const root = mkdtempSync(join(tmpdir(), "votic-ci-"));
     const sdk = join(root, "Android SDK");
@@ -27,7 +27,9 @@ for (const scenario of ["retry", "failed", "incomplete", "installed"]) {
       mkdirSync(join(sdk, "ndk", "other-version"), { recursive: true });
       writeFileSync(join(sdk, "ndk", "other-version", "keep"), "untouched");
       writeFileSync(join(bin, "sleep"), "#!/usr/bin/env bash\nexit 0\n", { mode: 0o755 });
-      writeFileSync(join(bin, "sdkmanager"), `#!/usr/bin/env bash
+      const toolsBin = scenario === "sdkpath" ? join(sdk, "cmdline-tools", "latest", "bin") : bin;
+      mkdirSync(toolsBin, { recursive: true });
+      writeFileSync(join(toolsBin, "sdkmanager"), `#!/usr/bin/env bash
 set -eu
 test "$1" = "--sdk_root=$ANDROID_HOME"
 test "$2" = "--install"
@@ -54,10 +56,10 @@ touch "$ANDROID_HOME/ndk/27.1.12297006/build/cmake/android.toolchain.cmake"
         env: { ...process.env, ANDROID_HOME: sdk, NDK_SCENARIO: scenario, PATH: `${bin}:${process.env.PATH}` },
         encoding: "utf8",
       });
-      assert.equal(result.status, ["retry", "installed"].includes(scenario) ? 0 : 1, result.stderr);
+      assert.equal(result.status, ["retry", "installed", "sdkpath"].includes(scenario) ? 0 : 1, result.stderr);
       const attempts = join(sdk, "attempts");
       if (scenario === "installed") assert.equal(existsSync(attempts), false);
-      else assert.equal(Number(readFileSync(attempts, "utf8")), scenario === "retry" ? 2 : 3);
+      else assert.equal(Number(readFileSync(attempts, "utf8")), ["retry", "sdkpath"].includes(scenario) ? 2 : 3);
       assert.equal(readFileSync(join(sdk, "ndk", "other-version", "keep"), "utf8"), "untouched");
     } finally { rmSync(root, { recursive: true, force: true }); }
   });

@@ -15,10 +15,19 @@ if valid_ndk; then
   exit 0
 fi
 
+sdkmanager_bin="$(command -v sdkmanager || true)"
+if test -z "$sdkmanager_bin"; then
+  sdkmanager_bin="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+fi
+if ! test -x "$sdkmanager_bin"; then
+  echo "Android sdkmanager is missing from PATH and the SDK command-line tools." >&2
+  exit 1
+fi
+
 for attempt in 1 2 3; do
   # Remove only this pinned version's incomplete installation before retrying.
   rm -rf -- "$ndk_dir"
-  if sdkmanager --sdk_root="$ANDROID_HOME" --install "ndk;$ndk_version" && valid_ndk; then
+  if "$sdkmanager_bin" --sdk_root="$ANDROID_HOME" --install "ndk;$ndk_version" && valid_ndk; then
     exit 0
   fi
   echo "NDK installation attempt $attempt failed validation." >&2
