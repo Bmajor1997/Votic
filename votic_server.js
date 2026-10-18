@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse_document_isolated } from "./app_parts/document_parser.js";
+import { convert_heif_isolated } from "./app_parts/heif_converter.js";
 import { local_help_answer, VOTIC_HELP_CONTEXT, VOTIC_MOBILE_HELP_CONTEXT } from "./app_parts/help_answers.js";
 import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
@@ -131,6 +132,12 @@ export function create_votic_handler(options = {}) {
   try {
    const path = safe_request_path(request), client = client_address(request, config.trust_proxy);
    rate_limit(`${client}:all`, config.general_rate_limit);
+   if (["/healthz","/readyz"].includes(path) && request.method === "GET") {
+    let ready = path === "/healthz";
+    try { ready ||= usage_store.ready(); } catch { /* No internal details in public readiness. */ }
+    send_json(response,ready ? 200 : 503,{status:ready ? "ok" : "unavailable"},{"Cache-Control":"no-store"});
+    return;
+   }
    if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
    const identity = await authorize(request, path);
    if (!identity) throw new HttpError(401, "Authentication is required.");
@@ -173,6 +180,15 @@ export function create_votic_handler(options = {}) {
     const id = usage_store.recordReport({ user_id: identity.uid, reason: report.reason, answer: report.answer.trim() });
     send_json(response, 201, { id });
     return;
+   }
+   if (request.method === "POST" && path === "/api/client-event") {
+    if(!identity?.uid)throw new HttpError(401,"Sign in to send diagnostics.");
+    if(env.NODE_ENV==="production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB===":memory:"))throw new HttpError(503,"Diagnostics are unavailable.");
+    rate_limit(`${ai_client}:diagnostics`,5);
+    const event=await read_json_body(request,1000,config.body_timeout_ms);
+    if(!event || event.code!=="screen-render" || event.consent!==true || !Number.isSafeInteger(event.count) || event.count<1 || event.count>50 || Object.keys(event).some(k=>!["code","count","consent"].includes(k)))throw new HttpError(400,"Invalid diagnostic event.");
+    usage_store.recordClientEvent(event.code,event.count);
+    send_json(response,200,{received:true});return;
    }
    if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) {
     if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
@@ -240,14 +256,29 @@ export function create_votic_handler(options = {}) {
     rate_limit(`${client}:scan`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
     if (!env.OPENAI_API_KEY) throw new HttpError(503, "Camera text recognition is not connected yet.");
-    const name = safe_scan_filename(request);
-    const body = await read_body(request, Math.min(config.max_document_bytes, 12_000_000), config.body_timeout_ms);
+    let name = safe_scan_filename(request);
+    if (active_extractions >= config.extract_concurrency) throw new HttpError(429,"Document processing is busy. Please try again shortly.",{"Retry-After":"2"});
+    active_extractions += 1;
+    const controller = new AbortController();
+    const remaining = () => Math.max(1,40_000-(Date.now()-request_started));
+    const deadline = setTimeout(()=>controller.abort(),remaining());
+    const disconnected=()=>{if(!response.writableEnded)controller.abort();};
+    response.once("close",disconnected);
+    try {
+    let body = await read_body(request, Math.min(config.max_document_bytes, 12_000_000), Math.min(config.body_timeout_ms,remaining()));
     if (!body.length) throw new HttpError(400, "The scanned page is empty.");
     scan_mime_type(name, body);
+    if (/\.hei[cf]$/i.test(name)) {
+      try { body = await (options.convertHeif || convert_heif_isolated)(body,{signal:controller.signal,timeoutMs:Math.min(10000,remaining())}); }
+      catch (error) {throw new HttpError(422,/single HEIC|megapixel|converted photo|too long|canceled/.test(error.message) ? error.message : "This HEIC/HEIF photo could not be read. Try exporting it as JPEG or PNG.");}
+      name="converted-photo.png";
+      if (body.length>12_000_000) throw new HttpError(413,"The converted photo exceeds 12 MB.");
+      scan_mime_type(name,body);
+    }
     const limit_message = take_ai_call(ai_client);
     if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, limit_message);
     try {
-      const text = await extract_scan_text(name, body, { env, fetch_impl: paid_fetch("scan-ocr"), timeout_ms: Math.max(config.ai_timeout_ms, 30_000) });
+      const text = await extract_scan_text(name, body, { env, fetch_impl: paid_fetch("scan-ocr"), timeout_ms: Math.min(30_000,remaining()),signal:controller.signal });
       if (!text) throw new HttpError(400, "Votic could not find readable text in this scanned page. Try again with better lighting and keep the page flat.");
       send_json(response, 200, { text });
     } catch (error) {
@@ -255,6 +286,7 @@ export function create_votic_handler(options = {}) {
       logger.warn?.("Votic scan OCR unavailable", ai_failure_reason(error));
       throw new HttpError(503, "Votic could not read this scanned page right now. Please try again.");
     }
+    } finally {clearTimeout(deadline);response.removeListener("close",disconnected);active_extractions-=1;}
     return;
    }
    if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
@@ -377,10 +409,11 @@ function safe_scan_filename(request) {
   let name;
   try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The scan filename is malformed."); }
   name = name.split(/[\\/]/).at(-1);
-  if (!name || !/\.(jpe?g|png|webp)$/i.test(name)) throw new HttpError(415, "Votic can scan JPEG, PNG, or WebP images.");
+  if (!name || !/\.(jpe?g|png|webp|heic|heif)$/i.test(name)) throw new HttpError(415, "Votic can scan JPEG, PNG, WebP, HEIC, or HEIF images.");
   return name;
 }
 function scan_mime_type(name, body) {
+  if (/\.hei[cf]$/i.test(name) && body.length>=16 && body.toString("ascii",4,8)==="ftyp" && ["heic","heix","hevc","hevx","mif1","msf1"].includes(body.toString("ascii",8,12))) return "image/heif";
   if (/\.png$/i.test(name) && body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a]))) return "image/png";
   if (/\.jpe?g$/i.test(name) && body.length >= 3 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff) return "image/jpeg";
   if (/\.webp$/i.test(name) && body.length >= 12 && body.toString("ascii",0,4) === "RIFF" && body.toString("ascii",8,12) === "WEBP") return "image/webp";

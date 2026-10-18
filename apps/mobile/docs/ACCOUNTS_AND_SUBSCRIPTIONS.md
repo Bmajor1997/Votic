@@ -123,9 +123,9 @@ made-up link.
 
 ## Account deletion
 
-Settings → Delete account, or Votic Premium → Manage account → Delete account, deletes the Firebase account and this device's setup, preferences, and walkthrough progress for it. Manage account is available to every signed-in account, including people without an active subscription or people still completing setup. Documents and notes stay
-on the device. It does not cancel a store subscription. If Firebase asks for a recent sign-in, the person is told
-to sign out and back in first.
+Settings → Delete account, or Votic Premium → Manage account → Delete account, coordinates local erasure, backend report removal, financial-record de-identification, RevenueCat customer deletion, and Firebase sign-in deletion. Documents, notes, activity, pronunciations and account preferences on this device are erased. Interrupted deletion remains blocked and can be retried. Other updated devices clear their local account data when they next connect and detect deletion; an offline device cannot be remotely wiped. Manage account remains available without Premium or completed setup. A recent sign-in is required before deletion starts.
+
+Account deletion does not cancel a store subscription or erase backup files previously saved outside Votic. See [Android rollout](../../../docs/ANDROID_V1_FIX_ROLLOUT.md) for backend deployment, external requests and retention. [Library backup and release safeguards](../../../docs/LIBRARY_IMPORT_RELEASE_SAFEGUARDS.md) documents portable backups, optional diagnostics and operational checks.
 
 Not yet done: revoking the Sign in with Apple token when an Apple account is deleted (Apple asks apps to do this).
 It needs a server endpoint with Apple's private key, so it belongs on the Votic server.

@@ -14,7 +14,7 @@ export function remove_import_temp(uri?: string) {
 export function clear_import_cache() {
   if (Platform.OS === "web") return;
   // Directories owned by Expo's picker/camera, not the persistent library or provider originals.
-  for (const name of ["DocumentPicker", "Camera"]) {
+  for (const name of ["DocumentPicker", "Camera", "LibraryBackups"]) {
     const directory = new Directory(Paths.cache, name);
     if (directory.exists) directory.delete();
   }

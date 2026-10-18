@@ -8,12 +8,14 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { clear_import_cache } from "../documents/importCache";
 import {
   account_deletion_pending,
+  account_writable,
   erase_local_account,
   finish_local_deletion,
   mark_account_deletion,
   on_remote_account_deletion,
 } from "./accountDeletion";
 import { check_account_status } from "../api/voticApi";
+import { library_restore_pending, resume_library_restores } from "./libraryBackup";
 import {
   createContext,
   PropsWithChildren,
@@ -39,6 +41,7 @@ type Value = {
   /** Reads this account's data again after older data is merged in, without reloading the app. */
   registerReload: (reload: () => Promise<void>) => () => void;
   deleteAccount: () => Promise<void>;
+  runLibraryTask: <T>(task: (account: string) => Promise<T>) => Promise<T>;
 };
 const Context = createContext<Value | null>(null);
 
@@ -67,6 +70,16 @@ function AccountDataSession({
   const [deleting, setDeleting] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const deletingRef = useRef(false);
+  const [maintenance, setMaintenance] = useState(false);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const maintenanceCommit = useRef<(() => void) | null>(null);
+  const maintenanceRunning = useRef(false);
+  useEffect(() => {
+    if (maintenance) {
+      maintenanceCommit.current?.();
+      maintenanceCommit.current = null;
+    }
+  }, [maintenance]);
   const [canRecover, setCanRecover] = useState(false);
   // The older shared library moves over before this account's data loads, so it never looks empty first.
   const [ready, setReady] = useState(!uid);
@@ -201,6 +214,35 @@ function AccountDataSession({
         registerFlush,
         registerReload,
         deleteAccount,
+        async runLibraryTask(task) {
+          if (!uid || maintenanceRunning.current || deletingRef.current || !account_writable(uid))
+            throw new Error("Your library is busy. Please try again.");
+          maintenanceRunning.current = true;
+          const flush = [...flushers];
+          try {
+            await Speech.stop();
+            await notification_player()?.stop();
+            // Unmount data consumers before snapshot/restore; their final writes finish before the task.
+            const committed = new Promise<void>((resolve) => {
+              maintenanceCommit.current = resolve;
+            });
+            setMaintenance(true);
+            await committed;
+            await Promise.all(flush.map((task) => task()));
+            if (!mounted.current || !account_writable(uid)) throw new Error("The account changed.");
+            const result = await task(uid);
+            if (!mounted.current || !account_writable(uid)) throw new Error("The account changed.");
+            return result;
+          } finally {
+            const interrupted = await library_restore_pending(uid).catch(() => true);
+            if (interrupted)
+              setMaintenanceError("Restore was interrupted. Retry to finish before opening your library.");
+            else {
+              setMaintenance(false);
+              maintenanceRunning.current = false;
+            }
+          }
+        },
         recover() {
           if (!uid) return Promise.reject(new Error("Sign in before recovering your older library."));
           if (pending.current) return pending.current;
@@ -216,7 +258,33 @@ function AccountDataSession({
         },
       }}
     >
-      {ready ? children : null}
+      {ready && !maintenance ? children : null}
+      {maintenance ? (
+        <SafeAreaView
+          style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: theme.background }}
+        >
+          <Text accessibilityRole={maintenanceError ? "alert" : "text"} style={{ color: theme.text }}>
+            {maintenanceError || "Saving your library. Please keep Votic open…"}
+          </Text>
+          {maintenanceError ? (
+            <Pressable
+              accessibilityRole="button"
+              style={{ minHeight: 48, justifyContent: "center" }}
+              onPress={() =>
+                void resume_library_restores()
+                  .then(() => {
+                    setMaintenanceError(null);
+                    setMaintenance(false);
+                    maintenanceRunning.current = false;
+                  })
+                  .catch(() => {})
+              }
+            >
+              <Text style={{ color: theme.accentText }}>Retry restore</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      ) : null}
       <Modal visible={deletionPending} onRequestClose={() => {}} animationType="none">
         <SafeAreaView
           style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: theme.background }}

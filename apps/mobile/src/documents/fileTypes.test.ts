@@ -99,7 +99,7 @@ describe("file identities", () => {
     expect(file_type_colors(type, true).foreground).not.toBe(FILE_TYPE_PALETTE[family].ink);
   });
   it("does not change upload support through display-only formats", () => {
-    expect(supported_document("photo.heic")).toBe(false);
+    expect(supported_document("photo.heic")).toBe(true);
     expect(supported_document("legacy.doc")).toBe(false);
   });
 });

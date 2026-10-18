@@ -1,0 +1,1 @@
+`scan-page.heic` is a synthetic 128 × 64 white image with the words VOTIC TEST, generated for this regression test with Pillow/pillow-heif. It contains no user document or photo. Tests decode the real HEIC bytes and exercise the server conversion-to-OCR path with a fake provider response. Pillow is not required to run the tests.

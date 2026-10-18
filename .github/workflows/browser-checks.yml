@@ -1,0 +1,26 @@
+name: Web Browser Smoke Tests
+on:
+  push:
+    paths: ["app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
+  pull_request:
+    paths: ["app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: test-results/

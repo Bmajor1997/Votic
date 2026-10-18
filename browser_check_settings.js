@@ -6,7 +6,7 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4174",
     browserName: "chromium",
-    channel: "msedge",
+    channel: process.env.VOTIC_BROWSER_CHANNEL || undefined,
     headless: true,
   },
   webServer: {

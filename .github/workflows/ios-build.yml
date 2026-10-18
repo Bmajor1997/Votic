@@ -1,0 +1,35 @@
+name: iOS App & Widgets Build
+on:
+  pull_request:
+    paths: ["apps/mobile/**", ".github/workflows/ios-build.yml"]
+  push:
+    paths: ["apps/mobile/**", ".github/workflows/ios-build.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ios-build-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  simulator:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts
+      - name: Generate app and widget targets
+        run: npx expo prebuild --platform ios --no-install
+        env:
+          EXPO_NO_TELEMETRY: "1"
+      - run: npx pod-install ios
+      - name: Compile full simulator app and widget extension
+        run: xcodebuild -workspace ios/Votic.xcworkspace -scheme Votic -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO
+        env:
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: "1"
