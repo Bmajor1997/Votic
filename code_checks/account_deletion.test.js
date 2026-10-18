@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 import { create_usage_store, model_prices } from "../app_parts/ai_usage.js";
 import { create_votic_server } from "../votic_server.js";
 
@@ -16,6 +17,24 @@ async function server(options, run) {
 const post = (base, phase, extra = {}) => fetch(base + "/api/delete-account", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phase, ...extra }) });
 const identity = () => ({ uid: "account-a", auth_time: Math.floor(Date.now() / 1000) });
 const env = { REVENUECAT_SECRET_API_KEY: "test-only" };
+
+test("the private external-request command erases the configured persistent database", () => {
+  const dir = mkdtempSync(join(tmpdir(), "votic-operator-delete-")), path = join(dir, "usage.sqlite");
+  let store = create_usage_store({}, { path });
+  try {
+    store.recordReport({ user_id: "account-a", reason: "other", answer: "private" });
+    store.recordReport({ user_id: "account-b", reason: "other", answer: "keep" });
+    store.close();
+    const output = execFileSync(process.execPath, ["--import", "data:text/javascript,globalThis.fetch=async()=>({ok:true,status:200})", "security/delete-account-data.js", "--uid=account-a", "--confirmed-owner"], {
+      cwd: new URL("..", import.meta.url), encoding: "utf8",
+      env: { ...process.env, NODE_ENV: "production", VOTIC_AI_USAGE_DB: path, REVENUECAT_SECRET_API_KEY: "test-only" },
+    });
+    assert.match(output, /Complete Firebase user deletion/);
+    store = create_usage_store({}, { path });
+    assert.deepEqual(store.reports().map(r => r.user_id), ["account-b"]);
+    assert.ok(store.accountDeletion("account-a").completed_at);
+  } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
+});
 
 test("external deletion instructions are public while the operator script stays private", async () => {
   await server({}, async base => {
