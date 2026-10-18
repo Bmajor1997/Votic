@@ -46,6 +46,8 @@ describe("Welcome", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
     expect(router.push).toHaveBeenCalledWith("/create-account");
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
+    // The V hops off the screen first, then Sign in opens.
+    await act(async () => jest.advanceTimersByTime(1000));
     expect(router.push).toHaveBeenCalledWith("/sign-in");
   });
 

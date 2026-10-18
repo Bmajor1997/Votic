@@ -7,14 +7,17 @@ export function VoticLogo({
   compact = false,
   markOnly = false,
   progress,
+  markSize,
 }: {
   compact?: boolean;
   markOnly?: boolean;
   progress?: number;
+  /** A larger V for Welcome and the account screens; the wings stay the logo's blue. */
+  markSize?: number;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
-  const size = compact ? 24 : 34;
+  const size = markSize ?? (compact ? 24 : 34);
   const wing1 = useState(() => new Animated.Value(1))[0];
   const wing2 = useState(() => new Animated.Value(1))[0];
   const wing3 = useState(() => new Animated.Value(1))[0];
