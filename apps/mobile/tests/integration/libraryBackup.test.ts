@@ -109,6 +109,30 @@ describe("portable library backup", () => {
     await mark_account_deletion("a");
     await expect(restore_library_backup("a", backup)).rejects.toThrow("not available");
   });
+  it("fails a storage-capacity preflight before committing restore intent", async () => {
+    await seed("a");
+    const backup = await create_library_backup("a");
+    await create_document_store("b").saveDocuments([{ ...document, plainText: "Existing work" }]);
+    const real = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
+    const spy = jest.spyOn(AsyncStorage, "setItem").mockImplementation(async (key, value) => {
+      if (key.includes(":reserve:")) throw new Error("Storage capacity reached");
+      return real(key, value);
+    });
+    try {
+      await expect(restore_library_backup("b", backup)).rejects.toThrow("capacity");
+    } finally {
+      spy.mockImplementation(real);
+    }
+    expect(await library_restore_pending("b")).toBe(false);
+    expect((await create_document_store("b").loadDocuments()).map((d) => d.plainText)).toEqual([
+      "Existing work",
+    ]);
+    expect(
+      (await AsyncStorage.getAllKeys()).some((k) =>
+        k.startsWith(account_storage_key("library-restore-stage.v1:", "b")),
+      ),
+    ).toBe(false);
+  });
   it("rejects unknown versions, invalid metadata, duplicate documents and unsafe keys", async () => {
     await seed("a");
     const backup = await create_library_backup("a");

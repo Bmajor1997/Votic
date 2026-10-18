@@ -127,7 +127,24 @@ export async function restore_library_backup(
   entries.push([scoped(LIBRARY_KEY), JSON.stringify(metadata)]);
   if (entries.length > 25_000 || entries.some(([, v]) => new TextEncoder().encode(v).byteLength > 1_500_000))
     throw new Error("This library is too large to restore safely on this device.");
+  // Do not stage unchanged document text. Reserve space for destination growth before committing intent,
+  // so a near-full AsyncStorage database fails while the original library is still untouched.
+  const changed: [string, string][] = [];
+  let growth = 0;
+  for (const [key, value] of entries) {
+    const previous = await AsyncStorage.getItem(key);
+    if (previous === value) continue;
+    changed.push([key, value]);
+    growth +=
+      Math.max(
+        0,
+        new TextEncoder().encode(value).byteLength - new TextEncoder().encode(previous || "").byteLength,
+      ) + 4096;
+  }
+  entries.splice(0, entries.length, ...changed);
+  if (!entries.length) return;
   const operation = Crypto.randomUUID();
+  const reserveKeys: string[] = [];
   const manifest: Manifest = {
     version: 1,
     uid,
@@ -139,13 +156,20 @@ export async function restore_library_backup(
         writable(uid);
         await AsyncStorage.setItem(manifest.entries[i].stage, value);
       }
+      for (let bytes = growth; bytes > 0; bytes -= 500_000) {
+        writable(uid);
+        const key = scoped(STAGE + operation + ":reserve:" + reserveKeys.length);
+        reserveKeys.push(key);
+        await AsyncStorage.setItem(key, " ".repeat(Math.min(bytes, 500_000)));
+      }
+      await AsyncStorage.multiRemove(reserveKeys);
       writable(uid);
       await AsyncStorage.setItem(scoped(MANIFEST), JSON.stringify(manifest));
       await finish_restore(uid);
     } catch (error) {
       // Before the journal exists, no original data has changed; clean up an abandoned staging attempt.
       if (!(await library_restore_pending(uid)))
-        await AsyncStorage.multiRemove(manifest.entries.map((e) => e.stage));
+        await AsyncStorage.multiRemove([...manifest.entries.map((e) => e.stage), ...reserveKeys]);
       throw error;
     }
     return true;
