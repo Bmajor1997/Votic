@@ -51,7 +51,7 @@ export function AccountScaffold({
       <KeyboardAvoidingView style={s.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           <View style={s.mark}>
-            <BrandMark size={60} />
+            <BrandMark size={64} />
           </View>
           <View style={s.heading}>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>

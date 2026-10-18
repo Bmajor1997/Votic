@@ -1,24 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
-import { BrandMark, useHopAway } from "../src/onboarding/WelcomeMotion";
+import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 /**
  * The first screen. Apple and Google create the account or sign in; "Continue with email" creates a new
  * account; "Sign in" (top right) is for existing email accounts. The screen stands still until someone
- * taps Sign in, when the V hops up and off the top of the screen on its way to Sign in.
+ * taps Sign in, when the V's wings fly off to the right one by one and its stroke flies up and away.
  */
 export default function Welcome() {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
-  const mark = useHopAway();
+  const mark = useMarkFlight();
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -29,7 +29,7 @@ export default function Welcome() {
             accessibilityLabel="Sign in"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => mark.hop(() => router.push("/sign-in"))}
+            onPress={() => mark.fly(() => router.push("/sign-in"))}
             style={({ pressed }) => [
               s.login,
               { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
@@ -38,11 +38,9 @@ export default function Welcome() {
             <Text style={[s.loginText, { color: theme.accentText }]}>Sign in</Text>
           </Pressable>
         </View>
-        {/* Drawn after the top bar so the V passes over it as it leaves. */}
+        {/* Drawn after the top bar so the V's pieces pass over it as they leave. */}
         <View style={s.art}>
-          <Animated.View style={mark.style}>
-            <BrandMark size={96} />
-          </Animated.View>
+          <BrandMark size={112} flight={mark.flight} />
         </View>
         <View style={s.bottom}>
           <View style={s.copy}>

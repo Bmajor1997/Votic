@@ -1,21 +1,55 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useRef, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { VoticLogo } from "../components/VoticLogo";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 const BRAND_BLUE = "#2563EB";
 /** Faint, shrinking circles stack into a soft glow, since React Native has no blur. */
-const GLOW_LAYERS = [1, 0.86, 0.72, 0.6];
+const GLOW_LAYERS = [1, 0.84, 0.68];
+
+/** The V in four pieces on one canvas, so each piece can move on its own and still line up exactly. */
+const STROKE = require("../../assets/votic-mark-stroke.png");
+const WINGS: ImageSourcePropType[] = [
+  require("../../assets/votic-wing-1.png"),
+  require("../../assets/votic-wing-2.png"),
+  require("../../assets/votic-wing-3.png"),
+];
+
+type Flight = {
+  wings: Animated.Value[];
+  stroke: Animated.Value;
+  glow: Animated.Value;
+};
 
 /**
- * The Votic V on a white tile with a soft blue glow, used on Welcome and the account screens. It is the
- * same mark as the logo, so its wings are the logo's blue. Decorative: the logo above already names Votic.
+ * The Votic V on its own, without an app-icon square, over a soft blue glow. Its wings are the logo's
+ * blue. Given a flight (see useMarkFlight), its pieces can fly away. Decorative: the logo already names
+ * Votic for screen readers.
  */
-export function BrandMark({ size = 88 }: { size?: number }) {
+export function BrandMark({ size = 88, flight }: { size?: number; flight?: Flight }) {
   const { theme } = useVoticTheme();
   const halo = size * 1.8;
+  const piece = (source: ImageSourcePropType, tint: string | undefined, motion?: object) => (
+    <Animated.View style={[StyleSheet.absoluteFill, motion]}>
+      <Image source={source} resizeMode="contain" tintColor={tint} style={{ width: size, height: size }} />
+    </Animated.View>
+  );
+  const wingMotion = (value: Animated.Value | undefined) =>
+    value && {
+      transform: [
+        { translateX: value.interpolate({ inputRange: [0, 1], outputRange: [0, 620] }) },
+        { translateY: value.interpolate({ inputRange: [0, 1], outputRange: [0, -36] }) },
+        { rotate: value.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-8deg"] }) },
+      ],
+    };
+  const strokeMotion = flight && {
+    transform: [
+      { translateX: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: [0, -280] }) },
+      { translateY: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: [0, -1100] }) },
+      { rotate: flight.stroke.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "-24deg"] }) },
+    ],
+  };
   return (
     <View
       accessible={false}
@@ -25,7 +59,7 @@ export function BrandMark({ size = 88 }: { size?: number }) {
       style={{ width: halo, height: halo, alignItems: "center", justifyContent: "center" }}
     >
       {GLOW_LAYERS.map((layer) => (
-        <View
+        <Animated.View
           key={layer}
           style={[
             s.glow,
@@ -34,93 +68,82 @@ export function BrandMark({ size = 88 }: { size?: number }) {
               height: halo * layer,
               borderRadius: halo,
               backgroundColor: BRAND_BLUE,
-              opacity: theme.isDark ? 0.12 : 0.07,
+              opacity: flight
+                ? flight.glow.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [theme.isDark ? 0.12 : 0.07, 0],
+                  })
+                : theme.isDark
+                  ? 0.12
+                  : 0.07,
             },
           ]}
         />
       ))}
-      <View
-        style={[
-          s.tile,
-          theme.elevation,
-          {
-            width: size,
-            height: size,
-            borderRadius: size * 0.3,
-            backgroundColor: theme.isDark ? theme.surfaceMuted : "#FFFFFF",
-          },
-        ]}
-      >
-        <VoticLogo markOnly markSize={Math.round(size * 0.6)} />
+      <View style={{ width: size, height: size }}>
+        {piece(STROKE, theme.isDark ? "#FFFFFF" : undefined, strokeMotion)}
+        {WINGS.map((wing, index) => (
+          <View key={index} style={StyleSheet.absoluteFill}>
+            {piece(wing, theme.logoWing, wingMotion(flight?.wings[index]))}
+          </View>
+        ))}
       </View>
     </View>
   );
 }
 
 /**
- * The V's one movement: when someone taps Sign in it crouches, hops, and flies up off the top of the
- * screen, then Sign in opens. With Less motion it doesn't move and Sign in opens straight away. Coming
- * back to the screen puts the V back in place.
+ * The V's one movement: when someone taps Sign in, the top wing flies off to the right, then the middle
+ * wing, then the bottom one, and the left stroke flies up and away. Then Sign in opens. With Less motion
+ * nothing moves and Sign in opens straight away. Coming back to the screen puts the V together again.
  */
-export function useHopAway() {
+export function useMarkFlight() {
   const { reduceMotion } = useAccessibilityPreferences();
-  const [progress] = useState(() => new Animated.Value(0));
-  const hopping = useRef(false);
+  const [flight] = useState<Flight>(() => ({
+    wings: [new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)],
+    stroke: new Animated.Value(0),
+    glow: new Animated.Value(0),
+  }));
+  const flying = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      hopping.current = false;
-      progress.setValue(0);
-    }, [progress]),
+      flying.current = false;
+      [...flight.wings, flight.stroke, flight.glow].forEach((value) => value.setValue(0));
+    }, [flight]),
   );
-  const hop = useCallback(
+  const fly = useCallback(
     (then: () => void) => {
-      if (hopping.current) return;
+      if (flying.current) return;
       if (reduceMotion) {
         then();
         return;
       }
-      hopping.current = true;
-      Animated.sequence([
-        // Crouch,
-        Animated.timing(progress, {
+      flying.current = true;
+      // Each piece pulls back a touch before it takes off (Easing.back), then speeds away.
+      const takeOff = (value: Animated.Value, duration: number) =>
+        Animated.timing(value, {
           toValue: 1,
-          duration: 110,
-          easing: Easing.out(Easing.quad),
+          duration,
+          easing: Easing.in(Easing.back(1.7)),
           useNativeDriver: true,
-        }),
-        // hop up a little,
-        Animated.timing(progress, {
-          toValue: 2,
-          duration: 200,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }),
-        // then take off and leave through the top of the screen.
-        Animated.timing(progress, {
-          toValue: 3,
-          duration: 380,
-          easing: Easing.in(Easing.cubic),
-          useNativeDriver: true,
-        }),
+        });
+      Animated.parallel([
+        Animated.stagger(
+          130,
+          flight.wings.map((wing) => takeOff(wing, 460)),
+        ),
+        Animated.sequence([Animated.delay(380), takeOff(flight.stroke, 520)]),
+        Animated.timing(flight.glow, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]).start(({ finished }) => {
         if (finished) then();
-        else hopping.current = false;
+        else flying.current = false;
       });
     },
-    [progress, reduceMotion],
+    [flight, reduceMotion],
   );
-  const style = {
-    transform: [
-      { translateY: progress.interpolate({ inputRange: [0, 1, 2, 3], outputRange: [0, 8, -46, -1100] }) },
-      { scaleX: progress.interpolate({ inputRange: [0, 1, 2, 3], outputRange: [1, 1.1, 0.96, 0.9] }) },
-      { scaleY: progress.interpolate({ inputRange: [0, 1, 2, 3], outputRange: [1, 0.86, 1.06, 1.12] }) },
-      { rotate: progress.interpolate({ inputRange: [0, 2, 3], outputRange: ["0deg", "-4deg", "-9deg"] }) },
-    ],
-  };
-  return { hop, style };
+  return { fly, flight };
 }
 
 const s = StyleSheet.create({
   glow: { position: "absolute" },
-  tile: { alignItems: "center", justifyContent: "center" },
 });

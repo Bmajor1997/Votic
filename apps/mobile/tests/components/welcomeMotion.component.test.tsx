@@ -17,14 +17,14 @@ describe("Welcome motion", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("lets the V hop off the top of the screen before Sign in opens", async () => {
+  it("lets the V's wings and stroke fly away before Sign in opens", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     expect(router.push).not.toHaveBeenCalled();
-    // A second tap during the hop doesn't open Sign in twice.
+    // A second tap while it flies doesn't open Sign in twice.
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
-    await act(async () => jest.advanceTimersByTime(1000));
+    await act(async () => jest.advanceTimersByTime(1500));
     expect(router.push).toHaveBeenCalledTimes(1);
     expect(router.push).toHaveBeenCalledWith("/sign-in");
   });
