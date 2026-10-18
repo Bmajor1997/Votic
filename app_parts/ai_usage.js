@@ -123,7 +123,9 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       if (!row) return;
       const usage = token_usage(result);
       const estimated_cost_usd = usage ? estimate_cost(usage, JSON.parse(row.pricing_json)) : rejected ? 0 : row.reserved_cost;
-      db.prepare(`UPDATE ai_usage SET completed_at=?,status=?,provider_request_id=?,response_id=?,input_tokens=?,output_tokens=?,cached_tokens=?,cache_write_tokens=?,total_tokens=?,allowance_tokens=?,estimated_cost_usd=?,usage_known=? WHERE request_id=? AND status IN ('pending','unknown') AND usage_known=0`)
+      // Check the current database row, not only the earlier snapshot: another process may
+      // anonymize the account between SELECT and UPDATE while a provider finishes.
+      db.prepare(`UPDATE ai_usage SET completed_at=?,status=?,provider_request_id=CASE WHEN substr(user_id,1,8)='deleted:' THEN NULL ELSE ? END,response_id=CASE WHEN substr(user_id,1,8)='deleted:' THEN NULL ELSE ? END,input_tokens=?,output_tokens=?,cached_tokens=?,cache_write_tokens=?,total_tokens=?,allowance_tokens=?,estimated_cost_usd=?,usage_known=? WHERE request_id=? AND status IN ('pending','unknown') AND usage_known=0`)
         .run(now().toISOString(), status, row.user_id.startsWith("deleted:") ? null : provider_request_id, !row.user_id.startsWith("deleted:") && typeof result?.id === "string" ? result.id : null,
           usage?.input_tokens ?? null, usage?.output_tokens ?? null, usage?.cached_tokens ?? null, usage?.cache_write_tokens ?? null, usage?.total_tokens ?? null,
           usage?.total_tokens ?? (rejected ? 0 : row.reserved_tokens), estimated_cost_usd, usage ? 1 : 0, request_id);
