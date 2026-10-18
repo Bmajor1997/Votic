@@ -21,6 +21,7 @@ import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { SecondaryButton } from "./components";
+import { DriftingShelf, GlowMark, RiseIn } from "./WelcomeMotion";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
@@ -49,13 +50,24 @@ export function AccountScaffold({
       </View>
       <KeyboardAvoidingView style={s.fill} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <View style={s.heading}>
-            <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              {title}
-            </Text>
-            {subtitle ? <Text style={[s.subtitle, { color: theme.mutedText }]}>{subtitle}</Text> : null}
+          {/* A slimmer version of Welcome's motion: one drifting row and the Votic mark. */}
+          <View style={s.band}>
+            <DriftingShelf height={128} rowCount={2} />
           </View>
-          {children}
+          <View style={s.bandMark}>
+            <GlowMark size={50} delay={60} />
+          </View>
+          <RiseIn delay={180}>
+            <View style={s.heading}>
+              <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+                {title}
+              </Text>
+              {subtitle ? <Text style={[s.subtitle, { color: theme.mutedText }]}>{subtitle}</Text> : null}
+            </View>
+          </RiseIn>
+          <RiseIn delay={320}>
+            <View style={s.body}>{children}</View>
+          </RiseIn>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -354,9 +366,13 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.xxl, gap: spacing.lg },
-  heading: { gap: spacing.sm, marginBottom: spacing.xs },
-  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34 },
-  subtitle: { fontSize: 16, lineHeight: 23 },
+  heading: { gap: spacing.sm, marginBottom: spacing.xs, alignItems: "center" },
+  body: { gap: spacing.lg },
+  band: { height: 128, marginHorizontal: -spacing.xl },
+  // The mark sits half over the drifting row and half below it, above the title.
+  bandMark: { alignItems: "center", marginTop: -48 - spacing.lg, marginBottom: -spacing.lg - 10 },
+  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34, textAlign: "center" },
+  subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center" },
   social: { gap: spacing.md },
   appleButton: { height: 54, width: "100%" },
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.md },
