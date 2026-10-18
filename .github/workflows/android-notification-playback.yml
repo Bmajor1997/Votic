@@ -7,12 +7,14 @@ on:
       - "apps/mobile/src/playback/**"
       - "apps/mobile/app/reader.tsx"
       - ".github/workflows/android-notification-playback.yml"
+      - "security/install-android-ndk.sh"
   pull_request:
     paths:
       - "apps/mobile/modules/votic-playback/**"
       - "apps/mobile/src/playback/**"
       - "apps/mobile/app/reader.tsx"
       - ".github/workflows/android-notification-playback.yml"
+      - "security/install-android-ndk.sh"
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,8 @@ jobs:
           java-version: "17"
       - name: Install app dependencies
         run: npm ci --ignore-scripts
+      - name: Install and validate Android NDK
+        run: bash ../../security/install-android-ndk.sh
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
         env:
