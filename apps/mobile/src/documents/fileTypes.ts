@@ -61,7 +61,10 @@ const known = (extension: string) => Object.hasOwn(FORMATS, extension);
 /** Explicit extension, then final filename suffix, then MIME. Never examines title words. */
 export function resolve_file_type({ filename, mimeType, extension }: FileTypeInput = {}): FileType {
   const explicit = extension?.trim().replace(/^\./, "").toLowerCase() || "";
-  const leaf = (filename || "").trim().split(/[?#]/, 1)[0].split(/[\\/]/).pop() || "";
+  const name = (filename || "").trim();
+  // Query/fragment delimiters belong to URLs; local filenames may contain them literally.
+  const path = /^[a-z][a-z\d+.-]*:\/\//i.test(name) ? name.split(/[?#]/, 1)[0] : name;
+  const leaf = path.split(/[\\/]/).pop() || "";
   const dot = leaf.lastIndexOf(".");
   const suffix = dot > 0 ? leaf.slice(dot + 1).toLowerCase() : "";
   const mime = mimeType?.split(";", 1)[0].trim().toLowerCase() || "";
@@ -76,7 +79,6 @@ export function file_type_colors(type: FileType, isDark: boolean) {
   return {
     accent: palette.accent,
     foreground: isDark ? lift_ink(palette.accent) : palette.ink,
-    background: `${palette.accent}1A`,
   };
 }
 

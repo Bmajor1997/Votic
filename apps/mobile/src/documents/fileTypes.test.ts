@@ -49,6 +49,18 @@ describe("file identities", () => {
     expect(resolve_file_type({ mimeType: "image/heic" }).monogram).toBe("HEIC");
   });
   it.each([
+    ["Budget#2026.pdf", "PDF"],
+    ["What?Now.docx", "DOCX"],
+    ["/documents/Budget#2026.pdf", "PDF"],
+    ["C:\\files\\Budget#2026.pdf", "PDF"],
+    ["report.pdf#draft.exe", "FILE"],
+    ["https://host/report.pdf?download=1#page=2", "PDF"],
+    ["file:///documents/report.docx#page=2", "DOCX"],
+    ["content://provider/report.pdf?download=1", "PDF"],
+  ])("distinguishes local filename characters from URL delimiters: %s", (filename, monogram) => {
+    expect(resolve_file_type({ filename }).monogram).toBe(monogram);
+  });
+  it.each([
     undefined,
     "",
     "README",
