@@ -113,7 +113,8 @@ test("incomplete, timeout, missing usage and provider rejection never fake zero 
     const run = (fetch_impl) => accounted_fetch({ fetch_impl, store, env, user_id: "user:a", feature: "ask-votic" })("https://api.openai.com/v1/responses", options);
     await assert.rejects(run(async () => { throw new Error("timeout secret"); }));
     await run(async () => provider(result("Answer", { usage: undefined })));
-    await assert.rejects(run(async () => provider(result("Partial", { status: "incomplete" }))));
+    await assert.rejects(run(async () => provider(result("Partial", { status: "incomplete" }))), { message: "AI response did not complete", incomplete: true });
+    await assert.rejects(run(async () => provider(result("", { status: "failed" }))), { message: "AI response did not complete", incomplete: false });
     await assert.rejects(run(async () => ({ ok: false, status: 401 })));
     const records = store.records();
     assert.ok(records.find((r) => r.status === "unknown").allowance_tokens > 0);

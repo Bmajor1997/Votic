@@ -70,7 +70,11 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
       store.finish(request_id, { status, result, provider_request_id });
       finished = true;
       // `incomplete` lets callers tell "the answer was cut off at its length limit" from a failure.
-      if (status !== "completed") throw Object.assign(new Error("AI response did not complete"), { incomplete: status === "incomplete" });
+      if (status !== "completed") {
+        const error = new Error("AI response did not complete");
+        error.incomplete = status === "incomplete";
+        throw error;
+      }
       return { ok: true, status: response.status, json: async () => ({ ...result, output_text: response_text(result) }) };
     } catch (error) {
       if (!finished) store.finish(request_id, { status: "unknown" });
