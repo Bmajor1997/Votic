@@ -34,11 +34,13 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
     let name: string | null = null;
     let temporaryUri: string | undefined;
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: Object.keys(IMPORT_TYPES),
-        copyToCacheDirectory: true,
-        multiple: false,
-      });
+      const result = await job.away(() =>
+        DocumentPicker.getDocumentAsync({
+          type: Object.keys(IMPORT_TYPES),
+          copyToCacheDirectory: true,
+          multiple: false,
+        }),
+      );
       if (result.canceled) return;
       const asset = result.assets[0];
       temporaryUri = asset.uri;
