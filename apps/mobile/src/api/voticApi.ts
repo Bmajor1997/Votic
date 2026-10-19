@@ -78,7 +78,12 @@ async function api_fetch(
     if (error instanceof Error && error.message === signInMessage) throw error;
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
-    throw new Error("Votic could not connect. Check your connection and try again.");
+    // Test builds say which address failed and why, so a setup problem takes one look to find.
+    const detail =
+      __DEV__ && process.env.NODE_ENV !== "test"
+        ? ` (${url}: ${error instanceof Error ? error.message : String(error)})`
+        : "";
+    throw new Error(`Votic could not connect. Check your connection and try again.${detail}`);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
