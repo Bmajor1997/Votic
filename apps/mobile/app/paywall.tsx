@@ -2,9 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-  AccessibilityInfo,
   ActivityIndicator,
-  findNodeHandle,
   Linking,
   Platform,
   Pressable,
@@ -15,8 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
-import { PaywallIntro, PaywallStart, StepLabel } from "../src/subscription/PaywallContent";
+import { PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
 import { PaywallPreview } from "../src/subscription/PaywallPreview";
+import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
 import { annual_value } from "../src/subscription/paywallPresentation";
 import { paywallStyles as p } from "../src/subscription/paywallStyles";
 import { controlSizes, radii, spacing } from "../src/design/tokens";
@@ -100,9 +99,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const { theme } = useVoticTheme();
   const auth = useAuth();
   const [expandedBenefits, setExpandedBenefits] = useState(false);
-  const scroll = useRef<ScrollView>(null);
-  const planPosition = useRef(0);
-  const plansHeading = useRef<Text>(null);
+  const celebration = usePurchaseCelebration();
   const subscription = useSubscription();
   const { service, entitlement, legal } = subscription;
   const unavailable = service.unavailableReason;
@@ -161,8 +158,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     try {
       const outcome = await service.purchase(selected.id);
       if (outcome.kind === "purchased") {
-        if (has_access(outcome.entitlement.status)) subscription.setEntitlement(outcome.entitlement);
-        else
+        if (has_access(outcome.entitlement.status)) {
+          await celebration.celebrate({
+            title: "You're in.",
+            detail: "Welcome to Votic Premium. Your library is ready.",
+          });
+          subscription.setEntitlement(outcome.entitlement);
+        } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
           });
@@ -189,8 +191,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     setMessage(null);
     try {
       const restored = await service.restore();
-      if (has_access(restored.status)) subscription.setEntitlement(restored);
-      else if (restored.status === "unknown")
+      if (has_access(restored.status)) {
+        await celebration.celebrate({
+          title: "Welcome back.",
+          detail: "Your Votic Premium subscription is restored.",
+        });
+        subscription.setEntitlement(restored);
+      } else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
       else
         setMessage({
@@ -214,29 +221,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
         : null;
 
-  // Scrolling alone leaves a screen reader where it was, so focus moves to the plans heading too.
-  function jump_to_plans() {
-    scroll.current?.scrollTo({ y: planPosition.current, animated: false });
-    // findNodeHandle isn't supported on web, where the browser keeps focus on its own.
-    const handle =
-      plansHeading.current && Platform.OS !== "web" ? findNodeHandle(plansHeading.current) : null;
-    if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
-  }
-
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
-      <ScrollView ref={scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <PaywallIntro />
         <PaywallPreview disabled={working} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Jump to subscription plans"
-          onPress={jump_to_plans}
-          style={s.jump}
-        >
-          <Text style={[p.benefitTitle, { color: theme.accentText }]}>Explore your membership</Text>
-          <Ionicons name="arrow-down" size={18} color={theme.accentText} />
-        </Pressable>
         <View
           accessibilityLabel="Included with Votic Premium"
           style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
@@ -292,20 +281,9 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           </Pressable>
         </View>
 
-        <View
-          onLayout={(event) => {
-            planPosition.current = event.nativeEvent.layout.y;
-          }}
-          style={p.sectionHeading}
-        >
-          <StepLabel color={theme.accentText}>03 / YOUR MEMBERSHIP</StepLabel>
-          <Text ref={plansHeading} accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
-            Choose how you make room.
-          </Text>
-          <Text style={[p.detail, { color: theme.mutedText }]}>
-            The same reading tools. A billing rhythm that fits you.
-          </Text>
-        </View>
+        <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
+          Choose your plan
+        </Text>
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
         ) : null}
@@ -378,13 +356,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             ))}
           </View>
         ) : null}
-        <PaywallStart store={STORE} />
 
         {selected ? (
           <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
             {billing_terms(selected, { now: now(), store: STORE, formatDate: format_long_date })}
           </Text>
         ) : null}
+        <PaywallQuestions store={STORE} />
 
         <Pressable
           accessibilityRole="button"
@@ -457,6 +435,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           ) : null}
         </View>
       </SafeAreaView>
+      {celebration.overlay}
     </SafeAreaView>
   );
 }
@@ -488,7 +467,7 @@ function FooterLink({
 
 const s = StyleSheet.create({
   featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
-  jump: { minHeight: 48, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
+  plansTitle: { marginTop: spacing.sm },
   valueBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   valueText: { fontSize: 12, lineHeight: 18, fontWeight: "800" },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },

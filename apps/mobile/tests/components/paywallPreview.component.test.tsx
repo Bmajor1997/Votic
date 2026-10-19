@@ -3,7 +3,8 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { AppState, StyleSheet } from "react-native";
 import { PaywallPreview } from "../../src/subscription/PaywallPreview";
-import { PREVIEW_ANSWER, PREVIEW_TEXT } from "../../src/subscription/paywallPresentation";
+import { MAX_TRY_TEXT, PREVIEW_SAMPLES } from "../../src/subscription/paywallPresentation";
+import { useVoticPurpose } from "../../src/personalization/PurposeProvider";
 import { AppProviders, render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-speech", () => ({
@@ -36,11 +37,13 @@ async function play_and_get_options() {
   await fireEvent.press(screen.getByRole("button", { name: "Play voice preview" }));
   return jest.mocked(Speech.speak).mock.calls.at(-1)![1]!;
 }
-/** The speech engine reports reaching "ideas" ("Big ideas start…": it begins at character 4). */
-function word_boundary(options: Speech.SpeechOptions) {
+const PREVIEW_TEXT = PREVIEW_SAMPLES.default.text;
+const PREVIEW_ANSWER = PREVIEW_SAMPLES.default.answer;
+/** The speech engine reports reaching a character; by default "ideas" ("Big ideas start…" starts at 4). */
+function word_boundary(options: Speech.SpeechOptions, charIndex = 4) {
   (options.onBoundary as ((event: { charIndex: number; charLength: number }) => void) | undefined)?.({
-    charIndex: 4,
-    charLength: 5,
+    charIndex,
+    charLength: 1,
   });
 }
 
@@ -154,4 +157,62 @@ it("stops a document reading in the background through its own player before spe
   } finally {
     spy.mockRestore();
   }
+});
+
+it("reads the visitor's own pasted text, with the highlight following it, and never sends it anywhere", async () => {
+  jest.mocked(Speech.speak).mockClear();
+  const fetchSpy = jest.spyOn(globalThis, "fetch");
+  await render_with_providers(<PaywallPreview />);
+  await fireEvent.press(screen.getByRole("radio", { name: "Your text" }));
+  // Nothing to read yet, so Play waits.
+  expect(screen.getByRole("button", { name: "Play voice preview" }).props.accessibilityState.disabled).toBe(
+    true,
+  );
+  await fireEvent.press(screen.getByRole("button", { name: "Play voice preview" }));
+  expect(Speech.speak).not.toHaveBeenCalled();
+  const box = screen.getByLabelText("Paste or type a paragraph to hear it read aloud");
+  await fireEvent.changeText(box, "My chapter notes are finally done.");
+  expect(screen.getByText("Stays on this phone")).toBeTruthy();
+  const options = await play_and_get_options();
+  expect(jest.mocked(Speech.speak).mock.calls.at(-1)![0]).toBe("My chapter notes are finally done.");
+  await act(async () => word_boundary(options, 3)); // "chapter" starts at character 3
+  expect(highlighted_words()).toEqual(["chapter"]);
+  // Editing the text ends the old reading, whose word positions no longer match.
+  const stops = jest.mocked(Speech.stop).mock.calls.length;
+  await fireEvent.changeText(box, "Something else.");
+  expect(jest.mocked(Speech.stop).mock.calls.length).toBeGreaterThan(stops);
+  expect(highlighted_words()).toEqual([]);
+  // Long pastes are cut to a paragraph.
+  await fireEvent.changeText(box, "word ".repeat(400));
+  expect(box.props.value).toHaveLength(MAX_TRY_TEXT);
+  // Back to the sample page.
+  await fireEvent.press(screen.getByRole("radio", { name: "Sample page" }));
+  await play_and_get_options();
+  expect(jest.mocked(Speech.speak).mock.calls.at(-1)![0]).toBe(PREVIEW_TEXT);
+  expect(fetchSpy).not.toHaveBeenCalled();
+  fetchSpy.mockRestore();
+});
+
+it("shows the sample page that matches what the visitor said Votic should help with", async () => {
+  let purpose!: ReturnType<typeof useVoticPurpose>;
+  function Purpose() {
+    purpose = useVoticPurpose();
+    return null;
+  }
+  jest.mocked(Speech.speak).mockClear();
+  await render_with_providers(
+    <>
+      <Purpose />
+      <PaywallPreview />
+    </>,
+  );
+  expect(screen.getByText(PREVIEW_SAMPLES.default.title)).toBeTruthy();
+  await act(async () => purpose.setPurpose("work"));
+  expect(screen.getByText(PREVIEW_SAMPLES.work.title)).toBeTruthy();
+  await play_and_get_options();
+  expect(jest.mocked(Speech.speak).mock.calls.at(-1)![0]).toBe(PREVIEW_SAMPLES.work.text);
+  await fireEvent.press(screen.getByRole("tab", { name: "Understand" }));
+  expect(screen.getByText(PREVIEW_SAMPLES.work.question)).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Show example answer" }));
+  expect(screen.getByText(PREVIEW_SAMPLES.work.answer)).toBeTruthy();
 });

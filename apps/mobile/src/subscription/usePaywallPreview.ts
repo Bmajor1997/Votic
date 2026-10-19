@@ -1,14 +1,17 @@
 import { useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { notification_player } from "../playback/notificationPlayback";
 import { unique_english_voices, votic_voice_names, type DeviceVoice } from "../reader/voices";
-import { PREVIEW_TEXT, preview_word_at } from "./paywallPresentation";
+import { preview_word_at, preview_words } from "./paywallPresentation";
 
-/** Owns only this preview's audio. Late callbacks cannot restart it after blur, checkout or unmount. */
-export function usePaywallPreview(disabled: boolean) {
+/**
+ * Owns only this preview's audio. Late callbacks cannot restart it after blur, checkout or unmount.
+ * `text` is what gets read: the sample page, or words the visitor typed, which never leave the device.
+ */
+export function usePaywallPreview(disabled: boolean, text: string) {
   const { voiceIdentifier } = useAccessibilityPreferences();
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
   const [voice, setVoice] = useState<string | null>(voiceIdentifier);
@@ -20,6 +23,7 @@ export function usePaywallPreview(disabled: boolean) {
   const ownsAudio = useRef(false);
   const focused = useRef(false);
   const blocked = useRef(disabled);
+  const words = useMemo(() => preview_words(text), [text]);
 
   const cancel = useCallback(() => {
     session.current += 1;
@@ -75,7 +79,8 @@ export function usePaywallPreview(disabled: boolean) {
   }, [stop]);
 
   async function play() {
-    if (blocked.current || !focused.current) return;
+    if (blocked.current || !focused.current || !text.trim()) return;
+    const spoken = { text, words };
     const token = ++session.current;
     ownsAudio.current = true;
     setError(null);
@@ -101,12 +106,12 @@ export function usePaywallPreview(disabled: boolean) {
         .catch(() => {});
       await Speech.stop();
       if (!current()) return;
-      Speech.speak(PREVIEW_TEXT, {
+      Speech.speak(spoken.text, {
         language: "en-US",
         voice: voice ?? undefined,
         rate,
         onBoundary: (event: { charIndex: number }) => {
-          if (current()) setWord(preview_word_at(event.charIndex));
+          if (current()) setWord(preview_word_at(spoken.words, event.charIndex));
         },
         onDone: done,
         onStopped: done,
@@ -125,7 +130,11 @@ export function usePaywallPreview(disabled: boolean) {
     stop();
     setRate(value);
   }
+  // Editing or switching the text ends the old reading; its word positions no longer match.
+  useEffect(() => stop, [text, stop]);
+
   return {
+    words,
     voices,
     names: votic_voice_names(voices),
     voice,

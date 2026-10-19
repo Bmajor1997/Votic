@@ -1,11 +1,13 @@
-# Votic's four-part subscription experience
+# Votic's subscription screen
 
-The paywall branches from `fix/library-import-release-safeguards` at `b5b282c`.
+The paywall branches from `fix/library-import-release-safeguards` at `b5b282c`. It is kept short, in this order:
 
-1. **What Votic helps me do:** the headline follows the account's saved purpose, with a general reading outcome when no purpose is selected.
-2. **What it sounds and feels like:** Read / Listen / Understand tabs show one clearly labelled sample document. Read shows the existing word-emphasis preference; Listen plays actual device speech with available English voices and local speed controls; Understand reveals an explicitly labelled example answer. It does not send a model request or upload a visitor's document.
-3. **What I receive and pay:** three initial benefits, an expandable complete list, store-backed billing cards, a selected-offer trial timeline, full billing terms, and a persistent purchase action. Weekly, monthly, annual and other periods appear only when returned by the current RevenueCat offering. Annual savings compare a numeric annual price with 12 monthly payments in the same currency. Missing or ambiguous comparisons have no badge.
-4. **How I start:** a short explanation of the confirmed-purchase-to-library handoff, cancellation and restore help, and the existing account/restore/legal actions.
+1. **Headline:** follows the account's saved purpose, with a general reading outcome when no purpose is selected.
+2. **Preview:** Read / Listen / Understand tabs on one clearly labelled sample page. The sample page, its question and its example answer also follow the saved purpose (study notes, a team update, a study summary, a short story, or an accessibility example). Listen plays actual device speech with available English voices and local speed controls, and offers **Your text**: the visitor pastes or types up to 500 characters and hears it read with word highlighting. That text stays in the screen's memory only; it is never saved, uploaded or sent to a model. Understand reveals an explicitly labelled example answer and makes no model request.
+3. **Benefits:** three, with the complete list behind "See everything included".
+4. **Plans:** store-backed billing cards (trial noted as "Includes a 2-week free trial"; the full "then $x" sentence appears once, above the button), a selected-offer trial timeline, full billing terms, closed subscription questions, and the persistent purchase action. Weekly, monthly, annual and other periods appear only when returned by the current RevenueCat offering. Annual savings compare a numeric annual price with 12 monthly payments in the same currency. Missing or ambiguous comparisons have no badge.
+
+After the store confirms a purchase or a restore, a short welcome plays ("You're in." / "Welcome back."), announced to screen readers: the V from the welcome screen appears and its pieces fly off, then Votic opens. With Less motion the V stays still for a moment instead. Votic always opens within about 2.6 seconds, even if the animation is interrupted.
 
 ## Motion and audio
 
@@ -27,6 +29,6 @@ The implementation retains the current verified Premium entitlement and the exis
 
 Run mobile typecheck/lint, Vitest and Jest. Native store testing still needs a signed build with real configured products; web/Expo Go cannot validate billing or native device voice quality. The browser preview exercises the real React Native Web layout with development access, never a production purchase bypass.
 
-Verified locally: TypeScript and ESLint passed; 362 Vitest tests and 425 Jest component/integration tests passed. React Native Web was inspected at 320, 390 and 768 pixels wide with no horizontal page overflow, including tab switching, the example answer, disclosure controls, the jump to plans and dark appearance. The voice sample play control is visible without scrolling at 390 × 844. Real native speech and store purchases still require device verification.
+Verified locally: TypeScript and ESLint passed; 363 Vitest tests and 428 Jest component/integration tests passed. React Native Web was inspected at 320, 390 and 768 pixels wide with no horizontal page overflow, including tab switching, the example answer, disclosure controls, the jump to plans and dark appearance. The voice sample play control is visible without scrolling at 390 × 844. Real native speech and store purchases still require device verification.
 
 ![Listening preview rendered from the application on React Native Web](paywall-preview.png)

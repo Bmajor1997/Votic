@@ -309,7 +309,12 @@ describe("Votic Premium", () => {
     await render_paywall();
     await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
     expect(fakeSubscriptions.calls).toContain("purchase:$rc_monthly");
-    expect(screen.getByTestId("access").props.children).toBe("true:trial");
+    // A short welcome plays first; Votic opens when it ends.
+    expect(screen.getByRole("header", { name: "You're in." })).toBeTruthy();
+    expect(screen.getByTestId("access").props.children).toBe("false:none");
+    await waitFor(() => expect(screen.getByTestId("access").props.children).toBe("true:trial"), {
+      timeout: 4000,
+    });
   });
 
   it("stays quiet when the purchase sheet is closed, and explains pending and failed purchases", async () => {
@@ -356,7 +361,10 @@ describe("Votic Premium", () => {
     expect(screen.getByText(/No active Votic Premium subscription was found/)).toBeTruthy();
     fakeSubscriptions.restoreResult = entitlement_of("active");
     await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
-    expect(screen.getByTestId("access").props.children).toBe("true:active");
+    expect(screen.getByRole("header", { name: "Welcome back." })).toBeTruthy();
+    await waitFor(() => expect(screen.getByTestId("access").props.children).toBe("true:active"), {
+      timeout: 4000,
+    });
   });
 
   it("offers Try again when the offer can't load", async () => {

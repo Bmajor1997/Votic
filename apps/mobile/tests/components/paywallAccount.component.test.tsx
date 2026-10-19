@@ -85,40 +85,49 @@ it("says plainly when the store fails unexpectedly, without showing the technica
   expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
 });
 
-it("moves screen-reader focus to the plans when jumping to them", async () => {
-  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
-  const focus = jest.spyOn(AccessibilityInfo, "setAccessibilityFocus").mockImplementation(() => {});
-  // The test renderer has no native views, so stand in for the heading's native handle.
-  const find = jest.fn((_target: unknown) => 42);
-  // react-native exposes its exports as getters on the real module object, so that getter is replaced.
-  const reactNative = jest.requireActual<object>("react-native");
-  const original = Object.getOwnPropertyDescriptor(reactNative, "findNodeHandle")!;
-  Object.defineProperty(reactNative, "findNodeHandle", { configurable: true, get: () => find });
-  try {
-    await render_with_providers(<Paywall />);
-    await fireEvent.press(screen.getByRole("button", { name: "Jump to subscription plans" }));
-    expect(focus).toHaveBeenCalledWith(42);
-    expect(find).toHaveBeenCalledTimes(1);
-  } finally {
-    focus.mockRestore();
-    Object.defineProperty(reactNative, "findNodeHandle", original);
-  }
-});
-
-it("hides the numbered step markers from screen readers and doesn't repeat the price on plan cards", async () => {
+it("keeps the offer short: headline, preview, three benefits, plans, then the fine print", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  for (const marker of [
-    "01 / WHAT OPENS UP",
-    "02 / FEEL THE DIFFERENCE",
-    "03 / YOUR MEMBERSHIP",
-    "04 / MAKE IT YOURS",
-  ]) {
-    expect(screen.queryByText(marker)).toBeNull();
-    expect(screen.getByText(marker, { includeHiddenElements: true })).toBeTruthy();
-  }
-  expect(screen.getByRole("header", { name: "Choose how you make room." })).toBeTruthy();
+  // No numbered sections, no jump button and no extra "make it yours" block.
+  expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
+  expect(screen.queryByText("Start with one document.")).toBeNull();
+  expect(screen.getByRole("header", { name: "Choose your plan" })).toBeTruthy();
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
   // The full "then $9.99/month" sentence appears once, above the button.
   expect(screen.getAllByText(/2 weeks free, then \$9\.99\/month/)).toHaveLength(1);
+  // Questions stay closed until asked for, and still explain cancelling.
+  expect(screen.queryByText("How do I cancel?")).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscription questions" }));
+  expect(screen.getByText("How do I cancel?")).toBeTruthy();
+});
+
+it("welcomes a new subscriber with a short, announced celebration that also works with Less motion", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
+  try {
+    await render_with_providers(<Paywall />, { reduceMotion: true });
+    expect(screen.queryByRole("header", { name: "You're in." })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
+    expect(screen.getByRole("header", { name: "You're in." })).toBeTruthy();
+    expect(screen.getByText("Welcome to Votic Premium. Your library is ready.")).toBeTruthy();
+    expect(announce).toHaveBeenCalledWith("You're in. Welcome to Votic Premium. Your library is ready.");
+  } finally {
+    announce.mockRestore();
+  }
+});
+
+it("never celebrates a purchase the store didn't confirm", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  for (const outcome of [
+    { kind: "cancelled" as const },
+    { kind: "pending" as const },
+    { kind: "failed" as const, message: "Your purchase couldn't be completed." },
+    { kind: "purchased" as const, entitlement: entitlement_of("expired") },
+  ]) {
+    fakeSubscriptions.nextPurchase = outcome;
+    await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
+    expect(screen.queryByRole("header", { name: "You're in." })).toBeNull();
+  }
 });

@@ -1,9 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { PREVIEW_ANSWER, PREVIEW_TEXT, PREVIEW_WORDS } from "./paywallPresentation";
+import { useVoticPurpose } from "../personalization/PurposeProvider";
+import { MAX_TRY_TEXT, PREVIEW_SAMPLES } from "./paywallPresentation";
 import { usePaywallPreview } from "./usePaywallPreview";
 
 const MODES = [
@@ -22,7 +23,14 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
   const { reduceMotion, wordEmphasis } = useAccessibilityPreferences();
   const [mode, setMode] = useState<Mode>("listen");
   const [answer, setAnswer] = useState(false);
-  const preview = usePaywallPreview(disabled);
+  const { purpose } = useVoticPurpose();
+  const sample = PREVIEW_SAMPLES[purpose ?? "default"];
+  // "Your text" lets visitors hear their own words; it stays in this screen's memory and is never sent anywhere.
+  const [source, setSource] = useState<"sample" | "own">("sample");
+  const [ownText, setOwnText] = useState("");
+  const showingOwn = mode === "listen" && source === "own";
+  const reading = showingOwn ? ownText : sample.text;
+  const preview = usePaywallPreview(disabled, reading);
   const [entrance] = useState(() => new Animated.Value(1));
   const [activity] = useState(() => new Animated.Value(0));
 
@@ -101,10 +109,10 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={preview.playing ? "Stop voice preview" : "Play voice preview"}
-            accessibilityState={{ disabled }}
-            disabled={disabled}
+            accessibilityState={{ disabled: disabled || !reading.trim() }}
+            disabled={disabled || !reading.trim()}
             onPress={() => (preview.playing ? preview.stop() : void preview.play())}
-            style={({ pressed }) => [s.play, { opacity: pressed || disabled ? 0.7 : 1 }]}
+            style={({ pressed }) => [s.play, { opacity: pressed || disabled || !reading.trim() ? 0.5 : 1 }]}
           >
             <Ionicons name={preview.playing ? "stop" : "play"} size={23} color={INK} />
           </Pressable>
@@ -162,18 +170,20 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
               <Ionicons name="document-text" size={19} color="#315DCF" />
             </View>
             <View style={s.fileTitle}>
-              <Text style={s.fileName}>Room for new ideas</Text>
-              <Text style={s.fileDetail}>Sample document · 1 page</Text>
+              <Text style={s.fileName}>{showingOwn ? "Your text" : sample.title}</Text>
+              <Text style={s.fileDetail}>
+                {showingOwn ? "Stays on this phone" : "Sample document · 1 page"}
+              </Text>
             </View>
             <Ionicons name="sparkles" size={19} color="#526AD0" />
           </View>
           {mode === "understand" ? (
             <View style={s.understand}>
-              <Text style={s.question}>What’s the key idea?</Text>
+              <Text style={s.question}>{sample.question}</Text>
               {answer ? (
                 <View style={s.answer}>
                   <Text style={s.answerLabel}>EXAMPLE ANSWER</Text>
-                  <Text style={s.answerText}>{PREVIEW_ANSWER}</Text>
+                  <Text style={s.answerText}>{sample.answer}</Text>
                   <Text style={s.source}>From the sample document above</Text>
                 </View>
               ) : (
@@ -198,8 +208,11 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
               <Text style={s.paperEyebrow}>
                 {mode === "read" ? "A PAGE THAT FITS YOU" : "FOLLOW THE WORDS. FIND YOUR FLOW."}
               </Text>
-              <Text accessible accessibilityLabel={PREVIEW_TEXT} style={s.passage}>
-                {PREVIEW_WORDS.map((word, index) => {
+              {reading.trim() ? null : (
+                <Text style={s.paperHint}>Type or paste a paragraph below, then tap play.</Text>
+              )}
+              <Text accessible={Boolean(reading.trim())} accessibilityLabel={reading} style={s.passage}>
+                {preview.words.map((word, index) => {
                   // Fixed font weight prevents the line layout jumping as highlighting advances.
                   const active = !reduceMotion && preview.word === index;
                   const split = mode === "read" && wordEmphasis ? Math.ceil(word.text.length / 2) : 0;
@@ -245,6 +258,48 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
 
       {mode === "listen" ? (
         <>
+          <View accessibilityRole="radiogroup" accessibilityLabel="What to read" style={s.options}>
+            <Text style={s.caption}>READ</Text>
+            {(
+              [
+                { id: "sample", label: "Sample page" },
+                { id: "own", label: "Your text" },
+              ] as const
+            ).map((item) => (
+              <Pressable
+                key={item.id}
+                accessibilityRole="radio"
+                accessibilityLabel={item.label}
+                accessibilityState={{ checked: source === item.id, disabled }}
+                disabled={disabled}
+                onPress={() => setSource(item.id)}
+                style={[s.option, source === item.id && s.optionSelected]}
+              >
+                <Text style={s.optionText}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          {source === "own" ? (
+            <View style={s.tryBox}>
+              <Text importantForAccessibility="no" accessibilityElementsHidden style={s.tryLabel}>
+                Paste or type a paragraph to hear it read aloud
+              </Text>
+              <TextInput
+                accessibilityLabel="Paste or type a paragraph to hear it read aloud"
+                value={ownText}
+                onChangeText={(value) => setOwnText(value.slice(0, MAX_TRY_TEXT))}
+                maxLength={MAX_TRY_TEXT}
+                multiline
+                editable={!disabled}
+                placeholder="For example, a paragraph from your notes or an article"
+                placeholderTextColor="#8FA3C4"
+                style={s.tryInput}
+              />
+              <Text style={s.caption}>
+                {`${ownText.length} of ${MAX_TRY_TEXT} characters. Stays on this phone; nothing is uploaded.`}
+              </Text>
+            </View>
+          ) : null}
           <View accessibilityRole="radiogroup" accessibilityLabel="Preview speed" style={s.options}>
             <Text style={s.caption}>YOUR PACE</Text>
             {[1, 1.25, 1.5].map((rate) => (
@@ -425,4 +480,19 @@ const s = StyleSheet.create({
   answerButtonText: { fontSize: 15, fontWeight: "700", color: "#315DCF" },
   modeCaption: { color: MUTED, fontSize: 14, lineHeight: 21 },
   error: { color: "#FFE6B8", fontSize: 13, lineHeight: 20 },
+  tryBox: { gap: 8 },
+  tryLabel: { color: "#FFFFFF", fontSize: 14, fontWeight: "700", lineHeight: 20 },
+  tryInput: {
+    minHeight: 96,
+    maxHeight: 180,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#496184",
+    backgroundColor: "#1E3254",
+    color: "#FFFFFF",
+    fontSize: 16,
+    lineHeight: 23,
+    padding: 12,
+    textAlignVertical: "top",
+  },
 });
