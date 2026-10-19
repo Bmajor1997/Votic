@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
+import { MotionShowcase } from "../src/components/animations/MotionShowcase";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
 import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
@@ -18,6 +19,7 @@ export default function Welcome() {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showMotion, setShowMotion] = useState(false);
   const mark = useMarkFlight();
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
@@ -78,16 +80,22 @@ export default function Welcome() {
               {error}
             </Text>
           ) : null}
+          <Pressable accessibilityRole="button" accessibilityLabel="Preview Vatic animations" onPress={() => setShowMotion(true)} style={s.previewButton}>
+            <Ionicons name="sparkles-outline" size={18} color={theme.accentText} />
+            <Text style={{ color: theme.accentText, fontWeight: "700" }}>Preview animations</Text>
+          </Pressable>
           <NotConfiguredNotice />
           <LegalLine />
         </View>
       </ScrollView>
+      <MotionShowcase visible={showMotion} onClose={() => setShowMotion(false)} />
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  previewButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
