@@ -1,7 +1,10 @@
-# Vatic cinematic animation source
+# Votic animation videos (Remotion)
 
-These Remotion compositions are offline render sources, **not** Expo runtime dependencies.
+These compositions are offline video sources, **not** part of the Expo app.
 
-From `remotion/`, run `npm install`, then `npm run studio` to preview, or `npm run render:intro` / `npm run render:paywall` to render MP4s.
+From `remotion/`: `npm install`, then `npm run studio` to preview, or `npm run render:intro` / `npm run render:paywall` to render MP4s into `out/` (ignored by git).
 
-These are first-pass motion concepts. The intro uses a typographic V placeholder until the actual Vatic mark artwork is incorporated. Rendered videos have not yet been bundled into the Expo app. Native purchase buttons and price disclosures must never be part of a noninteractive video.
+- **VoticIntro** (4 s): the real Votic V assembles from the app's own artwork in `public/` (stroke rises, then each wing flies in from the right, the reverse of the sign-in animation), followed by the wordmark.
+- **VoticPremium** (7 s, silent): Your documents, Listen naturally, Ask Votic.
+
+Neither video has been added to the app yet. Prices, plans and purchase buttons must never appear in a video; they stay native and are worded from the store.

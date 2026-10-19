@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -15,7 +16,10 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
  * account; "Sign in" (top right) is for existing email accounts. The screen stands still until someone
  * taps Sign in, when the V's wings fly off to the right one by one and its stroke flies up and away.
  */
-export default function Welcome() {
+/** The motion lab is for checking animations on test devices; store builds never show it. */
+const TEST_BUILD = __DEV__ || Constants.expoConfig?.extra?.previewTesting === true;
+
+export default function Welcome({ motionLab = TEST_BUILD }: { motionLab?: boolean }) {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
@@ -80,22 +84,35 @@ export default function Welcome() {
               {error}
             </Text>
           ) : null}
-          <Pressable accessibilityRole="button" accessibilityLabel="Preview Vatic animations" onPress={() => setShowMotion(true)} style={s.previewButton}>
-            <Ionicons name="sparkles-outline" size={18} color={theme.accentText} />
-            <Text style={{ color: theme.accentText, fontWeight: "700" }}>Preview animations</Text>
-          </Pressable>
+          {motionLab ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Preview Votic animations (test builds only)"
+              onPress={() => setShowMotion(true)}
+              style={s.previewButton}
+            >
+              <Ionicons name="sparkles-outline" size={18} color={theme.accentText} />
+              <Text style={{ color: theme.accentText, fontWeight: "700" }}>Preview animations</Text>
+            </Pressable>
+          ) : null}
           <NotConfiguredNotice />
           <LegalLine />
         </View>
       </ScrollView>
-      <MotionShowcase visible={showMotion} onClose={() => setShowMotion(false)} />
+      {motionLab ? <MotionShowcase visible={showMotion} onClose={() => setShowMotion(false)} /> : null}
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  previewButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  previewButton: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,
