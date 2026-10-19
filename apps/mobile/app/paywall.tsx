@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  AccessibilityInfo,
   ActivityIndicator,
+  findNodeHandle,
   Linking,
   Platform,
   Pressable,
@@ -13,10 +15,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
-import { PaywallIntro, PaywallStart } from "../src/subscription/PaywallContent";
+import { PaywallIntro, PaywallStart, StepLabel } from "../src/subscription/PaywallContent";
 import { PaywallPreview } from "../src/subscription/PaywallPreview";
 import { annual_value } from "../src/subscription/paywallPresentation";
-import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
+import { paywallStyles as p } from "../src/subscription/paywallStyles";
+import { controlSizes, radii, spacing } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
 import { has_access } from "../src/subscription/entitlement";
@@ -24,8 +27,8 @@ import {
   billing_summary,
   billing_terms,
   offer_title,
-  period_length,
   trial_timeline,
+  plan_card_detail,
   plan_name,
   price_label,
   primary_action_label,
@@ -99,6 +102,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const [expandedBenefits, setExpandedBenefits] = useState(false);
   const scroll = useRef<ScrollView>(null);
   const planPosition = useRef(0);
+  const plansHeading = useRef<Text>(null);
   const subscription = useSubscription();
   const { service, entitlement, legal } = subscription;
   const unavailable = service.unavailableReason;
@@ -210,6 +214,15 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
         : null;
 
+  // Scrolling alone leaves a screen reader where it was, so focus moves to the plans heading too.
+  function jump_to_plans() {
+    scroll.current?.scrollTo({ y: planPosition.current, animated: false });
+    // findNodeHandle isn't supported on web, where the browser keeps focus on its own.
+    const handle =
+      plansHeading.current && Platform.OS !== "web" ? findNodeHandle(plansHeading.current) : null;
+    if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
+  }
+
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
       <ScrollView ref={scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -218,10 +231,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Jump to subscription plans"
-          onPress={() => scroll.current?.scrollTo({ y: planPosition.current, animated: false })}
+          onPress={jump_to_plans}
           style={s.jump}
         >
-          <Text style={[s.benefitTitle, { color: theme.accentText }]}>Explore your membership</Text>
+          <Text style={[p.benefitTitle, { color: theme.accentText }]}>Explore your membership</Text>
           <Ionicons name="arrow-down" size={18} color={theme.accentText} />
         </Pressable>
         <View
@@ -229,7 +242,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
           <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
-            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
               Read. Listen. Understand.
             </Text>
             <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
@@ -256,8 +269,8 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                 <Ionicons name={feature.icon} size={21} color={theme.accentText} />
               </View>
               <View style={s.benefitCopy}>
-                <Text style={[s.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
-                <Text style={[s.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
+                <Text style={[p.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
+                <Text style={[p.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
               </View>
             </View>
           ))}
@@ -266,9 +279,9 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             accessibilityLabel={expandedBenefits ? "Show fewer benefits" : "See all included benefits"}
             accessibilityState={{ expanded: expandedBenefits }}
             onPress={() => setExpandedBenefits(!expandedBenefits)}
-            style={s.disclosure}
+            style={p.disclosure}
           >
-            <Text style={[s.benefitTitle, { color: theme.accentText }]}>
+            <Text style={[p.benefitTitle, { color: theme.accentText }]}>
               {expandedBenefits ? "Show less" : "See everything included"}
             </Text>
             <Ionicons
@@ -283,13 +296,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           onLayout={(event) => {
             planPosition.current = event.nativeEvent.layout.y;
           }}
-          style={s.sectionHeading}
+          style={p.sectionHeading}
         >
-          <Text style={[s.eyebrow, { color: theme.accentText }]}>03 / YOUR MEMBERSHIP</Text>
-          <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+          <StepLabel color={theme.accentText}>03 / YOUR MEMBERSHIP</StepLabel>
+          <Text ref={plansHeading} accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
             Choose how you make room.
           </Text>
-          <Text style={[s.detail, { color: theme.mutedText }]}>
+          <Text style={[p.detail, { color: theme.mutedText }]}>
             The same reading tools. A billing rhythm that fits you.
           </Text>
         </View>
@@ -325,7 +338,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     </View>
                   ) : null}
                   <View style={s.planTop}>
-                    <Text style={[s.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
+                    <Text style={[p.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
                     <Ionicons
                       name={active ? "radio-button-on" : "radio-button-off"}
                       size={22}
@@ -333,13 +346,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     />
                   </View>
                   <Text style={[s.price, { color: theme.text }]}>{price_label(plan)}</Text>
-                  <Text style={[s.detail, { color: theme.mutedText }]}>
-                    {plan.trial
-                      ? `${period_length(plan.trial)} free, then ${price_label(plan)}`
-                      : `Billed ${price_label(plan)}`}
-                  </Text>
+                  {plan_card_detail(plan) ? (
+                    <Text style={[p.detail, { color: theme.mutedText }]}>{plan_card_detail(plan)}</Text>
+                  ) : null}
                   {value ? (
-                    <Text style={[s.detail, { color: theme.mutedText }]}>
+                    <Text style={[p.detail, { color: theme.mutedText }]}>
                       Equivalent to {value.equivalent}/month, billed yearly
                     </Text>
                   ) : null}
@@ -351,17 +362,17 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
 
         {selected?.trial ? (
           <View style={[s.timeline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
               {offer_title(selected)}
             </Text>
             {trial_timeline(selected, { now: now(), formatDate: format_long_date }).map((item, index) => (
               <View key={item.when} style={s.timelineRow}>
                 <View style={[s.stepNumber, { backgroundColor: theme.brandTint }]}>
-                  <Text style={[s.benefitTitle, { color: theme.accentText }]}>{index + 1}</Text>
+                  <Text style={[p.benefitTitle, { color: theme.accentText }]}>{index + 1}</Text>
                 </View>
                 <View style={s.benefitCopy}>
-                  <Text style={[s.benefitTitle, { color: theme.text }]}>{item.when}</Text>
-                  <Text style={[s.detail, { color: theme.mutedText }]}>{item.what}</Text>
+                  <Text style={[p.benefitTitle, { color: theme.text }]}>{item.when}</Text>
+                  <Text style={[p.detail, { color: theme.mutedText }]}>{item.what}</Text>
                 </View>
               </View>
             ))}
@@ -476,17 +487,8 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
-  sectionHeading: { gap: 7, marginTop: 8 },
   featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   jump: { minHeight: 48, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
-  disclosure: {
-    minHeight: 56,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-    paddingVertical: 12,
-  },
   valueBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   valueText: { fontSize: 12, lineHeight: 18, fontWeight: "800" },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
@@ -501,7 +503,6 @@ const s = StyleSheet.create({
     maxWidth: 680,
     alignSelf: "center",
   },
-  eyebrow: { ...typography.eyebrow },
   card: { borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.md },
   tableHeader: {
     flexDirection: "row",
@@ -512,12 +513,9 @@ const s = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "800", flexShrink: 1 },
   included: { fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
   benefitCopy: { flex: 1, gap: spacing.xs },
-  benefitTitle: { fontSize: 16, fontWeight: "700", flexShrink: 1 },
-  detail: { fontSize: 14, lineHeight: 21, flexShrink: 1 },
   plans: { gap: spacing.sm },
   plan: { borderWidth: 2, borderRadius: radii.lg, padding: spacing.md, gap: spacing.xs },
   planTop: {

@@ -1,5 +1,6 @@
-import { it, expect } from "@jest/globals";
+import { it, expect, jest } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
+import { AccessibilityInfo } from "react-native";
 import Paywall, { PREMIUM_FEATURES } from "../../app/paywall";
 import AccountManagement from "../../app/account";
 import { fakeAuth } from "../mocks/authBackend";
@@ -67,4 +68,57 @@ it("switches between real weekly, monthly and annual offers and purchases only t
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $4.99/week" }));
   expect(fakeSubscriptions.calls).toContain("purchase:week");
   expect(fakeSubscriptions.calls).not.toContain("purchase:year");
+});
+
+it("says plainly when the store fails unexpectedly, without showing the technical error", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  fakeSubscriptions.throwNext = "purchase";
+  await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
+  expect(screen.getByText(/couldn't confirm your purchase.*Restore Purchases/)).toBeTruthy();
+  expect(screen.queryByText(/internal detail/)).toBeNull();
+  // The buttons work again afterwards.
+  fakeSubscriptions.throwNext = "restore";
+  await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
+  expect(screen.getByText(/couldn't reach the store.*try Restore Purchases again/)).toBeTruthy();
+  expect(screen.queryByText(/internal detail/)).toBeNull();
+  expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
+});
+
+it("moves screen-reader focus to the plans when jumping to them", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  const focus = jest.spyOn(AccessibilityInfo, "setAccessibilityFocus").mockImplementation(() => {});
+  // The test renderer has no native views, so stand in for the heading's native handle.
+  const find = jest.fn((_target: unknown) => 42);
+  // react-native exposes its exports as getters on the real module object, so that getter is replaced.
+  const reactNative = jest.requireActual<object>("react-native");
+  const original = Object.getOwnPropertyDescriptor(reactNative, "findNodeHandle")!;
+  Object.defineProperty(reactNative, "findNodeHandle", { configurable: true, get: () => find });
+  try {
+    await render_with_providers(<Paywall />);
+    await fireEvent.press(screen.getByRole("button", { name: "Jump to subscription plans" }));
+    expect(focus).toHaveBeenCalledWith(42);
+    expect(find).toHaveBeenCalledTimes(1);
+  } finally {
+    focus.mockRestore();
+    Object.defineProperty(reactNative, "findNodeHandle", original);
+  }
+});
+
+it("hides the numbered step markers from screen readers and doesn't repeat the price on plan cards", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  for (const marker of [
+    "01 / WHAT OPENS UP",
+    "02 / FEEL THE DIFFERENCE",
+    "03 / YOUR MEMBERSHIP",
+    "04 / MAKE IT YOURS",
+  ]) {
+    expect(screen.queryByText(marker)).toBeNull();
+    expect(screen.getByText(marker, { includeHiddenElements: true })).toBeTruthy();
+  }
+  expect(screen.getByRole("header", { name: "Choose how you make room." })).toBeTruthy();
+  expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
+  // The full "then $9.99/month" sentence appears once, above the button.
+  expect(screen.getAllByText(/2 weeks free, then \$9\.99\/month/)).toHaveLength(1);
 });

@@ -27,6 +27,6 @@ The implementation retains the current verified Premium entitlement and the exis
 
 Run mobile typecheck/lint, Vitest and Jest. Native store testing still needs a signed build with real configured products; web/Expo Go cannot validate billing or native device voice quality. The browser preview exercises the real React Native Web layout with development access, never a production purchase bypass.
 
-Verified locally: TypeScript and ESLint passed; 361 Vitest tests and 420 Jest component/integration tests passed. React Native Web was inspected at 320, 390 and 768 pixels wide with no horizontal page overflow, including tab switching, the example answer, disclosure controls, the jump to plans and dark appearance. The voice sample play control is visible without scrolling at 390 × 844. Real native speech and store purchases still require device verification.
+Verified locally: TypeScript and ESLint passed; 362 Vitest tests and 425 Jest component/integration tests passed. React Native Web was inspected at 320, 390 and 768 pixels wide with no horizontal page overflow, including tab switching, the example answer, disclosure controls, the jump to plans and dark appearance. The voice sample play control is visible without scrolling at 390 × 844. Real native speech and store purchases still require device verification.
 
 ![Listening preview rendered from the application on React Native Web](paywall-preview.png)

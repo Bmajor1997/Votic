@@ -3,6 +3,7 @@ import * as Speech from "expo-speech";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
+import { notification_player } from "../playback/notificationPlayback";
 import { unique_english_voices, votic_voice_names, type DeviceVoice } from "../reader/voices";
 import { PREVIEW_TEXT, preview_word_at } from "./paywallPresentation";
 
@@ -93,6 +94,11 @@ export function usePaywallPreview(disabled: boolean) {
       setError("The voice preview couldn't play. Check your device's speech settings and try again.");
     };
     try {
+      // The device has one speech engine. A document still reading in the background is stopped through its
+      // own player, so its controls and saved place stay correct, instead of being cut off underneath it.
+      await notification_player()
+        ?.stop()
+        .catch(() => {});
       await Speech.stop();
       if (!current()) return;
       Speech.speak(PREVIEW_TEXT, {

@@ -3,6 +3,7 @@ import {
   billing_summary,
   billing_terms,
   offer_title,
+  plan_card_detail,
   plan_name,
   primary_action_label,
   trial_end_date,
@@ -52,6 +53,10 @@ describe("paywall wording follows the store's product configuration", () => {
         what: "Your subscription starts at $9.99/month. Cancel at least a day before and you won't be charged.",
       },
     ]);
+  });
+  it("adds only the trial under a plan card's price, so the price isn't repeated", () => {
+    expect(plan_card_detail(monthly(7))).toBe("Includes a 7-day free trial");
+    expect(plan_card_detail(monthly(null))).toBeNull();
   });
   it("names plans by billing period", () => {
     expect(plan_name(monthly(7))).toBe("Monthly");

@@ -181,8 +181,9 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
                   <Text style={s.paperHint}>Go from a page of text to a clearer takeaway.</Text>
                   <Pressable
                     accessibilityRole="button"
-                    disabled={disabled}
                     accessibilityLabel="Show example answer"
+                    accessibilityState={{ disabled }}
+                    disabled={disabled}
                     onPress={() => setAnswer(true)}
                     style={s.answerButton}
                   >
@@ -311,8 +312,8 @@ const s = StyleSheet.create({
   liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: LIME },
   eyebrow: {
     color: MUTED,
-    fontSize: 10,
-    lineHeight: 15,
+    fontSize: 12,
+    lineHeight: 17,
     letterSpacing: 1.2,
     fontWeight: "700",
     flexShrink: 1,
@@ -355,8 +356,15 @@ const s = StyleSheet.create({
   fileIcon: { backgroundColor: "#E2EAFF", padding: 8, borderRadius: 10 },
   fileTitle: { flex: 1, gap: 3 },
   fileName: { color: INK, fontSize: 13, fontWeight: "800" },
-  fileDetail: { color: "#52627A", fontSize: 11, lineHeight: 16, flexShrink: 1 },
-  paperEyebrow: { color: "#52627A", fontSize: 9, letterSpacing: 1.2, fontWeight: "800", marginBottom: 10 },
+  fileDetail: { color: "#52627A", fontSize: 13, lineHeight: 19, flexShrink: 1 },
+  paperEyebrow: {
+    color: "#52627A",
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: 1.2,
+    fontWeight: "800",
+    marginBottom: 10,
+  },
   passage: { color: INK, fontSize: 22, lineHeight: 34, fontWeight: "500", letterSpacing: -0.35 },
   activeWord: { backgroundColor: LIME, color: INK },
   emphasis: { fontWeight: "900" },
@@ -390,7 +398,7 @@ const s = StyleSheet.create({
   },
   playerCopy: { flex: 1, gap: 4 },
   playerTitle: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
-  caption: { color: MUTED, fontSize: 10, lineHeight: 15, letterSpacing: 0.3 },
+  caption: { color: MUTED, fontSize: 12, lineHeight: 17, letterSpacing: 0.3 },
   wave: { flexDirection: "row", gap: 3, alignItems: "center", height: 34 },
   bar: { width: 3, borderRadius: 2, backgroundColor: LIME },
   options: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 7 },
@@ -410,9 +418,9 @@ const s = StyleSheet.create({
   question: { color: INK, fontSize: 20, fontWeight: "800" },
   paperHint: { color: "#52627A", fontSize: 16, lineHeight: 24 },
   answer: { gap: 8, backgroundColor: "#E9EEFF", borderRadius: 12, padding: 14 },
-  answerLabel: { fontSize: 10, color: "#3B4E9D", fontWeight: "800", letterSpacing: 1 },
+  answerLabel: { fontSize: 12, color: "#3B4E9D", fontWeight: "800", letterSpacing: 1 },
   answerText: { color: INK, fontSize: 17, lineHeight: 26 },
-  source: { fontSize: 11, lineHeight: 17, color: "#52627A" },
+  source: { fontSize: 13, lineHeight: 19, color: "#52627A" },
   answerButton: { minHeight: 48, flexDirection: "row", gap: 8, alignItems: "center" },
   answerButtonText: { fontSize: 15, fontWeight: "700", color: "#315DCF" },
   modeCaption: { color: MUTED, fontSize: 14, lineHeight: 21 },

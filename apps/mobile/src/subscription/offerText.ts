@@ -51,6 +51,14 @@ export function billing_summary(plan: SubscriptionPlan) {
 }
 
 /**
+ * The line under a plan card's price. The card already shows the price, so it adds only the trial; the
+ * full "then $x" sentence stays in billing_summary above the button.
+ */
+export function plan_card_detail(plan: SubscriptionPlan) {
+  return plan.trial ? `Includes a ${period_adjective(plan.trial)} free trial` : null;
+}
+
+/**
  * The purchase button. With a trial it says what tapping does today (start the trial; the line above
  * gives the price after it). Without one, the price is on the button itself, so nobody pays by surprise.
  */
