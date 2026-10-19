@@ -4,6 +4,9 @@ import { SavedAccountPreferences } from "../onboarding/accountPreferences";
 import { PronunciationEntry } from "../reader/pronunciationDictionary";
 
 export const MAX_BACKUP_BYTES = 25_000_000;
+/** The most documents and collections one library (or backup) can hold. */
+export const MAX_LIBRARY_DOCUMENTS = 2000;
+export const MAX_LIBRARY_COLLECTIONS = 2000;
 export type LibraryBackup = {
   format: "votic-library";
   version: 1;
@@ -122,7 +125,7 @@ export function parse_library_backup(raw: string): LibraryBackup {
   reject_unsafe_keys(value);
   const b = object(value);
   if (b.format !== "votic-library" || b.version !== 1 || !/^[a-zA-Z0-9-]{1,80}$/.test(b.id)) return fail();
-  const documents = list(b.documents, 2000).map(document);
+  const documents = list(b.documents, MAX_LIBRARY_DOCUMENTS).map(document);
   if (new Set(documents.map((d) => d.id)).size !== documents.length) return fail();
   for (const d of documents)
     if (new Set(d.savedPassages?.map((n) => n.id)).size !== d.savedPassages?.length) return fail();
@@ -165,7 +168,7 @@ export function parse_library_backup(raw: string): LibraryBackup {
     id: b.id,
     createdAt: number(b.createdAt),
     documents,
-    collections: list(b.collections, 2000).map((c) => text(c, 500, false)),
+    collections: list(b.collections, MAX_LIBRARY_COLLECTIONS).map((c) => text(c, 500, false)),
     activity,
     pronunciations: list(b.pronunciations, 250).map((p) => ({
       id: text(p.id, 200, false),

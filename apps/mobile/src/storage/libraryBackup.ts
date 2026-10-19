@@ -12,7 +12,13 @@ import { account_preferences_key, load_account_preferences } from "../onboarding
 import { load_pronunciations } from "../reader/pronunciationDictionary";
 import { account_storage_key, LEGACY_ACTIVITY_KEY } from "./accountStorage";
 import { account_deletion_pending, account_writable, write_account_data } from "./accountDeletion";
-import { LibraryBackup, merge_library_backup, parse_library_backup } from "./libraryBackupModel";
+import {
+  LibraryBackup,
+  MAX_LIBRARY_COLLECTIONS,
+  MAX_LIBRARY_DOCUMENTS,
+  merge_library_backup,
+  parse_library_backup,
+} from "./libraryBackupModel";
 
 const MANIFEST = "library-restore.v1";
 const STAGE = "library-restore-stage.v1:";
@@ -105,6 +111,15 @@ export async function restore_library_backup(
   if (await library_restore_pending(uid)) throw new Error("Finish the interrupted restore first.");
   const merged = merge_library_backup(await create_library_backup(uid), backup);
   if (restorePreferences && backup.preferences) merged.preferences = backup.preferences;
+  // Say plainly when the combined library is too big, rather than calling a valid backup unsupported.
+  if (merged.documents.length > MAX_LIBRARY_DOCUMENTS)
+    throw new Error(
+      `Restoring this backup would give you ${merged.documents.length} documents; a library holds up to ${MAX_LIBRARY_DOCUMENTS}. Remove some documents and try again.`,
+    );
+  if (merged.collections.length > MAX_LIBRARY_COLLECTIONS)
+    throw new Error(
+      `Restoring this backup would give you more than ${MAX_LIBRARY_COLLECTIONS} collections. Remove some collections and try again.`,
+    );
   parse_library_backup(JSON.stringify(merged));
   const entries: [string, string][] = [];
   const metadata = merged.documents.map(({ plainText, ...doc }) => {

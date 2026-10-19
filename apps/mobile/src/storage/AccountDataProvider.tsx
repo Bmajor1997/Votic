@@ -99,7 +99,7 @@ function AccountDataSession({
       current = false;
     };
   }, [uid]);
-  async function eraseDeviceData(account: string) {
+  async function erase_device_data(account: string) {
     await Promise.allSettled([...flushers].map((flush) => flush()));
     await Speech.stop();
     await notification_player()?.stop();
@@ -107,7 +107,7 @@ function AccountDataSession({
     clear_import_cache();
     await erase_local_account(account);
   }
-  async function deleteAccount() {
+  async function delete_account() {
     if (!uid || deletingRef.current) return;
     deletingRef.current = true;
     try {
@@ -117,7 +117,7 @@ function AccountDataSession({
       setDeletionPending(true);
       setDeleting(true);
       setDeletionError(null);
-      await eraseDeviceData(uid);
+      await erase_device_data(uid);
       await auth.deleteAccount(uid);
       await finish_local_deletion(uid);
     } catch (error) {
@@ -146,9 +146,19 @@ function AccountDataSession({
           // Do not discard its durable intent or sign it out before it can finish.
           if (await account_deletion_pending(uid)) return;
           await mark_account_deletion(uid);
-          await eraseDeviceData(uid);
+          await erase_device_data(uid);
+          // Deletion may have stopped after the backend step, leaving the Firebase sign-in behind. Any
+          // device that signs in can finish it; a sign-in that is too old just signs out, and finishes
+          // the next time someone signs in here (the backend keeps refusing this account meanwhile).
+          let finished = false;
+          try {
+            await auth.deleteAccount(uid);
+            finished = true;
+          } catch {
+            /* Needs a recent sign-in; signing out below lets the next sign-in finish it. */
+          }
           await finish_local_deletion(uid);
-          if (mounted.current) await auth.signOut();
+          if (!finished && mounted.current) await auth.signOut();
         } catch {
           if (mounted.current)
             setDeletionError("Device cleanup could not finish. Restart Votic and retry account deletion.");
@@ -213,7 +223,7 @@ function AccountDataSession({
         canRecover,
         registerFlush,
         registerReload,
-        deleteAccount,
+        deleteAccount: delete_account,
         async runLibraryTask(task) {
           if (!uid || maintenanceRunning.current || deletingRef.current || !account_writable(uid))
             throw new Error("Your library is busy. Please try again.");
@@ -302,7 +312,7 @@ function AccountDataSession({
             <Pressable
               accessibilityRole="button"
               disabled={deleting}
-              onPress={() => void deleteAccount().catch(() => {})}
+              onPress={() => void delete_account().catch(() => {})}
               style={{ minHeight: 48, justifyContent: "center" }}
             >
               <Text style={{ color: theme.accentText }}>Retry deletion</Text>

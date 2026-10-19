@@ -85,6 +85,18 @@ describe("portable library backup", () => {
     expect(restored[0].plainText).toBe("Existing work");
     expect(restored[1].savedPassages?.[0].note).toBe("Keep this note");
   });
+  it("says a combined library would be too big instead of calling a valid backup unsupported", async () => {
+    const small = (id: string) => ({ ...document, id, plainText: "Short text.", savedPassages: [] });
+    await create_document_store("a").saveDocuments([small("from-backup-1"), small("from-backup-2")]);
+    const backup = await create_library_backup("a");
+    await create_document_store("b").saveDocuments(
+      Array.from({ length: 1999 }, (_, index) => small(`existing-${index}`)),
+    );
+    await expect(restore_library_backup("b", backup)).rejects.toThrow(
+      "Restoring this backup would give you 2001 documents; a library holds up to 2000.",
+    );
+    expect(await create_document_store("b").loadDocuments()).toHaveLength(1999);
+  });
   it("replays a committed restore after storage interruption without losing another account", async () => {
     await seed("a");
     await seed("other");

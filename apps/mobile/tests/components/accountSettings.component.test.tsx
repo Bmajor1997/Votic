@@ -80,7 +80,23 @@ describe("Settings account management", () => {
     );
   });
 
-  it("erases this device's data when a backend response reports deletion from another device", async () => {
+  it("erases this device's data and finishes the Firebase deletion when another device started it", async () => {
+    await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
+    await act(async () => notify_remote_account_deletion());
+    await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
+    // Any device can remove a sign-in left behind when deletion stopped after the backend step.
+    expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
+    expect(
+      (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
+    ).toEqual([]);
+    expect(await account_deletion_pending("test-user")).toBe(false);
+  });
+
+  it("signs out to retry later when this device's sign-in is too old to finish the deletion", async () => {
+    fail_action(
+      "deleteAccount",
+      Object.assign(new Error("Sign in again"), { code: "auth/requires-recent-login" }),
+    );
     await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
     await act(async () => notify_remote_account_deletion());
     await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
@@ -88,6 +104,7 @@ describe("Settings account management", () => {
     expect(
       (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
     ).toEqual([]);
+    expect(await account_deletion_pending("test-user")).toBe(false);
   });
   it("shows accessible identity, separate actions, and keeps membership and help navigation", async () => {
     const rendered = await render_with_providers(<Settings />);

@@ -14,4 +14,4 @@ reason = "node-forge is pulled transitively by Expo tooling; the current advisor
 [[IgnoredVulns]]
 id = "GHSA-hp3w-g68c-fv3c"
 ignoreUntil = 2026-11-15
-reason = "sprintf-js <=1.1.3 is pulled transitively by mammoth (argparse) and Expo/Jest tooling; 1.1.3 is the latest release and no patched version exists. Recheck upstream before expiry."
+reason = "sprintf-js <=1.1.3 is pulled transitively by Expo/Jest tooling; 1.1.3 is the latest release and no patched version exists. The server no longer has it (mammoth's CLI-only argparse is overridden to 2.x). Recheck upstream before expiry."
