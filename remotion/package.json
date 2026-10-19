@@ -1,0 +1,16 @@
+{
+  "name": "vatic-motion-renders",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:intro": "remotion render src/index.ts VaticIntro out/intro.mp4",
+    "render:paywall": "remotion render src/index.ts VaticPaywall out/paywall.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "remotion": "^4.0.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  }
+}
