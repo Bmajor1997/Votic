@@ -27,6 +27,9 @@ export type SubscriptionPlan = {
   id: string;
   /** Localized price from the store, e.g. "$4.99". */
   priceString: string;
+  /** Numeric store price, used only for honest same-currency savings comparisons. */
+  priceAmount?: number;
+  currencyCode?: string;
   billingPeriod: Period | null;
   /** Free trial length from the store configuration, or null when the plan has no free trial. */
   trial: Period | null;

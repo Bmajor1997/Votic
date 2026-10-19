@@ -295,9 +295,9 @@ describe("Votic Premium", () => {
   it("shows the store's trial and price and what's included", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await render_paywall();
-    expect(screen.getByRole("header", { name: "Your documents.\nMore possibilities." })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Make more of\nwhat you read." })).toBeTruthy();
     expect(screen.getByText("Try Votic Premium free for 2 weeks")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "Everything in one plan" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Read. Listen. Understand." })).toBeTruthy();
     expect(screen.getByLabelText(/^Ask Votic\. .* Included\.$/)).toBeTruthy();
     expect(screen.getByText("2 weeks free, then $9.99/month. Cancel anytime.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restore Purchases" })).toBeTruthy();

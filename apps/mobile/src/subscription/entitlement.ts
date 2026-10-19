@@ -93,6 +93,8 @@ export function parse_iso_period(value: string | null | undefined): Period | nul
 export type StoreProductLike = {
   identifier: string;
   priceString: string;
+  price?: number;
+  currencyCode?: string;
   subscriptionPeriod: string | null;
   introPrice: { price: number; periodUnit: string; periodNumberOfUnits: number; cycles: number } | null;
   freePhase?: { billingPeriod: { unit: string; value: number }; billingCycleCount: number | null } | null;
@@ -119,6 +121,12 @@ export function plan_from_store_product(packageId: string, product: StoreProduct
   return {
     id: packageId,
     priceString: product.priceString,
+    ...(typeof product.price === "number" &&
+    Number.isFinite(product.price) &&
+    product.price > 0 &&
+    /^[A-Z]{3}$/.test(product.currencyCode ?? "")
+      ? { priceAmount: product.price, currencyCode: product.currencyCode }
+      : {}),
     billingPeriod: parse_iso_period(product.subscriptionPeriod),
     trial,
   };

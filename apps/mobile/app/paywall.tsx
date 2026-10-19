@@ -13,7 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
-import { VoticLogo } from "../src/components/VoticLogo";
+import { PaywallIntro, PaywallStart } from "../src/subscription/PaywallContent";
+import { PaywallPreview } from "../src/subscription/PaywallPreview";
+import { annual_value } from "../src/subscription/paywallPresentation";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
@@ -22,6 +24,8 @@ import {
   billing_summary,
   billing_terms,
   offer_title,
+  period_length,
+  trial_timeline,
   plan_name,
   price_label,
   primary_action_label,
@@ -92,6 +96,9 @@ type Message = { icon?: IconName; text: string };
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
+  const [expandedBenefits, setExpandedBenefits] = useState(false);
+  const scroll = useRef<ScrollView>(null);
+  const planPosition = useRef(0);
   const subscription = useSubscription();
   const { service, entitlement, legal } = subscription;
   const unavailable = service.unavailableReason;
@@ -112,7 +119,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       (found) => {
         if (!current) return;
         setPlans(found);
-        setSelectedId((previous) => previous ?? found.find((plan) => plan.trial)?.id ?? found[0]?.id ?? null);
+        setSelectedId((previous) =>
+          found.some((plan) => plan.id === previous)
+            ? previous
+            : (found.find((plan) => plan.trial)?.id ?? found[0]?.id ?? null),
+        );
       },
       () => {
         if (!current) return;
@@ -158,6 +169,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         });
       else if (outcome.kind === "failed") setMessage({ text: outcome.message });
       // Closing the store's purchase sheet needs no message; the offer stays as it was.
+    } catch {
+      setMessage({
+        text: "Votic couldn't confirm your purchase. Check your connection and use Restore Purchases before trying again.",
+      });
     } finally {
       busy.current = false;
       setPurchasing(false);
@@ -178,6 +193,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           icon: "information-circle-outline",
           text: `No active Votic Premium subscription was found for this ${STORE} account.`,
         });
+    } catch {
+      setMessage({
+        text: "Votic couldn't reach the store. Check your connection and try Restore Purchases again.",
+      });
     } finally {
       busy.current = false;
       setRestoring(false);
@@ -193,33 +212,25 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={[s.hero, { backgroundColor: theme.surfaceMuted }]}>
-          <View pointerEvents="none" style={[s.glow, { backgroundColor: theme.accent }]} />
-          <VoticLogo />
-          <Text style={[s.eyebrow, { color: theme.accentText }]}>VOTIC MEMBERSHIP</Text>
-          <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            {"Your documents.\nMore possibilities."}
-          </Text>
-          <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            Read, listen, and understand—with support that fits you.
-          </Text>
-          {/* Worded from the store's offer, so a trial is promised only when the plan really has one. */}
-          {!unavailable && selected?.trial ? (
-            <View style={[s.trial, { backgroundColor: theme.surface }]}>
-              <Ionicons name="gift-outline" size={20} color={theme.accentText} />
-              <Text style={[s.trialText, { color: theme.text }]}>{offer_title(selected)}</Text>
-            </View>
-          ) : null}
-        </View>
-
+      <ScrollView ref={scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+        <PaywallIntro />
+        <PaywallPreview disabled={working} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Jump to subscription plans"
+          onPress={() => scroll.current?.scrollTo({ y: planPosition.current, animated: false })}
+          style={s.jump}
+        >
+          <Text style={[s.benefitTitle, { color: theme.accentText }]}>Explore your membership</Text>
+          <Ionicons name="arrow-down" size={18} color={theme.accentText} />
+        </Pressable>
         <View
           accessibilityLabel="Included with Votic Premium"
           style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
           <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
             <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
-              Everything in one plan
+              Read. Listen. Understand.
             </Text>
             <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
           </View>
@@ -228,7 +239,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
               {subscription.recoveryError}
             </Text>
           ) : null}
-          {PREMIUM_FEATURES.map((feature, index) => (
+          {(expandedBenefits ? PREMIUM_FEATURES : PREMIUM_FEATURES.slice(0, 3)).map((feature, index) => (
             <View
               key={feature.title}
               accessible
@@ -241,30 +252,64 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                 },
               ]}
             >
+              <View style={[s.featureIcon, { backgroundColor: theme.brandTint }]}>
+                <Ionicons name={feature.icon} size={21} color={theme.accentText} />
+              </View>
               <View style={s.benefitCopy}>
                 <Text style={[s.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
                 <Text style={[s.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
               </View>
-              <Ionicons name="checkmark-circle" size={23} color={theme.accentText} />
             </View>
           ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expandedBenefits ? "Show fewer benefits" : "See all included benefits"}
+            accessibilityState={{ expanded: expandedBenefits }}
+            onPress={() => setExpandedBenefits(!expandedBenefits)}
+            style={s.disclosure}
+          >
+            <Text style={[s.benefitTitle, { color: theme.accentText }]}>
+              {expandedBenefits ? "Show less" : "See everything included"}
+            </Text>
+            <Ionicons
+              name={expandedBenefits ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={theme.accentText}
+            />
+          </Pressable>
         </View>
 
+        <View
+          onLayout={(event) => {
+            planPosition.current = event.nativeEvent.layout.y;
+          }}
+          style={s.sectionHeading}
+        >
+          <Text style={[s.eyebrow, { color: theme.accentText }]}>03 / YOUR MEMBERSHIP</Text>
+          <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+            Choose how you make room.
+          </Text>
+          <Text style={[s.detail, { color: theme.mutedText }]}>
+            The same reading tools. A billing rhythm that fits you.
+          </Text>
+        </View>
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
         ) : null}
         {statusNotice ? <FormMessage icon="information-circle-outline" text={statusNotice} /> : null}
 
-        {shown.length > 1 ? (
+        {shown.length > 0 ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Billing plan" style={s.plans}>
             {shown.map((plan) => {
               const active = plan.id === selectedId;
+              const value = annual_value(plan, shown);
               return (
                 <Pressable
                   key={plan.id}
                   accessibilityRole="radio"
                   accessibilityLabel={`${plan_name(plan)}, ${billing_summary(plan)}`}
-                  accessibilityState={{ checked: active }}
+                  accessibilityState={{ checked: active, disabled: working }}
+                  disabled={working}
                   onPress={() => setSelectedId(plan.id)}
                   style={[
                     s.plan,
@@ -274,6 +319,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     },
                   ]}
                 >
+                  {value ? (
+                    <View style={[s.valueBadge, { backgroundColor: theme.brandTint }]}>
+                      <Text style={[s.valueText, { color: theme.accentText }]}>{value.comparison}</Text>
+                    </View>
+                  ) : null}
                   <View style={s.planTop}>
                     <Text style={[s.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
                     <Ionicons
@@ -283,12 +333,41 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     />
                   </View>
                   <Text style={[s.price, { color: theme.text }]}>{price_label(plan)}</Text>
-                  <Text style={[s.detail, { color: theme.mutedText }]}>{billing_summary(plan)}</Text>
+                  <Text style={[s.detail, { color: theme.mutedText }]}>
+                    {plan.trial
+                      ? `${period_length(plan.trial)} free, then ${price_label(plan)}`
+                      : `Billed ${price_label(plan)}`}
+                  </Text>
+                  {value ? (
+                    <Text style={[s.detail, { color: theme.mutedText }]}>
+                      Equivalent to {value.equivalent}/month, billed yearly
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}
           </View>
         ) : null}
+
+        {selected?.trial ? (
+          <View style={[s.timeline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+              {offer_title(selected)}
+            </Text>
+            {trial_timeline(selected, { now: now(), formatDate: format_long_date }).map((item, index) => (
+              <View key={item.when} style={s.timelineRow}>
+                <View style={[s.stepNumber, { backgroundColor: theme.brandTint }]}>
+                  <Text style={[s.benefitTitle, { color: theme.accentText }]}>{index + 1}</Text>
+                </View>
+                <View style={s.benefitCopy}>
+                  <Text style={[s.benefitTitle, { color: theme.text }]}>{item.when}</Text>
+                  <Text style={[s.detail, { color: theme.mutedText }]}>{item.what}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+        <PaywallStart store={STORE} />
 
         {selected ? (
           <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
@@ -397,30 +476,32 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
-  fill: { flex: 1 },
-  content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
-  hero: { borderRadius: radii.sheet, padding: spacing.lg, gap: spacing.md, overflow: "hidden" },
-  glow: {
-    position: "absolute",
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    opacity: 0.13,
-    right: -72,
-    top: -78,
-  },
-  eyebrow: { ...typography.eyebrow },
-  title: { ...typography.screenTitle, fontSize: 34, lineHeight: 39, letterSpacing: -0.8 },
-  subtitle: { fontSize: 16, lineHeight: 23, fontWeight: "600" },
-  trial: {
-    alignSelf: "flex-start",
+  sectionHeading: { gap: 7, marginTop: 8 },
+  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  jump: { minHeight: 48, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8 },
+  disclosure: {
+    minHeight: 56,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radii.md,
+    justifyContent: "space-between",
+    gap: 12,
+    paddingVertical: 12,
   },
-  trialText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
+  valueBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  valueText: { fontSize: 12, lineHeight: 18, fontWeight: "800" },
+  timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
+  timelineRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  stepNumber: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  fill: { flex: 1 },
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl,
+    width: "100%",
+    maxWidth: 680,
+    alignSelf: "center",
+  },
+  eyebrow: { ...typography.eyebrow },
   card: { borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.md },
   tableHeader: {
     flexDirection: "row",
@@ -435,8 +516,8 @@ const s = StyleSheet.create({
   included: { fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
   benefitCopy: { flex: 1, gap: spacing.xs },
-  benefitTitle: { fontSize: 16, fontWeight: "700" },
-  detail: { fontSize: 14, lineHeight: 20 },
+  benefitTitle: { fontSize: 16, fontWeight: "700", flexShrink: 1 },
+  detail: { fontSize: 14, lineHeight: 21, flexShrink: 1 },
   plans: { gap: spacing.sm },
   plan: { borderWidth: 2, borderRadius: radii.lg, padding: spacing.md, gap: spacing.xs },
   planTop: {
