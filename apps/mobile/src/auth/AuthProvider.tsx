@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
-import { Pressable, Text, View } from "react-native";
+import { AppState, Pressable, Text, View } from "react-native";
+import { flush_diagnostics, set_diagnostic_owner } from "../storage/diagnostics";
 import * as Speech from "expo-speech";
 import { notification_player } from "../playback/notificationPlayback";
 import { publish_widget_snapshot } from "../widgets/widgetBridge";
@@ -9,6 +10,7 @@ import { clear_import_cache } from "../documents/importCache";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { set_auth_token_provider } from "../api/authToken";
 import { resume_local_deletions } from "../storage/accountDeletion";
+import { resume_library_restores } from "../storage/libraryBackup";
 import { AuthBackend, VoticUser, create_auth_backend } from "./authBackend";
 
 type AuthValue = {
@@ -60,6 +62,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           publish_widget_snapshot(JSON.stringify(signed_out_snapshot()), true);
           clear_import_cache();
         }
+        await resume_library_restores();
         if (current) setDeletionsRecovered(true);
       })
       .catch(() => {
@@ -97,6 +100,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(
     () =>
       backend.subscribe((next) => {
+        set_diagnostic_owner(next?.uid ?? null);
         setUser(next);
         // The first report is the saved session. Any account after that was signed in during this launch.
         // Token refreshes report the same account again, which changes nothing here.
@@ -108,6 +112,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
       }),
     [backend],
   );
+  useEffect(() => {
+    if (!user) return;
+    void flush_diagnostics(user.uid);
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") void flush_diagnostics(user.uid);
+    });
+    return () => listener.remove();
+  }, [user]);
   useEffect(() => {
     let mounted = true;
     void backend.appleAvailable().then((available) => {
@@ -127,8 +139,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return (
       <View style={{ flex: 1, justifyContent: "center", padding: 24 }}>
         <Text accessibilityRole="alert">
-          Votic could not finish checking pending account cleanup. Your library is hidden until cleanup can
-          finish.
+          Votic could not finish pending library recovery or account cleanup. Your library is hidden until
+          recovery can finish.
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -138,7 +150,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           }}
           style={{ minHeight: 48, justifyContent: "center" }}
         >
-          <Text>Retry device cleanup</Text>
+          <Text>Retry device recovery</Text>
         </Pressable>
       </View>
     );

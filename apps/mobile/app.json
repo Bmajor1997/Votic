@@ -52,7 +52,9 @@
               "text/html",
               "image/jpeg",
               "image/png",
-              "image/webp"
+              "image/webp",
+              "image/heic",
+              "image/heif"
             ],
             "multipleShareMimeTypes": []
           }

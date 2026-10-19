@@ -8,6 +8,7 @@ import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { useImportSession } from "../src/documents/useImportSession";
+import { BackHeader } from "../src/components/BackHeader";
 
 export default function ImportWebScreen() {
   const { theme } = useVoticTheme();
@@ -39,13 +40,7 @@ export default function ImportWebScreen() {
   }
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <View style={[s.header, { borderBottomColor: theme.border }]}>
-        <Pressable onPress={() => router.back()} style={s.icon}>
-          <Ionicons name="chevron-back" size={26} color={theme.text} />
-        </Pressable>
-        <Text style={[s.title, { color: theme.text }]}>Import webpage</Text>
-        <View style={s.icon} />
-      </View>
+      <BackHeader title="Import webpage" />
       <View style={s.content}>
         <View style={[s.hero, { backgroundColor: theme.surfaceMuted }]}>
           <Ionicons name="link-outline" size={30} color={theme.accent} />
@@ -90,15 +85,6 @@ export default function ImportWebScreen() {
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    height: 64,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  icon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  title: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
   content: { padding: 20, gap: 16 },
   hero: { padding: 18, borderRadius: 16, gap: 10 },
   heroTitle: { fontSize: 20, fontWeight: "800", lineHeight: 27 },

@@ -151,6 +151,22 @@ export async function report_ai_answer(answer: string, reason: string): Promise<
     throw new Error("Votic could not confirm your report. Please try again.");
 }
 
+/** Only a bounded failure counter; no error text, stack, screen contents, or identifiers. */
+export async function send_client_diagnostic(count: number) {
+  const response = await api_fetch(
+    "/api/client-event",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: "screen-render", count, consent: true }),
+    },
+    5000,
+    undefined,
+    true,
+  );
+  if (!response.ok || response.result.received !== true) throw new Error("Diagnostics could not be sent.");
+}
+
 export async function scan_document_image(name: string, bytes: ArrayBuffer, signal?: AbortSignal) {
   const response = await api_fetch(
     "/api/scan",

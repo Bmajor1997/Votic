@@ -1,11 +1,10 @@
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { build_comprehension_questions, self_check_feedback } from "../src/reader/comprehension";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { BackHeader } from "../src/components/BackHeader";
 
 export default function CheckUnderstandingScreen() {
   const { theme } = useVoticTheme();
@@ -18,18 +17,7 @@ export default function CheckUnderstandingScreen() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <View style={[s.header, { borderBottomColor: theme.border }]}>
-        <Pressable onPress={() => router.back()} style={s.icon}>
-          <Ionicons name="chevron-back" size={26} color={theme.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.title, { color: theme.text }]}>Check my understanding</Text>
-          <Text numberOfLines={1} style={[s.subtitle, { color: theme.mutedText }]}>
-            {activeDocument?.title || "Document"}
-          </Text>
-        </View>
-        <View style={s.icon} />
-      </View>
+      <BackHeader title="Check my understanding" subtitle={activeDocument?.title || "Document"} />
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={[s.copy, { color: theme.mutedText }]}>
           Answer from memory. Votic uses only the part of the document you have reached, so it will not spoil
@@ -82,16 +70,6 @@ export default function CheckUnderstandingScreen() {
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    minHeight: 66,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  icon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 18, fontWeight: "800", textAlign: "center" },
-  subtitle: { fontSize: 12, textAlign: "center" },
   content: { padding: 20, gap: 16, paddingBottom: 50 },
   copy: { fontSize: 15, lineHeight: 22 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 12 },

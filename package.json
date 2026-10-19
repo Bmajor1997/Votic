@@ -22,12 +22,19 @@
     "docx": "^9.7.1"
   },
   "dependencies": {
+    "heic-decode": "2.1.0",
     "jose": "^6.2.12",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.3",
     "office-oxide": "^0.1.8",
     "parse5": "7.3.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "5.4.296"
+    "pdfjs-dist": "5.4.296",
+    "pngjs": "7.0.0"
+  },
+  "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
   }
 }

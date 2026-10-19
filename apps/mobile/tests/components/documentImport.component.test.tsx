@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
-import { fireEvent, screen } from "@testing-library/react-native";
+import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, StyleSheet } from "react-native";
 import Documents from "../../app/(tabs)/documents";
 import { extract_document } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
+import { create_document_store } from "../../src/documents/documentStorage";
 import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
@@ -50,4 +51,36 @@ it("keeps import choices scrollable with bottom safe-area clearance and working 
   await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Import webpage" }));
   expect(router.push).toHaveBeenLastCalledWith("/import-web");
+});
+
+it("finishes the import even though the Android file picker sends Votic to the background", async () => {
+  const { AppState } = jest.requireActual<typeof import("react-native")>("react-native");
+  const appState = (state: string) => {
+    for (const [event, listener] of jest.mocked(AppState.addEventListener).mock.calls)
+      if (event === "change") (listener as (next: string) => void)(state);
+  };
+  // While the system picker is open Android reports "background", then "active" once a file is chosen.
+  jest.mocked(DocumentPicker.getDocumentAsync).mockImplementation(async () => {
+    appState("background");
+    appState("active");
+    return {
+      canceled: false,
+      assets: [
+        { name: "notes.txt", uri: "file:///notes.txt", mimeType: "text/plain", size: 40, lastModified: 1 },
+      ],
+    } as DocumentPicker.DocumentPickerResult;
+  });
+  global.fetch = jest.fn(async () => ({
+    ok: true,
+    arrayBuffer: async () => new TextEncoder().encode("Chapter one. The picker came and went.").buffer,
+  })) as unknown as typeof fetch;
+  await render_with_providers(<Documents />);
+  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
+  await waitFor(async () =>
+    expect((await create_document_store("test-user").loadDocuments()).map((d) => d.plainText)).toEqual([
+      "Chapter one. The picker came and went.",
+    ]),
+  );
+  expect(screen.queryByText(/Couldn't add/)).toBeNull();
 });

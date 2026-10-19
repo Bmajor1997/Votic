@@ -1,20 +1,18 @@
-name: Android Notification Playback Build
+name: Android Full App & Playback Build
 
 on:
   push:
     paths:
-      - "apps/mobile/modules/votic-playback/**"
-      - "apps/mobile/src/playback/**"
-      - "apps/mobile/app/reader.tsx"
+      - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/android-smoke.sh"
   pull_request:
     paths:
-      - "apps/mobile/modules/votic-playback/**"
-      - "apps/mobile/src/playback/**"
-      - "apps/mobile/app/reader.tsx"
+      - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/android-smoke.sh"
   workflow_dispatch:
 
 permissions:
@@ -27,7 +25,7 @@ concurrency:
 jobs:
   android-module:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -48,6 +46,29 @@ jobs:
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_TELEMETRY: "1"
-      - name: Compile notification playback and process its manifest
+      - name: Build complete app, widgets, playback and bundled JavaScript
         working-directory: apps/mobile/android
-        run: ./gradlew :votic-playback:compileDebugKotlin :votic-playback:processDebugManifest --no-daemon --max-workers=2
+        run: ./gradlew :votic-playback:compileDebugKotlin :votic-playback:processDebugManifest :votic-widgets:compileDebugKotlin :app:assembleRelease :app:bundleRelease --no-daemon --max-workers=2
+        env:
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: "1"
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Install and launch the bundled release app
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash "${{ github.workspace }}/security/android-smoke.sh" "${{ github.workspace }}/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+      - name: Preserve CI app build and smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-ci-build
+          path: |
+            apps/mobile/android/app/build/outputs/apk/release/*.apk
+            apps/mobile/android/app/build/outputs/bundle/release/*.aab
+            android-smoke-*.txt
+          retention-days: 7

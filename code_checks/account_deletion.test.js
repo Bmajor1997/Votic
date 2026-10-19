@@ -40,7 +40,9 @@ test("external deletion instructions are public while the operator script stays 
   await server({}, async base => {
     const page = await fetch(base + "/delete-account");
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /mailto:Benjaminctmajor@gmail.com/);
+    const html = await page.text();
+    assert.match(html, /href="https:\/\/violet-subtasks-579694\.framer\.app\/delete-account"/);
+    assert.doesNotMatch(html, /mailto:|@gmail\.com/i);
     assert.equal((await fetch(base + "/security/delete-account-data.js")).status, 404);
   });
 });

@@ -8,12 +8,14 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { clear_import_cache } from "../documents/importCache";
 import {
   account_deletion_pending,
+  account_writable,
   erase_local_account,
   finish_local_deletion,
   mark_account_deletion,
   on_remote_account_deletion,
 } from "./accountDeletion";
 import { check_account_status } from "../api/voticApi";
+import { library_restore_pending, resume_library_restores } from "./libraryBackup";
 import {
   createContext,
   PropsWithChildren,
@@ -39,6 +41,7 @@ type Value = {
   /** Reads this account's data again after older data is merged in, without reloading the app. */
   registerReload: (reload: () => Promise<void>) => () => void;
   deleteAccount: () => Promise<void>;
+  runLibraryTask: <T>(task: (account: string) => Promise<T>) => Promise<T>;
 };
 const Context = createContext<Value | null>(null);
 
@@ -67,6 +70,16 @@ function AccountDataSession({
   const [deleting, setDeleting] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const deletingRef = useRef(false);
+  const [maintenance, setMaintenance] = useState(false);
+  const [maintenanceError, setMaintenanceError] = useState<string | null>(null);
+  const maintenanceCommit = useRef<(() => void) | null>(null);
+  const maintenanceRunning = useRef(false);
+  useEffect(() => {
+    if (maintenance) {
+      maintenanceCommit.current?.();
+      maintenanceCommit.current = null;
+    }
+  }, [maintenance]);
   const [canRecover, setCanRecover] = useState(false);
   // The older shared library moves over before this account's data loads, so it never looks empty first.
   const [ready, setReady] = useState(!uid);
@@ -86,7 +99,7 @@ function AccountDataSession({
       current = false;
     };
   }, [uid]);
-  async function eraseDeviceData(account: string) {
+  async function erase_device_data(account: string) {
     await Promise.allSettled([...flushers].map((flush) => flush()));
     await Speech.stop();
     await notification_player()?.stop();
@@ -94,7 +107,7 @@ function AccountDataSession({
     clear_import_cache();
     await erase_local_account(account);
   }
-  async function deleteAccount() {
+  async function delete_account() {
     if (!uid || deletingRef.current) return;
     deletingRef.current = true;
     try {
@@ -104,7 +117,7 @@ function AccountDataSession({
       setDeletionPending(true);
       setDeleting(true);
       setDeletionError(null);
-      await eraseDeviceData(uid);
+      await erase_device_data(uid);
       await auth.deleteAccount(uid);
       await finish_local_deletion(uid);
     } catch (error) {
@@ -133,9 +146,19 @@ function AccountDataSession({
           // Do not discard its durable intent or sign it out before it can finish.
           if (await account_deletion_pending(uid)) return;
           await mark_account_deletion(uid);
-          await eraseDeviceData(uid);
+          await erase_device_data(uid);
+          // Deletion may have stopped after the backend step, leaving the Firebase sign-in behind. Any
+          // device that signs in can finish it; a sign-in that is too old just signs out, and finishes
+          // the next time someone signs in here (the backend keeps refusing this account meanwhile).
+          let finished = false;
+          try {
+            await auth.deleteAccount(uid);
+            finished = true;
+          } catch {
+            /* Needs a recent sign-in; signing out below lets the next sign-in finish it. */
+          }
           await finish_local_deletion(uid);
-          if (mounted.current) await auth.signOut();
+          if (!finished && mounted.current) await auth.signOut();
         } catch {
           if (mounted.current)
             setDeletionError("Device cleanup could not finish. Restart Votic and retry account deletion.");
@@ -200,7 +223,36 @@ function AccountDataSession({
         canRecover,
         registerFlush,
         registerReload,
-        deleteAccount,
+        deleteAccount: delete_account,
+        async runLibraryTask(task) {
+          if (!uid || maintenanceRunning.current || deletingRef.current || !account_writable(uid))
+            throw new Error("Your library is busy. Please try again.");
+          maintenanceRunning.current = true;
+          const flush = [...flushers];
+          try {
+            await Speech.stop();
+            await notification_player()?.stop();
+            // Unmount data consumers before snapshot/restore; their final writes finish before the task.
+            const committed = new Promise<void>((resolve) => {
+              maintenanceCommit.current = resolve;
+            });
+            setMaintenance(true);
+            await committed;
+            await Promise.all(flush.map((task) => task()));
+            if (!mounted.current || !account_writable(uid)) throw new Error("The account changed.");
+            const result = await task(uid);
+            if (!mounted.current || !account_writable(uid)) throw new Error("The account changed.");
+            return result;
+          } finally {
+            const interrupted = await library_restore_pending(uid).catch(() => true);
+            if (interrupted)
+              setMaintenanceError("Restore was interrupted. Retry to finish before opening your library.");
+            else {
+              setMaintenance(false);
+              maintenanceRunning.current = false;
+            }
+          }
+        },
         recover() {
           if (!uid) return Promise.reject(new Error("Sign in before recovering your older library."));
           if (pending.current) return pending.current;
@@ -216,7 +268,33 @@ function AccountDataSession({
         },
       }}
     >
-      {ready ? children : null}
+      {ready && !maintenance ? children : null}
+      {maintenance ? (
+        <SafeAreaView
+          style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: theme.background }}
+        >
+          <Text accessibilityRole={maintenanceError ? "alert" : "text"} style={{ color: theme.text }}>
+            {maintenanceError || "Saving your library. Please keep Votic open…"}
+          </Text>
+          {maintenanceError ? (
+            <Pressable
+              accessibilityRole="button"
+              style={{ minHeight: 48, justifyContent: "center" }}
+              onPress={() =>
+                void resume_library_restores()
+                  .then(() => {
+                    setMaintenanceError(null);
+                    setMaintenance(false);
+                    maintenanceRunning.current = false;
+                  })
+                  .catch(() => {})
+              }
+            >
+              <Text style={{ color: theme.accentText }}>Retry restore</Text>
+            </Pressable>
+          ) : null}
+        </SafeAreaView>
+      ) : null}
       <Modal visible={deletionPending} onRequestClose={() => {}} animationType="none">
         <SafeAreaView
           style={{ flex: 1, justifyContent: "center", padding: 24, backgroundColor: theme.background }}
@@ -234,7 +312,7 @@ function AccountDataSession({
             <Pressable
               accessibilityRole="button"
               disabled={deleting}
-              onPress={() => void deleteAccount().catch(() => {})}
+              onPress={() => void delete_account().catch(() => {})}
               style={{ minHeight: 48, justifyContent: "center" }}
             >
               <Text style={{ color: theme.accentText }}>Retry deletion</Text>

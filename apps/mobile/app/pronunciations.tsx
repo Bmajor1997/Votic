@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -11,6 +10,7 @@ import {
 } from "../src/reader/pronunciationDictionary";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { useAuth } from "../src/auth/AuthProvider";
+import { BackHeader } from "../src/components/BackHeader";
 
 export default function PronunciationDictionaryScreen() {
   const { theme } = useVoticTheme();
@@ -46,20 +46,7 @@ export default function PronunciationDictionaryScreen() {
   }
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <View style={[s.header, { borderBottomColor: theme.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-          onPress={() => router.back()}
-          style={s.icon}
-        >
-          <Ionicons name="chevron-back" size={26} color={theme.text} />
-        </Pressable>
-        <Text accessibilityRole="header" style={[s.headerTitle, { color: theme.text }]}>
-          Pronunciation dictionary
-        </Text>
-        <View style={s.icon} />
-      </View>
+      <BackHeader title="Pronunciation dictionary" />
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={[s.copy, { color: theme.mutedText }]}>
           Teach Votic how to say names, acronyms, and technical terms. These replacements apply only to spoken
@@ -115,15 +102,6 @@ export default function PronunciationDictionaryScreen() {
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  header: {
-    height: 64,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-  },
-  icon: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  headerTitle: { flex: 1, textAlign: "center", fontSize: 18, fontWeight: "800" },
   content: { padding: 20, gap: 12, paddingBottom: 50 },
   copy: { fontSize: 15, lineHeight: 22, marginBottom: 6 },
   input: { minHeight: 50, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontSize: 16 },
