@@ -76,7 +76,7 @@ export function AIThinking({
 
 /** A status-only animation. It does not touch answer generation or the answer's text reveal. */
 export function AIStatus({ label, compact = false }: { label: string; compact?: boolean }) {
-  const text = label.replace(/(?:…|\\.\\.\\.)$/, "");
+  const text = label.replace(/(?:…|\.\.\.)$/, "");
   const { reduceMotion } = useAccessibilityPreferences();
   const { theme } = useVoticTheme();
   const progress = useRef(new Animated.Value(0)).current;
