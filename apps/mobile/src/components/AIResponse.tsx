@@ -6,6 +6,7 @@ import { RevealingText } from "./RevealingText";
 import { lay_down_text, readable_ai_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { ask_status } from "../ask/askStatus";
+import { VaticPulse } from "../../components/animations/VaticPulse";
 
 /** Reveal completed answers in reading order; the complete answer remains available to assistive technology. */
 export function AIResponse({
@@ -78,6 +79,7 @@ export function AIStatus({ label, compact = false }: { label: string; compact?: 
   const text = label.replace(/(?:…|\.\.\.)$/, "");
   return (
     <View style={[s.thinking, compact && s.compact]}>
+      {!compact ? <VaticPulse active size={18} /> : null}
       <ShimmerText key={text} text={text} accessibilityLabel={text} style={s.aiStatus} />
     </View>
   );
