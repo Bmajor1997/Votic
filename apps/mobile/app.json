@@ -59,14 +59,17 @@
             "multipleShareMimeTypes": []
           }
         }
-      ]
+      ],
+      "./plugins/withValidSharingIntentFilters"
     ],
     "ios": {
       "bundleIdentifier": "com.votic.app",
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.votic.app"]
+        "com.apple.security.application-groups": [
+          "group.com.votic.app"
+        ]
       }
     },
     "android": {
