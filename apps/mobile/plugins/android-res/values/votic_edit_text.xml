@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AppCompat 1.7.1 inset values, Apache-2.0; see ../ANDROID_RESOURCES_LICENSE.md. -->
+<resources>
+    <dimen name="votic_edit_text_inset_horizontal_material">4dp</dimen>
+    <dimen name="votic_edit_text_inset_top_material">10dp</dimen>
+    <dimen name="votic_edit_text_inset_bottom_material">7dp</dimen>
+</resources>

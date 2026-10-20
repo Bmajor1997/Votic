@@ -1,0 +1,7 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- A single-color V and three wings for Android themed icons. -->
+    <path android:fillColor="#FF000000"
+        android:pathData="M34,42 L43,42 Q46,42 48,46 L58,67 Q54,74 48,70 Z M52,51 Q57,47 62,42 L74,42 Q74,47 69,47 L62,47 Q58,51 54,54 Z M55,57 Q61,51 65,50 L72,50 Q72,55 67,55 L63,55 L57,60 Z M58,63 Q63,58 67,57 L70,57 Q70,61 66,62 L60,66 Z" />
+</vector>

@@ -14,7 +14,7 @@ concurrency:
 jobs:
   simulator:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: apps/mobile
@@ -35,7 +35,7 @@ jobs:
           languages: swift
           build-mode: manual
       - name: Compile full simulator app and widget extension
-        run: xcodebuild -workspace ios/Votic.xcworkspace -scheme Votic -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO
+        run: xcodebuild -workspace ios/Votic.xcworkspace -scheme Votic -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO ARCHS=arm64 ONLY_ACTIVE_ARCH=YES
         env:
           NODE_ENV: production
           EXPO_NO_TELEMETRY: "1"

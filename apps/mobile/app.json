@@ -60,7 +60,8 @@
           }
         }
       ],
-      "./plugins/withValidSharingIntentFilters"
+      "./plugins/withValidSharingIntentFilters",
+      "./plugins/withAndroidLintResources"
     ],
     "ios": {
       "bundleIdentifier": "com.votic.app",
@@ -77,7 +78,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
     }
   }
 }

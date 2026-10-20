@@ -52,6 +52,8 @@ jobs:
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_TELEMETRY: "1"
+      - name: Verify generated Android manifest and resources
+        run: node ../../security/verify-generated-android.cjs android/app/src/main
       - name: Initialize native CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
