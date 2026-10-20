@@ -7,6 +7,7 @@ import { useAccessibilityPreferences } from "../../accessibility/AccessibilityPr
 import { BrandMark, useMarkFlight } from "../../onboarding/WelcomeMotion";
 import { PaywallPreview } from "../../subscription/PaywallPreview";
 import { useVoticTheme } from "../../theme/ThemeProvider";
+import { AIStatus } from "../AIResponse";
 import { VoticPulse } from "./VoticPulse";
 
 export const MOTION_SAMPLE = "Your documents become something you can listen to, understand, and explore.";
@@ -14,7 +15,7 @@ type Demo = "intro" | "listen" | "ask" | "premium";
 export const MOTION_DEMOS: { id: Demo; title: string; subtitle: string }[] = [
   { id: "intro", title: "App introduction", subtitle: "The Votic V takes flight, as when you sign in" },
   { id: "listen", title: "Text-to-speech", subtitle: "Hear a sample with a live playback pulse" },
-  { id: "ask", title: "Ask Votic", subtitle: "The thinking pulse, then an example answer" },
+  { id: "ask", title: "Ask Votic", subtitle: "The thinking orb, then an example answer" },
   { id: "premium", title: "Votic Premium preview", subtitle: "The interactive preview from the paywall" },
 ];
 
@@ -140,14 +141,15 @@ export function MotionShowcase({ visible, onClose }: { visible: boolean; onClose
               ) : null}
               {demo === "ask" ? (
                 <>
-                  <VoticPulse active={!answer} size={58} />
                   <Text style={[s.title, { color: theme.text }]}>Ask Votic</Text>
                   <Text style={[s.sample, { color: theme.text }]}>What can Votic help me do?</Text>
-                  <Text accessibilityLiveRegion="polite" style={[s.sample, { color: theme.mutedText }]}>
-                    {answer
-                      ? "Example answer: Read, listen to, and ask questions about your documents."
-                      : "Thinking…"}
-                  </Text>
+                  {answer ? (
+                    <Text accessibilityLiveRegion="polite" style={[s.sample, { color: theme.mutedText }]}>
+                      Example answer: Read, listen to, and ask questions about your documents.
+                    </Text>
+                  ) : (
+                    <AIStatus label="Thinking" />
+                  )}
                   <Action
                     label={answer ? "Reset example" : "Show example answer"}
                     onPress={() => setAnswer(!answer)}

@@ -64,7 +64,8 @@ it("plays and stops the speech sample, and stops speech when closed", async () =
 it("shows Ask Votic thinking, then a clearly labelled example answer, and the real paywall preview", async () => {
   await render_with_providers(<MotionShowcase visible onClose={() => {}} />);
   await fireEvent.press(screen.getByRole("radio", { name: /Ask Votic/ }));
-  expect(screen.getByText("Thinking…")).toBeTruthy();
+  expect(screen.getByLabelText("Thinking")).toBeTruthy();
+  expect(screen.getByTestId("ai-status-orb", { includeHiddenElements: true })).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Show example answer" }));
   expect(screen.getByText(/^Example answer:/)).toBeTruthy();
   await fireEvent.press(screen.getByRole("radio", { name: /Votic Premium preview/ }));

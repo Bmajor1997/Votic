@@ -14,8 +14,9 @@ Branch: `feature/vatic-motion-experience` (based on `feature/expressive-subscrip
 4. **Paywall:** optional 7-second silent video (VoticPremium) showing documents → listening → answers. Pricing, offers, plan selection, restore purchases, and checkout stay native.
 
 ## What exists now
-- `apps/mobile/src/components/animations/VoticPulse.tsx`: a decorative native pulse (hidden from screen readers) that follows Votic's Less motion setting, which includes the phone's. It shows beside the Ask Votic "thinking" status.
-- `apps/mobile/src/components/animations/MotionShowcase.tsx`: the motion lab, opened from "Preview animations" on the welcome screen in development and preview builds only. Demos: the V's flight, text-to-speech with the pulse, the Ask Votic thinking pulse, and the paywall's interactive preview.
+- `apps/mobile/src/components/animations/VoticPulse.tsx`: a decorative native pulse (hidden from screen readers) that follows Votic's Less motion setting, which includes the phone's. The motion lab's text-to-speech demo uses it.
+- `apps/mobile/src/components/AIResponse.tsx` (`AIStatus`): when an AI status label ("Reading", "Thinking", "Writing") first appears, a small orb lands and melts into the word, which then stays on screen with its shimmer. It plays once per label, never loops, is hidden from screen readers, skips compact labels (voice transcription), and is off with Less motion.
+- `apps/mobile/src/components/animations/MotionShowcase.tsx`: the motion lab, opened from "Preview animations" on the welcome screen in development and preview builds only. Demos: the V's flight, text-to-speech with the pulse, the Ask Votic thinking orb, and the paywall's interactive preview.
 - `remotion/`: VoticIntro and VoticPremium video sources (not yet in the app).
 
 ## Integration acceptance criteria
