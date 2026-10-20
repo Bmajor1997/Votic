@@ -7,12 +7,16 @@ on:
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
       - "security/android-smoke.sh"
+      - "security/android-smoke-screen.py"
+      - "code_checks/android_smoke_test.py"
   pull_request:
     paths:
       - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
       - "security/android-smoke.sh"
+      - "security/android-smoke-screen.py"
+      - "code_checks/android_smoke_test.py"
   workflow_dispatch:
 
 permissions:
@@ -48,6 +52,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Test native dependency hardening
         run: node --test ../../code_checks/native_dependency_hardening.test.js
+      - name: Test Android emulator recovery
+        run: python3 ../../code_checks/android_smoke_test.py
       - name: Install and validate Android NDK
         run: bash ../../security/install-android-ndk.sh
       - name: Generate native Android project
@@ -97,6 +103,7 @@ jobs:
             apps/mobile/android/app/build/outputs/apk/release/*.apk
             apps/mobile/android/app/build/outputs/bundle/release/*.aab
             android-smoke-*.txt
+            android-smoke-*.png
             native-sarif/
             apps/mobile/android/app/build/reports/lint-results-*
             apps/mobile/modules/*/android/build/reports/
