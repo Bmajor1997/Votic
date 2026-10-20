@@ -65,7 +65,7 @@ it("shows Ask Votic thinking, then a clearly labelled example answer, and the re
   await render_with_providers(<MotionShowcase visible onClose={() => {}} />);
   await fireEvent.press(screen.getByRole("radio", { name: /Ask Votic/ }));
   expect(screen.getByLabelText("Thinking")).toBeTruthy();
-  expect(screen.getByTestId("ai-status-orb", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getAllByTestId("ai-status-letter", { includeHiddenElements: true })).toHaveLength(8);
   await fireEvent.press(screen.getByRole("button", { name: "Show example answer" }));
   expect(screen.getByText(/^Example answer:/)).toBeTruthy();
   await fireEvent.press(screen.getByRole("radio", { name: /Votic Premium preview/ }));

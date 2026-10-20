@@ -15,8 +15,8 @@ Branch: `feature/vatic-motion-experience` (based on `feature/expressive-subscrip
 
 ## What exists now
 - `apps/mobile/src/components/animations/VoticPulse.tsx`: a decorative native pulse (hidden from screen readers) that follows Votic's Less motion setting, which includes the phone's. The motion lab's text-to-speech demo uses it.
-- `apps/mobile/src/components/AIResponse.tsx` (`AIStatus`): each time an AI status label ("Reading", "Thinking", "Writing", "Summarizing") appears, a small orb drops in, bounces twice, then stretches and dissolves into the word. The word then stays on screen with its shimmer, so it never blinks away. The orb is hidden from screen readers, skips compact labels (voice transcription), stops on unmount, replays for each new label, and is off with Less motion.
-- `apps/mobile/src/components/animations/MotionShowcase.tsx`: the motion lab, opened from "Preview animations" on the welcome screen in development and preview builds only. Demos: the V's flight, text-to-speech with the pulse, the Ask Votic thinking orb, and the paywall's interactive preview.
+- `apps/mobile/src/components/AIResponse.tsx` (`AIStatus`): while an AI status label ("Reading", "Thinking", "Summarizing"…) shows, a small ball hops up from the ground and bounces along the top of each letter, like a sing-along ball, then drops back down and repeats. The word never moves or fades, so it is always readable. Letter positions are measured from an invisible copy of the word; spaces are skipped. The ball is hidden from screen readers, skips compact labels (voice transcription), stops on unmount, restarts for each new label, and is off with Less motion.
+- `apps/mobile/src/components/animations/MotionShowcase.tsx`: the motion lab, opened from "Preview animations" on the welcome screen in development and preview builds only. Demos: the V's flight, text-to-speech with the pulse, the Ask Votic bouncing ball, and the paywall's interactive preview.
 - `remotion/`: VoticIntro and VoticPremium video sources (not yet in the app).
 
 ## Integration acceptance criteria

@@ -15,7 +15,7 @@ type Demo = "intro" | "listen" | "ask" | "premium";
 export const MOTION_DEMOS: { id: Demo; title: string; subtitle: string }[] = [
   { id: "intro", title: "App introduction", subtitle: "The Votic V takes flight, as when you sign in" },
   { id: "listen", title: "Text-to-speech", subtitle: "Hear a sample with a live playback pulse" },
-  { id: "ask", title: "Ask Votic", subtitle: "The thinking orb, then an example answer" },
+  { id: "ask", title: "Ask Votic", subtitle: "The bouncing ball, then an example answer" },
   { id: "premium", title: "Votic Premium preview", subtitle: "The interactive preview from the paywall" },
 ];
 

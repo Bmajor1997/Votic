@@ -2,7 +2,7 @@ import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { useState } from "react";
 import { Animated, Pressable } from "react-native";
-import { AIResponse, AIThinking, AIStatus } from "../../src/components/AIResponse";
+import { AIResponse, AIThinking, AIStatus, bouncing_letters } from "../../src/components/AIResponse";
 import { render_with_providers } from "../renderWithProviders";
 
 it("sweeps a clearly lighter band of light across the thinking label and stops on unmount", async () => {
@@ -55,9 +55,17 @@ it("does not animate answers marked for immediate display", async () => {
   expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
 });
 
-it("bounces the orb into each new label once, then keeps the word on screen", async () => {
+/** Gives each invisible measuring letter a position, as a phone's layout pass would. */
+async function lay_out_letters() {
+  const letters = screen.getAllByTestId("ai-status-letter", { includeHiddenElements: true });
+  for (const [index, letter] of letters.entries())
+    await fireEvent(letter, "layout", {
+      nativeEvent: { layout: { x: index * 9, y: 0, width: 9, height: 20 } },
+    });
+}
+
+it("bounces the ball along the letters, keeps the word on screen, and restarts for a new label", async () => {
   const loop = jest.spyOn(Animated, "loop");
-  const timing = jest.spyOn(Animated, "timing");
   try {
     function Switcher() {
       const [label, setLabel] = useState("Reading");
@@ -73,31 +81,45 @@ it("bounces the orb into each new label once, then keeps the word on screen", as
       );
     }
     const view = await render_with_providers(<Switcher />);
-    const orb = screen.getByTestId("ai-status-orb", { includeHiddenElements: true });
-    expect(orb.props.importantForAccessibility).toBe("no-hide-descendants");
-    expect(orb.props.accessibilityElementsHidden).toBe(true);
+    // The ball waits until it knows where the letters are.
+    expect(screen.queryByTestId("ai-status-orb", { includeHiddenElements: true })).toBeNull();
+    expect(screen.getAllByTestId("ai-status-letter", { includeHiddenElements: true })).toHaveLength(7);
+    await lay_out_letters();
+    const ball = screen.getByTestId("ai-status-orb", { includeHiddenElements: true });
+    expect(ball.props.importantForAccessibility).toBe("no-hide-descendants");
+    expect(ball.props.accessibilityElementsHidden).toBe(true);
+    // The measuring copy is hidden from screen readers too, so the word is announced once.
+    expect(screen.getAllByLabelText("Reading")).toHaveLength(1);
     expect(screen.getByLabelText("Reading").props.accessibilityLiveRegion).toBe("polite");
-    expect(timing).toHaveBeenCalledTimes(1);
-    const first = timing.mock.results[0].value as { stop: () => void };
+    expect(loop).toHaveBeenCalledTimes(1);
+    const first = loop.mock.results[0].value as { stop: () => void };
     const stopFirst = jest.spyOn(first, "stop");
     await act(async () => jest.advanceTimersByTime(6000));
-    // It never loops, so the word can't blink away while Votic works.
-    expect(loop).not.toHaveBeenCalled();
-    expect(timing).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Reading")).toBeTruthy();
+
     await fireEvent.press(screen.getByRole("button", { name: "Next status" }));
-    // A new label replays the bounce and morph.
     expect(stopFirst).toHaveBeenCalled();
-    expect(timing).toHaveBeenCalledTimes(2);
     expect(screen.getByLabelText("Thinking")).toBeTruthy();
-    const second = timing.mock.results[1].value as { stop: () => void };
+    await lay_out_letters();
+    expect(loop).toHaveBeenCalledTimes(2);
+    const second = loop.mock.results[1].value as { stop: () => void };
     const stopSecond = jest.spyOn(second, "stop");
     await view.unmount();
     expect(stopSecond).toHaveBeenCalled();
   } finally {
     loop.mockRestore();
-    timing.mockRestore();
   }
+});
+
+it("only bounces on letters, not on the spaces between words, and waits for every letter", () => {
+  const spot = (x: number) => ({ x, width: 9 });
+  expect(bouncing_letters("Go on", [spot(0), spot(9), undefined, spot(27), spot(36)])).toEqual([
+    spot(0),
+    spot(9),
+    spot(27),
+    spot(36),
+  ]);
+  expect(bouncing_letters("Go on", [spot(0), spot(9), undefined, spot(27)])).toBeNull();
 });
 
 it("keeps screen-reader announcements and skips the orb with Less motion", async () => {
