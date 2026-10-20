@@ -51,6 +51,8 @@ export function AskAnswerSourceChip({
       accessibilityLabel={`From passage ${passage}, ${name}`}
       accessibilityHint="Opens this passage in the Reader"
       onPress={onPress}
+      // The chip is drawn small, but the area you can tap stays at least 44 points tall.
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={({ pressed }) => [
         s.chip,
         {
@@ -59,12 +61,12 @@ export function AskAnswerSourceChip({
         },
       ]}
     >
-      <FileTypeIcon filename={filename} size={20} decorative />
+      <FileTypeIcon filename={filename} size={16} decorative />
       <Text numberOfLines={1} style={[s.chipText, { color: theme.linkText }]}>
         From passage {passage}
         <Text style={s.chipSection}> · {shown}</Text>
       </Text>
-      <Ionicons accessible={false} name="chevron-forward" size={16} color={theme.linkText} />
+      <Ionicons accessible={false} name="chevron-forward" size={13} color={theme.linkText} />
     </Pressable>
   );
 }
@@ -77,13 +79,14 @@ const s = StyleSheet.create({
     maxWidth: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
-    minHeight: 44,
-    paddingLeft: 10,
-    paddingRight: 8,
-    borderWidth: 1.5,
-    borderRadius: 22,
+    gap: 5,
+    minHeight: 28,
+    paddingLeft: 7,
+    paddingRight: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderRadius: 14,
   },
-  chipText: { flexShrink: 1, fontSize: 14, fontWeight: "800" },
+  chipText: { flexShrink: 1, fontSize: 12, fontWeight: "800" },
   chipSection: { fontWeight: "600" },
 });
