@@ -136,12 +136,7 @@ jobs:
           node-version: 24
       - name: Install mobile dependencies
         run: npm ci --ignore-scripts
-      - name: Type-check React Native code
-        run: npm run typecheck
-      - name: Validate Expo configuration
-        run: npx expo config --type public
-      - name: Check Expo dependency compatibility
-        run: npx expo install --check
+      # Mobile type-checking and Expo validation run in the Reliability workflow.
       - name: Install Semgrep for mobile security scanning
         if: always()
         run: pip install semgrep

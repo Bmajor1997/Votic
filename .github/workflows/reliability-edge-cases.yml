@@ -44,8 +44,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Run reliability and edge-case regression tests
-        run: node --test code_checks/reliability_edge_cases.test.js code_checks/reliability_security_regressions.test.js
+      # Server regression tests run once in the Security workflow's backend coverage suite.
 
       - name: Install mobile dependencies
         working-directory: apps/mobile
