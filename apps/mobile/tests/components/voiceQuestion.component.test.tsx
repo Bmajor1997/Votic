@@ -250,10 +250,44 @@ describe("Ask Votic recording composer", () => {
     await start();
     await capture();
     await stop();
-    expect(alert).toHaveBeenCalledWith("Voice question", "Voice questions are temporarily unavailable.");
+    // Shown once, beside the question box, rather than in an alert as well.
+    expect(alert).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Voice questions are temporarily unavailable\./)).toHaveLength(1);
     expect(screen.getByLabelText("Ask Votic a question").props.value).toBe("My typed question");
     expect(screen.getByRole("button", { name: "Retry voice transcription" })).toBeTruthy();
+    // The recording can still be retried, so typing keeps the message that explains Retry.
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "My typed question, edited");
+    expect(screen.getByText(/Retry transcription or discard the recording\./)).toBeTruthy();
     expect(setAudioModeAsync).toHaveBeenLastCalledWith({ allowsRecording: false });
+  });
+
+  it.each([
+    ["Ask Votic", () => <AskVotic />],
+    ["the Reader", () => <OpenedReader />],
+  ])("shows the voice sign-in message once in %s and clears it when typing", async (_screen, view) => {
+    const alert = jest.spyOn(Alert, "alert");
+    jest
+      .mocked(check_voice_question_availability)
+      .mockRejectedValueOnce(new Error("Sign in to use voice questions."));
+    await render_with_providers(view(), {
+      documents: [test_document("voice-doc", "Voice book")],
+      reduceMotion: true,
+    });
+    if (screen.queryByRole("button", { name: "Ask Votic about this page" }))
+      await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await start();
+    // The microphone is never requested for someone who can't use voice questions.
+    expect(requestRecordingPermissionsAsync).not.toHaveBeenCalled();
+    expect(alert).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Sign in to use voice questions\./)).toHaveLength(1);
+    // Typing is still allowed, and the voice message no longer describes what the person is doing.
+    const input = screen.getByLabelText(/Ask Votic a question|Ask a question about this document/);
+    expect(input.props.editable).not.toBe(false);
+    await fireEvent.changeText(input, "What is this about?");
+    expect(screen.queryByText(/Sign in to use voice questions/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Send question" }).props.accessibilityState.disabled).toBe(
+      false,
+    );
   });
 
   it("explains an empty recording instead of silently returning", async () => {
@@ -262,7 +296,8 @@ describe("Ask Votic recording composer", () => {
     await start();
     await stop();
     expect(transcribe_voice_question).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenCalledWith("Voice question", expect.stringContaining("No audio was captured"));
+    expect(alert).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/No audio was captured/)).toHaveLength(1);
     expect(screen.getByLabelText("Ask Votic a question")).toBeTruthy();
   });
 
@@ -500,7 +535,8 @@ describe("Ask Votic recording composer", () => {
     );
     await stop();
     expect(transcribe_voice_question).not.toHaveBeenCalled();
-    expect(alert).toHaveBeenCalledWith("Voice question", expect.stringContaining("unsupported audio format"));
+    expect(alert).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/unsupported audio format/)).toHaveLength(1);
     expect(screen.getByLabelText("Ask Votic a question").props.editable).toBe(true);
   });
 

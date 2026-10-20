@@ -1,14 +1,15 @@
-import { resolve_file_type } from "./fileTypes";
+import { resolve_file_type, strip_file_extension } from "./fileTypes";
 import { estimated_minutes_remaining } from "./insights";
 import { split_passages } from "./passages";
 import { VoticDocument } from "./types";
 
 /**
- * A readable title for display. Filenames like "q3_board-report_FINAL" become "q3 board report
+ * A readable title for display. Filenames like "q3_board-report_FINAL.pdf" become "q3 board report
  * FINAL"; titles that already read as words are left alone. The original filename stays available.
  */
 export function readable_title(title: string) {
-  const trimmed = title.trim();
+  // Older imports kept ".pdf" and similar in the title, which then read as a word ("sample pdf").
+  const trimmed = strip_file_extension(title);
   const looksLikeFilename = /[_]/.test(trimmed) || (!/\s/.test(trimmed) && /[-.]/.test(trimmed));
   const clean = looksLikeFilename ? trimmed.replace(/[_]+/g, " ").replace(/(\w)[-.](?=\w)/g, "$1 ") : trimmed;
   return clean.replace(/\s+/g, " ").trim() || "Untitled document";

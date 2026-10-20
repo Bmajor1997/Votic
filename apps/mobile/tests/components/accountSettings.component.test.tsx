@@ -309,3 +309,17 @@ it("lets the development account copy the older library without claiming it", as
   expect(await legacy_recovery_available("real-account")).toBe(true);
   expect(await legacy_recovery_available("development")).toBe(false);
 });
+
+it("explains why a test build without Votic accounts has no Delete account option", async () => {
+  backend.fakeAuth.configured = false;
+  await render_with_providers(<Settings />);
+  expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
+  expect(screen.getByText(/isn't connected to Votic accounts, so there's no account to delete/)).toBeTruthy();
+});
+
+it("offers Delete account wherever Votic sign-in is configured", async () => {
+  await render_with_providers(<Settings />);
+  expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
+  expect(screen.queryByText(/isn't connected to Votic accounts/)).toBeNull();
+});

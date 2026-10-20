@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
+import { readable_title } from "../src/documents/documentDisplay";
 import {
   estimated_minutes_remaining,
   most_recent_incomplete,
@@ -118,7 +119,7 @@ export default function Recap() {
               <Pressable
                 key={document.id + passage.id}
                 accessibilityRole="button"
-                accessibilityLabel={"Open saved passage from " + document.title}
+                accessibilityLabel={"Open saved passage from " + readable_title(document.title)}
                 onPress={() => open(document.id, passage.sentenceIndex)}
                 style={({ pressed }) => [
                   s.row,
@@ -131,7 +132,7 @@ export default function Recap() {
                 <Ionicons name="bookmark" size={19} color={theme.accent} />
                 <View style={s.rowCopy}>
                   <Text numberOfLines={1} style={[s.rowTitle, { color: theme.text }]}>
-                    {document.title}
+                    {readable_title(document.title)}
                   </Text>
                   <Text numberOfLines={2} style={[s.rowDetail, { color: theme.mutedText }]}>
                     {passage.note || passage.text}
@@ -156,7 +157,9 @@ export default function Recap() {
                 style={[s.row, { borderColor: theme.border, backgroundColor: theme.surface }]}
               >
                 <Ionicons name="checkmark-circle" size={21} color={theme.accent} />
-                <Text style={[s.rowTitle, { color: theme.text, flex: 1 }]}>{document.title}</Text>
+                <Text style={[s.rowTitle, { color: theme.text, flex: 1 }]}>
+                  {readable_title(document.title)}
+                </Text>
               </View>
             ))}
           </View>
@@ -167,7 +170,7 @@ export default function Recap() {
             <View style={s.continueCopy}>
               <Text style={[s.eyebrow, { color: theme.accent }]}>KEEP GOING</Text>
               <Text numberOfLines={2} style={[s.continueTitle, { color: theme.text }]}>
-                {recent.title}
+                {readable_title(recent.title)}
               </Text>
               <Text style={[s.rowDetail, { color: theme.mutedText }]}>
                 About {minutes(estimated_minutes_remaining(recent))} remaining
@@ -175,7 +178,7 @@ export default function Recap() {
             </View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={"Continue " + recent.title}
+              accessibilityLabel={"Continue " + readable_title(recent.title)}
               onPress={() => open(recent.id)}
               style={[s.play, { backgroundColor: theme.accent }]}
             >

@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { readable_title } from "../../documents/documentDisplay";
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing, typography } from "../../design/tokens";
 import { reader_type } from "../../reader/readerText";
@@ -105,7 +106,7 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
           <Text accessibilityRole="header" style={[s.title, { color: theme.heroText }]}>
             {automatic_note_title(item.passage)}
           </Text>
-          <Text style={[s.metadata, { color: theme.heroMuted }]}>{item.document.title}</Text>
+          <Text style={[s.metadata, { color: theme.heroMuted }]}>{readable_title(item.document.title)}</Text>
           <Text style={[s.metadata, { color: theme.heroMuted }]}>
             Last edited {new Date(item.passage.updatedAt).toLocaleString()}
           </Text>

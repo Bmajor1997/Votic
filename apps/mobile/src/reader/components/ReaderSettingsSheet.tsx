@@ -8,15 +8,22 @@ import { DeviceVoice, votic_voice_names } from "../voices";
 import { Choice, Setting, VoiceChoice } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
 
-export type ReaderSheet = "appearance" | "focus" | "listen" | null;
+export type ReaderSheet = "text" | "color" | "focus" | "listen" | null;
 
 const SHEET_COPY = {
-  appearance: { title: "Appearance", subtitle: "Changes appear in the document immediately." },
+  text: { title: "Text", subtitle: "Size, font, and spacing. Changes appear in the document immediately." },
+  color: {
+    title: "Color",
+    subtitle: "The page color and contrast. Changes appear in the document immediately.",
+  },
   focus: { title: "Reading focus", subtitle: "Choose the guidance that helps you track the text." },
   listen: { title: "Listen", subtitle: "Choose a voice and comfortable listening speed." },
 } as const;
 
-/** The Reader's Appearance, Reading focus, and Listen controls, shown as a bottom sheet. */
+/**
+ * The Reader's Text, Color, Reading focus, and Listen controls, shown as a bottom sheet. Text and Color share the
+ * same saved preferences as Settings › Reading & Listening and Accessibility, so a change in one shows in the other.
+ */
 export function ReaderSettingsSheet({
   sheet,
   onClose,
@@ -77,7 +84,7 @@ export function ReaderSettingsSheet({
             </Pressable>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={s.sheetContent}>
-            {sheet === "appearance" ? (
+            {sheet === "text" ? (
               <>
                 <Setting label="Text size">
                   <Choice
@@ -119,26 +126,6 @@ export function ReaderSettingsSheet({
                     onChange={accessibility.setReaderFont}
                   />
                 </Setting>
-                <Setting label="Theme">
-                  <Choice
-                    label="Light"
-                    value="light"
-                    current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
-                  />
-                  <Choice
-                    label="Dark"
-                    value="dark"
-                    current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
-                  />
-                  <Choice
-                    label="Sepia"
-                    value="sepia"
-                    current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
-                  />
-                </Setting>
                 <Setting label="Line spacing">
                   <Choice
                     label="Compact"
@@ -173,6 +160,45 @@ export function ReaderSettingsSheet({
                     onChange={accessibility.setTextSpacing}
                   />
                 </Setting>
+              </>
+            ) : null}
+            {sheet === "color" ? (
+              <>
+                <Setting label="Theme">
+                  <Choice
+                    label="Light"
+                    value="light"
+                    current={appearanceMode}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                  />
+                  <Choice
+                    label="Dark"
+                    value="dark"
+                    current={appearanceMode}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                  />
+                  <Choice
+                    label="Sepia"
+                    value="sepia"
+                    current={appearanceMode}
+                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                  />
+                </Setting>
+                <View style={[s.toggleRow, { borderColor: theme.border }]}>
+                  <View style={s.toggleCopy}>
+                    <Text style={[s.toggleTitle, { color: theme.text }]}>High contrast</Text>
+                    <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
+                      Darker text and clearer borders on the page, in any theme.
+                    </Text>
+                  </View>
+                  <Switch
+                    accessibilityLabel="High contrast"
+                    accessibilityHint="Makes the document text and borders stronger"
+                    value={accessibility.highContrast}
+                    onValueChange={accessibility.setHighContrast}
+                    trackColor={{ true: theme.accent }}
+                  />
+                </View>
               </>
             ) : null}
             {sheet === "focus" ? (

@@ -74,6 +74,17 @@ export function resolve_file_type({ filename, mimeType, extension }: FileTypeInp
   return { extension: resolved, monogram: resolved.toUpperCase(), ...FORMATS[resolved] };
 }
 
+/**
+ * A filename without its final extension when that extension is a document type Votic knows ("sample.pdf" →
+ * "sample", "Notes.PDF " → "Notes"). Unknown suffixes stay ("v1.2", "Dr. Who"), and a name that is only an
+ * extension is kept. For display only: stored filenames, paths, MIME types, and export names are unchanged.
+ */
+export function strip_file_extension(name: string) {
+  const text = name.trim();
+  const match = /^(.*\S)\.([A-Za-z0-9]{1,5})$/u.exec(text);
+  return match && known(match[2].toLowerCase()) ? match[1].trimEnd() : text;
+}
+
 export function file_type_colors(type: FileType, isDark: boolean) {
   const palette = FILE_TYPE_PALETTE[type.family];
   return {

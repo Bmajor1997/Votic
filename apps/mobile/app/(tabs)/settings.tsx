@@ -67,7 +67,12 @@ export default function Settings() {
         )}
         {category(
           "accessibility",
-          preferences.reduceMotion ? "Reduce motion is on" : "Motion preferences",
+          [
+            preferences.highContrast ? "High contrast" : null,
+            preferences.reduceMotion ? "Reduce motion" : null,
+          ]
+            .filter(Boolean)
+            .join(" · ") || "Contrast, text size, and motion",
           "accessibility-outline",
           true,
         )}

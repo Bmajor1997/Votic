@@ -5,6 +5,7 @@ import { Keyboard, StyleSheet, Text } from "react-native";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { AskVotic } from "../../app/assistant";
 import { ask_votic, VoticAnswer } from "../../src/api/voticApi";
+import { router } from "expo-router";
 import { render_with_providers, test_document } from "../renderWithProviders";
 
 jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
@@ -114,6 +115,33 @@ describe("Ask Votic answers", () => {
     await ask("Why rest?");
     expect(await screen.findByText(LIMIT)).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "Save answer to Notes" })).toHaveLength(1);
+  });
+});
+
+describe("Ask Votic passage chip", () => {
+  it("leads a document answer with the same passage chip as the Reader, not the old passage link", async () => {
+    const guide = test_document("doc-guide", "Field_Guide.pdf", {
+      sourceName: "Field_Guide.pdf",
+      plainText:
+        "Daily Habits\n\nSleep comes first for most people. Focus improves after a full night of rest.",
+    });
+    askVoticMock.mockResolvedValueOnce({
+      answer: "Rest improves focus.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: null,
+      quote: "Focus improves after a full night of rest.",
+    });
+    await render_with_providers(<AskVotic />, { documents: [guide], reduceMotion: true });
+    await ask("What improves focus?");
+    expect(await screen.findByText("Rest improves focus.")).toBeTruthy();
+    // The quoted sentence is passage 3; its part of the document is headed "Daily Habits".
+    const chip = screen.getByRole("button", { name: "From passage 3, Daily Habits" });
+    expect(chip.props.accessibilityHint).toBe("Opens this passage in the Reader");
+    expect(screen.queryByRole("button", { name: /at passage \d+ in Reader/ })).toBeNull();
+    expect(screen.queryByText(/^Passage \d+ ·/)).toBeNull();
+    await fireEvent.press(chip);
+    expect(router.push).toHaveBeenCalledWith("/reader");
   });
 });
 

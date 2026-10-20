@@ -56,13 +56,13 @@ import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../sr
 import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { AskAnswerSourceChip } from "../src/ask/AskAnswerSourceChip";
-import { passage_heading } from "../src/ask/passageHeading";
-import { quote_passage } from "../src/ask/quotePassage";
+import { answer_passage } from "../src/ask/answerPassage";
 import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { document_time_spent } from "../src/documents/insights";
+import { readable_title } from "../src/documents/documentDisplay";
 import { split_passages } from "../src/documents/passages";
 import { catch_up_context, catch_up_prompt } from "../src/documents/catchUp";
 import { create_throttled_saver } from "../src/documents/throttledSaver";
@@ -537,13 +537,12 @@ function ReaderContent() {
       const request = prepare_ask_request(context, clean, history);
       const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
       const grounded = answered_from_context(request, answer);
-      const sectionLink = answer_link(request, answer.sectionIndex) ?? undefined;
       // Point at the exact passage holding the sentence the answer rests on, not just the start of its section.
-      const exact =
-        sectionLink && activeDocument && sectionLink.documentId === activeDocument.id
-          ? quote_passage(activeDocument.plainText, answer.quote, sectionLink.sentenceIndex)
-          : null;
-      const link = sectionLink && exact !== null ? { ...sectionLink, sentenceIndex: exact } : sectionLink;
+      const { link, sectionTitle } = answer_passage(
+        answer_link(request, answer.sectionIndex) ?? undefined,
+        answer.quote,
+        activeDocument,
+      );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;
@@ -558,10 +557,7 @@ function ReaderContent() {
                   ? (context.saveSource ?? undefined)
                   : undefined,
               link,
-              sectionTitle:
-                link && activeDocument && link.documentId === activeDocument.id
-                  ? (passage_heading(activeDocument.plainText, link.sentenceIndex) ?? undefined)
-                  : undefined,
+              sectionTitle,
             }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
@@ -591,7 +587,7 @@ function ReaderContent() {
             <Text style={[s.summaryTitle, { color: theme.text }]}>Where you left off</Text>
           </View>
           <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>
-            {message.catchUp.percent}% through {message.catchUp.title}
+            {message.catchUp.percent}% through {readable_title(message.catchUp.title)}
           </Text>
           <AIResponse
             text={message.text}
@@ -619,7 +615,7 @@ function ReaderContent() {
           kind={message.fallback ? "help" : message.link ? "passage" : "document"}
           passage={message.link ? message.link.sentenceIndex + 1 : undefined}
           section={message.sectionTitle}
-          documentTitle={activeDocument?.title || "this document"}
+          documentTitle={activeDocument ? readable_title(activeDocument.title) : "this document"}
           filename={activeDocument?.sourceName}
           onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
         />
@@ -1265,7 +1261,7 @@ function ReaderContent() {
                     maxFontSizeMultiplier={1.2}
                     style={[s.title, s.compactTitle, { color: theme.text }]}
                   >
-                    {activeDocument?.title || "Document reader"}
+                    {activeDocument ? readable_title(activeDocument.title) : "Document reader"}
                   </Text>
                   <View style={s.progressCopy}>
                     <Text maxFontSizeMultiplier={1.2} style={[s.progressText, { color: theme.mutedText }]}>
@@ -1536,14 +1532,14 @@ function ReaderContent() {
                         <ToolButton
                           icon="text-outline"
                           label="Text"
-                          active={sheet === "appearance"}
-                          onPress={() => setSheet("appearance")}
+                          active={sheet === "text"}
+                          onPress={() => setSheet("text")}
                         />
                         <ToolButton
                           icon="color-palette-outline"
                           label="Color"
-                          active={sheet === "appearance"}
-                          onPress={() => setSheet("appearance")}
+                          active={sheet === "color"}
+                          onPress={() => setSheet("color")}
                         />
                         {listening ? (
                           <ToolButton
@@ -1623,7 +1619,8 @@ function ReaderContent() {
                       >
                         {askMessages.length === 0 && !askSending && !askError ? (
                           <Text style={[s.askStatus, { color: theme.mutedText }]}>
-                            Ask a question about {activeDocument?.title || "this document"}.
+                            Ask a question about{" "}
+                            {activeDocument ? readable_title(activeDocument.title) : "this document"}.
                           </Text>
                         ) : null}
                         {ask_conversation_views()}
@@ -1773,7 +1770,7 @@ function ReaderContent() {
             <CompletionModal
               visible={completionOpen}
               onClose={() => setCompletionOpen(false)}
-              title={activeDocument?.title}
+              title={activeDocument ? readable_title(activeDocument.title) : undefined}
               timeSpentSeconds={document_time_spent(activeDocument)}
               passageCount={passages.length}
             />

@@ -149,6 +149,33 @@ describe("Settings preferences", () => {
     expect(screen.getByRole("switch", { name: "Reduce motion", checked: true })).toBeTruthy();
   });
 
+  it("shares High contrast with the Reader and links text size to Reading & Listening", async () => {
+    await render_with_providers(<SettingsDetailScreen category="accessibility" />);
+    const toggle = screen.getByRole("switch", { name: "High contrast reading" });
+    expect(toggle.props.accessibilityHint).toMatch(/Reader/);
+    await fireEvent(toggle, "valueChange", true);
+    expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.accessibility.v1"))!)).toMatchObject({
+      highContrast: true,
+    });
+    // Text size is owned by Reading & Listening; Accessibility shows its value and links there.
+    expect(screen.queryByRole("radio", { name: "Large text size" })).toBeNull();
+    const link = screen.getByRole("button", { name: "Text size and spacing" });
+    expect(link.props.accessibilityValue.text).toBe("Default text · Default spacing");
+    await fireEvent.press(link);
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/settings/[category]",
+      params: { category: "reading" },
+    });
+  });
+
+  it("explains and locks Reduce motion while the device setting is on", async () => {
+    jest.spyOn(AccessibilityInfo, "isReduceMotionEnabled").mockResolvedValue(true);
+    await render_with_providers(<SettingsDetailScreen category="accessibility" />);
+    const toggle = await screen.findByRole("switch", { name: "Reduce motion", checked: true });
+    expect(toggle.props.disabled).toBe(true);
+    expect(toggle.props.accessibilityHint).toMatch(/device's Reduce Motion setting is on/);
+  });
+
   it("retains personalization choices after remount", async () => {
     const rendered = await render_with_providers(<SettingsDetailScreen category="personalization" />);
     // The setup answers are edited from here; the old single focus choice is gone.

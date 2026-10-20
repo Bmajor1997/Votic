@@ -114,7 +114,38 @@ describe("Read mode", () => {
     // Reading focus only changes the spoken-text highlight, so it is not offered here.
     expect(screen.queryByRole("button", { name: "More" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Text" }));
-    expect(screen.getByRole("header", { name: "Appearance" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Text" })).toBeTruthy();
+  });
+
+  it("opens typography from Text and page color from Color, not the same panel", async () => {
+    await open_in("read");
+    await fireEvent.press(screen.getByRole("button", { name: "Show reading tools" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Text" }));
+    expect(screen.getByRole("header", { name: "Text" })).toBeTruthy();
+    for (const name of ["A+", "Serif", "Open", "Wide"])
+      expect(screen.getByRole("radio", { name })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "Sepia" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "High contrast" })).toBeNull();
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close reader controls" }).at(-1)!);
+
+    await fireEvent.press(screen.getByRole("button", { name: "Color" }));
+    expect(screen.getByRole("header", { name: "Color" })).toBeTruthy();
+    for (const name of ["Light", "Dark", "Sepia"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
+    expect(screen.getByRole("switch", { name: "High contrast" })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "A+" })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Serif" })).toBeNull();
+  });
+
+  it("saves High contrast from the Color panel", async () => {
+    await open_in("read");
+    await fireEvent.press(screen.getByRole("button", { name: "Show reading tools" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Color" }));
+    await fireEvent(screen.getByRole("switch", { name: "High contrast" }), "valueChange", true);
+    expect(screen.getByRole("switch", { name: "High contrast" }).props.value).toBe(true);
+    await act(async () => {});
+    expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.accessibility.v1")) || "{}")).toMatchObject({
+      highContrast: true,
+    });
   });
 
   it("moves the saved text position when turning pages", async () => {
@@ -323,6 +354,30 @@ describe("Appearance", () => {
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "light",
       background: "#F3F6FC",
+    });
+  });
+
+  it.each([
+    ["light", "#FFFFFF", "#000000"],
+    ["dark", "#000000", "#FFFFFF"],
+    ["sepia", "#F4ECD8", "#21170F"],
+  ])("High contrast strengthens the %s Reader page only", async (mode, background, text) => {
+    await AsyncStorage.setItem(
+      "votic.mobile.theme.v1",
+      JSON.stringify({ accentName: "blue", appearanceMode: "light", readerAppearanceMode: mode }),
+    );
+    await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ highContrast: true }));
+    await render_with_providers(<ThemeScopes />);
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({
+        background,
+        text,
+        highContrast: true,
+      }),
+    );
+    expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
+      background: "#F3F6FC",
+      highContrast: false,
     });
   });
 

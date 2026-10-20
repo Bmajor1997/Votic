@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { ChartPoint, format_duration, spoken_duration } from "./activityModel";
+import { ChartPoint, format_duration, shows_axis_label, spoken_duration } from "./activityModel";
 
 /**
  * Validated categorical pair (blue, then orange) for listening and reading, with light and dark
@@ -13,6 +13,8 @@ export function series_colors(isDark: boolean) {
 }
 
 const CHART_HEIGHT = 132;
+/** Room for the widest label ("29") at the largest allowed font size. The selected day is named in the readout. */
+const LABEL_WIDTH = 40;
 // Each maximum has a whole-number halfway mark, so the middle gridline label is exact.
 const NICE_MINUTES = [10, 20, 30, 60, 90, 120, 180, 240, 360, 480, 720, 1200, 2400, 4800, 9600];
 
@@ -39,8 +41,6 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
   const max = scale_max(points);
   const empty = points.every((point) => !point.reading && !point.listening);
   const selectedPoint = points.find((point) => point.key === selected);
-  // Month views label every fifth day so labels never collide.
-  const show_label = (index: number) => points.length <= 12 || index === 0 || (index + 1) % 5 === 0;
 
   return (
     <View style={s.wrap}>
@@ -132,7 +132,10 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
                         />
                       ))}
                     </View>
+                    {/* A month's bars are narrower than "30", so the label gets its own fixed width, centred
+                        under the bar, instead of being squeezed (and cut to "…") by the bar's slot. */}
                     <Text
+                      testID={`label-${point.key}`}
                       numberOfLines={1}
                       maxFontSizeMultiplier={1.3}
                       style={[
@@ -140,7 +143,7 @@ export function TimeChart({ points, title }: { points: ChartPoint[]; title: stri
                         { color: active ? theme.text : theme.mutedText, fontWeight: active ? "800" : "600" },
                       ]}
                     >
-                      {show_label(index) ? point.label : " "}
+                      {shows_axis_label(index, points.length) ? point.label : " "}
                     </Text>
                   </Pressable>
                 );
@@ -181,7 +184,7 @@ const s = StyleSheet.create({
   slot: { flex: 1, alignItems: "center", minHeight: 44 },
   pair: { width: "80%", maxWidth: 30, flexDirection: "row", alignItems: "flex-end", gap: 2 },
   bar: { flex: 1, borderTopLeftRadius: 4, borderTopRightRadius: 4 },
-  label: { fontSize: 12, marginTop: 6 },
+  label: { width: LABEL_WIDTH, fontSize: 12, marginTop: 6, textAlign: "center" },
   tableRow: {
     minHeight: 48,
     borderBottomWidth: 1,

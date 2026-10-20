@@ -97,11 +97,13 @@ function Toggle({
   detail,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   detail: string;
   value: boolean;
   onChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -114,7 +116,8 @@ function Toggle({
         accessibilityRole="switch"
         accessibilityLabel={label}
         accessibilityHint={detail}
-        accessibilityState={{ checked: value }}
+        accessibilityState={{ checked: value, disabled }}
+        disabled={disabled}
         value={value}
         onValueChange={(next) => {
           onChange(next);
@@ -248,22 +251,61 @@ function ReadingSettings() {
   );
 }
 
+const TEXT_SIZE_LABELS: Record<TextSize, string> = {
+  default: "Default",
+  large: "Large",
+  "extra-large": "Extra large",
+};
+const SPACING_LABELS: Record<ReadingSpacing, string> = {
+  compact: "Compact",
+  default: "Default",
+  extra: "Extra",
+};
+
+/**
+ * Accessibility gathers the settings that help people see, read, and move through Votic. Reader text size and
+ * spacing stay owned by Reading & Listening; this page links to them instead of keeping a second copy, and High
+ * contrast is the same setting as the Reader's Color panel.
+ */
 function AccessibilitySettings() {
   const a = useAccessibilityPreferences();
   const { theme } = useVoticTheme();
   return (
-    <Section title="Motion" detail="Keep navigation and reading comfortable.">
-      <Toggle
-        label="Reduce motion"
-        detail="Minimize Reader and sheet animations."
-        value={a.reduceMotion}
-        onChange={a.setReduceMotion}
-      />
-      <Text style={[s.detail, { color: theme.mutedText }]}>
-        Your device&apos;s Reduce Motion setting also applies. Text size and spacing are in Reading &amp;
-        Listening.
-      </Text>
-    </Section>
+    <>
+      <Section title="Vision" detail="Make text easier to see and read.">
+        <Toggle
+          label="High contrast reading"
+          detail="Darker text and clearer borders in the Reader, in Light, Dark, or Sepia."
+          value={a.highContrast}
+          onChange={a.setHighContrast}
+        />
+        <SettingsGroup>
+          <SettingsRow
+            label="Text size and spacing"
+            detail={`${TEXT_SIZE_LABELS[a.textSize]} text · ${SPACING_LABELS[a.readingSpacing]} spacing`}
+            hint="Opens Reading and Listening, where Reader text size and spacing are set"
+            icon="text-outline"
+            onPress={() => router.push({ pathname: "/settings/[category]", params: { category: "reading" } })}
+          />
+        </SettingsGroup>
+        <Text style={[s.detail, { color: theme.mutedText }]}>
+          Votic also follows your device&apos;s font size setting.
+        </Text>
+      </Section>
+      <Section title="Motion" detail="Keep navigation and reading comfortable.">
+        <Toggle
+          label="Reduce motion"
+          detail={
+            a.systemReduceMotion
+              ? "On because your device's Reduce Motion setting is on. Change it in your device settings."
+              : "Minimize Reader, sheet, and AI status animations."
+          }
+          value={a.reduceMotion}
+          disabled={a.systemReduceMotion}
+          onChange={a.setReduceMotion}
+        />
+      </Section>
+    </>
   );
 }
 

@@ -195,7 +195,14 @@ export function AccountSettings() {
                   danger
                 />
               </View>
-            ) : null}
+            ) : (
+              // Test builds without Votic accounts use a local session, so there is no account to delete.
+              // Saying so keeps testers from mistaking the missing option for a release defect.
+              <Text style={[s.detail, { color: theme.mutedText }]}>
+                This test build isn&apos;t connected to Votic accounts, so there&apos;s no account to delete.
+                Delete account appears in builds that use Votic sign-in.
+              </Text>
+            )}
           </>
         ) : null}
       </View>

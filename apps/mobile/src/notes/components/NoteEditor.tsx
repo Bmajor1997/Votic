@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { readable_title } from "../../documents/documentDisplay";
 import { radii, spacing } from "../../design/tokens";
 import { NoteType } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
@@ -78,7 +79,7 @@ function NoteEditorForm({
                 {passage.note.trim() ? "Edit note" : passage.text ? "Add a note" : "Quick Note"}
               </Text>
               <Text numberOfLines={1} style={[sheet.editorDocument, { color: theme.mutedText }]}>
-                {document.title}
+                {readable_title(document.title)}
               </Text>
             </View>
             <Pressable

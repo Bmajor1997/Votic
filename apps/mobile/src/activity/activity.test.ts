@@ -14,6 +14,7 @@ import {
   parse_log,
   period_for,
   spoken_duration,
+  shows_axis_label,
   streaks,
   summarize,
 } from "./activityModel";
@@ -172,6 +173,28 @@ describe("periods and totals", () => {
     expect(series.map((point) => point.label)).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
     expect(series[3]).toMatchObject({ listening: 30 * MIN, longLabel: "Thursday, Oct 1" });
     expect(series[6]).toMatchObject({ reading: 0, listening: 0 });
+  });
+
+  it.each([
+    ["February (28 days)", new Date(2026, 1, 10), 28],
+    ["leap-year February (29 days)", new Date(2028, 1, 10), 29],
+    ["September (30 days)", new Date(2026, 8, 10), 30],
+    ["October (31 days)", new Date(2026, 9, 10), 31],
+  ])("labels one day a week in %s without changing the bars", (_name, now, days) => {
+    const series = chart_series(empty_log(), period_for("month", 0, now), now);
+    expect(series).toHaveLength(days);
+    const shown = series.filter((_point, index) => shows_axis_label(index, series.length));
+    expect(shown.map((point) => point.label)).toEqual(
+      ["1", "8", "15", "22", "29"].filter((day) => Number(day) <= days),
+    );
+    // Neighbouring labels are always a week of bars apart, so they never crowd each other.
+    expect(series.every((point) => point.longLabel.length > 0)).toBe(true);
+  });
+
+  it("labels every bar for a week and for up to twelve months", () => {
+    for (const count of [7, 2, 12]) {
+      for (let index = 0; index < count; index += 1) expect(shows_axis_label(index, count)).toBe(true);
+    }
   });
 
   it("uses monthly bars for all time", () => {

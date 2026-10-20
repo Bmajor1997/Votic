@@ -1,5 +1,6 @@
 import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from "react";
 import { useColorScheme } from "react-native";
+import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { load_theme_preferences, save_theme_preferences } from "../preferences/preferenceStorage";
 export type AccentName =
   "blue" | "purple" | "orange" | "red" | "teal" | "emerald" | "indigo" | "rose" | "amber";
@@ -77,6 +78,36 @@ const palettes = {
     border: "#DCCFB2",
   },
 } as const;
+/**
+ * The Reader's High contrast page: near-black (or white) text and visible borders on each paper, with body and
+ * secondary text above 7:1 (WCAG AAA) so it is a real step up from the standard palettes, not just a darker tint.
+ */
+const highContrastPalettes = {
+  light: {
+    background: "#FFFFFF",
+    surface: "#FFFFFF",
+    surfaceMuted: "#F2F2F2",
+    text: "#000000",
+    mutedText: "#2E2E2E",
+    border: "#5C5C5C",
+  },
+  dark: {
+    background: "#000000",
+    surface: "#121212",
+    surfaceMuted: "#1C1C1C",
+    text: "#FFFFFF",
+    mutedText: "#E0E0E0",
+    border: "#8A8A8A",
+  },
+  sepia: {
+    background: "#F4ECD8",
+    surface: "#FBF5E6",
+    surfaceMuted: "#EADFC6",
+    text: "#21170F",
+    mutedText: "#3B2C20",
+    border: "#7D6B4F",
+  },
+} as const;
 // Navigation has its own atmosphere; Reader keeps the paper palettes above.
 const navigationPalettes = {
   light: {
@@ -96,16 +127,41 @@ const navigationPalettes = {
     border: "#314461",
   },
 };
-function make_theme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, reader = false) {
+export function make_theme(
+  accentName: AccentName,
+  resolvedMode: ReaderAppearanceMode,
+  reader = false,
+  highContrast = false,
+) {
   const accent =
     resolvedMode === "sepia" ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE) : accentColors[accentName];
+  // High contrast only changes the Reader's page; the rest of Votic keeps its own palettes.
+  const contrast = reader && highContrast;
+  const palette = contrast
+    ? highContrastPalettes[resolvedMode]
+    : reader || resolvedMode === "sepia"
+      ? palettes[resolvedMode]
+      : navigationPalettes[resolvedMode];
   return {
-    ...(reader || resolvedMode === "sepia" ? palettes[resolvedMode] : navigationPalettes[resolvedMode]),
+    ...palette,
     // On dark backgrounds (the Reader's included) accent-colored text is lifted, or selected labels get hard to read.
-    accentText:
-      resolvedMode === "dark" ? tint(accent, reader ? 0.5 : 0.65) : reader ? accent : shade(accent, 0.12),
+    accentText: contrast
+      ? resolvedMode === "dark"
+        ? tint(accent, 0.7)
+        : shade(accent, 0.35)
+      : resolvedMode === "dark"
+        ? tint(accent, reader ? 0.5 : 0.65)
+        : reader
+          ? accent
+          : shade(accent, 0.12),
     /** Small accent-colored text, such as links, that stays readable on dark backgrounds too. */
-    linkText: resolvedMode === "dark" ? tint(accent, 0.45) : accent,
+    linkText: contrast
+      ? resolvedMode === "dark"
+        ? tint(accent, 0.7)
+        : shade(accent, 0.35)
+      : resolvedMode === "dark"
+        ? tint(accent, 0.45)
+        : accent,
     onAccent: "#FFFFFF",
     aiStatusText: resolvedMode === "dark" ? "#C4A7EA" : resolvedMode === "sepia" ? "#704795" : "#7653A6",
     // Soft backgrounds behind icons and highlighted cards, made from the chosen accent so they change with it
@@ -131,6 +187,7 @@ function make_theme(accentName: AccentName, resolvedMode: ReaderAppearanceMode, 
     wordHighlight: with_alpha(accent, resolvedMode === "dark" ? "80" : "55"),
     mode: resolvedMode,
     isDark: resolvedMode === "dark",
+    highContrast: contrast,
   };
 }
 const C = createContext<any>(null);
@@ -235,8 +292,12 @@ export function useVoticTheme() {
 /** Scope the document palette and its controls to the Reader route. */
 export function ReaderThemeProvider({ children }: PropsWithChildren) {
   const app = useVoticTheme();
+  const { highContrast } = useAccessibilityPreferences();
   const resolvedMode = app.readerAppearanceMode ?? app.resolvedMode;
-  const theme = useMemo(() => make_theme(app.accentName, resolvedMode, true), [app.accentName, resolvedMode]);
+  const theme = useMemo(
+    () => make_theme(app.accentName, resolvedMode, true, highContrast),
+    [app.accentName, resolvedMode, highContrast],
+  );
   return (
     <C.Provider
       value={{

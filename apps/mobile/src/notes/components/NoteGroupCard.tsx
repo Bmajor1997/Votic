@@ -48,7 +48,7 @@ export function NoteGroupCard({
       {!inNotebook ? (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Open ${document.title} notebook`}
+          accessibilityLabel={`Open ${title} notebook`}
           accessibilityHint={`${noteCount} ${noteCount === 1 ? "note" : "notes"}, ${savedCount} saved ${savedCount === 1 ? "passage" : "passages"}`}
           onPress={onOpenNotebook}
           style={({ pressed }) => [
@@ -104,7 +104,7 @@ export function NoteGroupCard({
               <Pressable
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: selected }}
-                accessibilityLabel={`${selected ? "Deselect" : "Select"} note from ${document.title}`}
+                accessibilityLabel={`${selected ? "Deselect" : "Select"} note from ${title}`}
                 onPress={() => onToggleSelected(selectionId)}
                 style={s.selectionBox}
               >
@@ -117,7 +117,7 @@ export function NoteGroupCard({
             ) : null}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`View note from ${document.title}`}
+              accessibilityLabel={`View note from ${title}`}
               onPress={() => (selecting ? onToggleSelected(selectionId) : onView({ document, passage }))}
               style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
             >

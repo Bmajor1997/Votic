@@ -19,6 +19,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ask_votic } from "../src/api/voticApi";
 import { spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
+import { readable_title } from "../src/documents/documentDisplay";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { RevealingText } from "../src/components/RevealingText";
 import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
@@ -45,6 +46,8 @@ import {
 import { AskLink } from "../src/ask/documentSections";
 import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
+import { AskAnswerSourceChip } from "../src/ask/AskAnswerSourceChip";
+import { answer_passage } from "../src/ask/answerPassage";
 import { useActivity } from "../src/activity/ActivityProvider";
 import { ask_event_for } from "../src/activity/askCategories";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
@@ -61,6 +64,8 @@ type Message = {
   saved?: boolean;
   source?: AskAnswerSource;
   link?: AskLink;
+  /** The heading of the linked passage's part of the document, shown on the passage chip. */
+  sectionTitle?: string;
   /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
   fallback?: boolean;
   summary?: boolean;
@@ -278,6 +283,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       const request = prepare_ask_request(askContext, clean, messages);
       const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
       const grounded = answered_from_context(request, answer);
+      const sectionLink = answer_link(request, answer.sectionIndex) ?? undefined;
+      const { link, sectionTitle } = answer_passage(
+        sectionLink,
+        answer.quote,
+        sectionLink && documents.find((document) => document.id === sectionLink.documentId),
+      );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (!current()) return;
@@ -289,7 +300,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               role: "votic",
               text: answer.answer,
               source: askContext.kind === "general" ? undefined : (askContext.saveSource ?? undefined),
-              link: answer_link(request, answer.sectionIndex) ?? undefined,
+              link,
+              sectionTitle,
             }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
@@ -502,6 +514,23 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 >
                   {m.role === "votic" ? (
                     <View>
+                      {(() => {
+                        // The same passage chip as the Reader's Ask panel, leading the answer it supports.
+                        const link = m.link;
+                        const target = link && documents.find((document) => document.id === link.documentId);
+                        return link && target ? (
+                          <View style={s.answerSource}>
+                            <AskAnswerSourceChip
+                              kind="passage"
+                              passage={link.sentenceIndex + 1}
+                              section={m.sectionTitle}
+                              documentTitle={readable_title(target.title)}
+                              filename={target.sourceName}
+                              onPress={() => open_answer_link(link)}
+                            />
+                          </View>
+                        ) : null;
+                      })()}
                       {m.summary ? (
                         <Text style={[s.body, { color: theme.text, fontWeight: "700" }]}>
                           Conversation summary
@@ -516,41 +545,23 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                   ) : (
                     <Text style={[s.body, { color: "#FFF" }]}>{m.text}</Text>
                   )}
-                  {m.role === "votic"
-                    ? (() => {
-                        const link = m.link;
-                        const target = link
-                          ? documents.find((document) => document.id === link.documentId)
-                          : undefined;
-                        return (
-                          <AskAnswerFooter
-                            reportText={!m.fallback ? m.text : undefined}
-                            style={s.answerFooter}
-                            listen={{
-                              playing: answerListening.playingKey === String(i),
-                              failed: answerListening.errorKey === String(i),
-                              disabled: voiceBusy,
-                              onPress: () => void answerListening.toggle(String(i), m.text),
-                            }}
-                            source={
-                              link && target
-                                ? {
-                                    filename: target.sourceName,
-                                    label: `Passage ${link.sentenceIndex + 1} · ${target.title}`,
-                                    accessibilityLabel: `Open ${target.title} at passage ${link.sentenceIndex + 1} in Reader`,
-                                    onPress: () => open_answer_link(link),
-                                  }
-                                : null
-                            }
-                            save={
-                              can_save_answer(m)
-                                ? { saved: Boolean(m.saved), onPress: () => save_answer_to_notes(i) }
-                                : null
-                            }
-                          />
-                        );
-                      })()
-                    : null}
+                  {m.role === "votic" ? (
+                    <AskAnswerFooter
+                      reportText={!m.fallback ? m.text : undefined}
+                      style={s.answerFooter}
+                      listen={{
+                        playing: answerListening.playingKey === String(i),
+                        failed: answerListening.errorKey === String(i),
+                        disabled: voiceBusy,
+                        onPress: () => void answerListening.toggle(String(i), m.text),
+                      }}
+                      save={
+                        can_save_answer(m)
+                          ? { saved: Boolean(m.saved), onPress: () => save_answer_to_notes(i) }
+                          : null
+                      }
+                    />
+                  ) : null}
                 </View>
               ))
             )}
@@ -820,6 +831,7 @@ const s = StyleSheet.create({
   userMessage: { alignSelf: "flex-end", borderRadius: 16, paddingHorizontal: spacing.md },
   voticMessage: { alignSelf: "flex-start" },
   answerFooter: { marginTop: spacing.sm },
+  answerSource: { marginBottom: spacing.sm },
   status: { fontSize: 14 },
   error: { borderWidth: 1, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   retry: {

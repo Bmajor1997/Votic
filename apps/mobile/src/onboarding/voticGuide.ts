@@ -8,7 +8,7 @@ Welcome to Votic. This walkthrough is a real document, so you can try reading an
 
 Press play at the bottom to hear this guide. Votic highlights spoken words, and you can pause and resume where you stopped. Open the Listen controls to change speed, preview voices, and choose a voice. Each voice has its own name, so you can tell them apart.
 
-Reader Appearance controls change the document's text, spacing, and reading colors. Sepia is for the Reader; the app itself uses Light, Dark, or System.
+In the Reader, Text changes the document's size, font, and spacing, and Color changes the page: Light, Dark, Sepia, or High contrast. Sepia is for the Reader; the app itself uses Light, Dark, or System.
 
 ## Ask Votic with your voice
 
@@ -24,7 +24,7 @@ Open Documents and choose Upload for PDF, Word, PowerPoint, EPUB, text, or Markd
 
 ## Find your settings
 
-Settings now opens with categories. Appearance controls the app theme and accent. Reading & Listening includes text size, spacing, word emphasis, and pronunciation. Accessibility includes Reduce Motion. Personalization includes your purpose and explanation style. Help lets you reopen this walkthrough, show contextual tips again, and see Statistics. Preferences apply as you change them and are saved on your device.
+Settings now opens with categories. Appearance controls the app theme and accent. Reading & Listening includes text size, spacing, word emphasis, and pronunciation. Accessibility includes High contrast reading, Reduce Motion, and a shortcut to text size. Personalization includes your purpose and explanation style. Help lets you reopen this walkthrough, show contextual tips again, and see Statistics. Preferences apply as you change them and are saved on your device.
 
 ## Manage your account
 

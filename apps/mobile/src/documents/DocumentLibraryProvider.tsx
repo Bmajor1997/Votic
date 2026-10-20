@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
+import { strip_file_extension } from "./fileTypes";
 import { account_writable } from "../storage/accountDeletion";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
@@ -54,7 +55,7 @@ type Library = {
 const C = createContext<Library | null>(null);
 
 function title_from(sourceName: string, text: string) {
-  const fileTitle = sourceName.replace(/\.(txt|md)$/i, "").trim();
+  const fileTitle = strip_file_extension(sourceName);
   const first = text
     .split(/\r?\n/)
     .map((value) => value.trim())

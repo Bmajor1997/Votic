@@ -26,33 +26,3 @@ export function build_comprehension_questions(text: string, position = 1): Compr
     sourceIndex,
   }));
 }
-
-export function self_check_feedback(answer: string, source: string) {
-  const words = (value: string) =>
-    new Set(
-      (value.toLocaleLowerCase().match(/[a-z0-9']{4,}/g) || []).filter(
-        (w) =>
-          ![
-            "that",
-            "this",
-            "with",
-            "from",
-            "have",
-            "were",
-            "their",
-            "about",
-            "would",
-            "there",
-            "which",
-          ].includes(w),
-      ),
-    );
-  const expected = words(source),
-    actual = words(answer);
-  let overlap = 0;
-  for (const word of actual) if (expected.has(word)) overlap += 1;
-  if (answer.trim().length < 20)
-    return "Add a little more detail, then compare your answer with the passage.";
-  if (overlap >= 3) return "Good recall. Your answer includes several ideas from the passage.";
-  return "You have the start of it. Revisit the passage and check the main idea and one supporting detail.";
-}

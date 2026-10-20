@@ -234,6 +234,14 @@ export function summarize(log: ActivityLog, start: Date, end: Date): PeriodSumma
 }
 
 export type ChartPoint = TimeSplit & { key: string; label: string; longLabel: string };
+/** A week (7 bars) or all-time months (up to 12) fit a label under every bar. */
+const LABEL_EVERY_BAR_MAX = 12;
+/** Month views label one day a week (1, 8, 15, 22, 29), so each label has room at any width or font size. */
+const MONTH_LABEL_STEP = 7;
+/** Whether the bar at `index` of `count` shows its axis label. Every bar stays tappable and is read aloud. */
+export function shows_axis_label(index: number, count: number) {
+  return count <= LABEL_EVERY_BAR_MAX || index % MONTH_LABEL_STEP === 0;
+}
 /** Daily bars for a week or month; monthly bars (up to 12) for all time. */
 export function chart_series(log: ActivityLog, period: Period, now = new Date()): ChartPoint[] {
   const days = daily_totals(log);

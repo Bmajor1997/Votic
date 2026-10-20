@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-
 import { SafeAreaView } from "react-native-safe-area-context";
 import { radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
+import { readable_title } from "../src/documents/documentDisplay";
 import { document_time_spent } from "../src/documents/insights";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -60,7 +61,7 @@ export default function Review() {
         <View style={s.headerCopy}>
           <Text style={[s.headerTitle, { color: theme.text }]}>Review</Text>
           <Text numberOfLines={1} style={[s.context, { color: theme.mutedText }]}>
-            {activeDocument?.title || "Document"}
+            {activeDocument ? readable_title(activeDocument.title) : "Document"}
           </Text>
         </View>
         <Pressable

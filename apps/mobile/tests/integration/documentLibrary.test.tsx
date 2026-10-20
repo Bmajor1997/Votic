@@ -32,6 +32,16 @@ describe("document library persistence", () => {
     expect(result.current.persistenceError).toMatch(/could not save your library changes/);
   });
 
+  it("titles a new import without its extension but keeps the original filename", async () => {
+    const { result } = await render_library();
+    await act(async () =>
+      result.current.addTextDocument("first 25 days CWAT Schedule.PDF", "Schedule text."),
+    );
+    const [document] = result.current.documents;
+    expect(document.title).toBe("first 25 days CWAT Schedule");
+    expect(document.sourceName).toBe("first 25 days CWAT Schedule.PDF");
+  });
+
   it("saves changes after the throttle interval", async () => {
     const { result } = await render_library();
     await act(async () => result.current.addTextDocument("new.txt", "New text."));

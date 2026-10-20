@@ -25,10 +25,16 @@ type AccessibilityPreferences = {
   setHighlightMode: (value: HighlightMode) => void;
   voiceIdentifier: string | null;
   setVoiceIdentifier: (value: string | null) => void;
+  /** True when Votic or the device asks for less motion. */
   reduceMotion: boolean;
+  /** The device's own Reduce Motion setting, which Votic always follows. */
+  systemReduceMotion: boolean;
   setReduceMotion: (value: boolean) => void;
   wordEmphasis: boolean;
   setWordEmphasis: (value: boolean) => void;
+  /** Stronger text and border contrast for the Reader's page, in every reader theme. */
+  highContrast: boolean;
+  setHighContrast: (value: boolean) => void;
 };
 
 const AccessibilityContext = createContext<AccessibilityPreferences | null>(null);
@@ -45,6 +51,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   const reduceMotion = reduceMotionPreference || systemReduceMotion;
   const setReduceMotion = setReduceMotionPreference;
   const [wordEmphasis, setWordEmphasis] = useState(true);
+  const [highContrast, setHighContrast] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -59,6 +66,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
       if (typeof saved?.voiceIdentifier === "string") setVoiceIdentifier(saved.voiceIdentifier);
       if (typeof saved?.reduceMotion === "boolean") setReduceMotionPreference(saved.reduceMotion);
       if (typeof saved?.wordEmphasis === "boolean") setWordEmphasis(saved.wordEmphasis);
+      if (typeof saved?.highContrast === "boolean") setHighContrast(saved.highContrast);
       setHydrated(true);
     });
   }, []);
@@ -82,6 +90,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         voiceIdentifier,
         reduceMotion: reduceMotionPreference,
         wordEmphasis,
+        highContrast,
       }).catch(() => {});
   }, [
     textSize,
@@ -92,6 +101,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     voiceIdentifier,
     reduceMotionPreference,
     wordEmphasis,
+    highContrast,
     hydrated,
   ]);
 
@@ -112,9 +122,12 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         voiceIdentifier,
         setVoiceIdentifier,
         reduceMotion,
+        systemReduceMotion,
         setReduceMotion,
         wordEmphasis,
         setWordEmphasis,
+        highContrast,
+        setHighContrast,
       }}
     >
       {children}

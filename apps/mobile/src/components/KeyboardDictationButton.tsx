@@ -60,6 +60,8 @@ export function KeyboardDictationButton({
   const startingOperation = useRef(false);
   const leftWhileStarting = useRef(false);
   const audioRelease = useRef<Promise<void>>(Promise.resolve());
+  /** The question text when a voice message was last shown, so typing afterwards can clear it. */
+  const errorShownFor = useRef<string | null>(null);
   const streamResult = useAudioStream({
     sampleRate: 16_000,
     channels: 1,
@@ -106,6 +108,32 @@ export function KeyboardDictationButton({
     cancelAction.current = cancel_recording;
   });
 
+  /**
+   * Shows a voice problem once, where it happened. Screens that show it beside the question box get it there;
+   * only a screen without that space gets an alert, so the same message never appears twice.
+   */
+  function report_error(message: string) {
+    errorShownFor.current = value;
+    if (onErrorChange) onErrorChange(message);
+    else Alert.alert("Voice question", message);
+  }
+
+  function clear_error() {
+    errorShownFor.current = null;
+    onErrorChange?.("");
+  }
+
+  // Typing a question means the person has moved on from the microphone, so an earlier voice message (such as
+  // "Sign in to use voice questions") no longer describes what they are doing. A failed recording that can still be
+  // retried keeps its message until it is retried or discarded.
+  useEffect(() => {
+    if (errorShownFor.current === null || value === errorShownFor.current) return;
+    if (phaseRef.current !== "idle") return;
+    clear_error();
+    // clear_error only reads refs and the latest callback.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   function change_phase(next: VoiceInputPhase) {
     phaseRef.current = next;
     if (!mounted.current) return;
@@ -144,7 +172,7 @@ export function KeyboardDictationButton({
     void release_microphone();
     if (mounted.current) {
       onRevealChange?.(null);
-      onErrorChange?.("");
+      clear_error();
       onLevelChange?.(0);
       change_phase("idle");
     }
@@ -233,7 +261,7 @@ export function KeyboardDictationButton({
     const current = () => mounted.current && currentSession === session.current;
     clear_timer();
     change_phase("transcribing");
-    onErrorChange?.("");
+    clear_error();
     try {
       if (!retry) {
         stream.current.stop();
@@ -263,9 +291,8 @@ export function KeyboardDictationButton({
     } catch (error) {
       if (current()) {
         const message = error instanceof Error ? error.message : "Votic could not transcribe that recording.";
-        onErrorChange?.(message);
         change_phase(savedAudio.current ? "error" : "idle");
-        Alert.alert("Voice question", message);
+        report_error(message);
       }
     } finally {
       if (!current()) return;
@@ -287,7 +314,7 @@ export function KeyboardDictationButton({
     const currentSession = ++session.current;
     const current = () => mounted.current && currentSession === session.current;
     change_phase("starting");
-    onErrorChange?.("");
+    clear_error();
     try {
       await audioRelease.current;
       if (!current()) return;
@@ -340,8 +367,7 @@ export function KeyboardDictationButton({
       if (current()) {
         const message =
           error instanceof Error ? error.message : "Votic could not start the microphone. Please try again.";
-        onErrorChange?.(message);
-        Alert.alert("Voice question", message);
+        report_error(message);
       }
     } finally {
       startingOperation.current = false;
