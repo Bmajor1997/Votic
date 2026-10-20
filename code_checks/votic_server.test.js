@@ -530,3 +530,18 @@ test("reads scanned PDFs through private OCR, and refuses rather than cutting a 
   });
   await with_server({ extractDocument: scanned }, async (base) => assert.equal((await upload(base)).status, 503));
 });
+
+test("webpage imports share extraction capacity without blocking health checks", async () => {
+  let release, started;
+  const gate = new Promise(resolve => { release = resolve; });
+  const entered = new Promise(resolve => { started = resolve; });
+  await with_server({ config: { extract_concurrency: 1 }, extractDocument: async () => { started(); await gate; return "done"; } }, async base => {
+    const first = fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "file.pdf" }, body: pdf });
+    try {
+      await entered;
+      const blocked = await fetch(base + "/api/import-url", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({url: "https://example.com"}) });
+      assert.equal(blocked.status, 429);
+      assert.equal((await fetch(base + "/healthz")).status, 200);
+    } finally { release(); await first; }
+  });
+});

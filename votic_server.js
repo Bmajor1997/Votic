@@ -140,6 +140,20 @@ export function create_votic_handler(options = {}) {
    try { return await work({ signal: controller.signal, remaining }); }
    finally { clearTimeout(deadline); response.removeListener("close", disconnected); active_extractions -= 1; }
  };
+ const handle_web_import = async (request, response, client, request_started) => {
+    rate_limit(`${client}:extract`, config.extract_rate_limit);
+    const payload = await read_json_body(request, Math.min(config.max_json_bytes, 20_000), config.body_timeout_ms);
+    if (typeof payload.url !== "string" || payload.url.length > 3000) throw new HttpError(400, "Enter a valid webpage address.");
+    try {
+      const page = await with_extraction_slot(request_started, response, ({ signal, remaining }) =>
+        import_public_webpage(payload.url, { fetchImpl: options.webFetchImpl, timeoutMs: Math.min(config.body_timeout_ms, remaining()), signal }));
+      send_json(response, 200, page);
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      logger.warn?.("Votic webpage import unavailable", { name: error?.name });
+      throw new HttpError(400, error instanceof WebImportError ? error.message : "Votic could not import that webpage. Check the address and try again.");
+    }
+ };
  const handler = async (request, response) => {
   const request_started = Date.now();
   set_security_headers(response);
@@ -249,18 +263,9 @@ export function create_votic_handler(options = {}) {
     return;
   }
    if (request.method === "POST" && path === "/api/import-url") {
-    rate_limit(`${client}:extract`, config.extract_rate_limit);
-    const payload = await read_json_body(request, Math.min(config.max_json_bytes, 20_000), config.body_timeout_ms);
-    if (typeof payload.url !== "string" || payload.url.length > 3000) throw new HttpError(400, "Enter a valid webpage address.");
-    try {
-      const page = await import_public_webpage(payload.url, { fetchImpl: options.webFetchImpl, timeoutMs: config.body_timeout_ms });
-      send_json(response, 200, page);
-    } catch (error) {
-      logger.warn?.("Votic webpage import unavailable", { name: error?.name });
-      throw new HttpError(400, error instanceof WebImportError ? error.message : "Votic could not import that webpage. Check the address and try again.");
-    }
+    await handle_web_import(request, response, client, request_started);
     return;
-  }
+   }
    if (request.method === "POST" && path === "/api/scan") {
     rate_limit(`${client}:scan`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");

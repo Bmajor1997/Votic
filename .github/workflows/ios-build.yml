@@ -7,6 +7,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  security-events: write
 concurrency:
   group: ios-build-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -28,8 +29,36 @@ jobs:
         env:
           EXPO_NO_TELEMETRY: "1"
       - run: npx pod-install ios
+      - name: Initialize native CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: swift
+          build-mode: manual
       - name: Compile full simulator app and widget extension
         run: xcodebuild -workspace ios/Votic.xcworkspace -scheme Votic -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO
         env:
           NODE_ENV: production
           EXPO_NO_TELEMETRY: "1"
+
+      - name: Test widget model
+        run: |
+          mkdir -p native-test-results
+          swiftc targets/widget/VoticSnapshot.swift native-tests/main.swift -o native-test-results/widget-tests
+          native-test-results/widget-tests > native-test-results/widget-tests.txt
+      - name: Analyze native code
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: native-ios
+          output: native-sarif
+          upload: false
+      - name: Gate native analysis findings
+        run: node ../../security/check-sarif.cjs ../../native-sarif
+      - name: Preserve iOS verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ios-assurance-evidence
+          path: |
+            native-sarif/
+            apps/mobile/native-test-results/
+          retention-days: 90

@@ -1,11 +1,12 @@
 import { ActivityLog, empty_log, parse_log } from "../activity/activityModel";
+import { MAX_DOCUMENT_CHARS, MAX_STORED_DOCUMENTS } from "../documents/documentStorage";
 import { SavedPassage, VoticDocument } from "../documents/types";
 import { SavedAccountPreferences } from "../onboarding/accountPreferences";
 import { PronunciationEntry } from "../reader/pronunciationDictionary";
 
 export const MAX_BACKUP_BYTES = 25_000_000;
 /** The most documents and collections one library (or backup) can hold. */
-export const MAX_LIBRARY_DOCUMENTS = 2000;
+export const MAX_LIBRARY_DOCUMENTS = MAX_STORED_DOCUMENTS;
 export const MAX_LIBRARY_COLLECTIONS = 2000;
 export type LibraryBackup = {
   format: "votic-library";
@@ -82,7 +83,7 @@ function document(value: unknown): VoticDocument {
     id: text(d.id, 200, false),
     title: text(d.title, 1000, false),
     sourceName: text(d.sourceName, 1000),
-    plainText: text(d.plainText, 10_000_000),
+    plainText: text(d.plainText, MAX_DOCUMENT_CHARS),
     progress: number(d.progress, 1),
     sentenceIndex: integer(d.sentenceIndex),
     wordIndex: integer(d.wordIndex),

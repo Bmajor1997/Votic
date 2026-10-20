@@ -31,6 +31,8 @@ type ActivityValue = {
   /** Always the measured log, even while sample statistics are shown (used by the home-screen widgets). */
   measuredLog: ActivityLog;
   hydrated: boolean;
+  loadError: string | null;
+  retryLoad: () => void;
   recordTime: (documentId: string, kind: ActivityKind, start: number, end: number) => void;
   recordAsk: (event: AskEvent) => void;
   /** Development builds only: shows generated statistics without touching real measurements. */
@@ -44,6 +46,8 @@ export function ActivityProvider({ children }: PropsWithChildren) {
   const storageKey = account_storage_key(ACTIVITY_KEY, uid ?? "");
   const [log, setLog] = useState<ActivityLog>(() => empty_log());
   const [hydrated, setHydrated] = useState(!uid);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [sample, setSample] = useState<ActivityLog | null>(null);
   const latest = useRef(log);
   const dirty = useRef(false);
@@ -56,7 +60,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
   const save = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    if (!dirty.current || !uid) return saving.current;
+    if (!hydratedRef.current || !dirty.current || !uid) return saving.current;
     dirty.current = false;
     const snapshot = JSON.stringify(latest.current);
     saving.current = saving.current
@@ -80,11 +84,12 @@ export function ActivityProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let mounted = true;
     if (!uid) return;
+    hydratedRef.current = false;
     void AsyncStorage.getItem(storageKey)
-      .catch(() => null)
       .then((raw) => {
         if (!mounted) return;
         const saved = parse_log(raw);
+        if (raw !== null && !saved) throw new Error("Saved activity could not be read.");
         let loaded = saved ?? empty_log();
         for (const update of pending.current) loaded = update(loaded);
         pending.current = [];
@@ -95,6 +100,12 @@ export function ActivityProvider({ children }: PropsWithChildren) {
         setLog(loaded);
         setHydrated(true);
         save();
+      })
+      .catch(() => {
+        if (mounted)
+          setLoadError(
+            "Your activity could not be loaded. Your saved history has been kept. Retry to load it.",
+          );
       });
     const subscription = AppState.addEventListener("change", (state) => {
       if (state !== "active") save();
@@ -104,7 +115,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
       subscription.remove();
       save();
     };
-  }, [uid, storageKey, save]);
+  }, [uid, storageKey, save, loadAttempt]);
 
   // After older activity is merged in, read it again in place; changes made meanwhile are kept.
   useEffect(
@@ -112,13 +123,25 @@ export function ActivityProvider({ children }: PropsWithChildren) {
       registerReload(async () => {
         if (!uid) return;
         hydratedRef.current = false;
-        const saved = parse_log(await AsyncStorage.getItem(storageKey).catch(() => null));
-        let loaded = saved ?? latest.current;
-        for (const update of pending.current) loaded = update(loaded);
-        pending.current = [];
-        latest.current = loaded;
-        hydratedRef.current = true;
-        setLog(loaded);
+        setHydrated(false);
+        setLoadError(null);
+        try {
+          const raw = await AsyncStorage.getItem(storageKey);
+          const saved = parse_log(raw);
+          if (raw !== null && !saved) throw new Error("Saved activity could not be read.");
+          let loaded = saved ?? latest.current;
+          for (const update of pending.current) loaded = update(loaded);
+          pending.current = [];
+          latest.current = loaded;
+          hydratedRef.current = true;
+          setLog(loaded);
+          setHydrated(true);
+        } catch (error) {
+          setLoadError(
+            "Your activity could not be loaded. Your saved history has been kept. Retry to load it.",
+          );
+          throw error;
+        }
       }),
     [registerReload, uid, storageKey],
   );
@@ -138,6 +161,13 @@ export function ActivityProvider({ children }: PropsWithChildren) {
         log: sample ?? log,
         measuredLog: log,
         hydrated,
+        loadError,
+        retryLoad: () => {
+          hydratedRef.current = false;
+          setHydrated(false);
+          setLoadError(null);
+          setLoadAttempt((attempt) => attempt + 1);
+        },
         recordTime: (documentId, kind, start, end) =>
           change((current) => add_interval(current, documentId, kind, start, end)),
         recordAsk: (event) => change((current) => add_ask_event(current, event)),

@@ -27,7 +27,7 @@ jobs:
         with:
           node-version: 24
       - name: Install mobile dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Generate dependency security report
         run: node ../../security/generate-mobile-dependency-report.cjs
       - name: Preserve dependency security report

@@ -56,7 +56,7 @@ jobs:
       - name: Check Votic CSS with Stylelint
         run: npm run lint:css
       - name: Run Votic automated tests
-        run: npm test
+        run: npm run test:coverage | tee backend-coverage.txt
       - name: Check dependencies for vulnerabilities
         if: always()
         run: |
@@ -87,7 +87,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: npm-vulnerability-report
+          retention-days: 90
           path: |
+            backend-coverage.txt
             npm-audit.json
             security/vulnerability-report.md
       - name: Scan dependencies with OSV-Scanner

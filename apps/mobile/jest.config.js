@@ -1,6 +1,14 @@
 /** Component and integration tests (React Native Testing Library). Pure-logic tests run in Vitest. */
 module.exports = {
   preset: "jest-expo",
+  collectCoverageFrom: [
+    "src/activity/ActivityProvider.tsx",
+    "src/storage/accountDeletion.ts",
+    "src/storage/libraryBackup.ts",
+  ],
+  coverageDirectory: "coverage/components",
+  coverageReporters: ["text", "json-summary", "lcov"],
+  coverageThreshold: { global: { lines: 80, statements: 80, functions: 80, branches: 70 } },
   testMatch: ["<rootDir>/tests/**/*.test.{ts,tsx}"],
   setupFilesAfterEnv: ["<rootDir>/tests/jestSetup.ts"],
   // Animations schedule timers; fake timers keep them from firing after a test's environment is torn down.

@@ -4,3 +4,6 @@ dist
 package-lock.json
 package.json
 expo-env.d.ts
+
+coverage/
+native-test-results/

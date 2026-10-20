@@ -330,3 +330,50 @@ describe("account library isolation and recovery", () => {
     expect(JSON.parse(memory.get(account_storage_key(LIBRARY_KEY, "A"))!)[0].savedPassages).toEqual([note]);
   });
 });
+
+describe("damaged library resource limits", () => {
+  it.each([Number.MAX_SAFE_INTEGER, 21, 0, -1])(
+    "rejects unsafe chunk count %s without deleting data",
+    async (textChunks) => {
+      const raw = JSON.stringify([{ ...doc("kept", ""), textChunks }]);
+      memory.set(LIBRARY_KEY, raw);
+      memory.set(document_text_key("kept"), "Original text");
+      await expect(create_document_store().loadDocuments()).rejects.toThrow(/invalid/);
+      expect(memory.get(LIBRARY_KEY)).toBe(raw);
+      expect(memory.get(document_text_key("kept"))).toBe("Original text");
+      expect(AsyncStorage.multiGet).not.toHaveBeenCalled();
+    },
+  );
+  it.each([{ progress: -1 }, { progress: 2 }, { sentenceIndex: -1 }, { wordIndex: -1 }])(
+    "rejects invalid positions %j",
+    async (extra) => {
+      memory.set(LIBRARY_KEY, JSON.stringify([doc("kept", "", extra)]));
+      await expect(create_document_store().loadDocuments()).rejects.toThrow(/invalid/);
+      expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects over-limit saves before any storage writes", async () => {
+    await expect(
+      create_document_store().saveDocuments([doc("large", "x".repeat(10_000_001))]),
+    ).rejects.toThrow(/safe limits/);
+    expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
+  });
+});
+
+it("rejects oversized metadata before writing document text", async () => {
+  const documents = Array.from({ length: 1600 }, (_, i) =>
+    doc(String(i), "text", { title: "x".repeat(1000) }),
+  );
+  await expect(create_document_store().saveDocuments(documents)).rejects.toThrow(
+    /metadata exceeds safe limits/,
+  );
+  expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
+});
+it("preserves oversized stored metadata without cleanup or text allocation", async () => {
+  const raw = JSON.stringify([{ ...doc("kept", ""), savedPassages: [{ note: "x".repeat(1_500_000) }] }]);
+  memory.set(LIBRARY_KEY, raw);
+  await expect(create_document_store().loadDocuments()).rejects.toThrow(/data has been kept/);
+  expect(memory.get(LIBRARY_KEY)).toBe(raw);
+  expect(AsyncStorage.multiGet).not.toHaveBeenCalled();
+  expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
+});

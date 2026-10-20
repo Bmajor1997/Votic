@@ -22,6 +22,7 @@ import {
   summarize,
 } from "../src/activity/activityModel";
 import { useActivity } from "../src/activity/ActivityProvider";
+import { ActivityLoadState } from "../src/activity/ActivityLoadState";
 import { ASK_CATEGORY_LABELS } from "../src/activity/askCategories";
 import { FadingScrollView } from "../src/components/FadingScrollView";
 import { TimeChart, series_colors } from "../src/activity/TimeChart";
@@ -50,15 +51,19 @@ function long_date(ms: number) {
   return new Date(ms).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
 }
 
+function selected_section(section?: Section): Section | null {
+  return section && section in SECTION_TITLES ? section : null;
+}
+
 export default function Statistics() {
   const { theme } = useVoticTheme();
   const params = useLocalSearchParams<{ section?: Section; kind?: PeriodKind; offset?: string }>();
-  const section = params.section && params.section in SECTION_TITLES ? params.section : null;
+  const section = selected_section(params.section);
   const [kind, setKind] = useState<PeriodKind>(
     params.kind && KINDS.some((item) => item.value === params.kind) ? params.kind : "week",
   );
   const [offset, setOffset] = useState(Number(params.offset) || 0);
-  const { log, sampleData, setSampleData } = useActivity();
+  const { log, sampleData, setSampleData, hydrated, loadError, retryLoad } = useActivity();
   const { documents } = useDocumentLibrary();
   const now = new Date();
   const period = period_for(kind, offset, now, log.trackingStartedAt);
@@ -67,6 +72,8 @@ export default function Statistics() {
   function open_section(next: Section) {
     router.push({ pathname: "/statistics", params: { section: next, kind, offset: String(offset) } });
   }
+
+  if (!hydrated) return <ActivityLoadState error={loadError} retry={retryLoad} />;
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.safe, { backgroundColor: theme.background }]}>
