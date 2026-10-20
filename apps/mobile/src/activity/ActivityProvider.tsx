@@ -85,8 +85,6 @@ export function ActivityProvider({ children }: PropsWithChildren) {
     let mounted = true;
     if (!uid) return;
     hydratedRef.current = false;
-    setHydrated(false);
-    setLoadError(null);
     void AsyncStorage.getItem(storageKey)
       .then((raw) => {
         if (!mounted) return;
@@ -164,7 +162,12 @@ export function ActivityProvider({ children }: PropsWithChildren) {
         measuredLog: log,
         hydrated,
         loadError,
-        retryLoad: () => setLoadAttempt((attempt) => attempt + 1),
+        retryLoad: () => {
+          hydratedRef.current = false;
+          setHydrated(false);
+          setLoadError(null);
+          setLoadAttempt((attempt) => attempt + 1);
+        },
         recordTime: (documentId, kind, start, end) =>
           change((current) => add_interval(current, documentId, kind, start, end)),
         recordAsk: (event) => change((current) => add_ask_event(current, event)),

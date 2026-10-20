@@ -33,3 +33,9 @@ Coverage measures only the configured source/module scope, not every app path, a
 ## Unverified or residual
 
 New native analysis/build/model-test jobs require GitHub execution; no local Android SDK, Swift compiler, or physical devices were available for this run. Browser automation and deployed load tests were not rerun. Existing large functions remain measured refactoring work, not claimed to satisfy flight-code limits. Live billing/deletion, native crash-provider setup, host scheduling/alerts/off-site recovery, privacy decisions, dependency exposure review, and repository protection need actual external evidence. See OPERATIONS_ACCEPTANCE.md and TRACEABILITY.md. No external service/account configuration was modified and no production deployment occurred.
+
+## CI follow-up
+
+GitHub run 39428230942 on commit 44f095c passed the mobile logic and component/integration tests, but failed `react-hooks/set-state-in-effect` in ActivityProvider.tsx. The earlier statement that local lint had passed was incorrect. The correction moves retry/loading state resets out of the effect and into the Retry event handler; it preserves asynchronous hydration, write blocking, and recovery. Mobile lint now explicitly disables caching.
+
+Follow-up local checks completed successfully: full uncached mobile ESLint (exit 0), TypeScript checking (exit 0), 12 statistics/recovery tests, affected-file formatting, diff whitespace, and complexity screening. Fresh GitHub checks are required for the follow-up commit. Android/iOS builds were still running when the original failure was diagnosed; they were not reported as passed.

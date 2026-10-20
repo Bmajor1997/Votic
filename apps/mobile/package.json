@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "test:reliability": "vitest run",
     "test:components": "jest",
-    "lint": "eslint . --max-warnings=0",
+    "lint": "eslint . --no-cache --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:coverage": "vitest run --coverage",
