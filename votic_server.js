@@ -239,6 +239,7 @@ export function create_votic_handler(options = {}) {
       catch (error) {
         if (signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
         if (error.code === "PARSER_TIMEOUT") throw new HttpError(504, error.message);
+        if (error.code === "PARSER_STOPPED") { logger.warn?.("Votic document parser stopped unexpectedly", { type: name.split(".").at(-1)?.toLowerCase() }); throw new HttpError(422, error.message); }
         if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;
         if (!env.OPENAI_API_KEY) throw new HttpError(503, "Scanned PDF OCR is not configured.");
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");

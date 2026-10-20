@@ -42,7 +42,24 @@ test("mixed PDFs and selectable scan watermarks require OCR; truly blank pages d
   assert.equal(await parse_document_isolated("article.html", Buffer.from("<h1>Article</h1><p>Complete text.</p>")), "# Article\n\nComplete text.");
 });
 
-const loopWorker = new URL("data:text/javascript,while(true){}");
+const loopWorker = new URL("./fixtures/stuck_parser.js", import.meta.url);
+const crashingWorker = new URL("./fixtures/crashing_parser.js", import.meta.url);
+test("a parser that crashes gives a clear error, and the server keeps running", async () => {
+  await assert.rejects(parse_document_isolated("broken.pdf", Buffer.alloc(0), { workerUrl: crashingWorker }), { code: "PARSER_STOPPED" });
+  await with_server({ parserWorkerUrl: crashingWorker }, async (base) => {
+    const response = await upload(base, Buffer.from("%PDF-1.4"));
+    assert.ok(response.status >= 400);
+    // The server is still up for the next request.
+    assert.equal((await fetch(base + "/healthz")).status, 200);
+  });
+});
+test("the parser process gets no server secrets", async () => {
+  process.env.OPENAI_API_KEY = "sk-should-not-leak";
+  try {
+    const { child_env_for_test } = await import("../app_parts/document_parser.js");
+    assert.equal(child_env_for_test().OPENAI_API_KEY, undefined);
+  } finally { delete process.env.OPENAI_API_KEY; }
+});
 test("synchronous stuck parser workers are terminated on timeout and cancellation", async () => {
   await assert.rejects(parse_document_isolated("stuck.pdf", Buffer.alloc(0), { timeoutMs: 100, workerUrl: loopWorker }), { code: "PARSER_TIMEOUT" });
   const controller = new AbortController();
