@@ -807,6 +807,36 @@ describe("Reader", () => {
     expect(screen.queryByLabelText("Ask Votic conversation")).toBeNull();
     expect(screen.getByText("2 passages left")).toBeTruthy();
   });
+
+  it("points the chip at the exact passage the answer quotes, and labels answers without one", async () => {
+    askVoticMock.mockResolvedValueOnce({
+      answer: "It ends with the third passage.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: "Passages 1–3",
+      quote: "Third passage ends.",
+    });
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    expect(screen.getByText("2 passages left")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "How does it end?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    // The section starts at passage 1, but the quoted sentence is passage 3.
+    await fireEvent.press(await screen.findByRole("button", { name: /^From passage 3,/ }));
+    expect(screen.getByText("0 passages left")).toBeTruthy();
+
+    askVoticMock.mockResolvedValueOnce({
+      answer: "The document doesn't say who wrote it.",
+      mode: "document-ai",
+      sectionIndex: null,
+      sectionTitle: null,
+      quote: null,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Who wrote it?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    expect(await screen.findByText("Searched this document")).toBeTruthy();
+  });
 });
 
 it("reads an Ask answer and ignores late callbacks after the panel closes", async () => {

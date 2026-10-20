@@ -57,6 +57,7 @@ import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
 import { AskAnswerSourceChip } from "../src/ask/AskAnswerSourceChip";
 import { passage_heading } from "../src/ask/passageHeading";
+import { quote_passage } from "../src/ask/quotePassage";
 import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
@@ -536,7 +537,13 @@ function ReaderContent() {
       const request = prepare_ask_request(context, clean, history);
       const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
       const grounded = answered_from_context(request, answer);
-      const link = answer_link(request, answer.sectionIndex) ?? undefined;
+      const sectionLink = answer_link(request, answer.sectionIndex) ?? undefined;
+      // Point at the exact passage holding the sentence the answer rests on, not just the start of its section.
+      const exact =
+        sectionLink && activeDocument && sectionLink.documentId === activeDocument.id
+          ? quote_passage(activeDocument.plainText, answer.quote, sectionLink.sentenceIndex)
+          : null;
+      const link = sectionLink && exact !== null ? { ...sectionLink, sentenceIndex: exact } : sectionLink;
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;

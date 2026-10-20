@@ -9,7 +9,8 @@ const MAX_SECTION = 40;
 /**
  * The line above an Ask Votic answer that says where it came from. A document answer gets a tinted, bordered chip
  * with the file icon and a chevron, so it's clearly tappable: "From passage 1 · Job Description". Tapping it opens
- * that passage in the Reader. Answers that didn't come from a passage get a plain label instead.
+ * that passage in the Reader. An answer that didn't rest on one passage (including "the document doesn't say") is
+ * labelled "Searched this document", and a notice that didn't use the document at all is labelled "Votic help".
  */
 export function AskAnswerSourceChip({
   kind,
@@ -33,12 +34,12 @@ export function AskAnswerSourceChip({
       <View style={s.plain}>
         <Ionicons
           accessible={false}
-          name={help ? "help-circle-outline" : "document-text-outline"}
+          name={help ? "help-circle-outline" : "search-outline"}
           size={15}
           color={theme.mutedText}
         />
         <Text style={[s.plainText, { color: theme.mutedText }]}>
-          {help ? "Votic help" : "From this document"}
+          {help ? "Votic help" : "Searched this document"}
         </Text>
       </View>
     );

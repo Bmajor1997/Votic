@@ -149,8 +149,28 @@ test("keeps blank document sections so returned section indexes match the client
     const document = { title: "Report", sections: [{ heading: "Cover", text: "   " }, { heading: "Results", text: "Scores improved." }, { heading: "Next steps", text: "Repeat the study." }] };
     const response = await fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "What were the results?", document }) });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { answer: "It covers the results.", mode: "document-ai", sectionIndex: 1, sectionTitle: "Results" });
+    assert.deepEqual(await response.json(), { answer: "It covers the results.", mode: "document-ai", sectionIndex: 1, sectionTitle: "Results", quote: null });
     assert.deepEqual(JSON.parse(apiBody.input).document.sections.map((section) => section.heading), ["Cover", "Results", "Next steps"]);
+  });
+});
+
+test("returns the supporting quote only when it really appears in the chosen section", async () => {
+  const replies = [
+    { answer: "Scores went up.", sectionIndex: 1, sectionTitle: "Results", quote: "  Scores   improved  in the \u2019second\u2019 round. " },
+    { answer: "Scores went up.", sectionIndex: 1, sectionTitle: "Results", quote: "Scores doubled overnight." },
+    { answer: "Scores went up.", sectionIndex: null, sectionTitle: null, quote: "Scores improved in the 'second' round." },
+    { answer: "Scores went up.", sectionIndex: 1, sectionTitle: "Results", quote: "x".repeat(400) },
+  ];
+  const fetch_impl = async () => ({ ok: true, async json() { return { output_text: JSON.stringify(replies.shift()) }; } });
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl: fetch_impl }, async (base) => {
+    const document = { title: "Report", sections: [{ heading: "Intro", text: "Background." }, { heading: "Results", text: "Scores improved in the 'second' round. Costs fell." }] };
+    const ask = async () => (await fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "Results?", document }) })).json();
+    // Spacing and curly quotes don't matter; the quote is tidied but otherwise kept as the model copied it.
+    assert.equal((await ask()).quote, "Scores improved in the \u2019second\u2019 round.");
+    // A sentence that isn't in the section, a quote without a section, and an overlong quote are all dropped.
+    assert.equal((await ask()).quote, null);
+    assert.equal((await ask()).quote, null);
+    assert.equal((await ask()).quote, null);
   });
 });
 
@@ -188,7 +208,7 @@ test("answers from an explicitly supplied document and returns a safe section li
     const document = { title: "Plan", sections: [{ heading: "Introduction", text: "Background." }, { heading: "Conclusion", text: "Test the prototype." }] };
     const response = await fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "What is recommended?", document }) });
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { answer: "The conclusion recommends testing.", mode: "document-ai", sectionIndex: 1, sectionTitle: "Conclusion" });
+    assert.deepEqual(await response.json(), { answer: "The conclusion recommends testing.", mode: "document-ai", sectionIndex: 1, sectionTitle: "Conclusion", quote: null });
     assert.equal(apiBody.model, "document-model");
     assert.equal(apiBody.store, false);
     assert.equal(apiBody.text.format.type, "json_schema");

@@ -195,6 +195,8 @@ export type VoticAnswer = {
   mode: string;
   sectionIndex: number | null;
   sectionTitle: string | null;
+  /** The sentence the answer rests on, copied from the document and checked by the server; null when there isn't one. */
+  quote?: string | null;
 };
 export async function ask_votic(
   question: string,
@@ -219,6 +221,7 @@ export async function ask_votic(
     mode: String(result.mode || "built-in"),
     sectionIndex: Number.isInteger(result.sectionIndex) ? (result.sectionIndex as number) : null,
     sectionTitle: typeof result.sectionTitle === "string" ? result.sectionTitle : null,
+    quote: typeof result.quote === "string" && result.quote.trim() ? result.quote.trim().slice(0, 300) : null,
   };
 }
 
