@@ -55,8 +55,9 @@ it("does not animate answers marked for immediate display", async () => {
   expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
 });
 
-it("keeps landing the status orb while the word stays on screen, and stops it on unmount", async () => {
+it("bounces the orb into each new label once, then keeps the word on screen", async () => {
   const loop = jest.spyOn(Animated, "loop");
+  const timing = jest.spyOn(Animated, "timing");
   try {
     function Switcher() {
       const [label, setLabel] = useState("Reading");
@@ -76,22 +77,26 @@ it("keeps landing the status orb while the word stays on screen, and stops it on
     expect(orb.props.importantForAccessibility).toBe("no-hide-descendants");
     expect(orb.props.accessibilityElementsHidden).toBe(true);
     expect(screen.getByLabelText("Reading").props.accessibilityLiveRegion).toBe("polite");
-    expect(loop).toHaveBeenCalledTimes(1);
-    const first = loop.mock.results[0].value as { stop: () => void };
-    const stop = jest.spyOn(first, "stop");
+    expect(timing).toHaveBeenCalledTimes(1);
+    const first = timing.mock.results[0].value as { stop: () => void };
+    const stopFirst = jest.spyOn(first, "stop");
     await act(async () => jest.advanceTimersByTime(6000));
+    // It never loops, so the word can't blink away while Votic works.
+    expect(loop).not.toHaveBeenCalled();
+    expect(timing).toHaveBeenCalledTimes(1);
     expect(screen.getByLabelText("Reading")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Next status" }));
-    // A new label restarts the orb; the old loop is stopped.
-    expect(stop).toHaveBeenCalled();
-    expect(loop).toHaveBeenCalledTimes(2);
+    // A new label replays the bounce and morph.
+    expect(stopFirst).toHaveBeenCalled();
+    expect(timing).toHaveBeenCalledTimes(2);
     expect(screen.getByLabelText("Thinking")).toBeTruthy();
-    const second = loop.mock.results[1].value as { stop: () => void };
+    const second = timing.mock.results[1].value as { stop: () => void };
     const stopSecond = jest.spyOn(second, "stop");
     await view.unmount();
     expect(stopSecond).toHaveBeenCalled();
   } finally {
     loop.mockRestore();
+    timing.mockRestore();
   }
 });
 

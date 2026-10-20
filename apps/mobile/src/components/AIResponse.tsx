@@ -83,129 +83,97 @@ export function AIThinking({
 }
 
 /**
- * A status label ("Reading", "Thinking", "Writing", "Summarizing"). While it shows, a small orb keeps landing and
- * melting into the word. The word fades in once and then stays on screen, so it never blinks away; only the orb and
- * the shimmer move. The orb is decorative and hidden from screen readers; ShimmerText announces the label and handles
- * Less motion itself, and Less motion also stops the orb. Compact labels (voice transcription) skip the orb to keep
- * their row small. It doesn't touch answer generation or the answer reveal.
+ * A status label ("Reading", "Thinking", "Writing", "Summarizing"). Each time the label changes, a small orb drops in,
+ * bounces twice, then stretches sideways and dissolves into the word, which appears where the orb melts. After that
+ * the word stays on screen with its shimmer, so it never blinks away. The orb is decorative and hidden from screen
+ * readers; ShimmerText announces the label and handles Less motion itself, and Less motion also skips the orb.
+ * Compact labels (voice transcription) skip the orb to keep their row small. It doesn't touch answer generation.
  */
 export function AIStatus({ label, compact = false }: { label: string; compact?: boolean }) {
   const text = label.replace(/(?:…|\.\.\.)$/, "");
   const { reduceMotion } = useAccessibilityPreferences();
   const { theme } = useVoticTheme();
   const [progress] = useState(() => new Animated.Value(1));
-  const [wordIn] = useState(() => new Animated.Value(1));
   const morph = !compact && !reduceMotion;
 
   useEffect(() => {
     progress.stopAnimation();
-    wordIn.stopAnimation();
     if (!morph) {
       progress.setValue(1);
-      wordIn.setValue(1);
       return;
     }
     progress.setValue(0);
-    wordIn.setValue(0);
-    const settings = { useNativeDriver: true, isInteraction: false };
-    // The word arrives with the first orb, then stays put.
-    const appear = Animated.timing(wordIn, {
-      ...settings,
+    // Linear time: the bounce and the morph are shaped by the keyframes below.
+    const play = Animated.timing(progress, {
       toValue: 1,
-      duration: ORB_MS,
-      easing: Easing.out(Easing.cubic),
+      duration: MORPH_MS,
+      easing: Easing.linear,
+      useNativeDriver: true,
+      isInteraction: false,
     });
-    const orb = Animated.loop(
-      Animated.sequence([
-        Animated.timing(progress, {
-          ...settings,
-          toValue: 1,
-          duration: ORB_MS,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.delay(ORB_REST_MS),
-      ]),
-    );
-    appear.start();
-    orb.start();
-    return () => {
-      appear.stop();
-      orb.stop();
-    };
-  }, [text, morph, progress, wordIn]);
+    play.start();
+    return () => play.stop();
+  }, [text, morph, progress]);
 
   const word = <ShimmerText key={text} text={text} accessibilityLabel={text} style={s.aiStatus} />;
+  if (!morph) return <View style={[s.thinking, compact && s.compact]}>{word}</View>;
+  const at = (outputRange: number[]) => progress.interpolate({ inputRange: KEYFRAMES, outputRange });
   return (
-    <View style={[s.thinking, compact && s.compact]}>
-      {morph ? (
-        <View style={s.morphStage}>
-          <Animated.View
-            accessible={false}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            pointerEvents="none"
-            testID="ai-status-orb"
-            style={[
-              s.morphOrb,
-              {
-                backgroundColor: theme.accent,
-                shadowColor: theme.accent,
-                opacity: progress.interpolate({
-                  inputRange: [0, 0.1, 0.38, 0.72, 1],
-                  outputRange: [0, 1, 1, 0, 0],
-                }),
-                transform: [
-                  {
-                    translateX: progress.interpolate({ inputRange: [0, 0.38, 1], outputRange: [-10, 0, 2] }),
-                  },
-                  {
-                    translateY: progress.interpolate({
-                      inputRange: [0, 0.2, 0.38, 0.72, 1],
-                      outputRange: [-8, 3, -4, 0, 0],
-                    }),
-                  },
-                  {
-                    scaleX: progress.interpolate({
-                      inputRange: [0, 0.38, 0.72, 1],
-                      outputRange: [1, 1, 0.28, 0.28],
-                    }),
-                  },
-                  {
-                    scaleY: progress.interpolate({
-                      inputRange: [0, 0.38, 0.72, 1],
-                      outputRange: [1, 0.78, 1.5, 1.5],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-          <Animated.View
-            style={{
-              opacity: wordIn.interpolate({ inputRange: [0, 0.4, 0.78, 1], outputRange: [0, 0, 1, 1] }),
+    <View style={s.thinking}>
+      <View style={s.morphStage}>
+        <Animated.View
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          testID="ai-status-orb"
+          style={[
+            s.morphOrb,
+            {
+              backgroundColor: theme.accent,
+              shadowColor: theme.accent,
+              opacity: at(ORB.opacity),
               transform: [
-                {
-                  scale: wordIn.interpolate({
-                    inputRange: [0, 0.4, 0.78, 1],
-                    outputRange: [0.96, 0.96, 1.02, 1],
-                  }),
-                },
+                { translateX: at(ORB.x) },
+                { translateY: at(ORB.y) },
+                { scaleX: at(ORB.scaleX) },
+                { scaleY: at(ORB.scaleY) },
               ],
-            }}
-          >
-            {word}
-          </Animated.View>
-        </View>
-      ) : (
-        word
-      )}
+            },
+          ]}
+        />
+        <Animated.View
+          style={{
+            opacity: at(WORD.opacity),
+            transform: [{ translateX: at(WORD.x) }, { scale: at(WORD.scale) }],
+          }}
+        >
+          {word}
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
-/** How long the orb takes to land and melt into the word, then how long it rests before the next one. */
-const ORB_MS = 920;
-const ORB_REST_MS = 1250;
+/** The whole drop, bounce, and morph. */
+const MORPH_MS = 1400;
+/**
+ * Keyframes, in order: start above, land (squash), first bounce up, land, small bounce, settle, start stretching,
+ * melt into the word, done.
+ */
+const KEYFRAMES = [0, 0.06, 0.2, 0.32, 0.44, 0.52, 0.6, 0.66, 0.84, 1];
+const ORB = {
+  opacity: [0, 1, 1, 1, 1, 1, 1, 1, 0, 0],
+  y: [-16, -12, 2, -9, 1, -3, 0, 0, 0, 0],
+  x: [0, 0, 0, 0, 0, 0, 0, 4, 22, 22],
+  scaleX: [1, 1, 1.3, 0.9, 1.2, 0.95, 1, 1.4, 4, 4],
+  scaleY: [1, 1, 0.7, 1.1, 0.8, 1.05, 1, 0.8, 0.3, 0.3],
+};
+const WORD = {
+  opacity: [0, 0, 0, 0, 0, 0, 0, 0.2, 1, 1],
+  x: [-8, -8, -8, -8, -8, -8, -8, -6, 0, 0],
+  scale: [0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.9, 0.94, 1.03, 1],
+};
 
 const s = StyleSheet.create({
   response: { gap: 4 },
