@@ -73,11 +73,24 @@ android { lint { warningsAsErrors = true } }
 };
 
 function configureManifest(manifest) {
+  // Keep the removal marker for dependency manifests. A legacy SDK bound also
+  // prevents source lint from interpreting it as a request on modern Android.
+  for (const permission of manifest.manifest["uses-permission"] || []) {
+    if (
+      permission.$["android:name"] === "android.permission.WRITE_EXTERNAL_STORAGE" &&
+      permission.$["tools:node"] === "remove"
+    ) {
+      permission.$["android:maxSdkVersion"] = "28";
+    }
+  }
   const camera = "android.hardware.camera";
   const features = (manifest.manifest["uses-feature"] ||= []);
   let feature = features.find((item) => item.$["android:name"] === camera);
   if (!feature) features.push((feature = { $: { "android:name": camera } }));
   feature.$["android:required"] = "false";
+  // xml2js preserves insertion order; application must follow uses-feature.
+  const { application, ...declarations } = manifest.manifest;
+  manifest.manifest = { ...declarations, application };
   for (const application of manifest.manifest.application || []) {
     // Leave back handling to Android/React Native's supported default.
     delete application.$["android:enableOnBackInvokedCallback"];
@@ -105,9 +118,11 @@ async function configureIcons(res) {
     }
     const square = path.join(folder, "ic_launcher.png");
     const round = path.join(folder, "ic_launcher_round.png");
-    // Reuse Expo's generated circular version for the legacy launcher silhouette.
+    // Reuse the circular silhouette, then use a resource alias rather than
+    // shipping identical normal/round bitmaps at every density.
     try {
       await fs.copyFile(round, square);
+      await fs.unlink(round);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
@@ -127,4 +142,12 @@ async function configureIcons(res) {
       }
     }
   }
+  await fs.writeFile(
+    path.join(res, "values/votic_launcher_alias.xml"),
+    `<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="mipmap" name="ic_launcher_round">@mipmap/ic_launcher</item>
+</resources>
+`,
+  );
 }
