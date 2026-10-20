@@ -9,6 +9,7 @@ import * as backend from "../mocks/authBackend";
 import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
 import { create_document_store } from "../../src/documents/documentStorage";
 import { legacy_recovery_available } from "../../src/storage/accountStorage";
+import { account_deletion_pending, notify_remote_account_deletion } from "../../src/storage/accountDeletion";
 
 const AUTO_OWNER_KEY = "votic.mobile.legacy-library-auto-owner.v1";
 function LibraryProbe() {
@@ -27,7 +28,7 @@ async function final_deletion() {
   await open_deletion();
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 }
-function fail_action(action: "deleteAccount" | "signOut", failure: unknown) {
+function fail_action(action: "prepareDeleteAccount" | "deleteAccount" | "signOut", failure: unknown) {
   const create = backend.create_auth_backend;
   jest.spyOn(backend, "create_auth_backend").mockImplementation(() => ({
     ...create(),
@@ -38,6 +39,73 @@ function fail_action(action: "deleteAccount" | "signOut", failure: unknown) {
 }
 
 describe("Settings account management", () => {
+  it("keeps interrupted deletion retryable and never lets a late save restore erased data", async () => {
+    let attempts = 0;
+    const create = backend.create_auth_backend;
+    jest.spyOn(backend, "create_auth_backend").mockImplementation(() => {
+      const original = create();
+      return {
+        ...original,
+        async deleteAccount(uid) {
+          attempts += 1;
+          if (attempts === 1) throw new Error("Backend deletion interrupted");
+          await original.deleteAccount(uid);
+        },
+      };
+    });
+    await create_document_store("other-user").saveDocuments([
+      test_document("other", "Other private document"),
+    ]);
+    await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
+    await final_deletion();
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(screen.getByRole("alert").props.children).toMatch(/Backend deletion interrupted/);
+    expect(await account_deletion_pending("test-user")).toBe(true);
+    expect(
+      (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
+    ).toEqual([]);
+    await create_document_store("test-user").saveDocuments([test_document("stale", "Stale result")]);
+    expect(
+      (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
+    ).toEqual([]);
+    // A background response must not discard this device's pending Firebase-deletion step.
+    await act(async () => notify_remote_account_deletion());
+    expect(backend.fakeAuth.user?.uid).toBe("test-user");
+    expect(await account_deletion_pending("test-user")).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: "Retry deletion" }));
+    await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
+    await waitFor(async () => expect(await account_deletion_pending("test-user")).toBe(false));
+    expect((await create_document_store("other-user").loadDocuments())[0].title).toBe(
+      "Other private document",
+    );
+  });
+
+  it("erases this device's data and finishes the Firebase deletion when another device started it", async () => {
+    await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
+    await act(async () => notify_remote_account_deletion());
+    await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
+    // Any device can remove a sign-in left behind when deletion stopped after the backend step.
+    expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
+    expect(
+      (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
+    ).toEqual([]);
+    expect(await account_deletion_pending("test-user")).toBe(false);
+  });
+
+  it("signs out to retry later when this device's sign-in is too old to finish the deletion", async () => {
+    fail_action(
+      "deleteAccount",
+      Object.assign(new Error("Sign in again"), { code: "auth/requires-recent-login" }),
+    );
+    await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
+    await act(async () => notify_remote_account_deletion());
+    await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
+    expect(backend.fakeAuth.calls).toEqual(["signOut"]);
+    expect(
+      (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
+    ).toEqual([]);
+    expect(await account_deletion_pending("test-user")).toBe(false);
+  });
   it("shows accessible identity, separate actions, and keeps membership and help navigation", async () => {
     const rendered = await render_with_providers(<Settings />);
     expect(screen.getByText("reader@example.com")).toBeTruthy();
@@ -101,14 +169,14 @@ describe("Settings account management", () => {
     expect(await AsyncStorage.getAllKeys()).toEqual(before);
     expect(backend.fakeAuth.user).not.toBeNull();
   });
-  it("only final confirmation deletes through existing auth and preserves documents and notes", async () => {
+  it("only final confirmation deletes the account and erases its documents and notes", async () => {
     const doc = test_document("saved", "Saved");
     await render_with_providers(<Settings />, { documents: [doc] });
     await final_deletion();
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await create_document_store("test-user").loadDocuments()).toEqual([doc]);
+    expect(await create_document_store("test-user").loadDocuments()).toEqual([]);
   });
   it.each([
     ["auth/requires-recent-login", /sign back in using your usual sign-in method/],
@@ -116,7 +184,7 @@ describe("Settings account management", () => {
     ["auth/too-many-requests", /Wait a few minutes/],
     ["unknown", /couldn't delete your account/],
   ])("handles deletion error %s without signing out or clearing data", async (code, message) => {
-    fail_action("deleteAccount", { code });
+    fail_action("prepareDeleteAccount", { code });
     const announcement = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     await render_with_providers(<Settings />);
     await final_deletion();

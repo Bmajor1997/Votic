@@ -4,6 +4,7 @@ import { AppState } from "react-native";
 import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
+import { account_writable } from "../storage/accountDeletion";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
 const LIBRARY_SAVE_ERROR =
@@ -31,6 +32,11 @@ type Library = {
     text: string,
     options?: { playbackRate?: number; origin?: DocumentOrigin },
   ) => VoticDocument;
+  addTextDocumentDurably: (
+    sourceName: string,
+    text: string,
+    options?: { playbackRate?: number; origin?: DocumentOrigin },
+  ) => Promise<VoticDocument>;
   openDocument: (id: string, sentenceIndex?: number) => void;
   addCollection: (name: string) => void;
   setDocumentCollection: (id: string, collection?: string) => void;
@@ -61,6 +67,10 @@ function title_from(sourceName: string, text: string) {
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
   const [documents, setDocuments] = useState<VoticDocument[]>([]);
+  const latestDocuments = useRef(documents);
+  useEffect(() => {
+    latestDocuments.current = documents;
+  }, [documents]);
   const [collections, setCollections] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -175,6 +185,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     text: string,
     options: { playbackRate?: number; origin?: DocumentOrigin } = {},
   ) {
+    if (!account_writable(uid)) throw new Error("Account deletion is in progress.");
     const now = Date.now();
     const document: VoticDocument = {
       id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
@@ -194,6 +205,18 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     };
     setDocuments((current) => [document, ...current]);
     setActiveId(document.id);
+    return document;
+  }
+  async function add_text_document_durably(
+    sourceName: string,
+    text: string,
+    options: { playbackRate?: number; origin?: DocumentOrigin } = {},
+  ) {
+    const document = add_text_document(sourceName, text, options);
+    librarySaver.schedule([document, ...latestDocuments.current.filter((item) => item.id !== document.id)]);
+    await librarySaver.flush();
+    if (saveStatus.failed) throw new Error(LIBRARY_SAVE_ERROR);
+    if (!account_writable(uid)) throw new Error("Account deletion is in progress.");
     return document;
   }
 
@@ -418,6 +441,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         loaded,
         renameDocument: rename_document,
         addTextDocument: add_text_document,
+        addTextDocumentDurably: add_text_document_durably,
         openDocument: open_document,
         addCollection: add_collection,
         setDocumentCollection: set_document_collection,

@@ -19,6 +19,7 @@ import { EXPLANATION_STYLES, useVoticPurpose } from "../personalization/PurposeP
 import { accentColors, AccentName, AppearanceMode, useVoticTheme } from "../theme/ThemeProvider";
 import { LearnVoticSettings } from "../walkthrough/LearnVoticSettings";
 import { AccountSettings } from "./AccountSettings";
+import { PolicyLinks } from "./PolicyLinks";
 import {
   SETTINGS_CATEGORIES,
   SettingsCategory,
@@ -405,6 +406,7 @@ export function SettingsDetailScreen({ category }: { category: SettingsCategory 
           This settings category is unavailable. Return to Settings to choose another category.
         </Text>
       )}
+      <PolicyLinks />
     </SettingsPage>
   );
 }

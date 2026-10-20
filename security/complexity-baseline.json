@@ -1,0 +1,210 @@
+{
+  "ref": "31e0d70e38b156d01735fe491d40a589c5150073",
+  "functions": {
+    "app_parts/document_file_tools.js/extract_epub#1": {
+      "complexity": 16,
+      "statements": 37,
+      "line": 119
+    },
+    "app_parts/document_file_tools.js/html_file_text#1": {
+      "complexity": 29,
+      "statements": 54,
+      "line": 331
+    },
+    "app_parts/document_file_tools.js/extract_rtf#1": {
+      "complexity": 34,
+      "statements": 59,
+      "line": 382
+    },
+    "app_parts/openai_gateway.js/validate_voice_wav#1": {
+      "complexity": 24,
+      "statements": 21,
+      "line": 106
+    },
+    "app_parts/votic_screen.js/callback#49": {
+      "complexity": 17,
+      "statements": 25,
+      "line": 203
+    },
+    "app_parts/web_import.js/private_ip#1": {
+      "complexity": 21,
+      "statements": 8,
+      "line": 13
+    },
+    "app_parts/web_import.js/import_public_webpage#1/download#1": {
+      "complexity": 19,
+      "statements": 39,
+      "line": 185
+    },
+    "apps/mobile/app/(tabs)/documents.tsx/Documents#1": {
+      "complexity": 28,
+      "statements": 31,
+      "line": 42
+    },
+    "apps/mobile/app/(tabs)/notes.tsx/Notes#1": {
+      "complexity": 39,
+      "statements": 29,
+      "line": 48
+    },
+    "apps/mobile/app/_layout.tsx/ThemedStack#1": {
+      "complexity": 19,
+      "statements": 16,
+      "line": 32
+    },
+    "apps/mobile/app/assistant.tsx/AskVotic#1": {
+      "complexity": 41,
+      "statements": 48,
+      "line": 77
+    },
+    "apps/mobile/app/assistant.tsx/AskVotic#1/submit_question#1": {
+      "complexity": 17,
+      "statements": 41,
+      "line": 245
+    },
+    "apps/mobile/app/handle-share.tsx/HandleShare#1/callback#1/import_shared_document#1": {
+      "complexity": 16,
+      "statements": 41,
+      "line": 41
+    },
+    "apps/mobile/app/paywall.tsx/Paywall#1": {
+      "complexity": 33,
+      "statements": 22,
+      "line": 98
+    },
+    "apps/mobile/app/reader.tsx/ReaderContent#1": {
+      "complexity": 96,
+      "statements": 128,
+      "line": 156
+    },
+    "apps/mobile/app/scan.tsx/ScanDocumentScreen#1": {
+      "complexity": 22,
+      "statements": 21,
+      "line": 27
+    },
+    "apps/mobile/app/scan.tsx/ScanDocumentScreen#1/finish_scan#1": {
+      "complexity": 19,
+      "statements": 47,
+      "line": 78
+    },
+    "apps/mobile/app/statistics.tsx/Statistics#1": {
+      "complexity": 19,
+      "statements": 11,
+      "line": 53
+    },
+    "apps/mobile/src/activity/activityModel.ts/parse_log#1": {
+      "complexity": 17,
+      "statements": 20,
+      "line": 88
+    },
+    "apps/mobile/src/activity/activityModel.ts/insights#1": {
+      "complexity": 16,
+      "statements": 20,
+      "line": 391
+    },
+    "apps/mobile/src/ask/AskAnswerFooter.tsx/AskAnswerFooter#1": {
+      "complexity": 18,
+      "statements": 4,
+      "line": 21
+    },
+    "apps/mobile/src/components/KeyboardDictationButton.tsx/KeyboardDictationButton#1": {
+      "complexity": 18,
+      "statements": 36,
+      "line": 20
+    },
+    "apps/mobile/src/components/KeyboardDictationButton.tsx/KeyboardDictationButton#1/stop_and_transcribe#1": {
+      "complexity": 18,
+      "statements": 48,
+      "line": 227
+    },
+    "apps/mobile/src/components/KeyboardDictationButton.tsx/KeyboardDictationButton#1/start_recording#1": {
+      "complexity": 16,
+      "statements": 55,
+      "line": 283
+    },
+    "apps/mobile/src/documents/DocumentActionsSheet.tsx/DocumentActionsSheet#1": {
+      "complexity": 19,
+      "statements": 7,
+      "line": 27
+    },
+    "apps/mobile/src/notes/notesList.ts/matches#1": {
+      "complexity": 20,
+      "statements": 20,
+      "line": 45
+    },
+    "apps/mobile/src/settings/AccountSettings.tsx/AccountSettings#1": {
+      "complexity": 42,
+      "statements": 18,
+      "line": 33
+    },
+    "apps/mobile/src/settings/AccountSettings.tsx/AccountSettings#1/execute#1": {
+      "complexity": 21,
+      "statements": 27,
+      "line": 68
+    },
+    "apps/mobile/src/storage/accountStorage.ts/recover_legacy_device_data#1/recover#1": {
+      "complexity": 33,
+      "statements": 46,
+      "line": 99
+    },
+    "apps/mobile/src/storage/libraryBackupModel.ts/document#1": {
+      "complexity": 17,
+      "statements": 18,
+      "line": 63
+    },
+    "apps/mobile/src/storage/libraryBackupModel.ts/parse_library_backup#1": {
+      "complexity": 29,
+      "statements": 44,
+      "line": 109
+    },
+    "apps/mobile/src/subscription/PaywallPreview.tsx/PaywallPreview#1": {
+      "complexity": 26,
+      "statements": 17,
+      "line": 21
+    },
+    "apps/mobile/src/subscription/entitlement.ts/plan_from_store_product#1": {
+      "complexity": 16,
+      "statements": 8,
+      "line": 107
+    },
+    "apps/mobile/src/subscription/paywallPresentation.ts/annual_value#1": {
+      "complexity": 16,
+      "statements": 15,
+      "line": 90
+    },
+    "apps/mobile/src/theme/ThemeProvider.tsx/make_theme#1": {
+      "complexity": 18,
+      "statements": 2,
+      "line": 99
+    },
+    "apps/mobile/src/walkthrough/WalkthroughOverlay.tsx/WalkthroughOverlay#1": {
+      "complexity": 32,
+      "statements": 30,
+      "line": 28
+    },
+    "integrations/userjot_github.js/mirror_feedback_to_github#1": {
+      "complexity": 16,
+      "statements": 32,
+      "line": 27
+    },
+    "security/check-mobile-release.cjs/public_https#1": {
+      "complexity": 23,
+      "statements": 13,
+      "line": 3
+    },
+    "votic_server.js/create_votic_handler#1/handler#1": {
+      "complexity": 120,
+      "statements": 185,
+      "line": 143
+    },
+    "votic_server.js/create_votic_handler#1/handler#1/callback#4": {
+      "complexity": 22,
+      "statements": 36,
+      "line": 218
+    },
+    "votic_server.js/scan_mime_type#1": {
+      "complexity": 17,
+      "statements": 9,
+      "line": 420
+    }
+  }
+}

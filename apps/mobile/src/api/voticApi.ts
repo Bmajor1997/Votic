@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
+import { notify_remote_account_deletion } from "../storage/accountDeletion";
 
 import { assert_help_request_size, help_request_body, type ExplanationStyle } from "./helpRequest";
 export type { ExplanationStyle } from "./helpRequest";
@@ -67,6 +68,7 @@ async function api_fetch(
       signal: controller.signal,
     });
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (response.status === 403 && result.code === "ACCOUNT_DELETED") notify_remote_account_deletion();
     return { ok: response.ok, result };
   };
   try {
@@ -76,7 +78,12 @@ async function api_fetch(
     if (error instanceof Error && error.message === signInMessage) throw error;
     if (error instanceof Error && error.name === "AbortError")
       throw new Error("Votic took too long to respond. Check your connection and try again.");
-    throw new Error("Votic could not connect. Check your connection and try again.");
+    // Test builds say which address failed and why, so a setup problem takes one look to find.
+    const detail =
+      __DEV__ && process.env.NODE_ENV !== "test"
+        ? ` (${url}: ${error instanceof Error ? error.message : String(error)})`
+        : "";
+    throw new Error(`Votic could not connect. Check your connection and try again.${detail}`);
   } finally {
     clearTimeout(timer);
     signal?.removeEventListener("abort", abort);
@@ -86,7 +93,34 @@ function server_error(result: Record<string, unknown>, fallback: string) {
   return typeof result.error === "string" && result.error.trim() ? result.error : fallback;
 }
 
-export async function extract_document(name: string, bytes: ArrayBuffer) {
+export async function account_deletion_request(phase: "prepare" | "complete", token?: string) {
+  const response = await api_fetch(
+    "/api/delete-account",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: JSON.stringify({ phase }),
+    },
+    API_TIMEOUT_MS,
+    undefined,
+    "Sign in before deleting your account.",
+  );
+  if (!response.ok) {
+    const error = new Error(
+      server_error(response.result, "Votic could not finish deleting your account. Please retry."),
+    ) as Error & { code?: string };
+    if (response.result.code === "REAUTH_REQUIRED") error.code = "auth/requires-recent-login";
+    throw error;
+  }
+  if (response.result[phase === "prepare" ? "ready" : "deleted"] !== true)
+    throw new Error("Votic could not confirm account deletion. Please retry.");
+}
+
+export async function check_account_status() {
+  await api_fetch("/api/account-status", { method: "POST" });
+}
+
+export async function extract_document(name: string, bytes: ArrayBuffer, signal?: AbortSignal) {
   const response = await api_fetch(
     "/api/extract",
     {
@@ -95,6 +129,7 @@ export async function extract_document(name: string, bytes: ArrayBuffer) {
       body: bytes,
     },
     45_000,
+    signal,
   );
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not read this document."));
@@ -121,7 +156,23 @@ export async function report_ai_answer(answer: string, reason: string): Promise<
     throw new Error("Votic could not confirm your report. Please try again.");
 }
 
-export async function scan_document_image(name: string, bytes: ArrayBuffer) {
+/** Only a bounded failure counter; no error text, stack, screen contents, or identifiers. */
+export async function send_client_diagnostic(count: number) {
+  const response = await api_fetch(
+    "/api/client-event",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: "screen-render", count, consent: true }),
+    },
+    5000,
+    undefined,
+    true,
+  );
+  if (!response.ok || response.result.received !== true) throw new Error("Diagnostics could not be sent.");
+}
+
+export async function scan_document_image(name: string, bytes: ArrayBuffer, signal?: AbortSignal) {
   const response = await api_fetch(
     "/api/scan",
     {
@@ -130,6 +181,7 @@ export async function scan_document_image(name: string, bytes: ArrayBuffer) {
       body: bytes,
     },
     45_000,
+    signal,
   );
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not read this scanned page."));
@@ -143,6 +195,8 @@ export type VoticAnswer = {
   mode: string;
   sectionIndex: number | null;
   sectionTitle: string | null;
+  /** The sentence the answer rests on, copied from the document and checked by the server; null when there isn't one. */
+  quote?: string | null;
 };
 export async function ask_votic(
   question: string,
@@ -167,6 +221,7 @@ export async function ask_votic(
     mode: String(result.mode || "built-in"),
     sectionIndex: Number.isInteger(result.sectionIndex) ? (result.sectionIndex as number) : null,
     sectionTitle: typeof result.sectionTitle === "string" ? result.sectionTitle : null,
+    quote: typeof result.quote === "string" && result.quote.trim() ? result.quote.trim().slice(0, 300) : null,
   };
 }
 
@@ -206,7 +261,7 @@ export async function transcribe_voice_question(bytes: ArrayBuffer, signal?: Abo
   return result.text.trim();
 }
 
-export async function import_web_page(url: string): Promise<ImportedWebPage> {
+export async function import_web_page(url: string, signal?: AbortSignal): Promise<ImportedWebPage> {
   const response = await api_fetch(
     "/api/import-url",
     {
@@ -215,6 +270,7 @@ export async function import_web_page(url: string): Promise<ImportedWebPage> {
       body: JSON.stringify({ url: url.trim() }),
     },
     30_000,
+    signal,
   );
   const result = response.result;
   if (!response.ok) throw new Error(server_error(result, "Votic could not import that webpage."));

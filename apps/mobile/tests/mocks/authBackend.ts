@@ -80,6 +80,7 @@ export function create_auth_backend(): AuthBackend {
       fakeAuth.calls.push("deleteAccount");
       fakeAuth.setUser(null);
     },
+    prepareDeleteAccount: async () => {},
     idToken: async () => (fakeAuth.user ? "test-token" : null),
   };
 }

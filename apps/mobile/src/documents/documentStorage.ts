@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { account_storage_key } from "../storage/accountStorage";
+import { write_account_data } from "../storage/accountDeletion";
 import { VoticDocument } from "./types";
 const LEGACY_KEY = "votic.mobile.documents.v1",
   COLLECTIONS_KEY = "votic.mobile.collections.v1";
@@ -9,6 +10,10 @@ const TEXT_KEY_PREFIX = "votic.mobile.document-text.v1:";
 // Android cannot read back a single stored value much over 2 MB, so long texts are split into chunks.
 // 500,000 characters is at most 1.5 MB of UTF-8.
 export const TEXT_CHUNK_CHARS = 500_000;
+export const MAX_DOCUMENT_CHARS = 10_000_000;
+export const MAX_DOCUMENT_CHUNKS = Math.ceil(MAX_DOCUMENT_CHARS / TEXT_CHUNK_CHARS);
+export const MAX_STORED_DOCUMENTS = 2000;
+const MAX_METADATA_BYTES = 1_500_000;
 export function document_text_key(id: string, chunk = 0, uid?: string) {
   return account_storage_key(TEXT_KEY_PREFIX, uid) + id + (chunk ? ":" + chunk : "");
 }
@@ -30,7 +35,8 @@ function parse_array(raw: string | null, label: string) {
   } catch {
     throw new Error(`Saved ${label} data could not be read.`);
   }
-  if (!Array.isArray(value)) throw new Error(`Saved ${label} data is invalid.`);
+  if (!Array.isArray(value) || value.length > MAX_STORED_DOCUMENTS)
+    throw new Error(`Saved ${label} data is invalid.`);
   return value;
 }
 
@@ -87,12 +93,17 @@ export function create_document_store(uid?: string) {
     const chunks = values
       ? keys.map((key) => values.get(key))
       : (await AsyncStorage.multiGet(keys)).map(([, value]) => value);
-    return chunks.every((chunk) => typeof chunk === "string") ? chunks.join("") : null;
+    return chunks.every((chunk) => typeof chunk === "string" && chunk.length <= TEXT_CHUNK_CHARS)
+      ? chunks.join("")
+      : null;
   }
 
   async function load_split_documents(raw: string) {
+    if (new TextEncoder().encode(raw).byteLength > MAX_METADATA_BYTES)
+      throw new Error("Saved document metadata exceeds safe limits. Its data has been kept.");
     const value = parse_array(raw, "document");
-    if (!value.every(valid_metadata)) throw new Error("Some saved document data is invalid.");
+    if (!value.every(valid_metadata) || new Set(value.map((doc) => doc.id)).size !== value.length)
+      throw new Error("Some saved document data is invalid.");
     const stored = value as StoredDocument[];
     let values: Map<string, string | null> | null = null;
     try {
@@ -134,6 +145,21 @@ export function create_document_store(uid?: string) {
   }
 
   async function save_documents(documents: VoticDocument[]) {
+    if (
+      documents.length + unavailable.length > MAX_STORED_DOCUMENTS ||
+      !documents.every(valid) ||
+      new Set(documents.map((doc) => doc.id)).size !== documents.length
+    )
+      throw new Error("The document library exceeds safe limits or contains invalid data.");
+    const serialized = JSON.stringify(
+      documents
+        .map(metadata)
+        .concat(unavailable.filter((stored) => !documents.some((document) => document.id === stored.id))),
+    );
+    if (new TextEncoder().encode(serialized).byteLength > MAX_METADATA_BYTES)
+      throw new Error(
+        "The document library metadata exceeds safe limits. Remove some notes or documents and retry.",
+      );
     // Text is written before the metadata that references it, and removed only after.
     const changed = documents.filter((document) => persistedTexts.get(document.id) !== document.plainText);
     const replaced = changed.flatMap((document) => {
@@ -146,14 +172,7 @@ export function create_document_store(uid?: string) {
       await AsyncStorage.multiSet(changed.flatMap(text_entries));
       for (const document of changed) persistedTexts.set(document.id, document.plainText);
     }
-    await AsyncStorage.setItem(
-      libraryKey,
-      JSON.stringify(
-        documents
-          .map(metadata)
-          .concat(unavailable.filter((stored) => !documents.some((document) => document.id === stored.id))),
-      ),
-    );
+    await AsyncStorage.setItem(libraryKey, serialized);
     const ids = new Set(documents.map((document) => document.id));
     const removed = [...persistedTexts.entries()].filter(([id]) => !ids.has(id));
     const staleKeys = [
@@ -168,8 +187,8 @@ export function create_document_store(uid?: string) {
   }
 
   return {
-    loadDocuments: load_documents,
-    saveDocuments: save_documents,
+    loadDocuments: () => write_account_data(uid, load_documents).then((value) => value ?? []),
+    saveDocuments: (documents: VoticDocument[]) => write_account_data(uid, () => save_documents(documents)),
     unavailableDocuments: unavailable_documents,
   };
 }
@@ -184,19 +203,42 @@ export async function load_collections(uid?: string): Promise<string[]> {
   return value.map((item) => (item as string).trim()).filter(Boolean);
 }
 export async function save_collections(collections: string[], uid?: string) {
-  await AsyncStorage.setItem(account_storage_key(COLLECTIONS_KEY, uid), JSON.stringify(collections));
-}
-function valid_metadata(value: any): value is StoredDocument {
-  return (
-    value &&
-    typeof value.id === "string" &&
-    typeof value.title === "string" &&
-    typeof value.progress === "number" &&
-    Number.isInteger(value.sentenceIndex) &&
-    Number.isInteger(value.wordIndex) &&
-    (value.textChunks === undefined || (Number.isSafeInteger(value.textChunks) && value.textChunks >= 1))
+  await write_account_data(uid, () =>
+    AsyncStorage.setItem(account_storage_key(COLLECTIONS_KEY, uid), JSON.stringify(collections)),
   );
 }
+function position(value: unknown) {
+  return (
+    typeof value === "number" && Number.isSafeInteger(value) && value >= 0 && value <= MAX_DOCUMENT_CHARS
+  );
+}
+function chunk_metadata(value: unknown) {
+  return (
+    value === undefined ||
+    (typeof value === "number" && Number.isSafeInteger(value) && value >= 1 && value <= MAX_DOCUMENT_CHUNKS)
+  );
+}
+function valid_metadata(value: any): value is StoredDocument {
+  return Boolean(
+    value &&
+    typeof value.id === "string" &&
+    value.id.length > 0 &&
+    value.id.length <= 200 &&
+    typeof value.title === "string" &&
+    value.title.length <= 1000 &&
+    Number.isFinite(value.progress) &&
+    value.progress >= 0 &&
+    value.progress <= 1 &&
+    position(value.sentenceIndex) &&
+    position(value.wordIndex) &&
+    chunk_metadata(value.textChunks),
+  );
+}
+
 function valid(value: any): value is VoticDocument {
-  return valid_metadata(value) && typeof (value as any).plainText === "string";
+  return (
+    valid_metadata(value) &&
+    typeof (value as any).plainText === "string" &&
+    (value as any).plainText.length <= MAX_DOCUMENT_CHARS
+  );
 }

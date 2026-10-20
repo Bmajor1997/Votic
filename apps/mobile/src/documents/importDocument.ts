@@ -17,15 +17,17 @@ export const IMPORT_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "image/heic": "heic",
+  "image/heif": "heif",
 };
 export const UNSUPPORTED_TYPE_MESSAGE =
-  "Choose a TXT, Markdown, PDF, Word, PowerPoint, EPUB, RTF, ODT, or HTML document, or a JPEG, PNG, or WebP photo of a page.";
+  "Choose a TXT, Markdown, PDF, Word, PowerPoint, EPUB, RTF, ODT, or HTML document, or a JPEG, PNG, WebP, HEIC, or HEIF photo of a page.";
 export function supported_document(name: string) {
-  return /\.(txt|md|pdf|docx|pptx|ppt|epub|rtf|odt|html|htm|jpg|jpeg|png|webp)$/i.test(name);
+  return /\.(txt|md|pdf|docx|pptx|ppt|epub|rtf|odt|html|htm|jpg|jpeg|png|webp|heic|heif)$/i.test(name);
 }
 /** A photo of a page, read with text recognition rather than as a document. */
 export function is_page_photo(name: string) {
-  return /\.(jpe?g|png|webp)$/i.test(name);
+  return /\.(jpe?g|png|webp|heic|heif)$/i.test(name);
 }
 /** A photo of a page counts as a scan; every other imported file is an uploaded file. */
 export function import_origin(name: string) {

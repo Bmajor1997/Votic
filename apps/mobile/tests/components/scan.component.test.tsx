@@ -45,6 +45,6 @@ it("waits for camera readiness, reads the native photo, and opens the OCR docume
   expect(mockTakePhoto).toHaveBeenCalled();
   await fireEvent.press(screen.getByRole("button", { name: "Use scan" }));
   expect(mockReadPhoto).toHaveBeenCalled();
-  expect(scan_document_image).toHaveBeenCalledWith("scan-page-1.jpg", photoBytes);
+  expect(scan_document_image).toHaveBeenCalledWith("scan-page-1.jpg", photoBytes, expect.any(AbortSignal));
   expect(router.replace).toHaveBeenCalledWith("/reader");
 });

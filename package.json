@@ -10,11 +10,12 @@
     "start": "node votic_server.js",
     "test": "node --test --test-isolation=none \"code_checks/**/*.test.js\" \"app_parts/**/*.test.js\" \"*.test.js\"",
     "test:browser": "playwright test -c browser_check_settings.js",
-    "lint": "npx --yes eslint@9.39.5 .",
+    "lint": "npx --yes eslint@9.39.5 . --max-warnings=0",
     "lint:html": "npx --yes html-validate@10.17.0 votic_home_page.html",
     "lint:css": "npx --yes stylelint@16.26.1 \"*.css\" --config .stylelintrc.json",
     "quality": "npm run lint && npm run lint:html && npm run lint:css",
-    "userjot:inspect": "node integrations/userjot.js"
+    "userjot:inspect": "node integrations/userjot.js",
+    "test:coverage": "node --test --test-isolation=none --experimental-test-coverage --test-coverage-include=\"app_parts/*.js\" --test-coverage-include=\"votic_server.js\" --test-reporter=spec \"code_checks/**/*.test.js\" \"app_parts/**/*.test.js\" \"*.test.js\""
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.32.1",
@@ -22,12 +23,19 @@
     "docx": "^9.7.1"
   },
   "dependencies": {
+    "heic-decode": "2.1.0",
     "jose": "^6.2.12",
     "jszip": "^3.10.1",
     "mammoth": "^1.12.3",
     "office-oxide": "^0.1.8",
     "parse5": "7.3.0",
     "pdf-parse": "^2.4.5",
-    "pdfjs-dist": "5.4.296"
+    "pdfjs-dist": "5.4.296",
+    "pngjs": "7.0.0"
+  },
+  "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
   }
 }

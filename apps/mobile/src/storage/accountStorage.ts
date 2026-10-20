@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { write_account_data } from "./accountDeletion";
 import { ActivityLog, parse_log } from "../activity/activityModel";
 
 /** Undefined is used only for legacy storage/migration. App providers always pass their account. */
@@ -161,7 +162,7 @@ export function recover_legacy_device_data(uid: string) {
     if (claims) await AsyncStorage.setItem(OWNER_KEY, JSON.stringify({ uid, complete: true }));
     else await AsyncStorage.setItem(account_storage_key(DEVELOPMENT_COPY_KEY, uid), "1");
   };
-  const result = recoveryQueue.then(recover);
+  const result = recoveryQueue.then(() => write_account_data(uid, recover));
   recoveryQueue = result.catch(() => {});
   return result;
 }

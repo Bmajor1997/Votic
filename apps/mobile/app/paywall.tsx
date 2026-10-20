@@ -13,8 +13,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
-import { VoticLogo } from "../src/components/VoticLogo";
-import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
+import { PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
+import { PaywallPreview } from "../src/subscription/PaywallPreview";
+import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
+import { annual_value } from "../src/subscription/paywallPresentation";
+import { paywallStyles as p } from "../src/subscription/paywallStyles";
+import { controlSizes, radii, spacing } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
 import { has_access } from "../src/subscription/entitlement";
@@ -22,11 +26,14 @@ import {
   billing_summary,
   billing_terms,
   offer_title,
+  trial_timeline,
+  plan_card_detail,
   plan_name,
   price_label,
   primary_action_label,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
+import { store_deadline } from "../src/subscription/storeDeadline";
 import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -91,6 +98,8 @@ type Message = { icon?: IconName; text: string };
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
+  const [expandedBenefits, setExpandedBenefits] = useState(false);
+  const celebration = usePurchaseCelebration();
   const subscription = useSubscription();
   const { service, entitlement, legal } = subscription;
   const unavailable = service.unavailableReason;
@@ -107,11 +116,15 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   useEffect(() => {
     if (unavailable) return;
     let current = true;
-    service.getPlans().then(
+    store_deadline(service.getPlans()).then(
       (found) => {
         if (!current) return;
         setPlans(found);
-        setSelectedId((previous) => previous ?? found.find((plan) => plan.trial)?.id ?? found[0]?.id ?? null);
+        setSelectedId((previous) =>
+          found.some((plan) => plan.id === previous)
+            ? previous
+            : (found.find((plan) => plan.trial)?.id ?? found[0]?.id ?? null),
+        );
       },
       () => {
         if (!current) return;
@@ -128,7 +141,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     setPlans(null);
     setMessage(null);
     setAttempt((value) => value + 1);
-    if (entitlement.status === "unknown") void subscription.refresh();
+    if (entitlement.status === "unknown") void subscription.refresh().catch(() => {});
   }
 
   // A trial that has already been used is never promised again, whatever the product offers.
@@ -145,8 +158,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     try {
       const outcome = await service.purchase(selected.id);
       if (outcome.kind === "purchased") {
-        if (has_access(outcome.entitlement.status)) subscription.setEntitlement(outcome.entitlement);
-        else
+        if (has_access(outcome.entitlement.status)) {
+          await celebration.celebrate({
+            title: "You're in.",
+            detail: "Welcome to Votic Premium. Your library is ready.",
+          });
+          subscription.setEntitlement(outcome.entitlement);
+        } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
           });
@@ -157,6 +175,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         });
       else if (outcome.kind === "failed") setMessage({ text: outcome.message });
       // Closing the store's purchase sheet needs no message; the offer stays as it was.
+    } catch {
+      setMessage({
+        text: "Votic couldn't confirm your purchase. Check your connection and use Restore Purchases before trying again.",
+      });
     } finally {
       busy.current = false;
       setPurchasing(false);
@@ -169,14 +191,23 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     setMessage(null);
     try {
       const restored = await service.restore();
-      if (has_access(restored.status)) subscription.setEntitlement(restored);
-      else if (restored.status === "unknown")
+      if (has_access(restored.status)) {
+        await celebration.celebrate({
+          title: "Welcome back.",
+          detail: "Your Votic Premium subscription is restored.",
+        });
+        subscription.setEntitlement(restored);
+      } else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
       else
         setMessage({
           icon: "information-circle-outline",
           text: `No active Votic Premium subscription was found for this ${STORE} account.`,
         });
+    } catch {
+      setMessage({
+        text: "Votic couldn't reach the store. Check your connection and try Restore Purchases again.",
+      });
     } finally {
       busy.current = false;
       setRestoring(false);
@@ -193,36 +224,24 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <View style={[s.hero, { backgroundColor: theme.surfaceMuted }]}>
-          <View pointerEvents="none" style={[s.glow, { backgroundColor: theme.accent }]} />
-          <VoticLogo />
-          <Text style={[s.eyebrow, { color: theme.accentText }]}>VOTIC MEMBERSHIP</Text>
-          <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            {"Your documents.\nMore possibilities."}
-          </Text>
-          <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            Read, listen, and understand—with support that fits you.
-          </Text>
-          {/* Worded from the store's offer, so a trial is promised only when the plan really has one. */}
-          {!unavailable && selected?.trial ? (
-            <View style={[s.trial, { backgroundColor: theme.surface }]}>
-              <Ionicons name="gift-outline" size={20} color={theme.accentText} />
-              <Text style={[s.trialText, { color: theme.text }]}>{offer_title(selected)}</Text>
-            </View>
-          ) : null}
-        </View>
-
+        <PaywallIntro />
+        <PaywallPreview disabled={working} />
         <View
           accessibilityLabel="Included with Votic Premium"
           style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
         >
           <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
-            <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
-              Everything in one plan
+            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
+              Read. Listen. Understand.
             </Text>
             <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
           </View>
-          {PREMIUM_FEATURES.map((feature, index) => (
+          {subscription.recoveryError ? (
+            <Text accessibilityRole="alert" style={{ color: theme.text }}>
+              {subscription.recoveryError}
+            </Text>
+          ) : null}
+          {(expandedBenefits ? PREMIUM_FEATURES : PREMIUM_FEATURES.slice(0, 3)).map((feature, index) => (
             <View
               key={feature.title}
               accessible
@@ -235,30 +254,53 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                 },
               ]}
             >
-              <View style={s.benefitCopy}>
-                <Text style={[s.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
-                <Text style={[s.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
+              <View style={[s.featureIcon, { backgroundColor: theme.brandTint }]}>
+                <Ionicons name={feature.icon} size={21} color={theme.accentText} />
               </View>
-              <Ionicons name="checkmark-circle" size={23} color={theme.accentText} />
+              <View style={s.benefitCopy}>
+                <Text style={[p.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
+                <Text style={[p.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
+              </View>
             </View>
           ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expandedBenefits ? "Show fewer benefits" : "See all included benefits"}
+            accessibilityState={{ expanded: expandedBenefits }}
+            onPress={() => setExpandedBenefits(!expandedBenefits)}
+            style={p.disclosure}
+          >
+            <Text style={[p.benefitTitle, { color: theme.accentText }]}>
+              {expandedBenefits ? "Show less" : "See everything included"}
+            </Text>
+            <Ionicons
+              name={expandedBenefits ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={theme.accentText}
+            />
+          </Pressable>
         </View>
 
+        <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
+          Choose your plan
+        </Text>
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
         ) : null}
         {statusNotice ? <FormMessage icon="information-circle-outline" text={statusNotice} /> : null}
 
-        {shown.length > 1 ? (
+        {shown.length > 0 ? (
           <View accessibilityRole="radiogroup" accessibilityLabel="Billing plan" style={s.plans}>
             {shown.map((plan) => {
               const active = plan.id === selectedId;
+              const value = annual_value(plan, shown);
               return (
                 <Pressable
                   key={plan.id}
                   accessibilityRole="radio"
                   accessibilityLabel={`${plan_name(plan)}, ${billing_summary(plan)}`}
-                  accessibilityState={{ checked: active }}
+                  accessibilityState={{ checked: active, disabled: working }}
+                  disabled={working}
                   onPress={() => setSelectedId(plan.id)}
                   style={[
                     s.plan,
@@ -268,8 +310,13 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     },
                   ]}
                 >
+                  {value ? (
+                    <View style={[s.valueBadge, { backgroundColor: theme.brandTint }]}>
+                      <Text style={[s.valueText, { color: theme.accentText }]}>{value.comparison}</Text>
+                    </View>
+                  ) : null}
                   <View style={s.planTop}>
-                    <Text style={[s.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
+                    <Text style={[p.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
                     <Ionicons
                       name={active ? "radio-button-on" : "radio-button-off"}
                       size={22}
@@ -277,10 +324,36 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                     />
                   </View>
                   <Text style={[s.price, { color: theme.text }]}>{price_label(plan)}</Text>
-                  <Text style={[s.detail, { color: theme.mutedText }]}>{billing_summary(plan)}</Text>
+                  {plan_card_detail(plan) ? (
+                    <Text style={[p.detail, { color: theme.mutedText }]}>{plan_card_detail(plan)}</Text>
+                  ) : null}
+                  {value ? (
+                    <Text style={[p.detail, { color: theme.mutedText }]}>
+                      Equivalent to {value.equivalent}/month, billed yearly
+                    </Text>
+                  ) : null}
                 </Pressable>
               );
             })}
+          </View>
+        ) : null}
+
+        {selected?.trial ? (
+          <View style={[s.timeline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
+              {offer_title(selected)}
+            </Text>
+            {trial_timeline(selected, { now: now(), formatDate: format_long_date }).map((item, index) => (
+              <View key={item.when} style={s.timelineRow}>
+                <View style={[s.stepNumber, { backgroundColor: theme.brandTint }]}>
+                  <Text style={[p.benefitTitle, { color: theme.accentText }]}>{index + 1}</Text>
+                </View>
+                <View style={s.benefitCopy}>
+                  <Text style={[p.benefitTitle, { color: theme.text }]}>{item.when}</Text>
+                  <Text style={[p.detail, { color: theme.mutedText }]}>{item.what}</Text>
+                </View>
+              </View>
+            ))}
           </View>
         ) : null}
 
@@ -289,6 +362,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             {billing_terms(selected, { now: now(), store: STORE, formatDate: format_long_date })}
           </Text>
         ) : null}
+        <PaywallQuestions store={STORE} />
 
         <Pressable
           accessibilityRole="button"
@@ -361,6 +435,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           ) : null}
         </View>
       </SafeAreaView>
+      {celebration.overlay}
     </SafeAreaView>
   );
 }
@@ -391,30 +466,22 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
+  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  plansTitle: { marginTop: spacing.sm },
+  valueBadge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  valueText: { fontSize: 12, lineHeight: 18, fontWeight: "800" },
+  timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
+  timelineRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  stepNumber: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   fill: { flex: 1 },
-  content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xl },
-  hero: { borderRadius: radii.sheet, padding: spacing.lg, gap: spacing.md, overflow: "hidden" },
-  glow: {
-    position: "absolute",
-    width: 230,
-    height: 230,
-    borderRadius: 115,
-    opacity: 0.13,
-    right: -72,
-    top: -78,
+  content: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+    paddingBottom: spacing.xl,
+    width: "100%",
+    maxWidth: 680,
+    alignSelf: "center",
   },
-  eyebrow: { ...typography.eyebrow },
-  title: { ...typography.screenTitle, fontSize: 34, lineHeight: 39, letterSpacing: -0.8 },
-  subtitle: { fontSize: 16, lineHeight: 23, fontWeight: "600" },
-  trial: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    padding: spacing.sm,
-    borderRadius: radii.md,
-  },
-  trialText: { fontSize: 14, fontWeight: "700", flexShrink: 1 },
   card: { borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.md },
   tableHeader: {
     flexDirection: "row",
@@ -425,12 +492,9 @@ const s = StyleSheet.create({
     paddingVertical: spacing.md,
     borderBottomWidth: 1,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "800", flexShrink: 1 },
   included: { fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
   benefitCopy: { flex: 1, gap: spacing.xs },
-  benefitTitle: { fontSize: 16, fontWeight: "700" },
-  detail: { fontSize: 14, lineHeight: 20 },
   plans: { gap: spacing.sm },
   plan: { borderWidth: 2, borderRadius: radii.lg, padding: spacing.md, gap: spacing.xs },
   planTop: {

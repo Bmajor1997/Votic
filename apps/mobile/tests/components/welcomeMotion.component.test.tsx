@@ -7,6 +7,14 @@ import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
 
 describe("Welcome motion", () => {
+  it("cancels delayed Sign in navigation when Create account is chosen", async () => {
+    fakeAuth.reset(null);
+    await render_with_providers(<Welcome />);
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
+    await act(async () => jest.advanceTimersByTime(1500));
+    expect(router.push.mock.calls).toEqual([["/create-account"]]);
+  });
   it("stands still, with a plain headline, until someone taps Sign in", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);

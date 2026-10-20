@@ -33,11 +33,16 @@ const APP = [
   "settings/[category]",
   "review",
   "recap",
+  "scan",
+  "import-web",
+  "pronunciations",
+  "check-understanding",
   "handle-share",
   "statistics",
   "home-screen-widgets",
   "widget",
   "account",
+  "library-backup",
 ];
 
 describe("root navigation", () => {
@@ -69,7 +74,7 @@ describe("root navigation", () => {
       await after_change(() =>
         fakeAuth.setUser({ uid: "new", email: "new@example.com", displayName: null, isNewAccount: true }),
       ),
-    ).toEqual(["personalize", "account"]);
+    ).toEqual(["personalize", "account", "library-backup"]);
     const setup = await load_account_setup("new");
     expect(setup?.personalizationCompletedAt).toBeNull();
   });
@@ -77,11 +82,11 @@ describe("root navigation", () => {
   it("keeps a personalized account on the paywall until the store confirms a subscription", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await seed_storage({ accountSetup: { completedAt: null } });
-    expect(await render_layout()).toEqual(["paywall", "account"]);
+    expect(await render_layout()).toEqual(["paywall", "account", "library-backup"]);
     // A trial starting (or a restore) is reported by the store, and only then does setup move on.
     expect(
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
-    ).toEqual(["widgets-intro", "account"]);
+    ).toEqual(["widgets-intro", "account", "library-backup"]);
   });
 
   it("returns to the paywall when a subscription ends while Votic is open", async () => {
@@ -89,23 +94,23 @@ describe("root navigation", () => {
     expect(await render_layout()).toEqual(APP);
     expect(
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired"))),
-    ).toEqual(["paywall", "account"]);
+    ).toEqual(["paywall", "account", "library-backup"]);
   });
 
   it("never treats an unconfirmed subscription as paid", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("unknown") });
     await seed_storage({});
-    expect(await render_layout()).toEqual(["paywall", "account"]);
+    expect(await render_layout()).toEqual(["paywall", "account", "library-backup"]);
   });
 
   it("introduces the Home Screen widgets, then shows the handoff once, after a subscription starts", async () => {
     await seed_storage({ accountSetup: { completedAt: null } });
-    expect(await render_layout()).toEqual(["widgets-intro", "account"]);
+    expect(await render_layout()).toEqual(["widgets-intro", "account", "library-backup"]);
   });
 
   it("goes on to the handoff once the widgets have been introduced", async () => {
     await seed_storage({ accountSetup: { completedAt: null, widgetsIntroducedAt: 1 } });
-    expect(await render_layout()).toEqual(["ready", "account"]);
+    expect(await render_layout()).toEqual(["ready", "account", "library-backup"]);
   });
 
   it("skips setup when an existing account signs in on a new device or after a reinstall", async () => {
@@ -140,7 +145,7 @@ describe("root navigation", () => {
       personalized: false,
       tipsSeen: [],
     });
-    expect(current_screens()).toEqual(["personalize", "account"]);
+    expect(current_screens()).toEqual(["personalize", "account", "library-backup"]);
   });
 
   it("lets people who used an earlier version go straight to Home", async () => {
@@ -156,7 +161,7 @@ describe("root navigation", () => {
     await seed_storage({
       accountSetup: { personalizationCompletedAt: null, completedAt: null, currentStep: 3 },
     });
-    expect(await render_layout()).toEqual(["personalize", "account"]);
+    expect(await render_layout()).toEqual(["personalize", "account", "library-backup"]);
     expect((await load_account_setup("test-user"))?.currentStep).toBe(3);
   });
 });

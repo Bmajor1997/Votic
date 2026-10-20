@@ -19,3 +19,8 @@ apps/mobile/targets/*/Assets.xcassets/
 apps/mobile/.env
 apps/mobile/.env.*
 !apps/mobile/.env.example
+
+# Reproducible verification outputs
+coverage/
+quality-evidence/
+apps/mobile/native-test-results/

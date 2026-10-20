@@ -9,6 +9,7 @@ import { load_account_setup } from "../../src/onboarding/onboardingStorage";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { WIDGET_PUBLISH_DELAY_MS, WidgetSync } from "../../src/widgets/WidgetSync";
 import { WidgetSnapshot } from "../../src/widgets/widgetSnapshot";
+import { mark_account_deletion } from "../../src/storage/accountDeletion";
 import { fakeAuth } from "../mocks/authBackend";
 import { router, searchParams } from "../mocks/expoRouter";
 import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
@@ -21,6 +22,16 @@ function sent(publish: jest.Mock<(snapshot: string) => void>) {
 }
 
 describe("home-screen widget updates", () => {
+  it("never republishes private titles from a queued snapshot after deletion starts", async () => {
+    const publish = jest.fn<(snapshot: string) => void>();
+    await render_with_providers(<WidgetSync publish={publish} />, { documents: [report] });
+    await act(async () => {
+      await mark_account_deletion("test-user");
+      jest.advanceTimersByTime(WIDGET_PUBLISH_DELAY_MS);
+    });
+    expect(sent(publish).at(-1)).toMatchObject({ signedIn: false, continue: null, documentCount: 0 });
+    expect(JSON.stringify(sent(publish))).not.toContain("Quarterly report");
+  });
   it("sends the library to the widgets once it has loaded, and not again when nothing changed", async () => {
     const publish = jest.fn<(snapshot: string) => void>();
     const screen = await render_with_providers(<WidgetSync publish={publish} />, {

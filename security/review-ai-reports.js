@@ -7,5 +7,11 @@ try {
   const resolve = process.argv.find((arg) => arg.startsWith("--resolve="));
   if (resolve) store.resolveReport(resolve.slice("--resolve=".length));
   const content = process.argv.includes("--include-content");
-  for (const { answer, ...metadata } of store.reports()) console.log(JSON.stringify(content ? { ...metadata, answer } : metadata));
+  const cursor = process.argv.find(arg=>arg.startsWith("--after="))?.slice(8);
+  const status = process.argv.find(arg=>arg.startsWith("--status="))?.slice(9) || "open";
+  const after = cursor ? JSON.parse(Buffer.from(cursor,"base64url").toString("utf8")) : null;
+  const page = store.reports({after,status});
+  for (const { answer, ...metadata } of page) console.log(JSON.stringify(content ? { ...metadata, answer } : metadata));
+  const last = page.at(-1);
+  console.log(JSON.stringify({summary:store.operationalStatus().reports,next_cursor:page.length===100 ? Buffer.from(JSON.stringify({created_at:last.created_at,id:last.id})).toString("base64url") : null}));
 } finally { store.close(); }

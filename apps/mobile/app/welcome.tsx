@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
 import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
+import { MotionShowcase } from "../src/components/animations/MotionShowcase";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
 import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
@@ -14,10 +16,14 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
  * account; "Sign in" (top right) is for existing email accounts. The screen stands still until someone
  * taps Sign in, when the V's wings fly off to the right one by one and its stroke flies up and away.
  */
-export default function Welcome() {
+/** The motion lab is for checking animations on test devices; store builds never show it. */
+const TEST_BUILD = __DEV__ || Constants.expoConfig?.extra?.previewTesting === true;
+
+export default function Welcome({ motionLab = TEST_BUILD }: { motionLab?: boolean }) {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showMotion, setShowMotion] = useState(false);
   const mark = useMarkFlight();
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
@@ -52,13 +58,22 @@ export default function Welcome() {
               A place to read, listen, and keep your ideas.
             </Text>
           </View>
-          <SocialSignIn onBusyChange={setSocialBusy} onError={setError} />
+          <SocialSignIn
+            onBusyChange={(busy) => {
+              if (busy) mark.cancel();
+              setSocialBusy(busy);
+            }}
+            onError={setError}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Continue with email"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => router.push("/create-account")}
+            onPress={() => {
+              mark.cancel();
+              router.push("/create-account");
+            }}
             style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
           >
             <Ionicons name="mail-outline" size={20} color={theme.onAccent} />
@@ -69,16 +84,35 @@ export default function Welcome() {
               {error}
             </Text>
           ) : null}
+          {motionLab ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Preview Votic animations (test builds only)"
+              onPress={() => setShowMotion(true)}
+              style={s.previewButton}
+            >
+              <Ionicons name="sparkles-outline" size={18} color={theme.accentText} />
+              <Text style={{ color: theme.accentText, fontWeight: "700" }}>Preview animations</Text>
+            </Pressable>
+          ) : null}
           <NotConfiguredNotice />
           <LegalLine />
         </View>
       </ScrollView>
+      {motionLab ? <MotionShowcase visible={showMotion} onClose={() => setShowMotion(false)} /> : null}
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  previewButton: {
+    minHeight: 48,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   content: {
     flexGrow: 1,
     paddingHorizontal: spacing.xl,

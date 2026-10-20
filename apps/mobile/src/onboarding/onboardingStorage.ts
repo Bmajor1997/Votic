@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { write_account_data } from "../storage/accountDeletion";
 import { OnboardingState, parse_onboarding_state } from "./onboardingModel";
 
 /**
@@ -12,7 +13,9 @@ export async function load_account_setup(userId: string) {
 }
 
 export async function save_account_setup(userId: string, state: OnboardingState) {
-  await AsyncStorage.setItem(ACCOUNT_SETUP_KEY_PREFIX + userId, JSON.stringify(state));
+  await write_account_data(userId, () =>
+    AsyncStorage.setItem(ACCOUNT_SETUP_KEY_PREFIX + userId, JSON.stringify(state)),
+  );
 }
 
 export async function remove_account_setup(userId: string) {

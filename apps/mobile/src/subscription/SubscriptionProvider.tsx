@@ -1,5 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
+import { AppState } from "react-native";
+import { store_deadline } from "./storeDeadline";
+import { account_writable } from "../storage/accountDeletion";
 import {
   PropsWithChildren,
   createContext,
@@ -26,6 +29,7 @@ type SubscriptionValue = {
   entitlement: Entitlement;
   /** True while the store is first asked about this account, so the paywall doesn't flash for subscribers. */
   checking: boolean;
+  recoveryError: string | null;
   /** Whether the paid part of Votic is open to this account. */
   access: boolean;
   /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
@@ -50,11 +54,13 @@ export function SubscriptionProvider({
   const uid = user?.uid ?? null;
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [observedUid, setObservedUid] = useState(uid);
   // Discard the previous session's result before children render, including signing back into the same account.
   if (observedUid !== uid) {
     setObservedUid(uid);
     setChecked(null);
+    setRecoveryError(null);
   }
   const [bypassed, setBypassed] = useState(false);
   const identified = useRef<string | null>(null);
@@ -86,9 +92,14 @@ export function SubscriptionProvider({
     if (service.unavailableReason) return;
     identified.current = uid;
     let current = true;
-    void service
-      .identify(uid)
-      .catch(() => UNKNOWN_ENTITLEMENT)
+    void store_deadline(service.identify(uid))
+      .catch((error) => {
+        if (current && uidRef.current === uid)
+          setRecoveryError(
+            error instanceof Error ? error.message : "Membership is unavailable. Please retry.",
+          );
+        return UNKNOWN_ENTITLEMENT;
+      })
       .then((result) => {
         if (current && uidRef.current === uid) {
           settled.current = uid;
@@ -118,6 +129,17 @@ export function SubscriptionProvider({
   );
 
   const entitlement = uid && checked?.uid === uid ? checked.entitlement : UNKNOWN_ENTITLEMENT;
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state !== "active" || !uid || settled.current !== uid || !account_writable(uid)) return;
+      void store_deadline(service.refresh())
+        .then((next) => {
+          if (uidRef.current === uid && next.status !== "unknown") set_entitlement(next);
+        })
+        .catch(() => {}); // Preserve known cached access on a transient refresh failure.
+    });
+    return () => subscription.remove();
+  }, [service, set_entitlement, uid]);
   const checking =
     Boolean(uid && !service.unavailableReason && checked?.uid !== uid) || (canBypass && !bypassLoaded);
   const value: SubscriptionValue = {
@@ -125,6 +147,7 @@ export function SubscriptionProvider({
     legal,
     entitlement,
     checking,
+    recoveryError,
     access: has_access(entitlement.status) || (canBypass && bypassed),
     canBypass,
     bypass() {
@@ -134,9 +157,15 @@ export function SubscriptionProvider({
     },
     setEntitlement: set_entitlement,
     async refresh() {
-      const next = await service.refresh();
-      set_entitlement(next);
-      return next;
+      try {
+        const next = await store_deadline(service.refresh());
+        set_entitlement(next);
+        setRecoveryError(null);
+        return next;
+      } catch (error) {
+        setRecoveryError(error instanceof Error ? error.message : "Membership is unavailable. Please retry.");
+        throw error;
+      }
     },
   };
   return <SubscriptionContext.Provider value={value}>{children}</SubscriptionContext.Provider>;

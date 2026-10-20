@@ -1,24 +1,27 @@
-name: Android Notification Playback Build
+name: Android Full App & Playback Build
 
 on:
   push:
     paths:
-      - "apps/mobile/modules/votic-playback/**"
-      - "apps/mobile/src/playback/**"
-      - "apps/mobile/app/reader.tsx"
+      - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/android-smoke.sh"
+      - "security/android-smoke-screen.py"
+      - "code_checks/android_smoke_test.py"
   pull_request:
     paths:
-      - "apps/mobile/modules/votic-playback/**"
-      - "apps/mobile/src/playback/**"
-      - "apps/mobile/app/reader.tsx"
+      - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/android-smoke.sh"
+      - "security/android-smoke-screen.py"
+      - "code_checks/android_smoke_test.py"
   workflow_dispatch:
 
 permissions:
   contents: read
+  security-events: write
 
 concurrency:
   group: notification-playback-${{ github.head_ref || github.ref_name }}
@@ -27,7 +30,7 @@ concurrency:
 jobs:
   android-module:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: apps/mobile
@@ -40,14 +43,69 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Install smoke test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends ripgrep
+          rg --version
       - name: Install app dependencies
         run: npm ci --ignore-scripts
+      - name: Test native dependency hardening
+        run: node --test ../../code_checks/native_dependency_hardening.test.js
+      - name: Test Android emulator recovery
+        run: python3 ../../code_checks/android_smoke_test.py
       - name: Install and validate Android NDK
         run: bash ../../security/install-android-ndk.sh
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_TELEMETRY: "1"
-      - name: Compile notification playback and process its manifest
+      - name: Verify generated Android manifest and resources
+        run: node ../../security/verify-generated-android.cjs android/app/src/main
+      - name: Initialize native CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: java-kotlin
+          build-mode: manual
+      - name: Build complete app, widgets, playback and bundled JavaScript
         working-directory: apps/mobile/android
-        run: ./gradlew :votic-playback:compileDebugKotlin :votic-playback:processDebugManifest --no-daemon --max-workers=2
+        run: ./gradlew :votic-playback:compileDebugKotlin :votic-playback:processDebugManifest :votic-widgets:compileDebugKotlin :app:assembleRelease :app:bundleRelease --no-daemon --max-workers=2
+        env:
+          NODE_ENV: production
+          EXPO_NO_TELEMETRY: "1"
+      - name: Test playback and lint Android release
+        working-directory: apps/mobile/android
+        run: ./gradlew :votic-playback:testDebugUnitTest :app:lintRelease :votic-playback:lintDebug :votic-widgets:lintDebug --no-daemon --max-workers=2
+      - name: Analyze native code
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: native-android
+          output: native-sarif
+          upload: false
+      - name: Gate native analysis findings
+        run: node ../../security/check-sarif.cjs ../../native-sarif
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Install and launch the bundled release app
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash "${{ github.workspace }}/security/android-smoke.sh" "${{ github.workspace }}/apps/mobile/android/app/build/outputs/apk/release/app-release.apk"
+      - name: Preserve CI app build and smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-ci-build
+          path: |
+            apps/mobile/android/app/build/outputs/apk/release/*.apk
+            apps/mobile/android/app/build/outputs/bundle/release/*.aab
+            android-smoke-*.txt
+            android-smoke-*.png
+            native-sarif/
+            apps/mobile/android/app/build/reports/lint-results-*
+            apps/mobile/modules/*/android/build/reports/
+            apps/mobile/modules/*/android/build/test-results/
+          retention-days: 90

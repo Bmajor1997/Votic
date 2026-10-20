@@ -49,7 +49,7 @@ The mobile client uses bottom navigation for four primary destinations: **Home**
 
 Implemented: the document library with collections, TXT/Markdown import on the device and PDF/Word/PowerPoint/EPUB extraction through the Votic server; the Reader with optional text-to-speech, word highlighting, voice choice, and 0.5×–4× speed in 0.1× steps; saved passages and Notes with titles, types, tags, pins, filters, sharing, and notebooks; Ask Votic about a document or selected notes; the completion review and weekly recap; appearance, accessibility, and personalization; required accounts (email, Google, Sign in with Apple through Firebase); onboarding: Welcome, Create account and Sign in (email, Google, Sign in with Apple), five optional personalization questions saved per account, the Votic Premium subscription screen (RevenueCat), "Votic is ready for you", a Getting Started card on Home, the Votic guide document, and a contextual walkthrough for Home, Documents, Notes, and the Reader that can be replayed from Settings. The library is stored on the device, with document text kept separately from frequently changing progress and notes.
 
-Not yet implemented: syncing preferences and the library across devices (both stay on the device), background playback and lock-screen controls, and richer document navigation (real headings rather than passage numbers). Existing working web behavior should be reused or adapted rather than rewritten without a reason.
+Not yet implemented: syncing preferences and the library across devices (both stay on the device), and richer document navigation (real headings rather than passage numbers). Android has a native background playback service and media controls; interruption, process-death, Bluetooth and battery-restriction behavior still require release-build device checks. Existing working web behavior should be reused or adapted rather than rewritten without a reason.
 
 ### Run the mobile app
 
@@ -70,7 +70,7 @@ Statistics (from Home's weekly summary or Settings) uses measurements recorded o
 - **Ask Votic:** a *question* is each message sent (a retry of a failed message is not counted again); a *conversation* starts with the first question after Ask Votic opens with no messages. Question types (summaries, explanations, comparisons, definitions, other) come from simple word rules on the device. Only the type, the time, and the label of a built-in suggestion are kept; typed question text is never stored for Statistics.
 - **Documents:** *Most read* ranks by reading plus listening time in the period. Completion is the existing reading position; re-reading does not count as finishing again.
 - **Insights** need at least 30 minutes on 3 different days in the period; *most active day of the week* also needs a month or longer, and comparisons need 10 minutes in both periods. "Most active" describes usage, not productivity.
-- **Not yet covered:** background playback (Votic does not play narration in the background yet) and syncing statistics across devices.
+- **Not yet measured:** background listening time and statistics across devices. Android background playback is implemented, but these statistics only measure foreground sessions.
 - Development builds can show generated sample statistics from a switch at the bottom of Statistics. They are kept in memory and never replace real measurements.
 ### Accounts
 
@@ -355,3 +355,7 @@ Those are future possibilities—not commitments.
 ---
 
 This repository intentionally begins with the product problem and validation plan before implementation code.
+
+## Software assurance
+
+See [the tailored safety baseline](docs/safety/SAFETY_BASELINE.md), [risk-to-test traceability](docs/safety/TRACEABILITY.md), and [release/operations acceptance](docs/safety/OPERATIONS_ACCEPTANCE.md). These records distinguish automated evidence from device and live-service checks; they do not establish NASA certification.

@@ -1,9 +1,19 @@
 const fs = require("node:fs");
+const path = require("node:path");
 const HIGH = new Set(["high", "critical"]);
 // The existing exceptions stay scoped to their original advisories.
-const ALLOWED = new Set(["GHSA-vfj7-8cjw-p6xm", "GHSA-86w9-cpqp-85rv"]);
+function active_exceptions(now) {
+  const policy = fs.readFileSync(path.join(__dirname,"../osv-scanner.toml"),"utf8");
+  return policy.split("[[IgnoredVulns]]").slice(1).flatMap(block=>{
+    const id = block.match(/^id\s*=\s*"(GHSA-[a-z0-9-]+)"/m)?.[1];
+    const expiry = block.match(/^ignoreUntil\s*=\s*(\d{4}-\d{2}-\d{2})\s*$/m)?.[1];
+    if (!id || !expiry || !Number.isFinite(Date.parse(expiry))) throw new Error("Invalid dependency exception policy.");
+    return now.getTime()<Date.parse(expiry+"T00:00:00Z") ? [id] : [];
+  });
+}
 
-function blocking_mobile_findings(audit) {
+function blocking_mobile_findings(audit, { now = new Date() } = {}) {
+  const allowed = active_exceptions(now);
   if (audit?.error || !audit?.vulnerabilities || typeof audit.vulnerabilities !== "object" || Array.isArray(audit.vulnerabilities))
     throw new Error("The mobile dependency audit did not produce a valid vulnerability report.");
   const vulnerabilities = audit.vulnerabilities;
@@ -30,7 +40,7 @@ function blocking_mobile_findings(audit) {
     }
     const unapproved = high.filter((item) => {
       const details = `${item.url || ""} ${item.title || ""}`.toLowerCase();
-      return ![...ALLOWED].some((id) => details.includes(id.toLowerCase()));
+      return !allowed.some((id) => details.includes(id.toLowerCase()));
     });
     if (unapproved.length) blocking.push(`${name}: unapproved high/critical advisory`);
   }

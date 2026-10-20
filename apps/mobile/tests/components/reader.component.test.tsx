@@ -401,9 +401,12 @@ describe("Reader", () => {
       [],
       "adaptive",
     );
-    // Each answer ends with its source passage and a bookmark; nothing about the whole conversation.
-    expect(screen.getByRole("button", { name: "Open Field Guide at passage 1 in Reader" })).toBeTruthy();
-    expect(screen.getByText("Passage 1 · Field Guide")).toBeTruthy();
+    // Each answer starts with a tappable chip naming its passage, and ends with a bookmark; nothing about the whole
+    // conversation. The old Votic name and logo line is gone.
+    const chip = screen.getByRole("button", { name: "From passage 1, Field Guide" });
+    expect(chip.props.accessibilityHint).toBe("Opens this passage in the Reader");
+    expect(screen.queryByRole("button", { name: "Open Field Guide at passage 1 in Reader" })).toBeNull();
+    expect(screen.queryByText("· From this document")).toBeNull();
     expect(screen.queryByRole("button", { name: "Save conversation to Notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Save answer to Notes" }));
     expect(screen.getByRole("button", { name: "Saved to Notes" })).toBeTruthy();
@@ -494,7 +497,9 @@ describe("Reader", () => {
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Why does focus help?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
     await waitFor(() => expect(screen.getByText(LIMIT)).toBeTruthy());
-    expect(screen.queryByText("· From this document")).toBeNull();
+    // A notice isn't a document answer, so it's labelled as Votic help, with no passage chip.
+    expect(screen.getByText("Votic help")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^From passage/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save answer to Notes" })).toBeNull();
     expect(screen.getByRole("button", { name: "Conversation options" })).toBeTruthy();
     // A notice doesn't tick "Ask Votic a question" off the getting-started checklist.
@@ -798,9 +803,39 @@ describe("Reader", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
     await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Where does it start?");
     await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
-    await fireEvent.press(await screen.findByRole("button", { name: /at passage 1 in Reader$/ }));
+    await fireEvent.press(await screen.findByRole("button", { name: /^From passage 1,/ }));
     expect(screen.queryByLabelText("Ask Votic conversation")).toBeNull();
     expect(screen.getByText("2 passages left")).toBeTruthy();
+  });
+
+  it("points the chip at the exact passage the answer quotes, and labels answers without one", async () => {
+    askVoticMock.mockResolvedValueOnce({
+      answer: "It ends with the third passage.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: "Passages 1–3",
+      quote: "Third passage ends.",
+    });
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    expect(screen.getByText("2 passages left")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "How does it end?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    // The section starts at passage 1, but the quoted sentence is passage 3.
+    await fireEvent.press(await screen.findByRole("button", { name: /^From passage 3,/ }));
+    expect(screen.getByText("0 passages left")).toBeTruthy();
+
+    askVoticMock.mockResolvedValueOnce({
+      answer: "The document doesn't say who wrote it.",
+      mode: "document-ai",
+      sectionIndex: null,
+      sectionTitle: null,
+      quote: null,
+    });
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "Who wrote it?");
+    await fireEvent.press(screen.getByRole("button", { name: "Send question" }));
+    expect(await screen.findByText("Searched this document")).toBeTruthy();
   });
 });
 

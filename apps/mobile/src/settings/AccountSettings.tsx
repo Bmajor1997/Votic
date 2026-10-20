@@ -1,4 +1,7 @@
 import { useAccountData } from "../storage/AccountDataProvider";
+import { router } from "expo-router";
+import { DiagnosticsSettings } from "./DiagnosticsSettings";
+import { account_deletion_pending } from "../storage/accountDeletion";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, Ref, useEffect, useRef, useState } from "react";
 import {
@@ -19,17 +22,14 @@ import { useAuth } from "../auth/AuthProvider";
 import { auth_error_message } from "../auth/authErrors";
 import { Card } from "../components/Card";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { remove_account_setup } from "../onboarding/onboardingStorage";
-import { remove_account_preferences } from "../onboarding/accountPreferences";
 import { has_access } from "../subscription/entitlement";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { remove_walkthrough_state } from "../walkthrough/walkthroughState";
 
 type Step = "sign-out" | "deletion-info" | "deletion-final" | "recover-library";
 
-/** Uses the existing Firebase-backed provider. Never changes local library storage. */
+/** Account deletion coordinates local erasure, private backend data, billing profile and Firebase. */
 export function AccountSettings() {
   const auth = useAuth();
   const accountData = useAccountData();
@@ -77,17 +77,14 @@ export function AccountSettings() {
       if (action === "recover") await accountData.recover();
       else if (action === "sign-out") await auth.signOut();
       else {
-        const uid = auth.user.uid;
-        await auth.deleteAccount();
-        // This device's setup, preferences, and walkthrough progress go with the deleted account.
-        await Promise.all([
-          remove_account_setup(uid),
-          remove_account_preferences(uid),
-          remove_walkthrough_state(uid),
-        ]).catch(() => {});
+        await accountData.deleteAccount();
       }
       setStep(null);
     } catch (failure) {
+      if (action === "delete" && auth.user && (await account_deletion_pending(auth.user.uid))) {
+        setStep(null); // The account session owns the persistent retry screen after cleanup starts.
+        return;
+      }
       const code = (failure as { code?: string } | null)?.code;
       const message =
         action === "recover"
@@ -147,6 +144,16 @@ export function AccountSettings() {
             </View>
           </View>
         </Card>
+        {auth.user ? (
+          <AccountRow
+            label="Library backup & restore"
+            detail="Save your library or restore a backup, even without an active membership."
+            hint="Opens library backup and restore"
+            icon="download-outline"
+            onPress={() => router.push("/library-backup")}
+          />
+        ) : null}
+        <DiagnosticsSettings />
         {auth.user && accountData.canRecover ? (
           <AccountRow
             label="Recover older device library"
@@ -226,8 +233,10 @@ export function AccountSettings() {
               ) : final ? (
                 <Text style={[s.body, { color: theme.text }]}>
                   This permanently deletes your Votic account and sign-in. It cannot be undone. You will be
-                  signed out when deletion completes. Documents and notes on this device will remain. App
-                  Store or Google Play subscriptions must be managed separately.
+                  signed out when deletion completes. Your local documents, notes, activity and pronunciations
+                  will be erased, along with your private backend reports and billing profile. Anonymous cost
+                  totals are retained for spending controls. If interrupted, retry to finish; some data may
+                  already be erased. App Store or Google Play subscriptions must be managed separately.
                 </Text>
               ) : (
                 <>
@@ -238,8 +247,8 @@ export function AccountSettings() {
                   </Text>
                   <Text style={[s.title, { color: theme.text }]}>Documents and notes on this device</Text>
                   <Text style={[s.body, { color: theme.text }]}>
-                    Your documents and notes are stored locally. Deleting your account does not automatically
-                    remove them from this device.
+                    Confirming deletion erases your account&apos;s documents, notes and settings on this
+                    device. Other devices clear their account data when they next connect and detect deletion.
                   </Text>
                   <Text style={[s.title, { color: theme.text }]}>Manage your subscription separately</Text>
                   <Text style={[s.body, { color: theme.text }]}>

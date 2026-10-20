@@ -1,5 +1,6 @@
 import { account_storage_key } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { write_account_data } from "../storage/accountDeletion";
 import { FLOWS, FlowId } from "./walkthroughFlows";
 
 export const WALKTHROUGH_KEY = "votic.mobile.walkthrough.v1";
@@ -162,7 +163,7 @@ async function load_device_state(now: number, uid: string): Promise<WalkthroughS
 }
 
 export async function save_walkthrough_state(uid: string, state: WalkthroughState) {
-  await AsyncStorage.setItem(walkthrough_key(uid), JSON.stringify(state));
+  await write_account_data(uid, () => AsyncStorage.setItem(walkthrough_key(uid), JSON.stringify(state)));
 }
 
 export async function remove_walkthrough_state(uid: string) {

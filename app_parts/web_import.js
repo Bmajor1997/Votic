@@ -1,4 +1,5 @@
 import { parse } from "parse5";
+import { parse_document_isolated } from "./document_parser.js";
 /* global Response */
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
@@ -157,9 +158,34 @@ function readable_text(node, state = { ended: false, chars: 0, run: new Set() })
   if (["td", "th"].includes(node.tagName)) return `${text} `;
   return BLOCK_TAGS.has(node.tagName) ? `\n${text}\n` : text;
 }
+function validate_html_tree(root) {
+  const pending = [{ node: root, depth: 0 }];
+  let count = 0;
+  while (pending.length) {
+    const { node, depth } = pending.pop();
+    if (++count > 20_000 || depth > 128)
+      throw new WebImportError("That webpage is too complex to import safely.");
+    for (const child of node.childNodes || []) pending.push({ node: child, depth: depth + 1 });
+  }
+}
+export async function clean_webpage_isolated(html, { signal, timeoutMs = 5000 } = {}) {
+  try {
+    const result = await parse_document_isolated("webpage", Buffer.from(html), {
+      signal, timeoutMs, workerUrl: new URL("./web_import_worker.js", import.meta.url),
+    });
+    return JSON.parse(result);
+  } catch (error) {
+    throw new WebImportError(error.code === "PARSER_TIMEOUT"
+      ? "That webpage took too long to process. Try a simpler page."
+      : "That webpage could not be processed safely. Try a simpler page.");
+  }
+}
 export function clean_webpage_html(html) {
+  if (typeof html !== "string" || Buffer.byteLength(html) > MAX_HTML_BYTES)
+    throw new WebImportError("That webpage is too large to import.");
   // Parse real elements: strings/comments inside scripts must never choose the article region.
   const document = parse(html);
+  validate_html_tree(document);
   const titleNode = find_tag(document, "title");
   const title = (titleNode ? readable_text(titleNode) : "").replace(/\s+/g, " ").trim().slice(0, 200);
   // The longest article is the story; teasers and related posts are shorter.
@@ -169,18 +195,53 @@ export function clean_webpage_html(html) {
   const source = readable_text(region, { ended: false, chars: 0, run: back_matter_run(region) }).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
   const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
     .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
-  return { title, text: kept.join("\n\n").slice(0, 400_000) };
+  const text = kept.join("\n\n");
+  if (text.length > 400_000) throw new WebImportError("That webpage contains too much text to import completely.");
+  return { title, text };
 }
-export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000 } = {}) {
-  let target = await resolve_public_url(value, lookupImpl);
+async function read_html_stream(reader) {
+  const chunks = [];
+  let size = 0;
+  for (let reads = 0; ; reads += 1) {
+    const { done, value: chunk } = await reader.read();
+    if (done) break;
+    if (reads >= 32_000 || !chunk.byteLength) throw new WebImportError("That webpage stream is too fragmented to import safely.");
+    size += chunk.byteLength;
+    if (size > MAX_HTML_BYTES) throw new WebImportError("That webpage is too large to import.");
+    chunks.push(Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks, size).toString("utf8");
+}
+
+export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000, signal } = {}) {
+  const started = Date.now();
+  const remaining = () => Math.max(1, timeoutMs - (Date.now() - started));
+  // A late OS lookup cannot start a download after the shared deadline.
+  const bounded_lookup = async (...args) => {
+    let timer, rejectAbort;
+    const canceled = () => rejectAbort?.(new WebImportError("Webpage import canceled."));
+    try {
+      const deadline = new Promise((_, reject) => {
+        rejectAbort = reject;
+        timer = setTimeout(() => reject(new WebImportError("The webpage took too long to resolve.")), remaining());
+        signal?.addEventListener("abort", canceled, { once: true });
+        if (signal?.aborted) canceled();
+      });
+      return await Promise.race([lookupImpl(...args), deadline]);
+    } finally { clearTimeout(timer); signal?.removeEventListener("abort", canceled); }
+  };
+  let target = await resolve_public_url(value, bounded_lookup);
   for (let redirects = 0; redirects <= 3; redirects += 1) {
     const controller = new AbortController();
+    const cancel = () => controller.abort();
+    signal?.addEventListener("abort", cancel, { once: true });
+    if (signal?.aborted) cancel();
     let response, reader, timer;
     const timeout = new Promise((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
         reject(new WebImportError("The webpage took too long to download. Try again."));
-      }, timeoutMs);
+      }, remaining());
     });
     const download = async () => {
       response = await fetchImpl(target.url, {
@@ -210,16 +271,10 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
         body = Readable.toWeb(decoder);
       }
       reader = body.getReader();
-      const chunks = [];
-      let size = 0;
-      while (true) {
-        const { done, value: chunk } = await reader.read();
-        if (done) break;
-        size += chunk.byteLength;
-        if (size > MAX_HTML_BYTES) throw new WebImportError("That webpage is too large to import.");
-        chunks.push(Buffer.from(chunk));
-      }
-      const cleaned = clean_webpage_html(Buffer.concat(chunks, size).toString("utf8"));
+      const html = await read_html_stream(reader);
+      const cleaned = await clean_webpage_isolated(html, {
+        signal: controller.signal, timeoutMs: Math.min(5000, remaining()),
+      });
       if (cleaned.text.length < 80) throw new WebImportError("Votic could not find enough readable article text on that webpage.");
       return { ...cleaned, url: target.url.toString() };
     };
@@ -227,12 +282,13 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
     try { result = await Promise.race([download(), timeout]); }
     finally {
       clearTimeout(timer);
+      signal?.removeEventListener("abort", cancel);
       controller.abort();
       if (reader) void reader.cancel().catch(() => {});
       else if (response?.body) void response.body.cancel().catch(() => {});
     }
     if (!result.redirect) return result;
-    target = await resolve_public_url(new URL(result.redirect, target.url).toString(), lookupImpl);
+    target = await resolve_public_url(new URL(result.redirect, target.url).toString(), bounded_lookup);
   }
   throw new WebImportError("The webpage could not be imported.");
 }

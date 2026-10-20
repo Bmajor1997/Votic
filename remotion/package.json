@@ -1,0 +1,16 @@
+{
+  "name": "votic-motion-renders",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:intro": "remotion render src/index.ts VoticIntro out/intro.mp4",
+    "render:paywall": "remotion render src/index.ts VoticPremium out/premium.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.532",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "remotion": "4.0.532"
+  }
+}

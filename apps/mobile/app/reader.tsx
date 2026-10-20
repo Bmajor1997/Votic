@@ -55,6 +55,9 @@ import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
 import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../src/ask/conversationSummary";
 import { useAnswerListening } from "../src/ask/useAnswerListening";
 import { AskAnswerFooter } from "../src/ask/AskAnswerFooter";
+import { AskAnswerSourceChip } from "../src/ask/AskAnswerSourceChip";
+import { passage_heading } from "../src/ask/passageHeading";
+import { quote_passage } from "../src/ask/quotePassage";
 import { AskConversationMenu, type AskConversationAction } from "../src/ask/AskConversationMenu";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
@@ -132,6 +135,8 @@ type ReaderAskMessage = {
   saved?: boolean;
   source?: AskAnswerSource;
   link?: AskLink;
+  /** The document heading the answer's passage sits under ("Job Description"), when there is one. */
+  sectionTitle?: string;
   /** A notice (such as a daily limit) rather than an answer: not saved to Notes or sent as history. */
   fallback?: boolean;
   /** A Catch me up reminder, shown as its own "Where you left off" card so it isn't mistaken for a summary. */
@@ -370,8 +375,8 @@ function ReaderContent() {
     void Speech.getAvailableVoicesAsync()
       .then((available) => setVoices(unique_english_voices(available)))
       .catch(() => setVoices([]));
-    void load_pronunciations().then(setPronunciations);
-  }, []);
+    void load_pronunciations(uid).then(setPronunciations);
+  }, [uid]);
   useEffect(
     () => () => {
       speechSession.current += 1;
@@ -532,6 +537,13 @@ function ReaderContent() {
       const request = prepare_ask_request(context, clean, history);
       const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
       const grounded = answered_from_context(request, answer);
+      const sectionLink = answer_link(request, answer.sectionIndex) ?? undefined;
+      // Point at the exact passage holding the sentence the answer rests on, not just the start of its section.
+      const exact =
+        sectionLink && activeDocument && sectionLink.documentId === activeDocument.id
+          ? quote_passage(activeDocument.plainText, answer.quote, sectionLink.sentenceIndex)
+          : null;
+      const link = sectionLink && exact !== null ? { ...sectionLink, sentenceIndex: exact } : sectionLink;
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
       if (generation !== askGeneration.current) return;
@@ -545,7 +557,11 @@ function ReaderContent() {
                 context.kind === "document" || context.kind === "notes"
                   ? (context.saveSource ?? undefined)
                   : undefined,
-              link: answer_link(request, answer.sectionIndex) ?? undefined,
+              link,
+              sectionTitle:
+                link && activeDocument && link.documentId === activeDocument.id
+                  ? (passage_heading(activeDocument.plainText, link.sentenceIndex) ?? undefined)
+                  : undefined,
             }
           : { role: "votic", text: answer.answer, fallback: true },
       ]);
@@ -599,13 +615,14 @@ function ReaderContent() {
       </View>
     ) : (
       <View key={messageIndex} style={s.askAnswer}>
-        <View style={s.askAnswerLabel}>
-          <VoticLogo compact markOnly />
-          <Text style={[s.askAnswerName, { color: theme.text }]}>Votic</Text>
-          {message.fallback ? null : (
-            <Text style={[s.askAnswerSource, { color: theme.mutedText }]}>· From this document</Text>
-          )}
-        </View>
+        <AskAnswerSourceChip
+          kind={message.fallback ? "help" : message.link ? "passage" : "document"}
+          passage={message.link ? message.link.sentenceIndex + 1 : undefined}
+          section={message.sectionTitle}
+          documentTitle={activeDocument?.title || "this document"}
+          filename={activeDocument?.sourceName}
+          onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
+        />
         <AIResponse
           text={message.text}
           animate={!message.fallback && !message.revealed}
@@ -619,16 +636,6 @@ function ReaderContent() {
             disabled: askVoiceBusy,
             onPress: () => void answerListening.toggle(String(messageIndex), message.text, stop),
           }}
-          source={
-            message.link
-              ? {
-                  filename: activeDocument?.sourceName,
-                  label: `Passage ${message.link.sentenceIndex + 1} · ${activeDocument?.title || "this document"}`,
-                  accessibilityLabel: `Open ${activeDocument?.title || "document"} at passage ${message.link.sentenceIndex + 1} in Reader`,
-                  onPress: () => open_ask_answer_link(message.link!),
-                }
-              : null
-          }
           save={
             message.source
               ? {
@@ -1847,8 +1854,6 @@ const s = StyleSheet.create({
   askUserText: { color: "#FFF", fontSize: 14, lineHeight: 20 },
   // Answers sit directly on the panel, without a box, like the questions opposite them.
   askAnswer: { paddingVertical: spacing.xs, gap: spacing.sm },
-  askAnswerLabel: { flexDirection: "row", alignItems: "center", gap: 4 },
-  askAnswerName: { fontSize: 12, fontWeight: "800" },
   askAnswerSource: { fontSize: 11 },
   askAnswerText: { fontSize: 15, lineHeight: 22 },
   askThinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },

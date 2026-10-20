@@ -7,6 +7,8 @@ on:
       - "app_parts/**"
       - "votic_server.js"
       - "code_checks/**"
+      - "security/**"
+      - "package*.json"
       - ".github/workflows/reliability-edge-cases.yml"
   pull_request:
     paths:
@@ -14,7 +16,11 @@ on:
       - "app_parts/**"
       - "votic_server.js"
       - "code_checks/**"
+      - "security/**"
+      - "package*.json"
       - ".github/workflows/reliability-edge-cases.yml"
+  schedule:
+    - cron: "23 12 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -38,8 +44,7 @@ jobs:
         with:
           node-version: 24
 
-      - name: Run reliability and edge-case regression tests
-        run: node --test code_checks/reliability_edge_cases.test.js code_checks/reliability_security_regressions.test.js
+      # Server regression tests run once in the Security workflow's backend coverage suite.
 
       - name: Install mobile dependencies
         working-directory: apps/mobile
@@ -48,12 +53,12 @@ jobs:
       - name: Run Vitest behavioral reliability tests
         if: ${{ !cancelled() }}
         working-directory: apps/mobile
-        run: npm run test:reliability
+        run: npm run test:coverage
 
       - name: Run mobile component tests
         if: ${{ !cancelled() }}
         working-directory: apps/mobile
-        run: npm run test:components
+        run: npm run test:components:coverage
 
       - name: Lint mobile code
         if: ${{ !cancelled() }}
@@ -79,3 +84,17 @@ jobs:
         if: ${{ !cancelled() }}
         working-directory: apps/mobile
         run: npx expo install --check
+
+      - name: Prevent complexity regressions
+        if: ${{ !cancelled() }}
+        run: node security/code-metrics.cjs
+
+      - name: Preserve coverage and complexity evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: assurance-evidence
+          path: |
+            apps/mobile/coverage/
+            quality-evidence/
+          retention-days: 90

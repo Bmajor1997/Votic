@@ -1,6 +1,6 @@
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
-import { OPS, Util } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
 import JSZip from "jszip";
 import { Document as LegacyOfficeDocument } from "office-oxide";
 import { posix as path_posix } from "node:path";
@@ -54,33 +54,13 @@ async function safe_archive_text(file) {
   return text;
 }
 
-async function pdf_page_needs_ocr(page, text) {
-  const { fnArray, argsArray } = await page.getOperatorList();
-  const viewport = page.getViewport({ scale: 1 });
-  const page_area = viewport.width * viewport.height;
+async function pdf_page_needs_ocr(page) {
+  const { fnArray } = await page.getOperatorList();
   const images = new Set([OPS.paintImageXObject, OPS.paintInlineImageXObject, OPS.paintImageMaskXObject,
     OPS.paintInlineImageXObjectGroup, OPS.paintImageMaskXObjectGroup, OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat]);
-  let matrix = [1, 0, 0, 1, 0, 0], image_area = 0;
-  const stack = [];
-  for (let i = 0; i < fnArray.length; i++) {
-    const op = fnArray[i], args = argsArray[i];
-    if (op === OPS.save || op === OPS.paintFormXObjectBegin) {
-      stack.push(matrix);
-      if (op === OPS.paintFormXObjectBegin && args?.[0]) matrix = Util.transform(matrix, args[0]);
-    } else if (op === OPS.restore || op === OPS.paintFormXObjectEnd) matrix = stack.pop() || [1, 0, 0, 1, 0, 0];
-    else if (op === OPS.transform) matrix = Util.transform(matrix, args);
-    else if (images.has(op)) {
-      // Sparse selectable headers/page numbers do not make a scanned page selectable.
-      if (text.trim().length < 80) return true;
-      // Batched/repeated images carry per-image transforms; conservatively send them to OCR.
-      if ([OPS.paintInlineImageXObjectGroup, OPS.paintImageMaskXObjectGroup, OPS.paintImageXObjectRepeat, OPS.paintImageMaskXObjectRepeat].includes(op)) return true;
-      // Also catch scans underneath substantial selectable headers or partial OCR layers.
-      // Conservatively OCR large illustrations, too; small logos on text-rich pages stay local.
-      image_area += Math.abs(matrix[0] * matrix[3] - matrix[1] * matrix[2]);
-      if (image_area >= page_area * 0.25) return true;
-    }
-  }
-  return false;
+  // Neither selectable-character count nor image area proves an image has no additional text.
+  // Until per-page OCR is available, conservatively OCR even small illustrations/logos.
+  return fnArray.some((op) => images.has(op));
 }
 
 export async function extract_document(name, buffer) {
@@ -113,7 +93,7 @@ export async function extract_document(name, buffer) {
       try {
         const content = await page.getTextContent({ includeMarkedContent: false, disableNormalization: false });
         const text = reconstruct_pdf_page_text(content.items);
-        if (await pdf_page_needs_ocr(page, text)) {
+        if (await pdf_page_needs_ocr(page)) {
           const error = new Error("This PDF contains scanned pages that need OCR.");
           error.code = "PDF_OCR_REQUIRED";
           throw error;

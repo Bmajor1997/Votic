@@ -3,6 +3,7 @@ import { AppState } from "react-native";
 import { useActivity } from "../activity/ActivityProvider";
 import { useAuth } from "../auth/AuthProvider";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
+import { account_writable } from "../storage/accountDeletion";
 import { publish_widget_snapshot } from "./widgetBridge";
 import { build_widget_snapshot } from "./widgetSnapshot";
 
@@ -29,7 +30,14 @@ export function WidgetSync({ publish = publish_widget_snapshot }: { publish?: (s
     if (!authKnown || (signedIn && (!loaded || !hydrated))) return;
     const send = () => {
       pending.current = null;
-      const snapshot = JSON.stringify(build_widget_snapshot({ documents, log: measuredLog, signedIn }));
+      // A delayed send may outlive the deletion confirmation and its explicit widget clear.
+      const snapshot = JSON.stringify(
+        build_widget_snapshot({
+          documents,
+          log: measuredLog,
+          signedIn: signedIn && account_writable(user?.uid),
+        }),
+      );
       if (snapshot === lastSent.current) return;
       lastSent.current = snapshot;
       publish(snapshot);
@@ -44,7 +52,7 @@ export function WidgetSync({ publish = publish_widget_snapshot }: { publish?: (s
       clearTimeout(timer);
       pending.current = null;
     };
-  }, [documents, measuredLog, signedIn, authKnown, loaded, hydrated, publish]);
+  }, [documents, measuredLog, signedIn, authKnown, loaded, hydrated, publish, user?.uid]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) => {

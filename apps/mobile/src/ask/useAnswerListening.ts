@@ -6,9 +6,11 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { split_passages } from "../documents/passages";
 import { normalize_playback_rate } from "../playback/rates";
 import { apply_pronunciations, load_pronunciations } from "../reader/pronunciationDictionary";
+import { useAuth } from "../auth/AuthProvider";
 
 /** One answer at a time, owned by the focused Ask screen; never changes document progress. */
 export function useAnswerListening(contextKey: string, enabled = true, playbackRate = 1) {
+  const uid = useAuth().user?.uid;
   const { voiceIdentifier } = useAccessibilityPreferences();
   const [playingKey, setPlayingKey] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
@@ -77,7 +79,7 @@ export function useAnswerListening(contextKey: string, enabled = true, playbackR
       if (!current()) return;
       await Speech.stop();
       if (!current()) return;
-      const pronunciations = await load_pronunciations();
+      const pronunciations = await load_pronunciations(uid);
       if (!current()) return;
       const limit = Math.max(1, Math.min(3000, Speech.maxSpeechInputLength || 3000));
       const chunks = split_passages(text).flatMap((passage) => {

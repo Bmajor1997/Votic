@@ -43,6 +43,8 @@ export const fakeSubscriptions = {
   /** How the next purchase ends; by default it starts the trial. */
   nextPurchase: null as PurchaseOutcome | null,
   restoreResult: null as Entitlement | null,
+  /** Makes the next purchase or restore throw, like the store SDK failing unexpectedly. */
+  throwNext: null as "purchase" | "restore" | null,
   legal: { termsUrl: null, privacyUrl: null } as LegalLinks,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
@@ -56,6 +58,7 @@ export const fakeSubscriptions = {
     fakeSubscriptions.legal = options.legal ?? { termsUrl: null, privacyUrl: null };
     fakeSubscriptions.nextPurchase = null;
     fakeSubscriptions.restoreResult = null;
+    fakeSubscriptions.throwNext = null;
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
   setEntitlement(userId: string, entitlement: Entitlement) {
@@ -66,6 +69,12 @@ export const fakeSubscriptions = {
     return server.get(userId) ?? fakeSubscriptions.defaultEntitlement;
   },
 };
+
+function throw_if_requested(action: "purchase" | "restore") {
+  if (fakeSubscriptions.throwNext !== action) return;
+  fakeSubscriptions.throwNext = null;
+  throw new Error("Native store module crashed: internal detail");
+}
 
 export function create_subscription_service(): SubscriptionService {
   const read = () => (currentUser ? fakeSubscriptions.entitlementFor(currentUser) : UNKNOWN_ENTITLEMENT);
@@ -92,6 +101,7 @@ export function create_subscription_service(): SubscriptionService {
     },
     async purchase(planId) {
       fakeSubscriptions.calls.push("purchase:" + planId);
+      throw_if_requested("purchase");
       const outcome = fakeSubscriptions.nextPurchase ?? {
         kind: "purchased",
         entitlement: entitlement_of("trial", { expiresAt: Date.UTC(2026, 9, 15) }),
@@ -102,6 +112,7 @@ export function create_subscription_service(): SubscriptionService {
     },
     async restore() {
       fakeSubscriptions.calls.push("restore");
+      throw_if_requested("restore");
       if (fakeSubscriptions.restoreResult && currentUser)
         server.set(currentUser, fakeSubscriptions.restoreResult);
       return read();
