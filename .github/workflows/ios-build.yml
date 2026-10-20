@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: 24
       - run: npm ci --ignore-scripts
+      - name: Test native dependency hardening
+        run: node --test ../../code_checks/native_dependency_hardening.test.js
       - name: Generate app and widget targets
         run: npx expo prebuild --platform ios --no-install
         env:
