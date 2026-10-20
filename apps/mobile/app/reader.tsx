@@ -62,7 +62,7 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { controlSizes, radii, spacing, typography } from "../src/design/tokens";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { document_time_spent } from "../src/documents/insights";
-import { readable_title } from "../src/documents/documentDisplay";
+import { document_heading, readable_title } from "../src/documents/documentDisplay";
 import { split_passages } from "../src/documents/passages";
 import { catch_up_context, catch_up_prompt } from "../src/documents/catchUp";
 import { create_throttled_saver } from "../src/documents/throttledSaver";
@@ -539,9 +539,9 @@ function ReaderContent() {
       const grounded = answered_from_context(request, answer);
       // Point at the exact passage holding the sentence the answer rests on, not just the start of its section.
       const { link, sectionTitle } = answer_passage(
-        answer_link(request, answer.sectionIndex) ?? undefined,
+        answer_link(request, answer.sectionIndex),
         answer.quote,
-        activeDocument,
+        activeDocument ? [activeDocument] : [],
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
@@ -615,7 +615,7 @@ function ReaderContent() {
           kind={message.fallback ? "help" : message.link ? "passage" : "document"}
           passage={message.link ? message.link.sentenceIndex + 1 : undefined}
           section={message.sectionTitle}
-          documentTitle={activeDocument ? readable_title(activeDocument.title) : "this document"}
+          documentTitle={document_heading(activeDocument, "this document")}
           filename={activeDocument?.sourceName}
           onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
         />
@@ -1261,7 +1261,7 @@ function ReaderContent() {
                     maxFontSizeMultiplier={1.2}
                     style={[s.title, s.compactTitle, { color: theme.text }]}
                   >
-                    {activeDocument ? readable_title(activeDocument.title) : "Document reader"}
+                    {document_heading(activeDocument, "Document reader")}
                   </Text>
                   <View style={s.progressCopy}>
                     <Text maxFontSizeMultiplier={1.2} style={[s.progressText, { color: theme.mutedText }]}>
@@ -1619,8 +1619,7 @@ function ReaderContent() {
                       >
                         {askMessages.length === 0 && !askSending && !askError ? (
                           <Text style={[s.askStatus, { color: theme.mutedText }]}>
-                            Ask a question about{" "}
-                            {activeDocument ? readable_title(activeDocument.title) : "this document"}.
+                            Ask a question about {document_heading(activeDocument, "this document")}.
                           </Text>
                         ) : null}
                         {ask_conversation_views()}
@@ -1770,7 +1769,7 @@ function ReaderContent() {
             <CompletionModal
               visible={completionOpen}
               onClose={() => setCompletionOpen(false)}
-              title={activeDocument ? readable_title(activeDocument.title) : undefined}
+              title={document_heading(activeDocument, "")}
               timeSpentSeconds={document_time_spent(activeDocument)}
               passageCount={passages.length}
             />

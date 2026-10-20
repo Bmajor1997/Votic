@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
-import { readable_title } from "../src/documents/documentDisplay";
+import { document_heading } from "../src/documents/documentDisplay";
 import { check_answer } from "../src/reader/answerCheck";
 import { build_comprehension_questions } from "../src/reader/comprehension";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
@@ -19,10 +19,7 @@ export default function CheckUnderstandingScreen() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
-      <BackHeader
-        title="Check my understanding"
-        subtitle={activeDocument ? readable_title(activeDocument.title) : "Document"}
-      />
+      <BackHeader title="Check my understanding" subtitle={document_heading(activeDocument, "Document")} />
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
         <Text style={[s.copy, { color: theme.mutedText }]}>
           Answer from memory. Votic uses only the part of the document you have reached, so it will not spoil

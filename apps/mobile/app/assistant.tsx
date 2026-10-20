@@ -283,11 +283,10 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       const request = prepare_ask_request(askContext, clean, messages);
       const answer = await ask_votic(clean, request.document, request.history, explanationStyle);
       const grounded = answered_from_context(request, answer);
-      const sectionLink = answer_link(request, answer.sectionIndex) ?? undefined;
       const { link, sectionTitle } = answer_passage(
-        sectionLink,
+        answer_link(request, answer.sectionIndex),
         answer.quote,
-        sectionLink && documents.find((document) => document.id === sectionLink.documentId),
+        documents,
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();

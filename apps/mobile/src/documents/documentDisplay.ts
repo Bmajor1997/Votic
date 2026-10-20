@@ -15,6 +15,11 @@ export function readable_title(title: string) {
   return clean.replace(/\s+/g, " ").trim() || "Untitled document";
 }
 
+/** The readable title of a document that may not be open yet, or `fallback` until one is. */
+export function document_heading(document: { title: string } | null | undefined, fallback: string) {
+  return document ? readable_title(document.title) : fallback;
+}
+
 export function file_type_label(sourceName: string) {
   return resolve_file_type({ filename: sourceName }).label;
 }

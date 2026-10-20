@@ -127,6 +127,22 @@ const navigationPalettes = {
     border: "#314461",
   },
 };
+/** The page colors: High contrast for the Reader when asked, the paper palettes in the Reader and Sepia, else navigation. */
+function page_palette(mode: ReaderAppearanceMode, reader: boolean, contrast: boolean) {
+  if (contrast) return highContrastPalettes[mode];
+  return reader || mode === "sepia" ? palettes[mode] : navigationPalettes[mode];
+}
+/** Accent-colored labels. On dark backgrounds (the Reader's included) they are lifted, or selected labels get hard to read. */
+function accent_text(accent: string, mode: ReaderAppearanceMode, reader: boolean, contrast: boolean) {
+  if (contrast) return mode === "dark" ? tint(accent, 0.7) : shade(accent, 0.35);
+  if (mode === "dark") return tint(accent, reader ? 0.5 : 0.65);
+  return reader ? accent : shade(accent, 0.12);
+}
+/** Small accent-colored text, such as links, that stays readable on dark backgrounds too. */
+function link_text(accent: string, mode: ReaderAppearanceMode, contrast: boolean) {
+  if (contrast) return mode === "dark" ? tint(accent, 0.7) : shade(accent, 0.35);
+  return mode === "dark" ? tint(accent, 0.45) : accent;
+}
 export function make_theme(
   accentName: AccentName,
   resolvedMode: ReaderAppearanceMode,
@@ -137,31 +153,10 @@ export function make_theme(
     resolvedMode === "sepia" ? shade(accentColors[accentName], SEPIA_ACCENT_SHADE) : accentColors[accentName];
   // High contrast only changes the Reader's page; the rest of Votic keeps its own palettes.
   const contrast = reader && highContrast;
-  const palette = contrast
-    ? highContrastPalettes[resolvedMode]
-    : reader || resolvedMode === "sepia"
-      ? palettes[resolvedMode]
-      : navigationPalettes[resolvedMode];
   return {
-    ...palette,
-    // On dark backgrounds (the Reader's included) accent-colored text is lifted, or selected labels get hard to read.
-    accentText: contrast
-      ? resolvedMode === "dark"
-        ? tint(accent, 0.7)
-        : shade(accent, 0.35)
-      : resolvedMode === "dark"
-        ? tint(accent, reader ? 0.5 : 0.65)
-        : reader
-          ? accent
-          : shade(accent, 0.12),
-    /** Small accent-colored text, such as links, that stays readable on dark backgrounds too. */
-    linkText: contrast
-      ? resolvedMode === "dark"
-        ? tint(accent, 0.7)
-        : shade(accent, 0.35)
-      : resolvedMode === "dark"
-        ? tint(accent, 0.45)
-        : accent,
+    ...page_palette(resolvedMode, reader, contrast),
+    accentText: accent_text(accent, resolvedMode, reader, contrast),
+    linkText: link_text(accent, resolvedMode, contrast),
     onAccent: "#FFFFFF",
     aiStatusText: resolvedMode === "dark" ? "#C4A7EA" : resolvedMode === "sepia" ? "#704795" : "#7653A6",
     // Soft backgrounds behind icons and highlighted cards, made from the chosen accent so they change with it
