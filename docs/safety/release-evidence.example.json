@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "commit": "REPLACE_WITH_RELEASE_COMMIT",
+  "platforms": [
+    "android"
+  ],
+  "checks": {
+    "automated-checks": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "android-device": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "ios-device": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "billing-sandbox": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "account-deletion": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "backup-restore-drill": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "alerts-and-native-crashes": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "dependency-risk-review": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "privacy-and-legal": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    },
+    "repository-protection": {
+      "status": "pending",
+      "reviewer": "",
+      "checkedAt": "",
+      "evidence": ""
+    }
+  }
+}

@@ -355,3 +355,7 @@ Those are future possibilities—not commitments.
 ---
 
 This repository intentionally begins with the product problem and validation plan before implementation code.
+
+## Software assurance
+
+See [the tailored safety baseline](docs/safety/SAFETY_BASELINE.md), [risk-to-test traceability](docs/safety/TRACEABILITY.md), and [release/operations acceptance](docs/safety/OPERATIONS_ACCEPTANCE.md). These records distinguish automated evidence from device and live-service checks; they do not establish NASA certification.

@@ -281,3 +281,41 @@ test("webpage cleanup skips Wikipedia fact boxes, side notes, sidebars and footn
     <table class="wikitable"><tr><th>Letter</th><td>Dots</td></tr></table></main>`);
   assert.equal(text, "Braille\n\nBraille is a tactile writing system. It was created in 1824.\n\nLetter Dots");
 });
+
+test("deep and wide webpages are rejected before recursive cleanup", () => {
+  const deep = '<article>' + '<div>'.repeat(5000) + 'Text' + '</div>'.repeat(5000) + '</article>';
+  assert.throws(() => clean_webpage_html(deep), /too complex/);
+  assert.throws(() => clean_webpage_html('<article>' + '<p>x</p>'.repeat(11000) + '</article>'), /too complex/);
+});
+
+test("webpage worker deadline releases work and leaves the event loop responsive", async () => {
+  const { clean_webpage_isolated } = await import('./web_import.js');
+  let ticked = false;
+  const tick = setTimeout(() => { ticked = true; }, 0);
+  await assert.rejects(() => clean_webpage_isolated('<p>' + 'text '.repeat(100000) + '</p>', { timeoutMs: 1 }), /too long/);
+  clearTimeout(tick);
+  assert.equal(ticked, true);
+  const page = await clean_webpage_isolated('<title>Recovered</title><article>Normal text</article>');
+  assert.equal(page.title, 'Recovered');
+});
+
+test("stuck DNS cannot exceed the import deadline or start a late fetch", async () => {
+  let fetched = false;
+  await assert.rejects(() => import_public_webpage('https://public.test', {
+    timeoutMs: 10,
+    lookupImpl: () => new Promise(() => {}),
+    fetchImpl: async () => { fetched = true; },
+  }), /too long/);
+  assert.equal(fetched, false);
+});
+
+test("empty stream chunks cannot spin past the work budget", async () => {
+  await assert.rejects(() => import_public_webpage("https://public.test", {
+    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetchImpl: async () => new Response(new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(0)); } }), {headers: {"content-type": "text/html"}}),
+  }), /fragmented/);
+});
+
+test("oversized readable text is rejected instead of silently truncated", () => {
+  assert.throws(() => clean_webpage_html('<article>' + 'word '.repeat(80001) + '</article>'), /completely/);
+});
