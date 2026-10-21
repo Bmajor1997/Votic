@@ -86,13 +86,13 @@ describe("filesystem route access using Expo Router", () => {
   ])
     it(`blocks paid routes for signedIn/personalized/subscribed=${state.join("/")}`, () => {
       const actual = eligible(...(state as [boolean, boolean, boolean]));
-      for (const route of ["scan", "import-web", "pronunciations", "check-understanding", "reader", "(tabs)"])
+      for (const route of ["scan", "import-web", "pronunciations", "reader", "(tabs)"])
         expect(actual).not.toContain(route);
       expect(actual.includes("library-backup")).toBe(state[0]);
     });
   it("allows paid routes only after setup and entitlement confirmation", () => {
     expect(eligible(true, true, true)).toEqual(
-      expect.arrayContaining(["scan", "import-web", "pronunciations", "check-understanding", "reader"]),
+      expect.arrayContaining(["scan", "import-web", "pronunciations", "reader"]),
     );
   });
 });

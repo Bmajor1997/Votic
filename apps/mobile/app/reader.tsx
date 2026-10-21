@@ -72,7 +72,8 @@ import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { reader_source_transform } from "../src/navigation/readerTransform";
 import { clean_tags } from "../src/notes/noteMetadata";
 import { format_playback_rate, normalize_playback_rate } from "../src/playback/rates";
-import { CompletionModal } from "../src/reader/components/CompletionModal";
+import { CompletionModal, type FinishSummary } from "../src/reader/components/CompletionModal";
+import { FINISH_SUMMARY_QUESTION, MIN_PASSAGES_TO_SUMMARIZE, next_up } from "../src/reader/finish";
 import { ReadingPages } from "../src/reader/components/ReadingPages";
 import { SeekableProgress, ToolButton } from "../src/reader/components/ReaderControls";
 import { ReaderSettingsSheet, ReaderSheet } from "../src/reader/components/ReaderSettingsSheet";
@@ -180,6 +181,7 @@ function ReaderContent() {
     updatePlaybackRate,
   } = useDocumentLibrary();
   const activeId = activeDocument?.id;
+  const nextUp = useMemo(() => next_up(documents, activeId), [documents, activeId]);
   const passages = useMemo(
     () => split_passages(activeDocument?.plainText || ""),
     [activeDocument?.plainText],
@@ -200,6 +202,8 @@ function ReaderContent() {
   const askComposerTarget = useWalkthroughTarget("reader.askComposer");
   const [sheet, setSheet] = useState<ReaderSheet>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
+  const [finishSummary, setFinishSummary] = useState<FinishSummary>({ status: "idle" });
+  const finishGeneration = useRef(0);
   const [saveOpen, setSaveOpen] = useState(false);
   const [listenExpanded, setListenExpanded] = useState(false);
   const [dockHeight, setDockHeight] = useState(ASK_COMPOSER_HEIGHT);
@@ -223,6 +227,8 @@ function ReaderContent() {
     askOpen && !askClosing && !askVoiceBusy,
     activeDocument?.playbackRate,
   );
+  // The end card's summary has its own read-aloud, active only while the card is open.
+  const summaryListening = useAnswerListening(activeId || "", completionOpen, activeDocument?.playbackRate);
   const showAskRecording = askVoiceBusy && askVoicePhase !== "reviewing";
   const [askMessages, setAskMessages] = useState<ReaderAskMessage[]>([]);
   const [askSending, setAskSending] = useState(false);
@@ -441,6 +447,8 @@ function ReaderContent() {
       setConversationSummary(null);
       setConversationSaved(false);
       setSummarizing(false);
+      finishGeneration.current += 1;
+      setFinishSummary({ status: "idle" });
     });
     return () => cancelAnimationFrame(frame);
   }, [activeId]);
@@ -1096,6 +1104,69 @@ function ReaderContent() {
     setWordIndex(finalWord);
     completeDocument(activeDocument.id, finalIndex, finalWord);
     setCompletionOpen(true);
+  }
+
+  /** The end card's summary: the same request as Ask Votic's "Summarize this document" suggestion. */
+  async function summarize_finished_document() {
+    if (!activeDocument || finishSummary.status === "loading") return;
+    const generation = ++finishGeneration.current;
+    setFinishSummary({ status: "loading" });
+    try {
+      const context = resolve_ask_votic_context(documents, activeDocument, {});
+      const request = prepare_ask_request(context, FINISH_SUMMARY_QUESTION, []);
+      const answer = await ask_votic(
+        FINISH_SUMMARY_QUESTION,
+        request.document,
+        request.history,
+        explanationStyle,
+      );
+      if (generation !== finishGeneration.current) return;
+      // A notice (such as a daily limit) is not a summary, so it is shown as a message with Try again.
+      if (!answered_from_context(request, answer))
+        setFinishSummary({ status: "error", message: answer.answer });
+      else setFinishSummary({ status: "ready", text: answer.answer, saved: false });
+    } catch (error) {
+      if (generation === finishGeneration.current)
+        setFinishSummary({
+          status: "error",
+          message:
+            error instanceof Error ? error.message : "Votic could not summarize this document right now.",
+        });
+    }
+  }
+
+  function save_finish_summary() {
+    if (!activeDocument || finishSummary.status !== "ready" || finishSummary.saved) return;
+    const context = resolve_ask_votic_context(documents, activeDocument, {});
+    const source = context.kind === "document" || context.kind === "notes" ? context.saveSource : null;
+    if (!source) return;
+    const now = Date.now();
+    const note = answer_note_for_source(documents, source, finishSummary.text, now, `votic-summary-${now}`);
+    if (!note) return;
+    savePassage(note.documentId, {
+      ...note.passage,
+      noteType: "key-point",
+      tags: ["votic", "summary"],
+      title: "Summary",
+    });
+    setFinishSummary({ ...finishSummary, saved: true });
+  }
+
+  function close_completion() {
+    void summaryListening.stop();
+    setCompletionOpen(false);
+  }
+
+  function ask_follow_up() {
+    close_completion();
+    open_ask_votic();
+  }
+
+  function open_next_up(id: string) {
+    close_completion();
+    void stop();
+    openDocument(id);
+    router.replace({ pathname: "/reader", params: { mode: listening ? "listen" : "read" } });
   }
   const totalWords = useMemo(
     () => word_matches(activeDocument?.plainText || "").length,
@@ -1768,10 +1839,28 @@ function ReaderContent() {
             />
             <CompletionModal
               visible={completionOpen}
-              onClose={() => setCompletionOpen(false)}
+              onClose={close_completion}
               title={document_heading(activeDocument, "")}
               timeSpentSeconds={document_time_spent(activeDocument)}
               passageCount={passages.length}
+              canSummarize={passages.length >= MIN_PASSAGES_TO_SUMMARIZE}
+              summary={finishSummary}
+              onSummarize={() => void summarize_finished_document()}
+              summaryListen={{
+                playing: summaryListening.playingKey === "finish-summary",
+                failed: summaryListening.errorKey === "finish-summary",
+                onPress: () =>
+                  finishSummary.status === "ready" &&
+                  void summaryListening.toggle("finish-summary", finishSummary.text, stop),
+              }}
+              onSaveSummary={save_finish_summary}
+              onAskFollowUp={ask_follow_up}
+              nextUpTitle={nextUp ? document_heading(nextUp, "Next document") : null}
+              onNextUp={() => nextUp && open_next_up(nextUp.id)}
+              onAddDocument={() => {
+                close_completion();
+                router.replace("/documents");
+              }}
             />
             <SavePassageSheet
               visible={saveOpen}

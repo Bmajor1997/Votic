@@ -49,7 +49,6 @@ type Library = {
   recordActivity: (id: string, readingSeconds: number, listeningSeconds: number) => void;
   completeDocument: (id: string, sentenceIndex: number, wordIndex: number) => void;
   updatePlaybackRate: (id: string, rate: number) => void;
-  updateReviewResponses: (id: string, responses: Record<string, string>) => void;
 };
 
 const C = createContext<Library | null>(null);
@@ -381,14 +380,6 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  function update_review_responses(id: string, responses: Record<string, string>) {
-    setDocuments((current) =>
-      current.map((document) =>
-        document.id === id ? { ...document, reviewResponses: responses, updatedAt: Date.now() } : document,
-      ),
-    );
-  }
-
   function record_activity(id: string, readingSeconds: number, listeningSeconds: number) {
     const now = new Date();
     const day = [
@@ -454,7 +445,6 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         recordActivity: record_activity,
         completeDocument: complete_document,
         updatePlaybackRate: update_playback_rate,
-        updateReviewResponses: update_review_responses,
       }}
     >
       {children}

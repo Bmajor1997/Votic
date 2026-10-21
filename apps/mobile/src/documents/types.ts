@@ -32,6 +32,7 @@ export type VoticDocument = {
   playbackRate: number;
   activity?: Record<string, DailyReadingActivity>;
   savedPassages?: SavedPassage[];
+  /** Answers from the retired Review screen. Kept so existing libraries and backups don't lose them. */
   reviewResponses?: Record<string, string>;
 };
 

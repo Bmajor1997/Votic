@@ -286,9 +286,83 @@ describe("Reader", () => {
 
     await fireEvent.press(screen.getByRole("button", { name: "Finish document" }));
     expect(screen.getByText("Nicely done.")).toBeTruthy();
-    expect(screen.getByText("100% read")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Review" }));
-    expect(router.push).toHaveBeenCalledWith("/review");
+    expect(screen.getAllByText("100% read").length).toBeGreaterThan(0);
+    // Review and Check my understanding are gone; a short document gets no summary, and with nothing else in
+    // the library the card offers to add one.
+    expect(screen.queryByRole("button", { name: "Review" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Summarize this document" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Ask a follow-up" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Add a document" }));
+    expect(router.replace).toHaveBeenCalledWith("/documents");
+  });
+
+  describe("end card", () => {
+    const article = test_document("doc-article", "Bee Notes", {
+      plainText: "Bees dance. They share routes. Flowers matter. Hives grow. Summer ends.",
+      sentenceIndex: 4,
+    });
+    const nextDocument = test_document("doc-next", "Ocean Facts", { progress: 0.4, lastOpenedAt: 9 });
+
+    async function finish(documents = [article]) {
+      await render_with_providers(<OpenedReader />, { documents, reduceMotion: true });
+      await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+      await waitFor(() => expect(last_speech().text).toBe("Summer ends."));
+      await act(async () => last_speech().options.onDone?.());
+      expect(screen.getByText("Nicely done.")).toBeTruthy();
+    }
+
+    it("summarizes with the existing request, reads it aloud, and saves it to Notes", async () => {
+      askVoticMock.mockResolvedValueOnce({
+        answer: "Bees share routes to flowers.",
+        mode: "document-ai",
+        sectionIndex: null,
+        sectionTitle: null,
+      });
+      await finish();
+      expect(screen.getByTestId("finish-mark", { includeHiddenElements: true })).toBeTruthy();
+      await fireEvent.press(screen.getByRole("button", { name: "Summarize this document" }));
+      await waitFor(() => expect(screen.getByText("Bees share routes to flowers.")).toBeTruthy());
+      expect(askVoticMock).toHaveBeenCalledWith(
+        "Summarize this document",
+        expect.objectContaining({ title: "Bee Notes" }),
+        [],
+        "adaptive",
+      );
+      speak.mockClear();
+      await fireEvent.press(screen.getByRole("button", { name: "Read summary aloud" }));
+      await waitFor(() => expect(last_speech().text).toBe("Bees share routes to flowers."));
+      await fireEvent.press(screen.getByRole("button", { name: "Save summary to Notes" }));
+      expect(screen.getByRole("button", { name: "Summary saved to Notes" })).toBeTruthy();
+    });
+
+    it("shows a notice as a message with Try again, not as a summary", async () => {
+      askVoticMock.mockRejectedValueOnce(new Error("Votic could not connect."));
+      await finish();
+      await fireEvent.press(screen.getByRole("button", { name: "Summarize this document" }));
+      await waitFor(() => expect(screen.getByText("Votic could not connect.")).toBeTruthy());
+      expect(screen.queryByRole("button", { name: "Save summary to Notes" })).toBeNull();
+      askVoticMock.mockResolvedValueOnce({
+        answer: "Second try worked.",
+        mode: "document-ai",
+        sectionIndex: null,
+        sectionTitle: null,
+      });
+      await fireEvent.press(screen.getByRole("button", { name: "Try summarizing again" }));
+      await waitFor(() => expect(screen.getByText("Second try worked.")).toBeTruthy());
+    });
+
+    it("offers the next unfinished document and opens it", async () => {
+      await finish([article, nextDocument]);
+      await fireEvent.press(screen.getByRole("button", { name: "Next up: Ocean Facts" }));
+      await waitFor(() => expect(screen.queryByText("Nicely done.")).toBeNull());
+      expect(screen.getAllByText("Ocean Facts").length).toBeGreaterThan(0);
+    });
+
+    it("opens Ask Votic for a follow-up question", async () => {
+      await finish();
+      await fireEvent.press(screen.getByRole("button", { name: "Ask a follow-up" }));
+      await waitFor(() => expect(screen.getByLabelText("Ask Votic a question")).toBeTruthy());
+    });
   });
 
   it("keeps speaking from the selected passage when skipping during playback", async () => {

@@ -113,12 +113,10 @@ function ThemedStack() {
                 />
                 <Stack.Screen name="assistant" />
                 <Stack.Screen name="settings/[category]" options={slide} />
-                <Stack.Screen name="review" />
                 <Stack.Screen name="recap" />
                 <Stack.Screen name="scan" options={slide} />
                 <Stack.Screen name="import-web" options={slide} />
                 <Stack.Screen name="pronunciations" options={slide} />
-                <Stack.Screen name="check-understanding" options={slide} />
                 <Stack.Screen name="handle-share" options={fade} />
                 <Stack.Screen name="statistics" options={slide} />
                 <Stack.Screen name="home-screen-widgets" options={slide} />

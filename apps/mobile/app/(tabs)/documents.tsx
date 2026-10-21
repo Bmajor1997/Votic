@@ -37,6 +37,7 @@ import {
 } from "../../src/walkthrough/WalkthroughProvider";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
 import { sheetStyles } from "../../src/reader/components/sheetStyles";
+import { is_finished } from "../../src/reader/finish";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
 export default function Documents() {
@@ -58,6 +59,7 @@ export default function Documents() {
   );
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState("all");
+  const [finishedOnly, setFinishedOnly] = useState(false);
   const [sort, setSort] = useState<Sort>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -82,17 +84,18 @@ export default function Documents() {
         : collection === "unfiled"
           ? documents.filter((document) => !document.collection)
           : documents.filter((document) => document.collection === collection);
+    const shelf = finishedOnly ? scoped.filter(is_finished) : scoped;
     const search = query.trim().toLowerCase();
     const matching = search
-      ? scoped.filter(
+      ? shelf.filter(
           (document) =>
             readable_title(document.title).toLowerCase().includes(search) ||
             document.sourceName.toLowerCase().includes(search),
         )
-      : scoped;
+      : shelf;
     return sort_documents(matching, sort);
-  }, [documents, collection, query, sort]);
-  const filterCount = (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0);
+  }, [documents, collection, finishedOnly, query, sort]);
+  const filterCount = (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0) + (finishedOnly ? 1 : 0);
   const collectionLabel =
     collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection;
 
@@ -252,7 +255,8 @@ export default function Documents() {
         <>
           <View style={s.summaryRow}>
             <Text style={[s.summary, { color: theme.mutedText }]}>
-              {visible.length} {visible.length === 1 ? "document" : "documents"}
+              {visible.length} {finishedOnly ? "finished " : ""}
+              {visible.length === 1 ? "document" : "documents"}
               {collection !== "all" ? ` in ${collectionLabel}` : ""} ·{" "}
               {SORTS.find((item) => item.value === sort)?.label}
             </Text>
@@ -263,6 +267,7 @@ export default function Documents() {
                 onPress={() => {
                   setCollection("all");
                   setSort("recent");
+                  setFinishedOnly(false);
                 }}
                 style={s.textButton}
               >
@@ -357,13 +362,18 @@ export default function Documents() {
             <View style={s.noResults}>
               <Ionicons name="search-outline" size={30} color={theme.mutedText} />
               <Text style={[s.emptyTitle, { color: theme.text }]}>
-                {query ? `No documents match “${query.trim()}”` : `Nothing in ${collectionLabel} yet`}
+                {query
+                  ? `No documents match “${query.trim()}”`
+                  : finishedOnly
+                    ? "No finished documents yet"
+                    : `Nothing in ${collectionLabel} yet`}
               </Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
                   setQuery("");
                   setCollection("all");
+                  setFinishedOnly(false);
                 }}
                 style={s.textButton}
               >
@@ -554,6 +564,15 @@ export default function Documents() {
                     onPress={() => setSort(item.value)}
                   />
                 ))}
+              </View>
+              <Text style={[s.groupLabel, { color: theme.mutedText }]}>SHOW</Text>
+              <View accessibilityRole="radiogroup">
+                <Choice
+                  label="All progress"
+                  selected={!finishedOnly}
+                  onPress={() => setFinishedOnly(false)}
+                />
+                <Choice label="Finished" selected={finishedOnly} onPress={() => setFinishedOnly(true)} />
               </View>
               <Text style={[s.groupLabel, { color: theme.mutedText }]}>COLLECTION</Text>
               <View accessibilityRole="radiogroup">

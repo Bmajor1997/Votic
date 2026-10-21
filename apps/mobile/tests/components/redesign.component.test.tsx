@@ -148,6 +148,19 @@ describe("Documents", () => {
     expect(screen.queryByRole("button", { name: "Open q3 board report FINAL" })).toBeNull();
   });
 
+  it("shows only finished documents on the Finished shelf", async () => {
+    const finished = { ...guide, progress: 1, completedAt: 5 };
+    await render_with_providers(<Documents />, { documents: [report, finished] });
+    await fireEvent.press(screen.getByRole("button", { name: "Sort and filter" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "Finished" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Show 1 document" }));
+    expect(screen.getByText("1 finished document · Recently opened")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open q3 board report FINAL" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Reset sort and filter" }));
+    expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
+  });
+
   it("asks before deleting", async () => {
     const alert = jest.spyOn(Alert, "alert").mockImplementation((_t, _m, buttons) => {
       buttons?.find((button) => button.text === "Delete")?.onPress?.();
