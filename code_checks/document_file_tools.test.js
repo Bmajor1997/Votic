@@ -18,14 +18,14 @@ test("preserves ordered and bulleted Word list meaning", () => {
   assert.match(text, /• Supporting note/);
 });
 
-test("cleans repeated PDF furniture, page numbers, ligatures, and broken words", () => {
+test("keeps ambiguous repeated labels while cleaning verified page numbers, ligatures, and broken words", () => {
   const extracted = [
     "CONFIDENTIAL REPORT\nIntro text about acces-\nsibility and efficient work.\nPage 1 of 3",
     "CONFIDENTIAL REPORT\nMiddle text with a ﬁnal recommendation.\nPage 2 of 3",
     "CONFIDENTIAL REPORT\nConclusion text.\nPage 3 of 3",
   ].join("\f");
   const cleaned = clean_extracted_text(extracted, { removeRepeatedPageArtifacts: true });
-  assert.doesNotMatch(cleaned, /CONFIDENTIAL REPORT/);
+  assert.equal(cleaned.split("CONFIDENTIAL REPORT").length - 1, 3);
   assert.doesNotMatch(cleaned, /Page \d/);
   assert.match(cleaned, /accessibility/);
   assert.match(cleaned, /final recommendation/);

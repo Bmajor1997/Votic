@@ -1,3 +1,5 @@
+import { decode_document_bytes } from "../apps/mobile/src/documents/textEncoding.js";
+import { pdf_reading_blocks } from "./pdf_layout.js";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { OPS } from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -49,7 +51,7 @@ async function load_safe_archive(buffer) { return validate_archive(await JSZip.l
 async function safe_archive_text(file) {
   const size = Number(file?._data?.uncompressedSize);
   if (Number.isSafeInteger(size) && size > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
-  const text = await file.async("string");
+  const text = decode_document_bytes(await file.async("uint8array"));
   if (Buffer.byteLength(text, "utf8") > MAX_ARCHIVE_ENTRY_BYTES) throw new Error("This document archive contains an oversized file.");
   return text;
 }
@@ -65,7 +67,7 @@ async function pdf_page_needs_ocr(page) {
 
 export async function extract_document(name, buffer) {
   // An uploaded HTML file is usually a saved web page, so its site navigation and page furniture are left out.
-  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8"), { chrome: true }));
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(decode_document_bytes(buffer), { chrome: true }));
   if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
   if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
@@ -225,6 +227,11 @@ export function reconstruct_pdf_page_text(items) {
     .sort((left, right) => right.y - left.y || left.x - right.x);
   if (!fragments.length) return "";
 
+  const blocks = pdf_reading_blocks(fragments);
+  return blocks.map(reconstruct_pdf_block).join("\n\n");
+}
+
+function reconstruct_pdf_block(fragments) {
   const lines = [];
   for (const fragment of fragments) {
     // Fragments arrive top to bottom, so only the most recent lines can match. Searching back from the newest
@@ -302,21 +309,14 @@ export function clean_extracted_text(source, { removeRepeatedPageArtifacts = fal
 }
 
 /**
- * PDF page furniture: running headers, footers and page numbers. Reading accuracy comes first, so a line is removed
+ * PDF page furniture: only verified sequential page-number markers. Reading accuracy comes first, so a line is removed
  * only with evidence from several pages, only at the top or bottom of a page, and never because it merely looks
  * similar after its numbers are ignored ("Chapter 1" and "Chapter 2" are different lines). Anything uncertain stays.
  */
-const MIN_HEADER_PAGES = 3;
-const MAX_HEADER_CHARS = 80;
 /** A line made only of a page number: "7", "Page 7", "7 of 20", "- 7 -". Returns the number, or null. */
 function page_number_of(line) {
   const match = /^(?:page\s+)?(\d{1,4})(?:\s+of\s+\d{1,4})?$/i.exec(line) || /^[-–—]\s*(\d{1,4})\s*[-–—]$/.exec(line);
   return match ? Number(match[1]) : null;
-}
-/** Comparison key for running headers. Only explicit page markers ("Page 7", "7 of 20") are allowed to differ. */
-function header_key(line) {
-  return line.toLowerCase().replace(/\s+/g, " ").trim()
-    .replace(/\bpage\s+\d+(?:\s+of\s+\d+)?\b/g, "page #").replace(/\b\d+\s+of\s+\d+\b/g, "# of #");
 }
 const edge_indexes = (lines) => {
   const kept = lines.map((line, index) => (line.trim() ? index : -1)).filter((index) => index >= 0);
@@ -336,23 +336,6 @@ function page_number_lines(pages) {
   const [offset, count] = [...offsets].sort((a, b) => b[1] - a[1])[0] || [];
   return count >= 2 ? found.filter((item) => item.offset === offset) : [];
 }
-/** Edge lines repeated at the same edge on most pages: short labels, not sentences, never differing in other numbers. */
-function running_header_lines(pages) {
-  if (pages.length < MIN_HEADER_PAGES) return [];
-  const counts = new Map(), found = [];
-  pages.forEach((lines, page) => {
-    const edges = edge_indexes(lines);
-    edges.forEach((index, position) => {
-      const line = lines[index].trim();
-      if (line.length > MAX_HEADER_CHARS || /[.!?]["'’”)\]]*$/.test(line)) return;
-      const key = `${position === 0 && edges.length > 1 ? "top" : edges.length === 1 ? "only" : "bottom"}:${header_key(line)}`;
-      counts.set(key, (counts.get(key) || 0) + 1);
-      found.push({ page, index, key });
-    });
-  });
-  const needed = Math.max(MIN_HEADER_PAGES, Math.ceil(pages.length * 0.6));
-  return found.filter((item) => counts.get(item.key) >= needed);
-}
 function without_lines(pages, lines) {
   const drop = new Set(lines.map(({ page, index }) => `${page}:${index}`));
   return pages.map((page_lines, page) => page_lines.filter((_line, index) => !drop.has(`${page}:${index}`)));
@@ -360,7 +343,6 @@ function without_lines(pages, lines) {
 function without_page_furniture(pages) {
   let split = pages.map((page) => page.split("\n"));
   split = without_lines(split, page_number_lines(split));
-  split = without_lines(split, running_header_lines(split));
   return split.map((lines) => lines.join("\n"));
 }
 
@@ -383,6 +365,8 @@ const BOOK_NAVIGATION = /\b(?:toc|landmarks|page-list|doc-toc|doc-pagelist)\b/i;
  * asides (often notes) and drops only navigation marked as a table of contents, landmarks, or page list.
  */
 function skipped_element(name, attributes, { chrome, book, inContent }) {
+  const style = /\bstyle\s*=\s*(["'])(.*?)\1/is.exec(attributes)?.[2] || "";
+  if (/(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))\s*(?:!important)?\s*(?:;|$)/i.test(style)) return true;
   if (/(?:^|\s)hidden(?:[\s=/]|$)/i.test(attributes) || /aria-hidden\s*=\s*["']?true/i.test(attributes)) return true;
   if (chrome) {
     if (name === "nav" || /role\s*=\s*["']?navigation/i.test(attributes)) return true;

@@ -17,7 +17,7 @@ function text_pdf(pages, { reverse = false } = {}) {
     `<< /Type /Pages /Kids [${pages.map((_page, index) => `${3 + index * 2} 0 R`).join(" ")}] /Count ${pages.length} >>`,
   ];
   pages.forEach((lines, index) => {
-    const drawn = lines.map((line, row) => `BT /F1 12 Tf 50 ${750 - row * 20} Td (${escape(line)}) Tj ET`);
+    const drawn = lines.map((line, row) => { const value = typeof line === "string" ? { text: line, x: 50, y: 750 - row * 20 } : line; return `BT /F1 12 Tf ${value.x} ${value.y} Td (${escape(value.text)}) Tj ET`; });
     objects.push(
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 ${font} 0 R >> >> /Contents ${4 + index * 2} 0 R >>`,
       stream((reverse ? drawn.reverse() : drawn).join("\n")),
@@ -94,14 +94,14 @@ test("standalone page numbers counting with the pages are removed, but numbers i
   assert.doesNotMatch(text, /^(?:1|2|3)$/m);
 });
 
-test("genuine running headers and page footers are removed without touching the content between them", async () => {
+test("ambiguous repeated labels remain while sequential page footers are removed", async () => {
   const pages = [1, 2, 3].map((n) => [
     "VOTIC FIELD GUIDE",
     `Field note ${n} describes what was seen on day ${n}.`,
     `Page ${n} of 3`,
   ]);
   const text = await extract(text_pdf(pages));
-  assert.doesNotMatch(text, /VOTIC FIELD GUIDE/);
+  assert.equal(text.split("VOTIC FIELD GUIDE").length - 1, 3);
   assert.doesNotMatch(text, /Page \d of 3/);
   assert_in_order(text, pages.map((lines) => lines[1]));
 });
@@ -116,4 +116,23 @@ test("a two-page document keeps identical headings, since two pages are not enou
   const pages = [1, 2].map((n) => ["Introduction", `Page ${n} of the introduction has its own sentence.`]);
   const text = await extract(text_pdf(pages));
   assert.equal(text.split("Introduction\n").length - 1, 2, text);
+});
+
+test("short repeated instructions at either page edge are never deleted as headers", async () => {
+  const pages = [1,2,3].map(n => ["Safety first", `Lesson ${n} has its own instruction.`, "Check your work"]);
+  assert_in_order(await extract(text_pdf(pages)), pages.flat());
+});
+
+test("production PDF route reads uneven columns and mixed full-width blocks in visual order", async () => {
+  const positioned = [
+    { text: "A full width introduction spanning both columns before the article begins.", x: 50, y: 750 },
+    { text: "Left column first sentence.", x: 50, y: 710 },
+    { text: "Right column first sentence.", x: 335, y: 710 },
+    { text: "Left column second sentence.", x: 50, y: 690 },
+    { text: "Right column second sentence.", x: 335, y: 690 },
+    { text: "Right column third sentence.", x: 335, y: 670 },
+    { text: "A full width closing paragraph spanning both columns ends the article.", x: 50, y: 630 },
+  ];
+  const text = await extract(text_pdf([positioned], { reverse: true }));
+  assert_in_order(text, [positioned[0], positioned[1], positioned[3], positioned[2], positioned[4], positioned[5], positioned[6]].map((v) => v.text));
 });

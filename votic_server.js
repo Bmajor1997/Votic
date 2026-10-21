@@ -1,3 +1,4 @@
+import { TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
@@ -515,7 +516,7 @@ function scan_mime_type(name, body) {
   if (/\.webp$/i.test(name) && body.length >= 12 && body.toString("ascii",0,4) === "RIFF" && body.toString("ascii",8,12) === "WEBP") return "image/webp";
   throw new HttpError(415, "This scan does not match a supported JPEG, PNG, or WebP image.");
 }
-function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.(docx|pptx|epub|odt)$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); if (/\.(rtf)$/i.test(name)) return body.subarray(0, 5).toString("latin1") === "{\\rtf"; if (/\.html?$/i.test(name)) return !body.includes(0); if (/\.ppt$/i.test(name)) return body.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])); return false; }
+function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.(docx|pptx|epub|odt)$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); if (/\.(rtf)$/i.test(name)) return body.subarray(0, 5).toString("latin1") === "{\\rtf"; if (/\.html?$/i.test(name)) return !body.includes(0) || (body[0] === 0xff && body[1] === 0xfe) || (body[0] === 0xfe && body[1] === 0xff); if (/\.ppt$/i.test(name)) return body.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])); return false; }
 // Map parser lifecycle failures here; other errors continue to the caller's PDF OCR fallback.
 function rethrow_parser_failure(error, signal, name, logger) {
   if (signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
@@ -527,6 +528,7 @@ function rethrow_parser_failure(error, signal, name, logger) {
 }
 function extraction_error_message(error) {
   const message = String(error?.message || error);
+  if (message === TEXT_ENCODING_ERROR) return TEXT_ENCODING_ERROR;
   if (/password|encrypted/i.test(message)) return "This document is password-protected. Remove the password and upload it again.";
   if (/no selectable text|scanned/i.test(message)) return "Votic could not find selectable text in this PDF. It may be a scanned document; scanned-PDF reading is not supported yet.";
   if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf|invalid.*(?:ppt|cfb|ole)|compound file/i.test(message)) return "This file appears to be damaged or is not a valid PDF, Word, PowerPoint, or EPUB document. Try opening and saving it again, then re-upload it.";
