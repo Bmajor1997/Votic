@@ -202,7 +202,11 @@ describe("Home walkthrough", () => {
   it("orients a new person on their first visit, then stays finished", async () => {
     await render_tab(<Home />);
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
-    expect(screen.getByText("Start here. Add a document, and Votic opens it in the Reader.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        "Browse documents to choose your next read or add a file. Continue reading and listening here afterward.",
+      ),
+    ).toBeTruthy();
     expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
     await press("Next");
     expect(in_card("Your week")).toBeTruthy();

@@ -202,11 +202,15 @@ describe("Home palette contrast", () => {
 
 describe("Home with an empty library", () => {
   it("keeps Home's sections, each saying what will show up there", async () => {
-    await render_with_providers(<Home />);
+    await render_with_providers(<Home />, { onboarding: { checklistDismissed: false } });
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
     expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
-    expect(screen.getByText("Ready when you are")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "Add document" })).toHaveLength(1);
+    expect(screen.getByRole("header", { name: "Your next read starts here" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Upload a document" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Browse documents" }));
+    expect(router.push).toHaveBeenCalledWith("/documents");
     expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
     expect(screen.getByText("No activity")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
@@ -216,6 +220,17 @@ describe("Home with an empty library", () => {
     // Nothing to see yet, so no "See all".
     expect(screen.queryByRole("button", { name: /^See all/ })).toBeNull();
   });
+});
+
+it("offers browsing when every document is finished, while keeping recent documents", async () => {
+  await render_with_providers(<Home />, {
+    documents: [test_document("finished", "Finished book", { progress: 1, completedAt: 5 })],
+    onboarding: { checklistDismissed: false },
+  });
+  expect(screen.getByRole("header", { name: "Your next read starts here" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open Finished book" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
 });
 
 describe("Quick Notes on Home", () => {

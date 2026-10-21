@@ -388,16 +388,16 @@ function HelpSettings() {
           label="Show tips again"
           detail={
             tipsReset
-              ? "Done. The Getting Started checklist is back on Home."
-              : "Bring back the Getting Started checklist on Home."
+              ? "Done. Reading tips will appear again as you use Votic."
+              : "Show reading tips again as you use Votic."
           }
-          hint="Brings back the Getting Started checklist on Home"
+          hint="Resets the reading tips you have already seen"
           icon="bulb-outline"
           onPress={() => {
             onboarding.showTipsAgain();
             setTipsReset(true);
             AccessibilityInfo.announceForAccessibility(
-              "Done. The Getting Started checklist is back on Home.",
+              "Done. Reading tips will appear again as you use Votic.",
             );
           }}
         />

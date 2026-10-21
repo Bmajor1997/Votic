@@ -1,15 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { format_duration, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
@@ -58,21 +50,8 @@ export function SectionHeader({
 
 // ---------- This week ----------
 
-/**
- * Continue before there's anything to continue: the same card, saying so, with the way to add a first
- * document where Continue Listening and Continue Reading will be.
- */
-export function EmptyContinueWidget({
-  onAdd,
-  importing,
-  addRef,
-  targetRef,
-}: {
-  onAdd: () => void;
-  importing: boolean;
-  addRef: React.RefObject<View | null>;
-  targetRef?: Target;
-}) {
+/** Home points to Documents when there is no unfinished document to continue. */
+export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => void; targetRef?: Target }) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "chapter");
   return (
@@ -92,32 +71,24 @@ export function EmptyContinueWidget({
           <Ionicons name="document-outline" size={30} color={colors.detail} />
         </View>
         <View style={s.grow}>
-          <Text style={[s.emptyContinueTitle, { color: colors.ink }]}>Ready when you are</Text>
+          <Text accessibilityRole="header" style={[s.emptyContinueTitle, { color: colors.ink }]}>
+            Your next read starts here
+          </Text>
           <Text style={[s.emptyMessage, { color: colors.detail }]}>
-            Add a PDF, Word, PowerPoint, EPUB, or text file, then listen or read along.
+            Find your next document to read or listen to.
           </Text>
         </View>
       </View>
-      <View ref={addRef} collapsable={false}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Add document"
-          accessibilityState={{ busy: importing }}
-          disabled={importing}
-          onPress={onAdd}
-          style={({ pressed }) => [
-            s.emptyAdd,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
-          ]}
-        >
-          {importing ? (
-            <ActivityIndicator color={theme.onAccent} />
-          ) : (
-            <Ionicons name="add" size={20} color={theme.onAccent} />
-          )}
-          <Text style={[s.emptyAddText, { color: theme.onAccent }]}>Add document</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Browse documents"
+        accessibilityHint="Opens Documents, where you can choose a file or add one"
+        onPress={onBrowse}
+        style={({ pressed }) => [s.emptyAdd, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
+      >
+        <Ionicons name="folder-open-outline" size={20} color={theme.onAccent} />
+        <Text style={[s.emptyAddText, { color: theme.onAccent }]}>Browse documents</Text>
+      </Pressable>
     </View>
   );
 }

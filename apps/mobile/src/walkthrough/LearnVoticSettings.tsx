@@ -65,11 +65,8 @@ export function LearnVoticSettings() {
         accessibilityLabel="Show all walkthroughs and tips again"
         onPress={() => {
           reset("all");
-          // The Getting Started checklist on Home comes back too.
           showTipsAgain();
-          setMessage(
-            "Walkthroughs, tips, and the Getting Started checklist will appear again as you use Votic.",
-          );
+          setMessage("Walkthroughs and tips will appear again as you use Votic.");
         }}
         style={s.resetAll}
       >

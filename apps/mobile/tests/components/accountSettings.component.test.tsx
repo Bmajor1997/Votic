@@ -133,7 +133,7 @@ describe("Settings account management", () => {
       </AppProviders>,
     );
     await fireEvent.press(screen.getByRole("button", { name: "Show tips again" }));
-    expect(screen.getByText("Done. The Getting Started checklist is back on Home.")).toBeTruthy();
+    expect(screen.getByText("Done. Reading tips will appear again as you use Votic.")).toBeTruthy();
   });
   it("confirms sign out, allows cancellation, and calls only existing signOut", async () => {
     const doc = test_document("saved", "Saved", {

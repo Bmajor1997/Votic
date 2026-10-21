@@ -12,10 +12,8 @@ import { position_label, progress_label, readable_title } from "../../src/docume
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { most_recent_incomplete } from "../../src/documents/insights";
 import { readable_documents, VoticDocument } from "../../src/documents/types";
-import { open_from, useDocumentImport } from "../../src/documents/useDocumentImport";
+import { open_from } from "../../src/documents/useDocumentImport";
 import { useDocumentTransition } from "../../src/navigation/DocumentTransitionProvider";
-import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
-import { useOnboarding } from "../../src/onboarding/OnboardingProvider";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
@@ -24,10 +22,7 @@ export default function Home() {
   const { documents: everything, loaded, openDocument } = useDocumentLibrary();
   // Quick Notes is a notebook: its notes still show under Recent notes, but it isn't a document to continue.
   const documents = readable_documents(everything);
-  const { checklistDismissed } = useOnboarding();
   const transition = useDocumentTransition();
-  const addRef = useRef<View>(null);
-  const { importing, importDocument } = useDocumentImport(addRef);
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
   const featured = most_recent_incomplete(documents);
   const recent = [...documents]
@@ -46,7 +41,7 @@ export default function Home() {
     {
       hasDocuments: documents.length > 0,
       hasContinue: Boolean(featured),
-      hasStart: !checklistDismissed || !documents.length,
+      hasStart: !featured,
       hasRecent: recent.length > 0,
       hasNotes: notes.length > 0,
     },
@@ -54,7 +49,6 @@ export default function Home() {
 
   return (
     <Screen title="Home" hideTitle>
-      <GettingStartedCard />
       {!loaded ? (
         <View accessible accessibilityLabel="Loading your library" style={s.loading}>
           <ActivityIndicator color={theme.accentText} />
@@ -68,14 +62,8 @@ export default function Home() {
           </Text>
         </View>
       ) : null}
-      {empty ? (
-        <EmptyContinueWidget
-          onAdd={() => void importDocument()}
-          importing={importing}
-          addRef={addRef}
-          // While the getting-started checklist is up, that's where the Home walkthrough starts.
-          targetRef={checklistDismissed ? startTarget : undefined}
-        />
+      {loaded && !featured ? (
+        <EmptyContinueWidget onBrowse={() => router.push("/documents")} targetRef={startTarget} />
       ) : null}
       {featured ? (
         <ContinueCard

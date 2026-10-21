@@ -12,9 +12,7 @@ import SignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
 import { EXPLORE_SESSION_KEY, useAuth } from "../../src/auth/AuthProvider";
 import { walkthrough_key } from "../../src/walkthrough/walkthroughState";
-import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
-import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
 import { ONBOARDING_KEY, next_tip, parse_onboarding_state } from "../../src/onboarding/OnboardingProvider";
 import { load_account_setup } from "../../src/onboarding/onboardingStorage";
 import { load_account_preferences } from "../../src/onboarding/accountPreferences";
@@ -417,37 +415,7 @@ describe("Votic is ready for you", () => {
   });
 });
 
-function LibraryCount() {
-  const { documents } = useDocumentLibrary();
-  return <Text testID="library-count">{documents.map((document) => document.title).join("|")}</Text>;
-}
-
-describe("Getting started", () => {
-  it("offers a first action and adds the Votic guide when chosen", async () => {
-    await render_with_providers(
-      <>
-        <GettingStartedCard />
-        <LibraryCount />
-      </>,
-      { onboarding: { checklistDismissed: false } },
-    );
-    expect(screen.getByRole("header", { name: "Welcome, Sam" })).toBeTruthy();
-    expect(screen.getByLabelText("Add a document, not done yet")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Try the Votic guide" }));
-    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide — updated features");
-    expect(screen.getByLabelText("Add a document, done")).toBeTruthy();
-    // With a document in the library, the card switches from first actions to the remaining steps.
-    expect(screen.queryByRole("button", { name: "Try the Votic guide" })).toBeNull();
-    expect(screen.getByText("3 quick steps to get the most from Votic.")).toBeTruthy();
-  });
-
-  it("can be hidden", async () => {
-    await render_with_providers(<GettingStartedCard />, { onboarding: { checklistDismissed: false } });
-    await fireEvent.press(screen.getByRole("button", { name: "Hide getting started" }));
-    expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
-    await waitFor(async () => expect((await saved_onboarding())?.checklistDismissed).toBe(true));
-  });
-
+describe("Reading tips", () => {
   it("orders tips so a later one waits for the earlier ones", () => {
     const order = [
       { id: "reader-listen" as const, ready: false },
@@ -467,10 +435,10 @@ describe("Settings personalization and account", () => {
     );
   });
 
-  it("brings walkthroughs and the checklist back from Help", async () => {
+  it("brings walkthroughs and reading tips back from Help", async () => {
     await render_with_providers(<SettingsDetailScreen category="help" />);
     await fireEvent.press(screen.getByRole("button", { name: "Show all walkthroughs and tips again" }));
-    expect(screen.getByText(/Getting Started checklist will appear again/)).toBeTruthy();
+    expect(screen.getByText(/Walkthroughs and tips will appear again/)).toBeTruthy();
     await waitFor(async () =>
       expect(await saved_onboarding()).toMatchObject({ tipsSeen: [], checklistDismissed: false }),
     );

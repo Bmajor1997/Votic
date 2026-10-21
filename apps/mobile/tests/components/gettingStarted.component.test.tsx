@@ -1,11 +1,8 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
-import { fireEvent, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, screen } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { clean_local_document_text } from "../../src/documents/importDocument";
-import { GettingStartedCard } from "../../src/onboarding/GettingStartedCard";
-import { ONBOARDING_KEY, parse_onboarding_state } from "../../src/onboarding/OnboardingProvider";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../../src/onboarding/voticGuide";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { render_with_providers, test_document } from "../renderWithProviders";
@@ -15,10 +12,6 @@ jest.mock("expo-speech", () => ({
   stop: jest.fn(async () => {}),
   getAvailableVoicesAsync: jest.fn(async () => []),
 }));
-
-async function saved_onboarding() {
-  return parse_onboarding_state(await AsyncStorage.getItem(ONBOARDING_KEY));
-}
 
 function GuideProbe() {
   const { documents, activeDocument } = useDocumentLibrary();
@@ -36,30 +29,7 @@ function GuideProbe() {
     </>
   );
 }
-function LibraryCount() {
-  const { documents } = useDocumentLibrary();
-  return <Text testID="library-count">{documents.map((document) => document.title).join("|")}</Text>;
-}
-
-describe("Getting started", () => {
-  it("offers a first action and adds the Votic guide when chosen", async () => {
-    await render_with_providers(
-      <>
-        <GettingStartedCard />
-        <LibraryCount />
-      </>,
-      { onboarding: { checklistDismissed: false } },
-    );
-    expect(screen.getByRole("header", { name: "Welcome, Sam" })).toBeTruthy();
-    expect(screen.getByLabelText("Add a document, not done yet")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Try the Votic guide" }));
-    expect(screen.getByTestId("library-count").props.children).toBe("Votic guide — updated features");
-    expect(screen.getByLabelText("Add a document, done")).toBeTruthy();
-    // With a document in the library, the card switches from first actions to the remaining steps.
-    expect(screen.queryByRole("button", { name: "Try the Votic guide" })).toBeNull();
-    expect(screen.getByText("3 quick steps to get the most from Votic.")).toBeTruthy();
-  });
-
+describe("Votic guide in Help", () => {
   it("opens the updated walkthrough from Help and preserves the old guide and notes", async () => {
     const old = test_document("old-guide", "Votic guide", {
       sourceName: "Votic guide.md",
@@ -111,11 +81,5 @@ describe("Getting started", () => {
       "Sepia",
     ])
       expect(VOTIC_GUIDE_TEXT).toContain(feature);
-  });
-  it("can be hidden", async () => {
-    await render_with_providers(<GettingStartedCard />, { onboarding: { checklistDismissed: false } });
-    await fireEvent.press(screen.getByRole("button", { name: "Hide getting started" }));
-    expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
-    await waitFor(async () => expect((await saved_onboarding())?.checklistDismissed).toBe(true));
   });
 });

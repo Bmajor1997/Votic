@@ -21,6 +21,7 @@ export type OnboardingState = {
   /** Personalization has been finished or skipped, so the app opens straight to Home. */
   personalized: boolean;
   tipsSeen: TipId[];
+  /** Legacy preference retained for existing installs; the Home checklist has been removed. */
   checklistDismissed: boolean;
   askedVotic: boolean;
 };
@@ -70,9 +71,8 @@ export async function load_onboarding_state(): Promise<OnboardingState> {
 type OnboardingValue = OnboardingState & {
   completePersonalization: () => void;
   markTipSeen: (id: TipId) => void;
-  dismissChecklist: () => void;
   recordAskedVotic: () => void;
-  /** Brings back the Getting Started card and in-context tips. */
+  /** Brings back in-context reading tips. */
   showTipsAgain: () => void;
 };
 const OnboardingContext = createContext<OnboardingValue | null>(null);
@@ -110,7 +110,6 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
           update((current) =>
             current.tipsSeen.includes(id) ? current : { ...current, tipsSeen: [...current.tipsSeen, id] },
           ),
-        dismissChecklist: () => update((current) => ({ ...current, checklistDismissed: true })),
         recordAskedVotic: () =>
           update((current) => (current.askedVotic ? current : { ...current, askedVotic: true })),
         showTipsAgain: () => update((current) => ({ ...current, tipsSeen: [], checklistDismissed: false })),

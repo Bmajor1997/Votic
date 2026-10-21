@@ -56,7 +56,7 @@ export type FlowContext = {
   hasDocuments?: boolean;
   hasNotes?: boolean;
   hasContinue?: boolean;
-  /** Home shows its Getting Started checklist or its empty state. */
+  /** Home shows its Browse documents card because there is nothing to continue. */
   hasStart?: boolean;
   /** Home shows the Recent shelf (documents other than the one in Continue). */
   hasRecent?: boolean;
@@ -137,14 +137,12 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "home.start",
         when: (c) => !c.hasContinue && Boolean(c.hasStart),
         title: "Welcome to Home",
-        message: (c) =>
-          c.hasDocuments
-            ? "A few things to try are listed here. Each one checks off as you do it."
-            : "Start here. Add a document, and Votic opens it in the Reader.",
+        message:
+          "Browse documents to choose your next read or add a file. Continue reading and listening here afterward.",
       },
       {
         target: "home.week",
-        // First on Home when there's nothing to continue and no checklist.
+        // The weekly summary follows the Continue or Browse documents card.
         title: (c) => (c.hasContinue || c.hasStart ? "Your week" : "Welcome to Home"),
         message: (c) =>
           c.hasDocuments
