@@ -83,12 +83,13 @@ export async function finish_local_deletion(uid: string) {
   await AsyncStorage.removeItem(PENDING + encodeURIComponent(uid));
   // Keep old closures blocked for this process; a deleted Firebase UID cannot sign in again.
 }
-export async function resume_local_deletions() {
+export async function resume_local_deletions(cleanupNative: (uid: string) => Promise<void> = async () => {}) {
   let recovered = false;
   for (const key of await AsyncStorage.getAllKeys()) {
     if (!key.startsWith(PENDING)) continue;
     recovered = true;
     const uid = decodeURIComponent(key.slice(PENDING.length));
+    await cleanupNative(uid);
     await erase_local_account(uid);
   }
   return recovered;

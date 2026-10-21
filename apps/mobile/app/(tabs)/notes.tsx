@@ -176,10 +176,14 @@ export default function Notes() {
     if (!passage.pinned) setTimeout(() => walkthrough.request("notes.pinned"), 400);
   }
   function confirm_remove({ document, passage }: NoteItem) {
-    Alert.alert("Remove from Notes?", "This note and its saved passage will be removed from Votic.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Remove", style: "destructive", onPress: () => removePassage(document.id, passage.id) },
-    ]);
+    Alert.alert(
+      "Remove from Notes?",
+      "This note and its saved passage move to Recently Deleted for 30 days. Restore them from Settings → Help.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: () => removePassage(document.id, passage.id) },
+      ],
+    );
   }
   function clear_filters() {
     setFilter("all");

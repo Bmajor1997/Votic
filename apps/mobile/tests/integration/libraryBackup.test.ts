@@ -149,11 +149,42 @@ describe("portable library backup", () => {
     await seed("a");
     const backup = await create_library_backup("a");
     for (const change of [
-      { version: 2 },
+      { version: 3 },
       { documents: [{ ...document, progress: 2 }] },
       { documents: [document, document] },
     ])
       expect(() => parse_library_backup(JSON.stringify({ ...backup, ...change }))).toThrow();
     expect(() => parse_library_backup('{"__proto__":{"polluted":true}}')).toThrow();
   });
+});
+
+it("round trips retained deletions, source URLs and speech checkpoints without reviving deleted content", async () => {
+  const retained = {
+    ...document,
+    sourceUrl: "https://example.com/original",
+    deletedAt: Date.now(),
+    nativeCheckpoints: { "session-hour": 12000 },
+    savedPassages: [{ ...document.savedPassages[0], deletedAt: Date.now() }],
+  };
+  await create_document_store("a").saveDocuments([retained]);
+  const backup = await create_library_backup("a");
+  const parsed = parse_library_backup(JSON.stringify(backup));
+  expect(parsed.documents[0]).toMatchObject({
+    sourceUrl: retained.sourceUrl,
+    deletedAt: retained.deletedAt,
+    nativeCheckpoints: { "session-hour": 12000 },
+  });
+  await restore_library_backup("b", parsed);
+  const restored = await create_document_store("b").loadDocuments();
+  expect(restored[0].deletedAt).toBe(retained.deletedAt);
+  expect(restored[0].savedPassages?.[0].deletedAt).toBe(retained.savedPassages[0].deletedAt);
+});
+
+it("reads legacy version-one backups and exports the recovery-aware version two", async () => {
+  await seed("a");
+  const exported = await create_library_backup("a");
+  expect(exported.version).toBe(2);
+  const legacy = parse_library_backup(JSON.stringify({ ...exported, version: 1 }));
+  expect(legacy.documents[0].plainText).toBe(document.plainText);
+  expect(legacy.version).toBe(2);
 });

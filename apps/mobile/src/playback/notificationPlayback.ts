@@ -5,6 +5,8 @@ import { word_matches } from "../reader/readerText";
 import { normalize_playback_rate } from "./rates";
 
 export type NotificationPlaybackState = {
+  sleepDeadline?: number;
+  sleepPassage?: number;
   accountId: string;
   documentId: string;
   title: string;
@@ -16,6 +18,12 @@ export type NotificationPlaybackState = {
 };
 
 export type NotificationPlayback = {
+  activity_events?: (uid: string) => import("./nativeActivity").NativeActivityEvent[];
+  ack_activity?: (uid: string, events: string) => Promise<void>;
+  clear_activity?: (uid: string) => Promise<void>;
+  set_sleep_timer?: (seconds: number, passage: boolean) => Promise<void>;
+  voice_status?: (voice: string | null) => Promise<{ status: string }>;
+  open_voice_settings?: () => Promise<void>;
   start: (payload: string) => Promise<void>;
   pause: () => Promise<void>;
   stop: () => Promise<void>;

@@ -93,6 +93,28 @@ class VoticPlaybackService : Service() {
   private var wakeLock: PowerManager.WakeLock? = null
   private var destroyed = false
   private var lastCheckpoint = 0L
+  private val activity by lazy { PlaybackActivityJournal(this) }
+  private val sleepTimer = PlaybackSleepTimer()
+  private val sleepExpired = Runnable { cancelSleepTimer(); pause() }
+  private val activityTick = object : Runnable {
+    override fun run() {
+      if (destroyed || !playing) return
+      activity.checkpoint()
+      publish(false)
+      main.postDelayed(this, 5000)
+    }
+  }
+  fun setSleepTimer(seconds: Double, boundary: Boolean) {
+    require(document != null) { "Open and start a listening session before setting its timer." }
+    cancelSleepTimer()
+    sleepTimer.configure(seconds, boundary, at, SystemClock.elapsedRealtime(), System.currentTimeMillis())
+    if (sleepTimer.deadlineElapsed > 0) main.postDelayed(sleepExpired, (seconds * 1000).toLong())
+    publish()
+  }
+  private fun cancelSleepTimer() {
+    main.removeCallbacks(sleepExpired)
+    sleepTimer.clear()
+  }
   // Compose the same mark and tinted wing mask as VoticLogo, on the default cool background.
   private val artwork: Bitmap by lazy {
     Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888).also { bitmap ->
@@ -181,6 +203,7 @@ class VoticPlaybackService : Service() {
         pending = null
         if (next == null) { if (document == null) end(); return START_NOT_STICKY }
         invalidate_speech()
+        if (document?.documentId != next.documentId || document?.accountId != next.accountId) cancelSleepTimer()
         document = next
         at = next.passageIndex
         offset = next.passages[at].offset_for(next.wordIndex)
@@ -237,6 +260,9 @@ class VoticPlaybackService : Service() {
 
   private fun play() {
     if (document == null || destroyed) { end(); return }
+    if (sleepTimer.expired(SystemClock.elapsedRealtime())) {
+      cancelSleepTimer(); pause(); return
+    }
     wanted = true
     // Own focus while TTS initializes too. If Spotify starts during initialization,
     // its loss callback cancels wanted before the ready callback can start narration.
@@ -263,7 +289,15 @@ class VoticPlaybackService : Service() {
     val token = (++serial).toString()
     utterance = token
     engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-      override fun onStart(id: String?) = Unit
+      override fun onStart(id: String?) {
+        main.post {
+          if (id == utterance && !destroyed && playing) {
+            activity.speechStarted(current)
+            main.removeCallbacks(activityTick)
+            main.postDelayed(activityTick, 5000)
+          }
+        }
+      }
       override fun onRangeStart(id: String?, rangeStart: Int, rangeEnd: Int, frame: Int) {
         main.post {
           if (id != utterance || destroyed) return@post
@@ -274,16 +308,25 @@ class VoticPlaybackService : Service() {
       override fun onDone(id: String?) {
         main.post {
           if (id != utterance || destroyed || !playing) return@post
+          activity.speechStopped()
+          main.removeCallbacks(activityTick)
+          if (end >= passage.text.length && sleepTimer.passage == at && at < current.passages.lastIndex) {
+            at += 1; offset = 0; cancelSleepTimer(); pause(); return@post
+          }
           if (end < passage.text.length) { offset = end; speak_chunk() }
           else if (at < current.passages.lastIndex) { at += 1; offset = 0; publish(); speak_chunk() }
           else {
             offset = passage.offsets.last()
             completed = true
+            cancelSleepTimer()
             pause()
             getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
             stopSelf()
           }
         }
+      }
+      override fun onStop(id: String?, interrupted: Boolean) {
+        main.post { if (id == utterance && !destroyed) pause() }
       }
       @Deprecated("Required by Android's UtteranceProgressListener")
       override fun onError(id: String?) {
@@ -303,6 +346,8 @@ class VoticPlaybackService : Service() {
   }
 
   private fun invalidate_speech() {
+    activity.speechStopped()
+    main.removeCallbacks(activityTick)
     utterance = null
     engine?.stop()
   }
@@ -319,9 +364,10 @@ class VoticPlaybackService : Service() {
 
   private fun skip(delta: Int) {
     val current = document ?: return
-    val resume = playing || wanted
+    var resume = playing || wanted
     val target = (at + delta).coerceIn(0, current.passages.lastIndex)
     if (target == at) { if (!playing && !wanted) pause(); return }
+    if (sleepTimer.passage >= 0) { cancelSleepTimer(); resume = false }
     invalidate_speech()
     at = target
     offset = 0
@@ -337,6 +383,7 @@ class VoticPlaybackService : Service() {
   }
 
   fun end() {
+    cancelSleepTimer()
     pause()
     document = null
     clear_state()
@@ -349,7 +396,8 @@ class VoticPlaybackService : Service() {
     val current = document ?: return
     state = mapOf("accountId" to current.accountId, "documentId" to current.documentId,
       "title" to current.title, "passageIndex" to at, "wordIndex" to current.passages[at].word_at(offset),
-      "playing" to playing, "completed" to completed, "error" to failure)
+      "playing" to playing, "completed" to completed, "error" to failure,
+      "sleepDeadline" to sleepTimer.deadlineWall.toDouble(), "sleepPassage" to sleepTimer.passage)
     // JS can be suspended while native narration progresses. Save only the small position snapshot.
     val now = SystemClock.elapsedRealtime()
     if (updateNotification || now - lastCheckpoint >= 1000) {
@@ -415,6 +463,7 @@ class VoticPlaybackService : Service() {
     release_focus()
     // Preserve the last position for the foreground UI, including normal completion.
     document?.let { lastCheckpoint = 0; publish(false) }
+    activity.close()
     engine?.shutdown()
     engine = null
     document = null

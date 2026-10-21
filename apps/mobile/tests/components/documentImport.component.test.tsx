@@ -115,3 +115,35 @@ it("finishes the import even though the Android file picker sends Votic to the b
   );
   expect(screen.queryByText(/Couldn't add/)).toBeNull();
 });
+
+it("imports BOM UTF-16 text through the picker without silently replacing Unicode", async () => {
+  const expected = "Résumé — 日本語 😀\n\nSecond paragraph.";
+  const bytes = new Uint8Array(2 + expected.length * 2);
+  bytes.set([255, 254]);
+  for (let at = 0; at < expected.length; at++) {
+    bytes[2 + at * 2] = expected.charCodeAt(at) & 255;
+    bytes[3 + at * 2] = expected.charCodeAt(at) >> 8;
+  }
+  jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+    canceled: false,
+    assets: [
+      {
+        name: "unicode.txt",
+        uri: "file:///unicode.txt",
+        mimeType: "text/plain",
+        size: bytes.length,
+        lastModified: 1,
+      },
+    ],
+  } as DocumentPicker.DocumentPickerResult);
+  global.fetch = jest.fn(async () => ({
+    ok: true,
+    arrayBuffer: async () => bytes.buffer,
+  })) as unknown as typeof fetch;
+  await render_with_providers(<Documents />);
+  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
+  await waitFor(async () =>
+    expect((await create_document_store("test-user").loadDocuments())[0]?.plainText).toBe(expected),
+  );
+});

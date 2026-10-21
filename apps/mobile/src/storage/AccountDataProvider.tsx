@@ -105,6 +105,7 @@ function AccountDataSession({
     await notification_player()?.stop();
     publish_widget_snapshot(JSON.stringify(signed_out_snapshot()), true);
     clear_import_cache();
+    await notification_player()?.clear_activity?.(account);
     await erase_local_account(account);
   }
   async function delete_account() {

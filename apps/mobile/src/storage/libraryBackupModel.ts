@@ -1,4 +1,5 @@
-import { ActivityLog, empty_log, parse_log } from "../activity/activityModel";
+import { safe_source_url } from "../documents/sourceInformation";
+import { ActivityLog, clean_native_checkpoints, empty_log, parse_log } from "../activity/activityModel";
 import { MAX_DOCUMENT_CHARS, MAX_STORED_DOCUMENTS } from "../documents/documentStorage";
 import { SavedPassage, VoticDocument } from "../documents/types";
 import { SavedAccountPreferences } from "../onboarding/accountPreferences";
@@ -10,7 +11,7 @@ export const MAX_LIBRARY_DOCUMENTS = MAX_STORED_DOCUMENTS;
 export const MAX_LIBRARY_COLLECTIONS = 2000;
 export type LibraryBackup = {
   format: "votic-library";
-  version: 1;
+  version: 1 | 2;
   id: string;
   createdAt: number;
   documents: VoticDocument[];
@@ -54,6 +55,7 @@ function note(value: unknown): SavedPassage {
     text: text(n.text, 100_000),
     note: text(n.note, 100_000),
     createdAt: number(n.createdAt),
+    ...(n.deletedAt === undefined ? {} : { deletedAt: number(n.deletedAt) }),
     updatedAt: number(n.updatedAt),
     ...(n.title === undefined ? {} : { title: text(n.title, 500) }),
     ...(n.noteType === undefined ? {} : { noteType: n.noteType }),
@@ -89,6 +91,7 @@ function document(value: unknown): VoticDocument {
     wordIndex: integer(d.wordIndex),
     playbackRate: rate,
     importedAt: number(d.importedAt),
+    ...optional_document_metadata(d),
     updatedAt: number(d.updatedAt),
     ...(d.lastOpenedAt === undefined ? {} : { lastOpenedAt: number(d.lastOpenedAt) }),
     ...(d.completedAt === undefined ? {} : { completedAt: number(d.completedAt) }),
@@ -96,6 +99,7 @@ function document(value: unknown): VoticDocument {
     ...(d.origin === undefined ? {} : { origin: d.origin }),
     ...(d.notebookKind === undefined ? {} : { notebookKind: d.notebookKind }),
     activity,
+    nativeCheckpoints: clean_native_checkpoints(d.nativeCheckpoints),
     savedPassages: list(d.savedPassages ?? [], 20_000).map(note),
     reviewResponses: responses,
   };
@@ -125,7 +129,8 @@ export function parse_library_backup(raw: string): LibraryBackup {
   }
   reject_unsafe_keys(value);
   const b = object(value);
-  if (b.format !== "votic-library" || b.version !== 1 || !/^[a-zA-Z0-9-]{1,80}$/.test(b.id)) return fail();
+  if (b.format !== "votic-library" || ![1, 2].includes(b.version) || !/^[a-zA-Z0-9-]{1,80}$/.test(b.id))
+    return fail();
   const documents = list(b.documents, MAX_LIBRARY_DOCUMENTS).map(document);
   if (new Set(documents.map((d) => d.id)).size !== documents.length) return fail();
   for (const d of documents)
@@ -165,7 +170,7 @@ export function parse_library_backup(raw: string): LibraryBackup {
     return fail();
   return {
     format: "votic-library",
-    version: 1,
+    version: 2,
     id: b.id,
     createdAt: number(b.createdAt),
     documents,
@@ -225,6 +230,17 @@ export function merge_library_backup(current: LibraryBackup, incoming: LibraryBa
       };
     }
   }
+  activity.nativeCheckpoints = Object.fromEntries(
+    [
+      ...new Set([
+        ...Object.keys(current.activity.nativeCheckpoints || {}),
+        ...Object.keys(incoming.activity.nativeCheckpoints || {}),
+      ]),
+    ].map((id) => [
+      id,
+      Math.max(current.activity.nativeCheckpoints?.[id] || 0, incoming.activity.nativeCheckpoints?.[id] || 0),
+    ]),
+  );
   activity.ask = [
     ...new Map([...incoming.activity.ask, ...activity.ask].map((e) => [JSON.stringify(e), e])).values(),
   ]
@@ -240,5 +256,12 @@ export function merge_library_backup(current: LibraryBackup, incoming: LibraryBa
       ...incoming.pronunciations.filter((p) => !current.pronunciations.some((c) => c.id === p.id)),
     ].slice(0, 250),
     preferences: current.preferences ?? incoming.preferences,
+  };
+}
+
+function optional_document_metadata(d: Record<string, any>) {
+  return {
+    ...(d.deletedAt === undefined ? {} : { deletedAt: number(d.deletedAt) }),
+    ...(safe_source_url(d.sourceUrl) ? { sourceUrl: safe_source_url(d.sourceUrl)! } : {}),
   };
 }

@@ -54,7 +54,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [recoveryAttempt, setRecoveryAttempt] = useState(0);
   useEffect(() => {
     let current = true;
-    void resume_local_deletions()
+    void resume_local_deletions(async (uid) => {
+      const player = notification_player();
+      if (player?.get_state().accountId === uid) await player.stop();
+      await player?.clear_activity?.(uid);
+    })
       .then(async (recovered) => {
         if (recovered) {
           await Speech.stop();

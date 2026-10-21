@@ -1,3 +1,4 @@
+import { OriginalSource } from "./OriginalSource";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, useState } from "react";
 import {
@@ -49,7 +50,7 @@ export function DocumentActionsSheet({
     close();
     Alert.alert(
       "Delete document?",
-      `Remove “${readable_title(target.title)}” and its notes from Votic? This can't be undone.`,
+      `Remove “${readable_title(target.title)}” and its notes from Votic? They stay in Recently Deleted for 30 days, where you can restore them.`,
       [
         { text: "Cancel", style: "cancel" },
         { text: "Delete", style: "destructive", onPress: () => removeDocument(target.id) },
@@ -257,6 +258,7 @@ export function DocumentActionsSheet({
                 {view === "details" ? (
                   <View style={s.details}>
                     <Detail label="File name" value={document.sourceName} />
+                    <OriginalSource url={document.sourceUrl} />
                     <Detail label="Type" value={file_type_label(document.sourceName)} />
                     <Detail label="Position" value={position_label(document)} />
                     <Detail label="Progress" value={progress_label(document)} />

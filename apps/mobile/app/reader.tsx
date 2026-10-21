@@ -1,3 +1,6 @@
+import { ReaderTools } from "../src/reader/components/ReaderTools";
+import { FindHighlight } from "../src/reader/components/FindHighlight";
+import { useReaderFind } from "../src/reader/useReaderFind";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
@@ -260,14 +263,21 @@ function ReaderContent() {
   const params = useLocalSearchParams<{ autoplay?: string; mode?: ReaderMode }>();
   // How someone opened the document decides the controls: Read has no audio controls, Listen does.
   // An explicit Read request takes precedence over a stale autoplay parameter.
-  const mode: ReaderMode =
-    params.mode === "read" ? "read" : params.mode === "listen" || params.autoplay === "1" ? "listen" : "read";
-  const listening = mode === "listen";
+  const listening = params.mode !== "read" && (params.mode === "listen" || params.autoplay === "1");
   const contentHeight = useRef(0);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
   const scrollToPosition = useRef(false);
   // Reading counts only while someone is engaged with the page; listening counts while narration plays.
   const engaged = useReaderActivity(activeId, playing);
+  const find = useReaderFind(
+    passages,
+    stop,
+    (at) => {
+      const y = sentenceLayout.current[at]?.y;
+      if (y !== undefined) scrollRef.current?.scrollTo({ y, animated: false });
+    },
+    index,
+  );
   const { recordAsk } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
@@ -359,7 +369,8 @@ function ReaderContent() {
   // Effect events read the latest render's functions without restarting the effects that call them.
   const onHardwareBack = useEffectEvent(() => {
     // With Ask Votic open, Back closes it (the same way as its X) and the Reader stays open.
-    if (askOpen) close_ask_votic();
+    if (find.open) find.close();
+    else if (askOpen) close_ask_votic();
     else void close_reader();
     return true;
   });
@@ -396,9 +407,24 @@ function ReaderContent() {
     return () => subscription.remove();
   }, []);
   useEffect(() => {
-    if (!activeId || !passages.length || completedRef.current) return;
+    if (
+      !activeId ||
+      !passages.length ||
+      completedRef.current ||
+      (activeDocument?.sentenceIndex === index && activeDocument.wordIndex === wordIndex)
+    )
+      return;
     progressSync.schedule({ id: activeId, progress, index, wordIndex });
-  }, [activeId, passages.length, progress, index, wordIndex, progressSync]);
+  }, [
+    activeId,
+    activeDocument?.sentenceIndex,
+    activeDocument?.wordIndex,
+    passages.length,
+    progress,
+    index,
+    wordIndex,
+    progressSync,
+  ]);
   useEffect(
     () => () => {
       void progressSync.flush();
@@ -1326,6 +1352,7 @@ function ReaderContent() {
                     </Pressable>
                   </View>
                 </View>
+                <ReaderTools listening={listening} stop={stop} find={find} />
                 <View ref={progressTarget} collapsable={false} style={s.documentHeader}>
                   <Text
                     numberOfLines={1}
@@ -1352,8 +1379,9 @@ function ReaderContent() {
                   <View ref={documentTarget} collapsable={false} style={s.textArea}>
                     <ReadingPages
                       passages={passages}
-                      index={index}
-                      wordIndex={wordIndex}
+                      index={find.location?.index ?? index}
+                      wordIndex={find.location?.word ?? wordIndex}
+                      findQuery={find.open ? find.query.trim() : ""}
                       textStyle={readingType}
                       onReady={() => {
                         if (!readerPrepared.current) {
@@ -1363,6 +1391,7 @@ function ReaderContent() {
                         }
                       }}
                       onLocation={(at, word) => {
+                        if (find.open) return;
                         engaged();
                         setIndex(at);
                         setWordIndex(word);
@@ -1422,31 +1451,35 @@ function ReaderContent() {
                                 sentenceHighlight && { backgroundColor: theme.sentenceHighlight },
                             ]}
                           >
-                            {current && listening
-                              ? tokens.map((token, tokenIndex) => {
-                                  if (token.word === null) return token.text;
-                                  const active = token.word === wordIndex;
-                                  return (
-                                    <Text
-                                      key={tokenIndex}
-                                      style={
-                                        active && wordHighlight
-                                          ? {
-                                              color: theme.text,
-                                              fontWeight: "900",
-                                              fontSize: (readingType.fontSize as number) + 2,
-                                              ...(accessibility.readerFont === "accessible" && {
-                                                fontFamily: ACCESSIBLE_FONT_BOLD,
-                                              }),
-                                            }
-                                          : undefined
-                                      }
-                                    >
-                                      {token.text}
-                                    </Text>
-                                  );
-                                })
-                              : passage}
+                            {find.open ? (
+                              <FindHighlight text={passage} query={find.query.trim()} />
+                            ) : current && listening ? (
+                              tokens.map((token, tokenIndex) => {
+                                if (token.word === null) return token.text;
+                                const active = token.word === wordIndex;
+                                return (
+                                  <Text
+                                    key={tokenIndex}
+                                    style={
+                                      active && wordHighlight
+                                        ? {
+                                            color: theme.text,
+                                            fontWeight: "900",
+                                            fontSize: (readingType.fontSize as number) + 2,
+                                            ...(accessibility.readerFont === "accessible" && {
+                                              fontFamily: ACCESSIBLE_FONT_BOLD,
+                                            }),
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    {token.text}
+                                  </Text>
+                                );
+                              })
+                            ) : (
+                              passage
+                            )}
                           </Text>
                         );
                       })}

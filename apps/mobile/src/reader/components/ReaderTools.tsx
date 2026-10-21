@@ -1,0 +1,113 @@
+import { router } from "expo-router";
+import { Pressable, Text, TextInput, View } from "react-native";
+import { useVoticTheme } from "../../theme/ThemeProvider";
+import type { useReaderFind } from "../useReaderFind";
+import { SleepTimerControl } from "./SleepTimerControl";
+
+export function ReaderTools({
+  listening,
+  stop,
+  find,
+}: {
+  listening: boolean;
+  stop: () => Promise<void>;
+  find: ReturnType<typeof useReaderFind>;
+}) {
+  const { theme } = useVoticTheme();
+  const button = { minHeight: 48, paddingHorizontal: 12, justifyContent: "center" as const };
+  return (
+    <View>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
+        {(["read", "listen"] as const).map((mode) => (
+          <Pressable
+            key={mode}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: listening === (mode === "listen") }}
+            style={button}
+            onPress={() => {
+              if (listening === (mode === "listen")) return;
+              find.close();
+              void stop().then(() => router.setParams({ mode, autoplay: "0" }));
+            }}
+          >
+            <Text
+              style={{
+                color: listening === (mode === "listen") ? theme.accentText : theme.mutedText,
+                fontWeight: "700",
+              }}
+            >
+              {mode === "read" ? "Read" : "Listen"}
+            </Text>
+          </Pressable>
+        ))}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Find within document"
+          onPress={find.show}
+          style={button}
+        >
+          <Text style={{ color: theme.accentText }}>Find</Text>
+        </Pressable>
+        {listening ? <SleepTimerControl /> : null}
+      </View>
+      {find.open ? (
+        <View style={{ paddingHorizontal: 12, gap: 4 }}>
+          <TextInput
+            autoFocus
+            accessibilityLabel="Search document text"
+            placeholder="Find in this document"
+            placeholderTextColor={theme.mutedText}
+            value={find.query}
+            maxLength={120}
+            onChangeText={find.setQuery}
+            style={{
+              minHeight: 48,
+              color: theme.text,
+              borderColor: theme.border,
+              borderWidth: 1,
+              padding: 8,
+              borderRadius: 8,
+            }}
+          />
+          <Text accessibilityLiveRegion="polite" style={{ color: theme.mutedText }}>
+            {find.busy
+              ? "Searching…"
+              : !find.query.trim()
+                ? "Enter text to find"
+                : !find.matches.length
+                  ? "No results"
+                  : `${find.selected + 1} of ${Math.min(find.matches.length, 1000)}${find.matches.length > 1000 ? "+ (first 1,000 shown)" : ""}`}
+          </Text>
+          <View style={{ flexDirection: "row" }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Previous match"
+              disabled={!find.matches.length}
+              onPress={() => find.move(-1)}
+              style={button}
+            >
+              <Text style={{ color: theme.accentText }}>Previous</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next match"
+              disabled={!find.matches.length}
+              onPress={() => find.move(1)}
+              style={button}
+            >
+              <Text style={{ color: theme.accentText }}>Next</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close document search"
+              onPress={find.close}
+              style={button}
+            >
+              <Text style={{ color: theme.accentText }}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}

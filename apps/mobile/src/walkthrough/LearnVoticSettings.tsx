@@ -36,7 +36,7 @@ export function LearnVoticSettings() {
     const latest = [...documents].sort(
       (a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt),
     )[0];
-    if (!latest) return setMessage("Upload a document, and the Reader walkthrough will start when it opens.");
+    if (!latest) return setMessage("Add a document, and the Reader walkthrough will start when it opens.");
     openDocument(latest.id);
     router.push("/reader");
   }

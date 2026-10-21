@@ -1,5 +1,19 @@
+import { notification_player } from "../playback/notificationPlayback";
+import { NativeActivityEvent, reconcile_native_documents } from "../playback/nativeActivity";
+import * as Speech from "expo-speech";
+import { live_library, expire_library, useLibraryRecovery } from "./libraryRecovery";
+import { safe_source_url } from "./sourceInformation";
 import { useAccountData } from "../storage/AccountDataProvider";
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useRef, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { AppState } from "react-native";
 import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
@@ -22,6 +36,8 @@ function unavailable_message(titles: string[]) {
 
 type Library = {
   documents: VoticDocument[];
+  recovery: ReturnType<typeof useLibraryRecovery>;
+  flush: () => Promise<void>;
   collections: string[];
   activeDocument: VoticDocument | null;
   persistenceError: string | null;
@@ -31,12 +47,12 @@ type Library = {
   addTextDocument: (
     sourceName: string,
     text: string,
-    options?: { playbackRate?: number; origin?: DocumentOrigin },
+    options?: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string },
   ) => VoticDocument;
   addTextDocumentDurably: (
     sourceName: string,
     text: string,
-    options?: { playbackRate?: number; origin?: DocumentOrigin },
+    options?: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string },
   ) => Promise<VoticDocument>;
   openDocument: (id: string, sentenceIndex?: number) => void;
   addCollection: (name: string) => void;
@@ -46,6 +62,7 @@ type Library = {
   savePassage: (documentId: string, passage: SavedPassage) => void;
   removePassage: (documentId: string, passageId: string) => void;
   updateProgress: (id: string, progress: number, sentenceIndex?: number, wordIndex?: number) => void;
+  recordNativeActivity: (events: NativeActivityEvent[]) => Promise<void>;
   recordActivity: (id: string, readingSeconds: number, listeningSeconds: number) => void;
   completeDocument: (id: string, sentenceIndex: number, wordIndex: number) => void;
   updatePlaybackRate: (id: string, rate: number) => void;
@@ -66,11 +83,16 @@ function title_from(sourceName: string, text: string) {
 
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
-  const [documents, setDocuments] = useState<VoticDocument[]>([]);
+  const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
-  useEffect(() => {
-    latestDocuments.current = documents;
-  }, [documents]);
+  const setDocuments = useCallback(
+    (update: VoticDocument[] | ((current: VoticDocument[]) => VoticDocument[])) => {
+      const next = typeof update === "function" ? update(latestDocuments.current) : update;
+      latestDocuments.current = next;
+      setDocumentState(next);
+    },
+    [],
+  );
   const [collections, setCollections] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
@@ -101,9 +123,15 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   /** Reads this account's library; `reloading` keeps the open document, as after recovering older data. */
   function load(isCurrent: () => boolean, reloading = false) {
     return Promise.all([store.loadDocuments(), load_collections(uid ?? "")])
-      .then(([savedDocuments, savedCollections]) => {
+      .then(async ([savedDocuments, savedCollections]) => {
         if (!isCurrent()) return;
-        setDocuments(savedDocuments);
+        let expiryFailed = false;
+        const retained = await expire_library(savedDocuments, uid).catch(() => {
+          expiryFailed = true;
+          return savedDocuments;
+        });
+        if (!isCurrent()) return;
+        setDocuments(retained);
         setCollections(savedCollections);
         setActiveId((current) =>
           reloading && savedDocuments.some((document) => document.id === current)
@@ -111,7 +139,13 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
             : savedDocuments[0]?.id || null,
         );
         const unavailable = store.unavailableDocuments();
-        setPersistenceError(unavailable.length ? unavailable_message(unavailable) : null);
+        setPersistenceError(
+          unavailable.length
+            ? unavailable_message(unavailable)
+            : expiryFailed
+              ? "Votic could not finish removing expired Recently Deleted items. They remain hidden. Free device storage and reopen Votic to retry."
+              : null,
+        );
         setHydrated(true);
         setLoaded(true);
       })
@@ -176,22 +210,29 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }, [collections, hydrated, uid]);
 
   const activeDocument = useMemo(
-    () => documents.find((document) => document.id === activeId) || null,
+    () => live_library(documents).find((document) => document.id === activeId) || null,
     [documents, activeId],
   );
 
   function add_text_document(
     sourceName: string,
     text: string,
-    options: { playbackRate?: number; origin?: DocumentOrigin } = {},
+    options: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string } = {},
   ) {
     if (!account_writable(uid)) throw new Error("Account deletion is in progress.");
+    const existing = options.importId
+      ? latestDocuments.current.find((d) => d.id === options.importId)
+      : undefined;
+    if (existing?.deletedAt)
+      throw new Error("This scan was already saved and deleted. Restore it from Recently Deleted.");
+    if (existing) return existing;
     const now = Date.now();
     const document: VoticDocument = {
-      id: "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
+      id: options.importId || "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
       title: title_from(sourceName, text),
       sourceName,
       ...(options.origin ? { origin: options.origin } : {}),
+      ...(safe_source_url(options.sourceUrl) ? { sourceUrl: safe_source_url(options.sourceUrl)! } : {}),
       plainText: text.trim(),
       importedAt: now,
       updatedAt: now,
@@ -210,7 +251,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   async function add_text_document_durably(
     sourceName: string,
     text: string,
-    options: { playbackRate?: number; origin?: DocumentOrigin } = {},
+    options: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string } = {},
   ) {
     const document = add_text_document(sourceName, text, options);
     librarySaver.schedule([document, ...latestDocuments.current.filter((item) => item.id !== document.id)]);
@@ -268,21 +309,32 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   function remove_document(id: string) {
-    setDocuments((current) => current.filter((document) => document.id !== id));
+    if (activeId === id) void Speech.stop();
+    setDocuments((current) =>
+      current.map((document) => (document.id === id ? { ...document, deletedAt: Date.now() } : document)),
+    );
     setActiveId((current) => (current === id ? null : current));
   }
 
   function add_quick_note(passage: SavedPassage) {
     setDocuments((current) => {
-      const existing = current.find((document) => document.notebookKind === "quick-notes");
+      const existing = current.find(
+        (document) => !document.deletedAt && document.notebookKind === "quick-notes",
+      );
       if (existing)
         return current.map((document) => {
           if (document.id !== existing.id) return document;
-          const savedPassages = [...(document.savedPassages || []), passage];
+          const savedPassages = [
+            ...(document.savedPassages || []).filter((saved) => saved.id !== passage.id),
+            passage,
+          ];
           return {
             ...document,
             savedPassages,
-            plainText: savedPassages.map((saved) => saved.note).join("\n\n"),
+            plainText: savedPassages
+              .filter((saved) => !saved.deletedAt)
+              .map((saved) => saved.note)
+              .join("\n\n"),
             updatedAt: Date.now(),
           };
         });
@@ -323,6 +375,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
                       ...(document.savedPassages || []).filter((saved) => saved.id !== passage.id),
                       passage,
                     ]
+                      .filter((saved) => !saved.deletedAt)
                       .map((saved) => saved.note)
                       .join("\n\n"),
                   }
@@ -335,16 +388,28 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   function remove_passage(documentId: string, passageId: string) {
+    const target = latestDocuments.current.find((d) => d.id === documentId);
+    if (target?.notebookKind === "quick-notes") {
+      if (activeId === documentId) void Speech.stop();
+      const player = notification_player();
+      if (player?.get_state().documentId === documentId) void player.stop();
+    }
     setDocuments((current) =>
       current.map((document) =>
         document.id === documentId
           ? {
               ...document,
-              savedPassages: (document.savedPassages || []).filter((saved) => saved.id !== passageId),
+              savedPassages: (document.savedPassages || []).map((saved) =>
+                saved.id === passageId ? { ...saved, deletedAt: Date.now() } : saved,
+              ),
               ...(document.notebookKind === "quick-notes"
                 ? {
+                    progress: 0,
+                    sentenceIndex: 0,
+                    wordIndex: 0,
                     plainText: (document.savedPassages || [])
-                      .filter((saved) => saved.id !== passageId)
+                      .filter((saved) => saved.id !== passageId && !saved.deletedAt)
+                      .filter((saved) => !saved.deletedAt)
                       .map((saved) => saved.note)
                       .join("\n\n"),
                   }
@@ -423,10 +488,18 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
+  const recovery = useLibraryRecovery(documents, setDocuments, uid);
   return (
     <C.Provider
       value={{
-        documents,
+        documents: live_library(documents),
+        recovery,
+        flush: async () => {
+          if (!hydrated) throw new Error("Library is not ready. Your draft has been kept.");
+          librarySaver.schedule(latestDocuments.current);
+          await librarySaver.flush();
+          if (saveStatus.failed) throw new Error(LIBRARY_SAVE_ERROR);
+        },
         collections,
         activeDocument,
         persistenceError,
@@ -443,6 +516,15 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         removePassage: remove_passage,
         updateProgress: update_progress,
         recordActivity: record_activity,
+        recordNativeActivity: async (events) => {
+          if (!hydrated) throw new Error("Library is loading.");
+          const next = reconcile_native_documents(latestDocuments.current, events);
+          latestDocuments.current = next;
+          setDocuments(next);
+          librarySaver.schedule(next);
+          await librarySaver.flush();
+          if (saveStatus.failed) throw new Error(LIBRARY_SAVE_ERROR);
+        },
         completeDocument: complete_document,
         updatePlaybackRate: update_playback_rate,
       }}

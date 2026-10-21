@@ -1,3 +1,4 @@
+import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
 import { AccountDataProvider } from "../src/storage/AccountDataProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { act, render } from "@testing-library/react-native";
@@ -50,9 +51,11 @@ export function AppProviders({ children, measureNode }: PropsWithChildren<{ meas
                     <AccountDataProvider>
                       <ActivityProvider>
                         <DocumentLibraryProvider>
-                          <DocumentTransitionProvider>
-                            <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
-                          </DocumentTransitionProvider>
+                          <OcrReviewProvider>
+                            <DocumentTransitionProvider>
+                              <WalkthroughProvider measureNode={measureNode}>{children}</WalkthroughProvider>
+                            </DocumentTransitionProvider>
+                          </OcrReviewProvider>
                         </DocumentLibraryProvider>
                       </ActivityProvider>
                     </AccountDataProvider>

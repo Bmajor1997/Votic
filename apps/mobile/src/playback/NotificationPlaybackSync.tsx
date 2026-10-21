@@ -104,5 +104,12 @@ export function NotificationPlaybackSync() {
     )
       void player?.stop().catch(() => {});
   }, [uid, denied, library.loaded, library.documents]);
+  const activeDocumentId = library.activeDocument?.id;
+  useEffect(() => {
+    const player = notification_player();
+    const state = player?.get_state();
+    if (state?.documentId && activeDocumentId && state.documentId !== activeDocumentId)
+      void player?.set_sleep_timer?.(0, false).catch(() => {});
+  }, [activeDocumentId]);
   return null;
 }

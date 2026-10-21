@@ -28,6 +28,7 @@ export default function ImportWebScreen() {
       await addTextDocumentDurably(page.title + ".txt", page.text, {
         playbackRate: defaultPlaybackRate,
         origin: "webpage",
+        sourceUrl: page.url,
       });
       if (job.current()) router.replace("/reader");
     } catch (error) {

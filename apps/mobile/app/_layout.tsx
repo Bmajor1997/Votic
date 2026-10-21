@@ -1,3 +1,5 @@
+import { NativeActivitySync } from "../src/playback/NativeActivitySync";
+import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
 import { AccountDataProvider } from "../src/storage/AccountDataProvider";
 import { take_feedback_destination } from "../src/feedback/feedbackNavigation";
 import { router, Stack } from "expo-router";
@@ -67,73 +69,78 @@ function ThemedStack() {
   const fade = { animation: reduceMotion ? ("none" as const) : ("fade" as const) };
   return (
     <DocumentLibraryProvider>
-      {/* Keeps the iPhone and Android home-screen widgets up to date. */}
-      <WidgetSync />
-      <NotificationPlaybackSync />
-      <DocumentTransitionProvider>
-        <WalkthroughProvider>
-          {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}
-          <SetupAccent active={!(subscribed && setup.handedOff)}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: theme.background },
-                animation: "none",
-              }}
-            >
-              {/* Only the screens for the current stage exist, so the router always lands on the right one. */}
-              <Stack.Protected guard={!signedIn}>
-                <Stack.Screen name="welcome" />
-                <Stack.Screen name="create-account" options={slide} />
-                <Stack.Screen name="sign-in" options={slide} />
-                <Stack.Screen name="forgot-password" options={slide} />
-              </Stack.Protected>
-              <Stack.Protected guard={signedIn && !personalized}>
-                <Stack.Screen name="personalize" options={fade} />
-              </Stack.Protected>
-              <Stack.Protected guard={personalized && !subscribed}>
-                <Stack.Screen name="paywall" options={fade} />
-              </Stack.Protected>
-              <Stack.Protected guard={subscribed && !setup.handedOff && !setup.widgetsIntroduced}>
-                <Stack.Screen name="widgets-intro" options={fade} />
-              </Stack.Protected>
-              <Stack.Protected guard={subscribed && !setup.handedOff && setup.widgetsIntroduced}>
-                <Stack.Screen name="ready" options={fade} />
-              </Stack.Protected>
-              <Stack.Protected guard={subscribed && setup.handedOff}>
-                <Stack.Screen name="(tabs)" options={fade} />
-                <Stack.Screen
-                  name="reader"
-                  options={{
-                    animation: "none",
-                    presentation: "transparentModal",
-                    gestureEnabled: false,
-                    contentStyle: { backgroundColor: "transparent" },
-                  }}
-                />
-                <Stack.Screen name="assistant" />
-                <Stack.Screen name="settings/[category]" options={slide} />
-                <Stack.Screen name="recap" />
-                <Stack.Screen name="scan" options={slide} />
-                <Stack.Screen name="import-web" options={slide} />
-                <Stack.Screen name="pronunciations" options={slide} />
-                <Stack.Screen name="handle-share" options={fade} />
-                <Stack.Screen name="statistics" options={slide} />
-                <Stack.Screen name="home-screen-widgets" options={slide} />
-                {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
-                <Stack.Screen name="widget" options={{ animation: "none" }} />
-              </Stack.Protected>
-              <Stack.Protected guard={signedIn}>
-                <Stack.Screen name="account" options={slide} />
-                <Stack.Screen name="library-backup" options={slide} />
-                <Stack.Screen name="feedback/index" options={slide} />
-                <Stack.Screen name="feedback/feature" options={slide} />
-                <Stack.Screen name="feedback/bug" options={slide} />
-              </Stack.Protected>
-            </Stack>
-          </SetupAccent>
-        </WalkthroughProvider>
-      </DocumentTransitionProvider>
+      <OcrReviewProvider>
+        {/* Keeps the iPhone and Android home-screen widgets up to date. */}
+        <WidgetSync />
+        <NotificationPlaybackSync />
+        <NativeActivitySync />
+        <DocumentTransitionProvider>
+          <WalkthroughProvider>
+            {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}
+            <SetupAccent active={!(subscribed && setup.handedOff)}>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: theme.background },
+                  animation: "none",
+                }}
+              >
+                {/* Only the screens for the current stage exist, so the router always lands on the right one. */}
+                <Stack.Protected guard={!signedIn}>
+                  <Stack.Screen name="welcome" />
+                  <Stack.Screen name="create-account" options={slide} />
+                  <Stack.Screen name="sign-in" options={slide} />
+                  <Stack.Screen name="forgot-password" options={slide} />
+                </Stack.Protected>
+                <Stack.Protected guard={signedIn && !personalized}>
+                  <Stack.Screen name="personalize" options={fade} />
+                </Stack.Protected>
+                <Stack.Protected guard={personalized && !subscribed}>
+                  <Stack.Screen name="paywall" options={fade} />
+                </Stack.Protected>
+                <Stack.Protected guard={subscribed && !setup.handedOff && !setup.widgetsIntroduced}>
+                  <Stack.Screen name="widgets-intro" options={fade} />
+                </Stack.Protected>
+                <Stack.Protected guard={subscribed && !setup.handedOff && setup.widgetsIntroduced}>
+                  <Stack.Screen name="ready" options={fade} />
+                </Stack.Protected>
+                <Stack.Protected guard={subscribed && setup.handedOff}>
+                  <Stack.Screen name="(tabs)" options={fade} />
+                  <Stack.Screen
+                    name="reader"
+                    options={{
+                      animation: "none",
+                      presentation: "transparentModal",
+                      gestureEnabled: false,
+                      contentStyle: { backgroundColor: "transparent" },
+                    }}
+                  />
+                  <Stack.Screen name="assistant" />
+                  <Stack.Screen name="settings/[category]" options={slide} />
+                  <Stack.Screen name="recap" />
+                  <Stack.Screen name="scan" options={slide} />
+                  <Stack.Screen name="import-web" options={slide} />
+                  <Stack.Screen name="pronunciations" options={slide} />
+                  <Stack.Screen name="handle-share" options={fade} />
+                  <Stack.Screen name="statistics" options={slide} />
+                  <Stack.Screen name="home-screen-widgets" options={slide} />
+                  {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
+                  <Stack.Screen name="widget" options={{ animation: "none" }} />
+                </Stack.Protected>
+                <Stack.Protected guard={signedIn}>
+                  <Stack.Screen name="account" options={slide} />
+                  <Stack.Screen name="library-backup" options={slide} />
+                  <Stack.Screen name="recently-deleted" options={slide} />
+                  <Stack.Screen name="note-drafts" options={slide} />
+                  <Stack.Screen name="feedback/index" options={slide} />
+                  <Stack.Screen name="feedback/feature" options={slide} />
+                  <Stack.Screen name="feedback/bug" options={slide} />
+                </Stack.Protected>
+              </Stack>
+            </SetupAccent>
+          </WalkthroughProvider>
+        </DocumentTransitionProvider>
+      </OcrReviewProvider>
     </DocumentLibraryProvider>
   );
 }

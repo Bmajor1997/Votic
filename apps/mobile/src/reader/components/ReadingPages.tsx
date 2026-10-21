@@ -1,3 +1,5 @@
+import { literal_matches } from "../documentFind";
+import { FindHighlight } from "./FindHighlight";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, type TextStyle } from "react-native";
 import { word_matches } from "../readerText";
@@ -35,7 +37,9 @@ export function ReadingPages({
   textStyle,
   onLocation,
   onReady,
+  findQuery = "",
 }: {
+  findQuery?: string;
   passages: string[];
   index: number;
   wordIndex: number;
@@ -57,6 +61,7 @@ export function ReadingPages({
     }
     return starts;
   }, [passages]);
+  const findRanges = useMemo(() => literal_matches(text, findQuery), [text, findQuery]);
   const key = JSON.stringify([text, size, textStyle]);
   const pages = useMemo(
     () =>
@@ -149,7 +154,16 @@ export function ReadingPages({
           renderItem={({ item }) => (
             <View style={{ width: size.width, paddingHorizontal: 24, paddingVertical: 16 }}>
               <Text selectable style={[textStyle, { color: theme.text }]}>
-                {item.text}
+                <FindHighlight
+                  text={item.text}
+                  query={findQuery}
+                  ranges={findRanges
+                    .filter((m) => m.offset < item.end && m.offset + m.length > item.start)
+                    .map((m) => ({
+                      offset: Math.max(0, m.offset - item.start),
+                      length: Math.min(item.end, m.offset + m.length) - Math.max(item.start, m.offset),
+                    }))}
+                />
               </Text>
             </View>
           )}

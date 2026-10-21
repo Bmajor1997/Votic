@@ -78,7 +78,7 @@ test("Ask Votic help describes the phone app to the phone app and keeps the web 
   assert.match(local_help_answer("keyboard shortcuts help"), /Space controls playback/);
   await with_server({ env: {} }, async (base) => {
     const ask = (body) => fetch(base + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((response) => response.json());
-    assert.match((await ask({ question: "How do I upload a document?", client: "mobile" })).answer, /Open Documents and choose Upload/);
+    assert.match((await ask({ question: "How do I upload a document?", client: "mobile" })).answer, /Open Documents and choose Add/);
     assert.match((await ask({ question: "How do I upload a document?" })).answer, /Choose Add document/);
     assert.match((await ask({ question: "How do I upload a document?", client: "anything-else" })).answer, /Choose Add document/);
   });

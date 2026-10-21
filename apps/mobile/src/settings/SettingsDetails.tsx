@@ -1,3 +1,4 @@
+import { useOcrReview } from "../documents/OcrReviewProvider";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { clean_local_document_text } from "../documents/importDocument";
 import { open_from } from "../documents/useDocumentImport";
@@ -347,6 +348,7 @@ function PersonalizationSettings() {
 }
 
 function HelpSettings() {
+  const scanReview = useOcrReview();
   const guideRef = useRef<View>(null);
   const library = useDocumentLibrary();
   const transition = useDocumentTransition();
@@ -419,6 +421,29 @@ function HelpSettings() {
           icon="stats-chart-outline"
           separated
           onPress={() => router.push("/statistics")}
+        />
+      </SettingsGroup>
+      <SettingsGroup>
+        <SettingsRow
+          label="Unfinished scan"
+          detail="Review recognized text and corrections."
+          hint="Resume the saved scan review"
+          icon="scan-outline"
+          onPress={scanReview.resume}
+        />
+        <SettingsRow
+          label="Recently Deleted"
+          hint="Restore deleted documents and notes"
+          detail="Restore documents and notes for 30 days."
+          icon="trash-outline"
+          onPress={() => router.push("/recently-deleted")}
+        />
+        <SettingsRow
+          label="Note drafts"
+          hint="Review unfinished notes"
+          detail="Continue an unfinished note."
+          icon="create-outline"
+          onPress={() => router.push("/note-drafts")}
         />
       </SettingsGroup>
       {/* Replays one walkthrough at a time: Home, Documents, Notes, or the Reader. */}

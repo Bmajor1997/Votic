@@ -38,7 +38,7 @@ export async function create_library_backup(uid: string): Promise<LibraryBackup>
   if (!activity) throw new Error("Saved activity could not be read. No incomplete backup was created.");
   const backup: LibraryBackup = {
     format: "votic-library",
-    version: 1,
+    version: 2,
     id: Crypto.randomUUID(),
     createdAt: Date.now(),
     documents,

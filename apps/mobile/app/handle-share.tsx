@@ -1,3 +1,4 @@
+import { useImportSave } from "../src/documents/useImportSave";
 import { FileTypeIcon } from "../src/components/FileTypeIcon";
 import { router } from "expo-router";
 import { clearSharedPayloads, useIncomingShare } from "expo-sharing";
@@ -5,10 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { spacing, radii } from "../src/design/tokens";
-import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import {
   IMPORT_TYPES,
-  import_origin,
   supported_document,
   UNSUPPORTED_TYPE_MESSAGE,
   validate_import,
@@ -25,7 +24,7 @@ function fallback_name(mimeType: string | null) {
 
 export default function HandleShare() {
   const { theme } = useVoticTheme();
-  const { addTextDocumentDurably } = useDocumentLibrary();
+  const saveImported = useImportSave();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const { resolvedSharedPayloads, isResolving, error } = useIncomingShare();
@@ -71,14 +70,9 @@ export default function HandleShare() {
         const text = await read_imported_text(name, bytes, job.signal);
         if (!job.current()) return;
 
-        if (!text.trim()) throw new Error("This document does not contain readable text.");
-
-        await addTextDocumentDurably(name, text, {
-          playbackRate: defaultPlaybackRate,
-          origin: import_origin(name),
-        });
+        const saved = await saveImported(name, text, defaultPlaybackRate);
         clearSharedPayloads();
-        if (job.current()) router.replace("/reader");
+        if (saved && job.current()) router.replace("/reader");
       } catch (caught) {
         if (!job.current()) return;
         clearSharedPayloads();
@@ -96,7 +90,7 @@ export default function HandleShare() {
     };
 
     void import_shared_document();
-  }, [addTextDocumentDurably, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads, session]);
+  }, [saveImported, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads, session]);
 
   const problem = failure || error?.message || null;
 

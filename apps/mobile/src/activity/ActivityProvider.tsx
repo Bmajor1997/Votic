@@ -1,3 +1,4 @@
+import { NativeActivityEvent, reconcile_native_log } from "../playback/nativeActivity";
 import { useAccountData } from "../storage/AccountDataProvider";
 import { account_storage_key } from "../storage/accountStorage";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -33,6 +34,7 @@ type ActivityValue = {
   hydrated: boolean;
   loadError: string | null;
   retryLoad: () => void;
+  recordNativeActivity: (events: NativeActivityEvent[]) => Promise<void>;
   recordTime: (documentId: string, kind: ActivityKind, start: number, end: number) => void;
   recordAsk: (event: AskEvent) => void;
   /** Development builds only: shows generated statistics without touching real measurements. */
@@ -167,6 +169,12 @@ export function ActivityProvider({ children }: PropsWithChildren) {
           setHydrated(false);
           setLoadError(null);
           setLoadAttempt((attempt) => attempt + 1);
+        },
+        recordNativeActivity: async (events) => {
+          if (!hydratedRef.current) throw new Error("Activity is loading.");
+          change((current) => reconcile_native_log(current, events));
+          await save();
+          if (dirty.current) throw new Error("Activity could not be saved.");
         },
         recordTime: (documentId, kind, start, end) =>
           change((current) => add_interval(current, documentId, kind, start, end)),

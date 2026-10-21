@@ -1,3 +1,4 @@
+import { useOcrReview } from "../src/documents/OcrReviewProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
@@ -16,7 +17,6 @@ import {
   View,
 } from "react-native";
 import { scan_document_image } from "../src/api/voticApi";
-import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { useImportSession } from "../src/documents/useImportSession";
@@ -26,7 +26,7 @@ type ScanPage = { uri: string; width?: number; height?: number };
 
 export default function ScanDocumentScreen() {
   const { theme } = useVoticTheme();
-  const { addTextDocumentDurably } = useDocumentLibrary();
+  const { review } = useOcrReview();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -49,6 +49,7 @@ export default function ScanDocumentScreen() {
   const [cameraReady, setCameraReady] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [processingPage, setProcessingPage] = useState(0);
   const [torch, setTorch] = useState(false);
   const [reviewing, setReviewing] = useState(false);
 
@@ -84,6 +85,7 @@ export default function ScanDocumentScreen() {
       const extracted: string[] = [];
       for (let index = 0; index < pages.length; index += 1) {
         if (!job.current()) return;
+        setProcessingPage(index + 1);
         const cached = completedPages.current.get(pages[index].uri);
         if (cached !== undefined) {
           extracted.push(cached);
@@ -107,7 +109,7 @@ export default function ScanDocumentScreen() {
         const text = await scan_document_image(`scan-page-${index + 1}.jpg`, bytes, job.signal);
         if (!job.current()) return;
         completedPages.current.set(pages[index].uri, text.trim());
-        if (text.trim()) extracted.push(text.trim());
+        extracted.push(text.trim());
       }
       const text = extracted.join("\n\n");
       if (!text.trim()) throw new Error("Votic could not find readable text in these pages.");
@@ -116,11 +118,11 @@ export default function ScanDocumentScreen() {
         month: "short",
         day: "numeric",
       });
-      await addTextDocumentDurably(`Scanned document - ${stamp}.txt`, text, {
+      const saved = await review(`Scanned document - ${stamp}.txt`, extracted, {
         playbackRate: defaultPlaybackRate,
         origin: "scan",
       });
-      if (job.current()) router.replace("/reader");
+      if (saved && job.current()) router.replace("/reader");
     } catch (error) {
       if (!job.current()) return;
       Alert.alert(
@@ -297,7 +299,9 @@ export default function ScanDocumentScreen() {
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={processing ? "Reading scan" : "Use scan"}
+                accessibilityLabel={
+                  processing ? `Reading page ${processingPage} of ${pages.length}` : "Review scan text"
+                }
                 disabled={processing}
                 onPress={() => void finish_scan()}
                 style={[s.useAction, { opacity: processing ? 0.7 : 1 }]}
@@ -307,7 +311,9 @@ export default function ScanDocumentScreen() {
                 ) : (
                   <Ionicons name="checkmark" size={21} color="#111827" />
                 )}
-                <Text style={s.useText}>{processing ? "Reading…" : "Use scan"}</Text>
+                <Text style={s.useText}>
+                  {processing ? `Page ${processingPage} of ${pages.length}…` : "Review text"}
+                </Text>
               </Pressable>
             </View>
           </View>

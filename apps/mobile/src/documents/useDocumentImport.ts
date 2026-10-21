@@ -1,11 +1,11 @@
+import { useImportSave } from "./useImportSave";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { RefObject, useState } from "react";
 import { Alert, View } from "react-native";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
-import { useDocumentLibrary } from "./DocumentLibraryProvider";
-import { IMPORT_TYPES, import_origin, validate_import } from "./importDocument";
+import { IMPORT_TYPES, validate_import } from "./importDocument";
 import { read_imported_text } from "./readImportedText";
 import { useImportSession } from "./useImportSession";
 import { remove_import_temp } from "./importCache";
@@ -17,7 +17,7 @@ export type ImportFailure = { name: string | null; message: string };
  * By default a failure shows an alert; screens that show failures inline pass `inlineErrors`.
  */
 export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErrors = false } = {}) {
-  const { addTextDocumentDurably } = useDocumentLibrary();
+  const saveImported = useImportSave();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const transition = useDocumentTransition();
@@ -53,12 +53,8 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
         throw new Error("Votic could not access this file. Please choose it again from your device.");
       const text = await read_imported_text(asset.name, await response.arrayBuffer(), job.signal);
       if (!job.current()) return;
-      if (!text.trim()) throw new Error("This document does not contain readable text.");
-      await addTextDocumentDurably(asset.name, text, {
-        playbackRate: defaultPlaybackRate,
-        origin: import_origin(asset.name),
-      });
-      if (job.current()) open_from(sourceRef, transition);
+      const saved = await saveImported(asset.name, text, defaultPlaybackRate);
+      if (saved && job.current()) open_from(sourceRef, transition);
     } catch (error) {
       if (!job.current()) return;
       const message = error instanceof Error ? error.message : "Votic could not read this document.";

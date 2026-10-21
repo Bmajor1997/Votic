@@ -1,3 +1,4 @@
+import { OfflineVoiceStatus } from "./OfflineVoiceStatus";
 import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
@@ -247,21 +248,7 @@ export function ReaderSettingsSheet({
             ) : null}
             {sheet === "listen" ? (
               <>
-                <View
-                  accessible
-                  accessibilityLabel="Offline listening ready"
-                  style={[s.offlineCard, { borderColor: theme.border, backgroundColor: theme.surfaceMuted }]}
-                >
-                  <Ionicons name="cloud-offline-outline" size={22} color={theme.accent} />
-                  <View style={s.toggleCopy}>
-                    <Text style={[s.toggleTitle, { color: theme.text }]}>Offline listening ready</Text>
-                    <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
-                      This document is saved on your device. Votic uses your device’s text-to-speech voice, so
-                      Votic does not need a server connection while reading it aloud. Voice availability is
-                      controlled by your phone.
-                    </Text>
-                  </View>
-                </View>
+                <OfflineVoiceStatus voice={accessibility.voiceIdentifier} />
                 <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
                 <Setting label="Voice">
                   {voices.length ? (

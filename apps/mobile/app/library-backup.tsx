@@ -1,3 +1,4 @@
+import { decode_document_bytes } from "../src/documents/textEncoding";
 import { useState } from "react";
 import { Alert, Platform, Pressable, StyleSheet, Text, View, Switch } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
@@ -77,12 +78,12 @@ export default function LibraryBackupScreen() {
       if (Platform.OS === "web") {
         if (!asset.file || asset.file.size > MAX_BACKUP_BYTES)
           throw new Error("Choose a backup file up to 25 MB.");
-        raw = await asset.file.text();
+        raw = decode_document_bytes(await asset.file.arrayBuffer());
       } else {
         const file = new File(asset.uri);
         if (!file.exists || file.size > MAX_BACKUP_BYTES)
           throw new Error("Choose a backup file up to 25 MB.");
-        raw = await file.text();
+        raw = decode_document_bytes(await file.arrayBuffer());
       }
       setIncoming(parse_library_backup(raw));
     } catch (error) {
@@ -122,7 +123,9 @@ export default function LibraryBackupScreen() {
     <SettingsPage title="Library backup & restore">
       <Text style={[s.body, { color: theme.text }]}>
         Save your documents&apos; readable text, notes, collections, progress, activity, pronunciations, and
-        account reading preferences. Original PDF, photo, and Office files are not included.
+        account reading preferences, source links, and retained Recently Deleted items. Original PDF, photo,
+        and Office files, note drafts, and unfinished scan reviews are not included. New backups need this
+        version of Votic or newer. Older backups can still be restored.
       </Text>
       <Text style={[s.body, { color: theme.mutedText }]}>
         Backups contain your private documents and notes and are not encrypted. Save them somewhere you trust.

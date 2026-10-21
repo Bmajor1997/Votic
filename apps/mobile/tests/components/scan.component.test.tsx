@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import ScanDocumentScreen from "../../app/scan";
@@ -36,15 +36,60 @@ describe("document scanner", () => {
   });
 });
 
-it("waits for camera readiness, reads the native photo, and opens the OCR document", async () => {
+it("waits for camera readiness and reviews/corrects OCR before opening its saved document", async () => {
   jest.mocked(scan_document_image).mockResolvedValue("A readable scanned page.");
   await render_with_providers(<ScanDocumentScreen />);
   expect(screen.getByRole("button", { name: "Take photo" }).props.accessibilityState.disabled).toBe(true);
   await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
   await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
   expect(mockTakePhoto).toHaveBeenCalled();
-  await fireEvent.press(screen.getByRole("button", { name: "Use scan" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Review scan text" }));
   expect(mockReadPhoto).toHaveBeenCalled();
   expect(scan_document_image).toHaveBeenCalledWith("scan-page-1.jpg", photoBytes, expect.any(AbortSignal));
-  expect(router.replace).toHaveBeenCalledWith("/reader");
+  expect(router.replace).not.toHaveBeenCalled();
+  expect(await screen.findByRole("header", { name: "Review recognized text" })).toBeTruthy();
+  await fireEvent.changeText(screen.getByLabelText("Recognized text, page 1"), "Corrected recognized page.");
+  await fireEvent.press(screen.getByRole("button", { name: "Save document" }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/reader"));
+  expect(scan_document_image).toHaveBeenCalledTimes(1);
+});
+
+it("keeps page order and successful OCR work after a recoverable failure, without paying to reread that page", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest
+    .mocked(scan_document_image)
+    .mockClear()
+    .mockResolvedValueOnce("First captured page.")
+    .mockRejectedValueOnce(new Error("Temporary failure"))
+    .mockResolvedValueOnce("Second captured page.");
+  mockTakePhoto
+    .mockResolvedValueOnce({ uri: "file:///camera/first.jpg" })
+    .mockResolvedValueOnce({ uri: "file:///camera/second.jpg" });
+  await render_with_providers(<ScanDocumentScreen />);
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Add another page" }));
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Review scan text" }));
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalledWith("Could not read scan", "Temporary failure"));
+  await fireEvent.press(screen.getByRole("button", { name: "Review scan text" }));
+  expect((await screen.findByLabelText("Recognized text, page 1")).props.value).toBe("First captured page.");
+  await fireEvent.press(screen.getByRole("button", { name: "Next page" }));
+  expect(screen.getByLabelText("Recognized text, page 2").props.value).toBe("Second captured page.");
+  await fireEvent.changeText(screen.getByLabelText("Recognized text, page 2"), "Corrected second page.");
+  await fireEvent.press(screen.getByRole("button", { name: "Save document" }));
+  await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/reader"));
+  expect(jest.mocked(scan_document_image).mock.calls.map((call) => call[0])).toEqual([
+    "scan-page-1.jpg",
+    "scan-page-2.jpg",
+    "scan-page-2.jpg",
+  ]);
+  const { create_document_store } = jest.requireActual<typeof import("../../src/documents/documentStorage")>(
+    "../../src/documents/documentStorage",
+  );
+  expect((await create_document_store("test-user").loadDocuments())[0].plainText).toBe(
+    "First captured page.\n\nCorrected second page.",
+  );
 });

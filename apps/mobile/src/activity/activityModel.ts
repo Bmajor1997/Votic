@@ -20,6 +20,7 @@ export type AskEvent = {
   newConversation: boolean;
 };
 export type ActivityLog = {
+  nativeCheckpoints?: Record<string, number>;
   version: 1;
   /** When measurement began on this device. Earlier activity is not reconstructed. */
   trackingStartedAt: number;
@@ -107,7 +108,13 @@ export function parse_log(raw: string | null): ActivityLog | null {
           (event: Partial<AskEvent>) => typeof event?.at === "number" && typeof event.category === "string",
         )
       : [];
-    return { version: 1, trackingStartedAt: value.trackingStartedAt, buckets, ask };
+    return {
+      version: 1,
+      trackingStartedAt: value.trackingStartedAt,
+      buckets,
+      ask,
+      nativeCheckpoints: clean_native_checkpoints(value.nativeCheckpoints),
+    };
   } catch {
     return null;
   }
@@ -460,4 +467,19 @@ export function spoken_duration(ms: number) {
   if (hours) parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
   if (rest || !hours) parts.push(`${rest} ${rest === 1 ? "minute" : "minutes"}`);
   return parts.join(" ");
+}
+
+export function clean_native_checkpoints(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(
+      ([id, ms]) =>
+        id.length <= 500 &&
+        !["__proto__", "constructor", "prototype"].includes(id) &&
+        typeof ms === "number" &&
+        Number.isFinite(ms) &&
+        ms >= 0 &&
+        ms <= 3_600_000,
+    ),
+  );
 }

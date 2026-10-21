@@ -2,6 +2,7 @@ export type DailyReadingActivity = { readingSeconds: number; listeningSeconds: n
 export type NoteType = "note" | "key-point" | "question" | "definition";
 export type SavedPassage = {
   id: string;
+  deletedAt?: number;
   sentenceIndex: number;
   text: string;
   note: string;
@@ -16,9 +17,11 @@ export type SavedPassage = {
 export type DocumentOrigin = "file" | "webpage" | "scan" | "guide";
 export type VoticDocument = {
   id: string;
+  deletedAt?: number;
   title: string;
   sourceName: string;
   origin?: DocumentOrigin;
+  sourceUrl?: string;
   notebookKind?: "quick-notes";
   plainText: string;
   importedAt: number;
@@ -30,6 +33,7 @@ export type VoticDocument = {
   sentenceIndex: number;
   wordIndex: number;
   playbackRate: number;
+  nativeCheckpoints?: Record<string, number>;
   activity?: Record<string, DailyReadingActivity>;
   savedPassages?: SavedPassage[];
   /** Answers from the retired Review screen. Kept so existing libraries and backups don't lose them. */

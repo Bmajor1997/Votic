@@ -231,7 +231,8 @@ function valid_metadata(value: any): value is StoredDocument {
     value.progress <= 1 &&
     position(value.sentenceIndex) &&
     position(value.wordIndex) &&
-    chunk_metadata(value.textChunks),
+    chunk_metadata(value.textChunks) &&
+    deletion_stamp(value.deletedAt),
   );
 }
 
@@ -241,4 +242,8 @@ function valid(value: any): value is VoticDocument {
     typeof (value as any).plainText === "string" &&
     (value as any).plainText.length <= MAX_DOCUMENT_CHARS
   );
+}
+
+function deletion_stamp(value: unknown) {
+  return value === undefined || (typeof value === "number" && Number.isFinite(value) && value >= 0);
 }

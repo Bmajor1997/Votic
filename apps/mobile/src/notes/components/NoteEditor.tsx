@@ -1,6 +1,7 @@
+import { useNoteDraftProtection } from "../useNoteDraftProtection";
 import { useAccessibilityPreferences } from "../../accessibility/AccessibilityProvider";
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -34,13 +35,21 @@ export function NoteEditor({
   onSave: (item: NoteItem, draft: NoteDraft) => void;
 }) {
   const { reduceMotion } = useAccessibilityPreferences();
+  const requestClose = useRef(onClose);
   return (
-    <Modal visible={item !== null} animationType={reduceMotion ? "none" : "fade"} onRequestClose={onClose}>
+    <Modal
+      visible={item !== null}
+      animationType={reduceMotion ? "none" : "fade"}
+      onRequestClose={() => requestClose.current()}
+    >
       {/* Keyed and mounted only while open, so each note starts from its own saved values. */}
       {item ? (
         <NoteEditorForm
-          key={`${item.document.id}/${item.passage.id}`}
+          key={JSON.stringify([item.document.id, item.passage.id])}
           item={item}
+          registerClose={(close) => {
+            requestClose.current = close;
+          }}
           onClose={onClose}
           onSave={onSave}
         />
@@ -50,10 +59,12 @@ export function NoteEditor({
 }
 
 function NoteEditorForm({
+  registerClose,
   item,
   onClose,
   onSave,
 }: {
+  registerClose: (close: () => void) => void;
   item: NoteItem;
   onClose: () => void;
   onSave: (item: NoteItem, draft: NoteDraft) => void;
@@ -65,6 +76,21 @@ function NoteEditorForm({
   const [noteType, setNoteType] = useState<NoteType>(passage.noteType || "note");
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [tags, setTags] = useState((passage.tags || []).join(", "));
+  const protection = useNoteDraftProtection(
+    item,
+    { note, title, noteType, tags },
+    (draft) => {
+      setNote(draft.note);
+      setTitle(draft.title);
+      setNoteType(draft.noteType);
+      setTags(draft.tags);
+    },
+    onClose,
+  );
+  useEffect(() => {
+    registerClose(protection.close);
+  });
+  const saveDisabled = protection.saving || (!passage.text && !note.trim());
   const fieldColors = { color: theme.text, borderColor: theme.border, backgroundColor: theme.background };
   return (
     <KeyboardAvoidingView
@@ -85,7 +111,8 @@ function NoteEditorForm({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close note editor"
-              onPress={onClose}
+              disabled={protection.saving}
+              onPress={protection.close}
               style={sheet.close}
             >
               <Ionicons name="close" size={23} color={theme.text} />
@@ -99,8 +126,14 @@ function NoteEditorForm({
               {passage.text}
             </Text>
           ) : null}
+          {protection.error ? (
+            <Text accessibilityRole="alert" style={{ color: theme.text }}>
+              {protection.error}
+            </Text>
+          ) : null}
           <TextInput
             accessibilityLabel="Note title"
+            editable={!protection.saving}
             value={title}
             onChangeText={setTitle}
             placeholder="Title (optional — Votic can create one)"
@@ -126,6 +159,7 @@ function NoteEditorForm({
                   return (
                     <Pressable
                       key={type.value}
+                      disabled={protection.saving}
                       accessibilityRole="radio"
                       accessibilityState={{ checked: selected }}
                       onPress={() => setNoteType(type.value)}
@@ -146,6 +180,7 @@ function NoteEditorForm({
               </View>
               <TextInput
                 accessibilityLabel="Note tags"
+                editable={!protection.saving}
                 value={tags}
                 onChangeText={setTags}
                 placeholder="Tags, separated by commas"
@@ -158,6 +193,7 @@ function NoteEditorForm({
           <TextInput
             autoFocus
             accessibilityLabel="Note text"
+            editable={!protection.saving}
             value={note}
             onChangeText={setNote}
             placeholder="Write your note..."
@@ -169,12 +205,12 @@ function NoteEditorForm({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Save note"
-            disabled={!passage.text && !note.trim()}
-            accessibilityState={{ disabled: !passage.text && !note.trim() }}
-            onPress={() => onSave(item, { note, title, noteType, tags })}
+            disabled={saveDisabled}
+            accessibilityState={{ disabled: saveDisabled }}
+            onPress={() => void protection.save(() => onSave(item, { note, title, noteType, tags }))}
             style={({ pressed }) => [s.save, { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 }]}
           >
-            <Text style={s.saveText}>Save note</Text>
+            <Text style={s.saveText}>{protection.saving ? "Saving…" : "Save note"}</Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
