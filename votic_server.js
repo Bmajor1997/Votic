@@ -327,9 +327,9 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
     // The free readiness check has its own bucket so each voice question spends one transcription slot.
     rate_limit(path === "/api/voice-question-status" ? `${client}:voice-status` : `${client}:voice`, config.help_rate_limit);
-    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
+    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable right now.");
     if (!identity?.uid) throw new HttpError(401, "Sign in to use voice questions.");
-    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
+    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are unavailable right now.");
     if (path === "/api/voice-question-status") {
       await read_body(request, 1024, config.body_timeout_ms);
       send_json(response, 200, { ready: true });

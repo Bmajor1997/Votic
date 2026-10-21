@@ -12,6 +12,8 @@ export const IMPORT_TYPES: Record<string, string> = {
   "application/vnd.ms-powerpoint": "ppt",
   "application/epub+zip": "epub",
   "application/rtf": "rtf",
+  // Android labels RTF files text/rtf; both are registered RTF types, and the picker shows only listed types.
+  "text/rtf": "rtf",
   "application/vnd.oasis.opendocument.text": "odt",
   "text/html": "html",
   "image/jpeg": "jpg",

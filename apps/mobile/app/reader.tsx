@@ -49,6 +49,7 @@ import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
 import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
+import { voice_error_text } from "../src/voice/voiceErrorText";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { SendArrow } from "../src/components/SendArrow";
 import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
@@ -69,7 +70,7 @@ import { create_throttled_saver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
-import { reader_source_transform } from "../src/navigation/readerTransform";
+import { reader_motion } from "../src/navigation/readerTransform";
 import { clean_tags } from "../src/notes/noteMetadata";
 import { format_playback_rate, normalize_playback_rate } from "../src/playback/rates";
 import { CompletionModal, type FinishSummary } from "../src/reader/components/CompletionModal";
@@ -1225,26 +1226,25 @@ function ReaderContent() {
   }
 
   const {
-    scaleX: sourceScaleX,
-    scaleY: sourceScaleY,
-    translateX: sourceTranslateX,
-    translateY: sourceTranslateY,
-  } = reader_source_transform(transition.sourceRect, window);
-  // The panel starts just below the screen and slides up into place.
-  const askPanelSlide = askProgress.interpolate({ inputRange: [0, 1], outputRange: [askPanelHeight, 0] });
-  // The Reader dock follows the inverse path, leaving and returning on the same curve as Ask Votic.
-  const dockSlide = askProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, dockHeight + spacing.sm],
+    source: {
+      scaleX: sourceScaleX,
+      scaleY: sourceScaleY,
+      translateX: sourceTranslateX,
+      translateY: sourceTranslateY,
+    },
+    askPanelSlide,
+    dockSlide,
+    dockOpacity,
+    readerOpacity,
+  } = reader_motion({
+    source: transition.sourceRect,
+    window,
+    transitionProgress: transition.progress,
+    readerReady,
+    askProgress,
+    askPanelHeight,
+    dockTravel: dockHeight + spacing.sm,
   });
-  const dockOpacity = askProgress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 0, 0] });
-  const readerOpacity = readerReady
-    ? transition.progress.interpolate({
-        inputRange: [0, 0.62, 1],
-        outputRange: [0, 0, 1],
-        extrapolate: "clamp",
-      })
-    : 0;
 
   return (
     <View style={s.safe}>
@@ -1713,13 +1713,12 @@ function ReaderContent() {
                     ) : null}
                     {askVoiceError ? (
                       <Text
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite"
                         onLayout={(event) => setAskVoiceErrorHeight(event.nativeEvent.layout.height)}
                         style={[s.askError, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                       >
-                        {askVoiceError}{" "}
-                        {askVoicePhase === "error"
-                          ? "Retry transcription or discard the recording."
-                          : "You can still type your question."}
+                        {voice_error_text(askVoiceError, askVoicePhase)}
                       </Text>
                     ) : null}
                     <View

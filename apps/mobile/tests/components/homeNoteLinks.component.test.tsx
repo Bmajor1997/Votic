@@ -53,13 +53,13 @@ describe("Home note links", () => {
     await fireEvent.press(card(/^Groceries\./));
     expect(router.push).toHaveBeenLastCalledWith({
       pathname: "/notes",
-      params: { note: "q-groceries", notebook: "quick" },
+      params: { note: "q-groceries", notebook: "quick", from: "home" },
     });
 
     await fireEvent.press(card(/^Call the dentist\./));
     expect(router.push).toHaveBeenLastCalledWith({
       pathname: "/notes",
-      params: { note: "q-call", notebook: "quick" },
+      params: { note: "q-call", notebook: "quick", from: "home" },
     });
     // Opening a Quick Note never puts the whole notebook in the Reader.
     expect(router.push).not.toHaveBeenCalledWith("/reader");
@@ -78,7 +78,7 @@ describe("Home note links", () => {
     searchParams.current = { note: id, notebook: "quick" };
     await render_with_providers(<Notes />, { documents: [quickNotes, book] });
     expect(await screen.findByText(shown)).toBeTruthy();
-    expect(router.setParams).toHaveBeenCalledWith({ note: undefined, notebook: undefined });
+    expect(router.setParams).toHaveBeenCalledWith({ note: undefined, notebook: undefined, from: undefined });
     // The viewer shows one note; the other Quick Note isn't opened alongside it.
     expect(screen.queryAllByText(hidden).length).toBeLessThanOrEqual(1);
     expect(screen.getByRole("button", { name: "Close note" })).toBeTruthy();

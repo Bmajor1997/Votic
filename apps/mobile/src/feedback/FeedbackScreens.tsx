@@ -50,6 +50,15 @@ export function missing_fields_message({ title, description }: Values) {
   return "";
 }
 
+/**
+ * Returns to the Feedback screen the form was opened from. Replacing the form with a new Feedback screen would
+ * leave two identical Feedback screens stacked, so the next back tap seemed to do nothing. When no Feedback screen
+ * is underneath (a direct link, or returning from sign-in), the form is replaced by one.
+ */
+function back_to_feedback() {
+  router.dismissTo("/feedback");
+}
+
 export function FeedbackForm({ category }: { category: "feature" | "bug" }) {
   const auth = useAuth();
   // Key the form by verified account so drafts and in-flight results cannot cross account boundaries.
@@ -118,7 +127,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
         title={title}
         backLabel="Back to Feedback"
         backHint="Returns to the two feedback options"
-        onBack={() => router.replace("/feedback")}
+        onBack={back_to_feedback}
       >
         {sent ? (
           <View style={s.fields}>
@@ -131,7 +140,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
                 ? "Thanks for your suggestion! Your feedback helps make Votic better."
                 : "Thanks for reporting this issue! Your feedback helps us improve Votic."}
             </Text>
-            <PrimaryButton label="Back to Feedback" onPress={() => router.replace("/feedback")} />
+            <PrimaryButton label="Back to Feedback" onPress={back_to_feedback} />
           </View>
         ) : (
           <View style={s.fields}>

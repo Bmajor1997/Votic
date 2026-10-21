@@ -262,6 +262,55 @@ describe("Ask Votic recording composer", () => {
   });
 
   it.each([
+    ["Ask Votic", "Voice questions are unavailable right now.", () => <AskVotic />],
+    ["the Reader", "Voice questions are unavailable right now.", () => <OpenedReader />],
+    // An older server's message that already includes the reminder still shows it once.
+    [
+      "Ask Votic",
+      "Voice questions are unavailable right now. You can still type your question.",
+      () => <AskVotic />,
+    ],
+  ])(
+    "says 'You can still type your question' exactly once when voice is unavailable in %s",
+    async (_screen, message, view) => {
+      const alert = jest.spyOn(Alert, "alert");
+      jest.mocked(check_voice_question_availability).mockRejectedValueOnce(new Error(message));
+      await render_with_providers(view(), {
+        documents: [test_document("voice-doc", "Voice book")],
+        reduceMotion: true,
+      });
+      if (screen.queryByRole("button", { name: "Ask Votic about this page" }))
+        await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about this page" }));
+      await start();
+      const shown = screen.getByText(/Voice questions are unavailable right now\./);
+      expect(shown.props.children).toBe(
+        "Voice questions are unavailable right now. You can still type your question.",
+      );
+      expect(shown.props.accessibilityRole).toBe("alert");
+      expect(screen.getAllByText(/You can still type your question/)).toHaveLength(1);
+      expect(alert).not.toHaveBeenCalled();
+    },
+  );
+
+  it("gives a failed recording one next step: retry, without also repeating the typing reminder", async () => {
+    jest
+      .mocked(transcribe_voice_question)
+      .mockRejectedValueOnce(
+        new Error("Votic could not transcribe this voice question. Try typing it instead."),
+      );
+    await render_with_providers(<AskVotic />, { reduceMotion: true });
+    await start();
+    await capture();
+    await stop();
+    expect(
+      screen.getByText(
+        "Votic could not transcribe this voice question. Try typing it instead. Retry transcription or discard the recording.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryAllByText(/You can still type your question/)).toHaveLength(0);
+  });
+
+  it.each([
     ["Ask Votic", () => <AskVotic />],
     ["the Reader", () => <OpenedReader />],
   ])("shows the voice sign-in message once in %s and clears it when typing", async (_screen, view) => {

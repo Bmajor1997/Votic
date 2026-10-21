@@ -71,7 +71,7 @@ export default function Notes() {
   );
   const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
   // Home opens a single note here by its stable IDs, so a Quick Note shows that note, not the whole notebook.
-  const missingNote = useRequestedNote(documents, loaded, setViewing);
+  const requested = useRequestedNote(documents, loaded, setViewing);
   const walkthrough = useWalkthrough();
   const listTarget = useWalkthroughTarget("notes.list");
   const emptyTarget = useWalkthroughTarget("notes.empty");
@@ -205,7 +205,7 @@ export default function Notes() {
         </Pressable>
       }
     >
-      <MissingNoteNotice visible={missingNote} />
+      <MissingNoteNotice visible={requested.missing} />
       {!notebook ? (
         <View style={{ gap: 6 }}>
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
@@ -452,7 +452,7 @@ export default function Notes() {
               })()
             : null
         }
-        onClose={() => setViewing(null)}
+        onClose={requested.closeViewer}
         onAsk={(item, question) => ask_about_notes(item.document.id, item.passage.id, question)}
         onEdit={setEditing}
         onMore={setMenuItem}

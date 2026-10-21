@@ -22,6 +22,7 @@ import { DocumentOpenSheet } from "../../src/documents/DocumentOpenSheet";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
   SORTS,
+  collection_summary,
   Sort,
   file_type_label,
   progress_label,
@@ -97,9 +98,7 @@ export default function Documents() {
       : shelf;
     return sort_documents(matching, sort);
   }, [documents, collection, finishedOnly, query, sort]);
-  const filterCount = (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0) + (finishedOnly ? 1 : 0);
-  const collectionLabel =
-    collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection;
+  const { filterCount, collectionLabel } = collection_summary(collection, sort, finishedOnly);
 
   function open(document: VoticDocument, mode: "read" | "listen") {
     const source = cardRefs.current[document.id];

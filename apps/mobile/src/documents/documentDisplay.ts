@@ -54,3 +54,12 @@ export function sort_documents(documents: VoticDocument[], sort: Sort) {
   if (sort === "progress") return sorted.sort((a, b) => b.progress - a.progress);
   return sorted.sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt));
 }
+
+/** The label and active-filter count shared by the library heading and its filter controls. */
+export function collection_summary(collection: string, sort: Sort, finishedOnly: boolean) {
+  return {
+    filterCount: (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0) + (finishedOnly ? 1 : 0),
+    collectionLabel:
+      collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection,
+  };
+}

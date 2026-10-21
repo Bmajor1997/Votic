@@ -1,3 +1,4 @@
+import type { Animated } from "react-native";
 import type { DocumentSourceRect } from "./DocumentTransitionProvider";
 
 export type ReaderSourceTransform = {
@@ -21,5 +22,40 @@ export function reader_source_transform(
     scaleY: Math.max(0.05, source.height / window.height),
     translateX: source.x + source.width / 2 - window.width / 2,
     translateY: source.y + source.height / 2 - window.height / 2,
+  };
+}
+
+/** Opening geometry and the matching Ask Votic/dock motion, calculated together for the current layout. */
+export function reader_motion({
+  source,
+  window,
+  transitionProgress,
+  readerReady,
+  askProgress,
+  askPanelHeight,
+  dockTravel,
+}: {
+  source: DocumentSourceRect | null;
+  window: { width: number; height: number };
+  transitionProgress: Animated.Value;
+  readerReady: boolean;
+  askProgress: Animated.Value;
+  askPanelHeight: number;
+  dockTravel: number;
+}) {
+  return {
+    source: reader_source_transform(source, window),
+    // The panel starts below the screen; the dock leaves and returns along the inverse path.
+    askPanelSlide: askProgress.interpolate({ inputRange: [0, 1], outputRange: [askPanelHeight, 0] }),
+    dockSlide: askProgress.interpolate({ inputRange: [0, 1], outputRange: [0, dockTravel] }),
+    dockOpacity: askProgress.interpolate({ inputRange: [0, 0.8, 1], outputRange: [1, 0, 0] }),
+    // The document stays hidden until its opening layout is ready.
+    readerOpacity: readerReady
+      ? transitionProgress.interpolate({
+          inputRange: [0, 0.62, 1],
+          outputRange: [0, 0, 1],
+          extrapolate: "clamp",
+        })
+      : 0,
   };
 }

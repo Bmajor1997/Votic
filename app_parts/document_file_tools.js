@@ -64,7 +64,8 @@ async function pdf_page_needs_ocr(page) {
 }
 
 export async function extract_document(name, buffer) {
-  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8")));
+  // An uploaded HTML file is usually a saved web page, so its site navigation and page furniture are left out.
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(buffer.toString("utf8"), { chrome: true }));
   if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
   if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
@@ -144,7 +145,7 @@ export async function extract_epub(buffer) {
     if (item_path.startsWith("../") || (package_prefix && !item_path.startsWith(package_prefix))) throw new Error("This EPUB contains an unsafe publication path.");
     const content_file = archive.file(item_path);
     if (!content_file) continue;
-    const text = clean_extracted_text(html_to_document_text(await safe_archive_text(content_file)));
+    const text = clean_extracted_text(html_file_text(await safe_archive_text(content_file), { book: true }));
     if (!text) continue;
     extracted_characters += text.length;
     if (extracted_characters > 10_000_000) throw new Error("This EPUB expands beyond Votic's current reading limit.");
@@ -289,17 +290,8 @@ export function html_to_document_text(html) {
 export function clean_extracted_text(source, { removeRepeatedPageArtifacts = false } = {}) {
   let text = String(source || "").replace(/\r\n?/g, "\n").replace(/[\uFB00-\uFB06]/g, (character) => ({ "ﬀ": "ff", "ﬁ": "fi", "ﬂ": "fl", "ﬃ": "ffi", "ﬄ": "ffl", "ﬅ": "st", "ﬆ": "st" })[character] || character);
   let pages = text.split(/\f|\n\s*---\s*PAGE\s+\d+\s*---\s*\n/gi);
-  if (removeRepeatedPageArtifacts && pages.length >= 3) {
-    const candidates = new Map();
-    for (const page of pages) {
-      const lines = page.split("\n").map((line) => line.trim()).filter(Boolean);
-      for (const line of [lines[0], lines.at(-1)]) if (line && !is_page_number(line)) candidates.set(normalize_artifact(line), (candidates.get(normalize_artifact(line)) || 0) + 1);
-    }
-    const repeated = new Set([...candidates].filter(([, count]) => count >= Math.ceil(pages.length * .6)).map(([line]) => line));
-    pages = pages.map((page) => page.split("\n").filter((line) => !repeated.has(normalize_artifact(line))).join("\n"));
-  }
+  if (removeRepeatedPageArtifacts) pages = without_page_furniture(pages);
   text = pages.join("\n\n")
-    .replace(/^\s*(?:page\s+)?\d+(?:\s+of\s+\d+)?\s*$/gim, "")
     .replace(/([A-Za-z])-[ \t]*\n[ \t]*([a-z])/g, "$1$2")
     .replace(/^\s*[•◦▪●]\s*/gm, "• ")
     .replace(/^\s*(\d+)[)]\s+/gm, "$1. ")
@@ -309,8 +301,68 @@ export function clean_extracted_text(source, { removeRepeatedPageArtifacts = fal
   return text;
 }
 
-function normalize_artifact(line) { return line.toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").trim(); }
-function is_page_number(line) { return /^(?:page\s+)?\d+(?:\s+of\s+\d+)?$/i.test(line.trim()); }
+/**
+ * PDF page furniture: running headers, footers and page numbers. Reading accuracy comes first, so a line is removed
+ * only with evidence from several pages, only at the top or bottom of a page, and never because it merely looks
+ * similar after its numbers are ignored ("Chapter 1" and "Chapter 2" are different lines). Anything uncertain stays.
+ */
+const MIN_HEADER_PAGES = 3;
+const MAX_HEADER_CHARS = 80;
+/** A line made only of a page number: "7", "Page 7", "7 of 20", "- 7 -". Returns the number, or null. */
+function page_number_of(line) {
+  const match = /^(?:page\s+)?(\d{1,4})(?:\s+of\s+\d{1,4})?$/i.exec(line) || /^[-–—]\s*(\d{1,4})\s*[-–—]$/.exec(line);
+  return match ? Number(match[1]) : null;
+}
+/** Comparison key for running headers. Only explicit page markers ("Page 7", "7 of 20") are allowed to differ. */
+function header_key(line) {
+  return line.toLowerCase().replace(/\s+/g, " ").trim()
+    .replace(/\bpage\s+\d+(?:\s+of\s+\d+)?\b/g, "page #").replace(/\b\d+\s+of\s+\d+\b/g, "# of #");
+}
+const edge_indexes = (lines) => {
+  const kept = lines.map((line, index) => (line.trim() ? index : -1)).filter((index) => index >= 0);
+  return kept.length ? [...new Set([kept[0], kept.at(-1)])] : [];
+};
+/** Edge lines that are page numbers counting with the pages (the same offset on at least two pages). */
+function page_number_lines(pages) {
+  const found = [], offsets = new Map();
+  pages.forEach((lines, page) => {
+    for (const index of edge_indexes(lines)) {
+      const number = page_number_of(lines[index].trim());
+      if (number === null) continue;
+      found.push({ page, index, offset: number - page });
+      offsets.set(number - page, (offsets.get(number - page) || 0) + 1);
+    }
+  });
+  const [offset, count] = [...offsets].sort((a, b) => b[1] - a[1])[0] || [];
+  return count >= 2 ? found.filter((item) => item.offset === offset) : [];
+}
+/** Edge lines repeated at the same edge on most pages: short labels, not sentences, never differing in other numbers. */
+function running_header_lines(pages) {
+  if (pages.length < MIN_HEADER_PAGES) return [];
+  const counts = new Map(), found = [];
+  pages.forEach((lines, page) => {
+    const edges = edge_indexes(lines);
+    edges.forEach((index, position) => {
+      const line = lines[index].trim();
+      if (line.length > MAX_HEADER_CHARS || /[.!?]["'’”)\]]*$/.test(line)) return;
+      const key = `${position === 0 && edges.length > 1 ? "top" : edges.length === 1 ? "only" : "bottom"}:${header_key(line)}`;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      found.push({ page, index, key });
+    });
+  });
+  const needed = Math.max(MIN_HEADER_PAGES, Math.ceil(pages.length * 0.6));
+  return found.filter((item) => counts.get(item.key) >= needed);
+}
+function without_lines(pages, lines) {
+  const drop = new Set(lines.map(({ page, index }) => `${page}:${index}`));
+  return pages.map((page_lines, page) => page_lines.filter((_line, index) => !drop.has(`${page}:${index}`)));
+}
+function without_page_furniture(pages) {
+  let split = pages.map((page) => page.split("\n"));
+  split = without_lines(split, page_number_lines(split));
+  split = without_lines(split, running_header_lines(split));
+  return split.map((lines) => lines.join("\n"));
+}
 
 function decode_html(text) {
   return text.replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp);/gi, (_, entity) => {
@@ -323,14 +375,49 @@ function decode_html(text) {
 const HIDDEN_HTML = new Set(["script", "style", "noscript", "template", "head", "svg", "math", "iframe", "object"]);
 const HTML_BLOCKS = new Set(["p", "div", "section", "article", "main", "header", "footer", "aside", "blockquote", "pre", "table", "tr", "ul", "ol", "dl", "dt", "dd", "figure", "figcaption", "hr"]);
 
+/** Book navigation that is a list of links, not reading: a table of contents, landmarks, or a page list. */
+const BOOK_NAVIGATION = /\b(?:toc|landmarks|page-list|doc-toc|doc-pagelist)\b/i;
 /**
- * Readable text from an uploaded HTML file, in one forward pass. Unlike html_to_document_text (for the tidy HTML
- * mammoth makes from Word files), it never pairs tags with a search, so broken or hostile markup stays fast, and it
- * drops scripts, styles and other hidden contents instead of reading them aloud.
+ * Whether an element and everything inside it is left out. Hidden content never counts. A saved web page also
+ * drops its site navigation, and its footer and asides when they sit outside the article. A book keeps footers and
+ * asides (often notes) and drops only navigation marked as a table of contents, landmarks, or page list.
  */
-export function html_file_text(html) {
+function skipped_element(name, attributes, { chrome, book, inContent }) {
+  if (/(?:^|\s)hidden(?:[\s=/]|$)/i.test(attributes) || /aria-hidden\s*=\s*["']?true/i.test(attributes)) return true;
+  if (chrome) {
+    if (name === "nav" || /role\s*=\s*["']?navigation/i.test(attributes)) return true;
+    if ((name === "footer" || name === "aside") && !inContent) return true;
+  }
+  return book && name === "nav" && BOOK_NAVIGATION.test(attributes);
+}
+/** The index just after the element that opened before `from`, counting nested elements of the same name. */
+function element_end(lower, name, from) {
+  let depth = 1, at = from;
+  const boundary = (index) => /[\s/>]/.test(lower[index + name.length + 1] || ">");
+  while (depth > 0) {
+    const next_open = lower.indexOf(`<${name}`, at), next_close = lower.indexOf(`</${name}`, at);
+    if (next_close === -1) return -1;
+    if (next_open !== -1 && next_open < next_close) {
+      at = next_open + name.length + 1;
+      if (boundary(next_open)) depth += 1;
+      continue;
+    }
+    at = next_close + name.length + 2;
+    if (/[\s>]/.test(lower[at] || ">")) depth -= 1;
+  }
+  const after = lower.indexOf(">", at);
+  return after === -1 ? -1 : after + 1;
+}
+
+/**
+ * Readable text from an uploaded HTML file or EPUB chapter, in one forward pass. Unlike html_to_document_text (for
+ * the tidy HTML mammoth makes from Word files), broken or hostile markup stays fast, and it drops declarations
+ * (`<!doctype>`), metadata such as the page title, scripts, styles and hidden content instead of reading them aloud.
+ * `chrome` drops a saved web page's navigation and page furniture; `book` treats the markup as an ebook chapter.
+ */
+export function html_file_text(html, { chrome = false, book = false } = {}) {
   const lower = html.toLowerCase(), parts = [], lists = [];
-  let i = 0;
+  let i = 0, content_depth = 0;
   while (i < html.length) {
     const open = html.indexOf("<", i);
     if (open === -1) { parts.push(html_text_run(html.slice(i))); break; }
@@ -344,30 +431,22 @@ export function html_file_text(html) {
     const close = html.indexOf(">", open + 1);
     // No later ">" means no later tag can finish either; the rest is not readable markup.
     if (close === -1) break;
-    const tag = /^(\/?)([a-z][a-z0-9:-]*)/i.exec(html.slice(open + 1, Math.min(close, open + 64)));
     i = close + 1;
+    // Declarations and processing instructions (<!doctype html>, <?xml ?>, <![CDATA[) are never readable text.
+    if (html[open + 1] === "!" || html[open + 1] === "?") continue;
+    const tag = /^(\/?)([a-z][a-z0-9:-]*)/i.exec(html.slice(open + 1, Math.min(close, open + 64)));
     if (!tag) { parts.push(html_text_run(html.slice(open, close + 1))); continue; }
     const ending = Boolean(tag[1]), name = tag[2].toLowerCase();
-    if (!ending && HIDDEN_HTML.has(name) && !html.slice(open, close + 1).endsWith("/>")) {
-      const end = lower.indexOf(`</${name}`, i);
+    const self_closing = html[close - 1] === "/";
+    if (name === "article" || name === "main") content_depth = Math.max(0, content_depth + (ending ? -1 : self_closing ? 0 : 1));
+    if (!ending && !self_closing && (HIDDEN_HTML.has(name) ||
+        skipped_element(name, html.slice(open + 1 + name.length, close), { chrome, book, inContent: content_depth > 0 }))) {
+      const end = HIDDEN_HTML.has(name) ? hidden_end(lower, html, name, i) : element_end(lower, name, i);
       if (end === -1) break;
-      const after = html.indexOf(">", end);
-      if (after === -1) break;
-      i = after + 1;
+      i = end;
       continue;
     }
-    if (/^h[1-6]$/.test(name)) parts.push(ending ? "\n\n" : name === "h1" ? "\n# " : "\n## ");
-    else if (name === "br") parts.push("\n");
-    else if (name === "ol" || name === "ul") { if (ending) lists.pop(); else lists.push(name === "ol" ? 0 : null); parts.push("\n"); }
-    else if (name === "li") {
-      if (!ending) {
-        const depth = lists.length - 1;
-        if (depth >= 0 && lists[depth] !== null) parts.push(`\n${(lists[depth] += 1)}. `);
-        else parts.push("\n• ");
-      }
-    }
-    else if (name === "td" || name === "th") { if (ending) parts.push(" | "); }
-    else if (HTML_BLOCKS.has(name)) parts.push("\n");
+    parts.push(structure_text(name, ending, lists));
   }
   return parts.join("")
     .replace(/[ \t]+\|[ \t]*(?=\n|$)/g, "")
@@ -377,6 +456,32 @@ export function html_file_text(html) {
     .trim();
 }
 function html_text_run(text) { return decode_html(text.replace(/\s+/g, " ")); }
+/** The line breaks and marks a tag adds: headings, breaks, numbered or bulleted list items, table cells, blocks. */
+function structure_text(name, ending, lists) {
+  if (/^h[1-6]$/.test(name)) return ending ? "\n\n" : name === "h1" ? "\n# " : "\n## ";
+  if (name === "br") return "\n";
+  if (["ol", "ul", "li"].includes(name)) return list_text(name, ending, lists);
+  if (name === "td" || name === "th") return ending ? " | " : "";
+  return HTML_BLOCKS.has(name) ? "\n" : "";
+}
+/** Lists: each <li> starts a line, numbered inside <ol> (counting per nested list) and bulleted otherwise. */
+function list_text(name, ending, lists) {
+  if (name !== "li") {
+    if (ending) lists.pop();
+    else lists.push(name === "ol" ? 0 : null);
+    return "\n";
+  }
+  if (ending) return "";
+  const depth = lists.length - 1;
+  return depth >= 0 && lists[depth] !== null ? `\n${(lists[depth] += 1)}. ` : "\n• ";
+}
+/** Script, style and similar contents end at the first closing tag: their text is not markup, so nothing nests. */
+function hidden_end(lower, html, name, from) {
+  const end = lower.indexOf(`</${name}`, from);
+  if (end === -1) return -1;
+  const after = html.indexOf(">", end);
+  return after === -1 ? -1 : after + 1;
+}
 
 /** Minimal RTF plain-text reader: handles common escapes and ignores hidden destinations. */
 export function extract_rtf(buffer) {
