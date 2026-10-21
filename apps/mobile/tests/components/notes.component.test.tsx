@@ -185,8 +185,21 @@ describe("Notes search, filters, and notebooks", () => {
 });
 
 describe("Quick Notes", () => {
-  it("creates standalone notes without a document and keeps them in one notebook", async () => {
-    await render_with_providers(<Notes />, { documents: [] });
+  it.each([{ emptyDocuments: [] }, { emptyDocuments: [test_document("empty-doc", "My Document")] }])(
+    "hides Quick Note when no notes exist and directs readers to a document",
+    async ({ emptyDocuments }) => {
+      await render_with_providers(<Notes />, { documents: emptyDocuments });
+      expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
+      if (emptyDocuments.length)
+        await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
+      expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+      expect(screen.getByText("Save a passage while reading. Your notes will appear here.")).toBeTruthy();
+      await fireEvent.press(screen.getByRole("button", { name: "Open a document" }));
+      expect(router.push).toHaveBeenCalledWith("/documents");
+    },
+  );
+  it("creates standalone Quick Notes once notes exist and keeps them in one notebook", async () => {
+    await render_with_providers(<Notes />, { documents: [documents[0]] });
     await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
     expect(screen.getByRole("button", { name: "Save note", disabled: true })).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Note text"), "Remember the meeting questions.");
@@ -210,8 +223,10 @@ describe("Quick Notes", () => {
     expect(quick?.plainText).toContain("A second independent thought.");
     expect(screen.getByText("Remember the meeting questions.")).toBeTruthy();
   });
-  it("opens an empty document notebook and adds a note without saving a passage", async () => {
-    await render_with_providers(<Notes />, { documents: [test_document("empty-doc", "My Document")] });
+  it("adds a note to an empty notebook when notes already exist elsewhere", async () => {
+    await render_with_providers(<Notes />, {
+      documents: [test_document("empty-doc", "My Document"), documents[0]],
+    });
     await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
     await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));
     await fireEvent.changeText(screen.getByLabelText("Note text"), "My own observation.");

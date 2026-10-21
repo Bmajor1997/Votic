@@ -223,8 +223,8 @@ describe("Notes", () => {
     expect(screen.getByText("No notes yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Select notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Open q3_board-report_FINAL notebook" }));
-    expect(screen.getByRole("header", { name: "No notes yet" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
   });
 
   it("opens each document’s notebook and keeps Notes or Saved passages in the filter panel", async () => {

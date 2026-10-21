@@ -188,23 +188,7 @@ export default function Notes() {
   }
 
   return (
-    <Screen
-      title="Notes"
-      titleAction={
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Quick Note"
-          onPress={start_quick_note}
-          style={({ pressed }) => [
-            s.askSelected,
-            { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <Ionicons name="add-outline" size={20} color="#FFF" />
-          <Text style={s.askSelectedText}>Quick Note</Text>
-        </Pressable>
-      }
-    >
+    <Screen title="Notes" titleAction={<QuickNoteAction visible={hasNotes} onPress={start_quick_note} />}>
       <MissingNoteNotice visible={requested.missing} />
       {!notebook ? (
         <View style={{ gap: 6 }}>
@@ -421,12 +405,10 @@ export default function Notes() {
         <View ref={emptyTarget} collapsable={false} style={s.empty}>
           <NotesEmptyAnimation />
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>
-            {notebook ? "No notes yet" : "Keep what matters."}
+            Your notes will appear here
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            {notebook
-              ? "Add a Quick Note, or save a passage while reading. Your ideas will live in this notebook."
-              : "Open a document to begin your notebook collection, or write a Quick Note."}
+            Save a passage while reading. Your notes will appear here.
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -484,6 +466,22 @@ export default function Notes() {
       />
       <NoteEditor item={editing} onClose={() => setEditing(null)} onSave={save_note} />
     </Screen>
+  );
+}
+
+function QuickNoteAction({ visible, onPress }: { visible: boolean; onPress: () => void }) {
+  const { theme } = useVoticTheme();
+  if (!visible) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Quick Note"
+      onPress={onPress}
+      style={({ pressed }) => [s.askSelected, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
+    >
+      <Ionicons name="add-outline" size={20} color="#FFF" />
+      <Text style={s.askSelectedText}>Quick Note</Text>
+    </Pressable>
   );
 }
 
