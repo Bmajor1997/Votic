@@ -133,6 +133,7 @@ function select(label, values, current) {
     option.value = value;
     input.append(option);
   }
+  input.setAttribute("aria-label", label);
   input.value = current;
   wrapper.append(input);
   return { wrapper, input };

@@ -44,7 +44,9 @@ skipped assertions. GitHub's first browser run did execute: 9 passed and 1 faile
 on an assertion that inspected the old list during an in-flight merge. A follow-up
 adds an accessible busy state, prevents dashboard interaction during operations,
 and waits for completion while retaining the exact +2 and group-count assertions.
-The cloud rerun must be checked before claiming the complete browser suite passes.
+The second cloud run verified merge counts, then caught a missing exact accessible
+label on the status dropdown. The dropdown now has an explicit aria-label;
+the next cloud rerun must be checked before claiming the complete browser suite passes.
 The dashboard remains unverified in the local container. Browser tests are committed for the existing Chromium CI
 workflow, including both sections without tabs, safe rendering of malicious
 feedback, denied users, merge/separate/status, and unique counts.
