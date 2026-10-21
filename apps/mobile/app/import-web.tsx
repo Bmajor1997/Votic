@@ -50,17 +50,32 @@ export default function ImportWebScreen() {
             common page chrome before saving the readable text.
           </Text>
         </View>
-        <TextInput
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          accessibilityLabel="Webpage address"
-          value={url}
-          onChangeText={setUrl}
-          placeholder="https://example.com/article"
-          placeholderTextColor={theme.mutedText}
-          style={[s.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface }]}
-        />
+        <View style={[s.field, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            accessibilityLabel="Webpage address"
+            value={url}
+            onChangeText={setUrl}
+            placeholder="https://example.com/article"
+            placeholderTextColor={theme.mutedText}
+            style={[s.input, { color: theme.text }]}
+          />
+          {/* Pasting into a box that still holds an old link adds to it, so emptying it takes one tap. */}
+          {url ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear webpage address"
+              disabled={busy}
+              onPress={() => setUrl("")}
+              hitSlop={8}
+              style={s.clear}
+            >
+              <Ionicons name="close-circle" size={22} color={theme.mutedText} />
+            </Pressable>
+          ) : null}
+        </View>
         <Pressable
           disabled={busy || !url.trim()}
           onPress={() => void submit()}
@@ -89,7 +104,9 @@ const s = StyleSheet.create({
   hero: { padding: 18, borderRadius: 16, gap: 10 },
   heroTitle: { fontSize: 20, fontWeight: "800", lineHeight: 27 },
   copy: { fontSize: 15, lineHeight: 22 },
-  input: { minHeight: 54, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, fontSize: 16 },
+  field: { minHeight: 54, borderWidth: 1, borderRadius: 14, flexDirection: "row", alignItems: "center" },
+  input: { flex: 1, minHeight: 52, paddingHorizontal: 14, fontSize: 16 },
+  clear: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   button: {
     minHeight: 52,
     borderRadius: 14,

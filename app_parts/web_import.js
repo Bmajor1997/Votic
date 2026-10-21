@@ -27,8 +27,18 @@ function private_ip(address) {
     (a === 172 && b >= 16 && b <= 31) || (a === 100 && b >= 64 && b <= 127) ||
     (a === 198 && [18, 19].includes(b));
 }
+/**
+ * Two or more links pasted into one box ("…/Wallacehttps://www.bbc.co.uk/…") would otherwise be read as one long
+ * address on the first site. A link inside a query string or fragment (`?url=https://…`) is still one address.
+ */
+export function has_several_addresses(value) {
+  const location = String(value).split(/[?#]/, 1)[0];
+  return (location.match(/https?:\/\//gi) || []).length > 1;
+}
 async function resolve_public_url(value, lookupImpl) {
   let url;
+  if (has_several_addresses(value))
+    throw new WebImportError("That box has more than one webpage address. Keep just one link, then try again.");
   try {
     const trimmed = value.trim();
     // "example.com:8080/news" has a port, not a scheme; only a letter-led scheme ("http:", "javascript:") counts.

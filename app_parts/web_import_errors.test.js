@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  has_several_addresses,
   http_failure,
   import_public_webpage,
   network_failure,
@@ -129,4 +130,20 @@ test("error handling keeps private-network and redirect protections in place", a
     /not public/,
   );
   await assert.rejects(() => import_public_webpage("http://127.0.0.1/", { lookupImpl: lookup }), /not public/);
+});
+
+test("several links pasted into one box are refused clearly instead of being read as one address", async () => {
+  const pasted =
+    "https://www.britannica.com/biography/William-Wallacehttps://www.worldhistory.org/William_Wallace/https://www.bbc.co.uk/history/historic_figures/wallace_william.shtml";
+  let fetched = false;
+  await assert.rejects(
+    () => import_public_webpage(pasted, { lookupImpl, fetchImpl: async () => { fetched = true; } }),
+    /more than one webpage address\. Keep just one link/,
+  );
+  assert.equal(fetched, false);
+  assert.equal(has_several_addresses("http://a.test/one http://b.test/two"), true);
+  // One address that carries another in its query string or fragment is still one address.
+  assert.equal(has_several_addresses("https://a.test/share?url=https://b.test/page"), false);
+  assert.equal(has_several_addresses("https://a.test/page#see-https://b.test"), false);
+  assert.equal(has_several_addresses("https://www.bbc.co.uk/history/historic_figures/wallace_william.shtml"), false);
 });
