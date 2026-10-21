@@ -150,11 +150,19 @@ test("administrator can review, merge, separate and update feedback without losi
   await page
     .getByRole("button", { name: "Confirm merge", exact: true })
     .click();
+  await expect(page.locator("#dashboard")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
+  await expect(page.locator("#features .issue")).toHaveCount(1);
   await expect(page.locator("#features .count")).toHaveText("+2");
   await page.getByLabel("Status", { exact: true }).selectOption("Planned");
   await page.getByRole("button", { name: "Save status", exact: true }).click();
   await expect(page.locator("#features")).toContainText("Planned");
-  await page.waitForLoadState("networkidle");
+  await expect(page.locator("#dashboard")).toHaveAttribute(
+    "aria-busy",
+    "false",
+  );
   await page.locator("#details input[type=checkbox]").first().check();
   await page
     .getByRole("button", {

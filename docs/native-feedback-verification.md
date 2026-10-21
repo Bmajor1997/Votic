@@ -39,9 +39,13 @@ in [native-feedback-system.md](native-feedback-system.md).
 | Chromium installation | Attempted; download returned an invalid/truncated archive |
 | Live Firebase/RevenueCat/device verification | Not performed; live credentials and physical/emulated device unavailable here |
 
-The browser failures are environment blockers, not passing tests or skipped
-assertions. The dashboard's actual browser layout and interactions remain
-unverified locally. Browser tests are committed for the existing Chromium CI
+The local browser launch failures are environment blockers, not passing tests or
+skipped assertions. GitHub's first browser run did execute: 9 passed and 1 failed
+on an assertion that inspected the old list during an in-flight merge. A follow-up
+adds an accessible busy state, prevents dashboard interaction during operations,
+and waits for completion while retaining the exact +2 and group-count assertions.
+The cloud rerun must be checked before claiming the complete browser suite passes.
+The dashboard remains unverified in the local container. Browser tests are committed for the existing Chromium CI
 workflow, including both sections without tabs, safe rendering of malicious
 feedback, denied users, merge/separate/status, and unique counts.
 

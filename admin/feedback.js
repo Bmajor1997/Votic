@@ -5,7 +5,8 @@ let token = "",
   currentPage = 0,
   currentGroup = null,
   session = 0,
-  expiryTimer;
+  expiryTimer,
+  pendingOperations = 0;
 const message = (text) => {
   by_id("message").textContent = text;
 };
@@ -34,11 +35,24 @@ function logout() {
   by_id("password").value = "";
   by_id("token").value = "";
 }
+function operation_state(busy) {
+  for (const id of ["dashboard", "login"]) {
+    by_id(id).inert = busy;
+    by_id(id).setAttribute("aria-busy", String(busy));
+  }
+}
 async function run(work) {
+  pendingOperations++;
+  operation_state(true);
+  message("Working…");
   try {
     await work();
   } catch (error) {
     message(error.message || "The operation failed. Please try again.");
+  } finally {
+    pendingOperations--;
+    operation_state(pendingOperations > 0);
+    if (by_id("message").textContent === "Working…") message("");
   }
 }
 async function api(path, body) {
