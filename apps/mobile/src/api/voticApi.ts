@@ -292,6 +292,20 @@ export type FeedbackInput = {
   expected?: string;
   actual?: string;
 };
+/**
+ * Why feedback wasn't accepted. `code` says what will help: AUTH_REQUIRED or AUTH_EXPIRED (signing in again),
+ * AUTH_UNAVAILABLE (nothing the person can do; the service is unavailable), or undefined for other failures.
+ */
+export class FeedbackSubmitError extends Error {
+  constructor(
+    message: string,
+    readonly code?: "AUTH_REQUIRED" | "AUTH_EXPIRED" | "AUTH_UNAVAILABLE",
+  ) {
+    super(message);
+    this.name = "FeedbackSubmitError";
+  }
+}
+const FEEDBACK_CODES = ["AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"] as const;
 export async function submit_feedback(input: FeedbackInput) {
   const response = await api_fetch(
     "/api/feedback",
@@ -304,8 +318,13 @@ export async function submit_feedback(input: FeedbackInput) {
     undefined,
     "Sign in to submit feedback.",
   );
-  if (!response.ok)
-    throw new Error(server_error(response.result, "Feedback could not be sent. Please try again."));
+  if (!response.ok) {
+    const code = FEEDBACK_CODES.find((known) => known === response.result.code);
+    throw new FeedbackSubmitError(
+      server_error(response.result, "Feedback could not be sent. Please try again."),
+      code,
+    );
+  }
   if (typeof response.result.id !== "string")
     throw new Error("Votic could not confirm your feedback. Please try again.");
   return response.result.id;

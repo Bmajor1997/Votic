@@ -112,3 +112,16 @@ describe("notes on Home", () => {
     expect(relative_day(at(27, 8), now)).toBe("4 days ago");
   });
 });
+
+describe("week boundaries", () => {
+  it("counts only the part of a session after Monday midnight, the same way Statistics does", async () => {
+    const { period_for, summarize } = await import("../activity/activityModel");
+    // The week of Thursday, October 1 starts Monday, September 28. A session runs 23:55 Sunday to 00:05 Monday.
+    const monday = new Date(2026, 8, 28).getTime();
+    const log = add_interval(empty_log(0), "a", "reading", monday - 5 * MIN, monday + 5 * MIN);
+    const week = period_for("week", 0, now);
+    expect(week.start.getTime()).toBe(monday);
+    expect(week_activity(log, now).total).toBe(summarize(log, week.start, week.end).total);
+    expect(week_activity(log, now).total).toBe(5 * MIN);
+  });
+});

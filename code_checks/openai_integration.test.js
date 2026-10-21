@@ -192,14 +192,18 @@ test("durable daily caps survive handler/process restart and identity spoofing c
 
 test("voice readiness fails before recording when configuration is missing, without paid calls", async () => {
   for (const [settings, authorizer, message] of [
-    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /verify sign-in/],
-    [env, () => ({ uid: "voice-user" }), /not enabled/],
-    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /not enabled/],
+    // Missing sign-in verification, the feature switch, or the AI key: each is a server setting the person can't
+    // fix, so all say voice is unavailable and that typing still works, without naming configuration.
+    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /unavailable right now\. You can still type/],
+    [env, () => ({ uid: "voice-user" }), /unavailable right now\. You can still type/],
+    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /unavailable right now\. You can still type/],
   ]) {
     await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
       const response = await post(base, "/api/voice-question-status", {});
       assert.equal(response.status, 503);
-      assert.match((await response.json()).error, message);
+      const { error } = await response.json();
+      assert.match(error, message);
+      assert.doesNotMatch(error, /configur|server|OPENAI|FIREBASE/i);
       assert.equal(store.records().length, 0);
     });
   }

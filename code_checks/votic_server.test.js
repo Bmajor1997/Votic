@@ -222,7 +222,8 @@ test("does not send a document when document AI is not connected", async () => {
     assert.equal(response.status, 200);
     const result = await response.json();
     assert.equal(result.mode, "built-in");
-    assert.match(result.answer, /require the AI connection/i);
+    assert.match(result.answer, /Answers about this document are temporarily unavailable/);
+    assert.doesNotMatch(result.answer, /OPENAI|API key|configured/i);
   });
 });
 
@@ -520,7 +521,8 @@ test("web imports do not expose internal network error details", async () => {
     });
     assert.equal(response.status, 400);
     const body = await response.json();
-    assert.match(body.error, /Check the address/);
+    // An unexplained transport failure gets an honest generic message, not a guess about the cause.
+    assert.match(body.error, /could not be downloaded\. Try again later\./);
     assert.doesNotMatch(body.error, /internal transport detail/);
   });
 });

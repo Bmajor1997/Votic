@@ -209,7 +209,9 @@ export function WeekWidget() {
         <View style={s.grow}>
           {week.total ? (
             <>
-              <Text style={[s.weekTotal, { color: colors.ink }]}>{format_duration(week.total)}</Text>
+              <Text testID="home-week-total" style={[s.weekTotal, { color: colors.ink }]}>
+                {format_duration(week.total)}
+              </Text>
               {week.change !== null ? (
                 <Text style={[s.meta, { color: colors.detail }]}>{change_label(week.change)}</Text>
               ) : null}
@@ -445,7 +447,9 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
               testID="home-note-card"
               accessibilityRole="button"
               accessibilityLabel={`${passage.pinned ? "Pinned note. " : ""}${heading}. From ${source}, ${relative_day(passage.updatedAt)}.`}
-              accessibilityHint="Opens the document at this passage"
+              accessibilityHint={
+                document.notebookKind ? "Opens this note" : "Opens the document at this passage"
+              }
               onPress={() => onOpen(item)}
               style={({ pressed }) => [
                 s.note,

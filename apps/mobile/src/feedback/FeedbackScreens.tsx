@@ -1,10 +1,10 @@
-import { remember_feedback_form } from "./feedbackNavigation";
+import { remember_feedback_form, take_feedback_draft } from "./feedbackNavigation";
 import { router } from "expo-router";
 import { randomUUID } from "expo-crypto";
 import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../auth/AuthProvider";
-import { submit_feedback } from "../api/voticApi";
+import { FeedbackSubmitError, submit_feedback } from "../api/voticApi";
 import { radii, spacing, typography } from "../design/tokens";
 import { PrimaryButton } from "../onboarding/components";
 import { SettingsGroup, SettingsPage, SettingsRow } from "../settings/SettingsNavigation";
@@ -38,6 +38,17 @@ const definitions = [
   { key: "description", label: "Description (required)", max: 5000 },
 ] as const;
 const empty = { title: "", description: "" };
+type Values = typeof empty;
+
+/** The required-field message for what is still missing, or "" once both fields are filled. */
+export function missing_fields_message({ title, description }: Values) {
+  const needsTitle = !title.trim(),
+    needsDescription = !description.trim();
+  if (needsTitle && needsDescription) return "Enter a title and description before submitting.";
+  if (needsTitle) return "Enter a title before submitting.";
+  if (needsDescription) return "Enter a description before submitting.";
+  return "";
+}
 
 export function FeedbackForm({ category }: { category: "feature" | "bug" }) {
   const auth = useAuth();
@@ -47,10 +58,14 @@ export function FeedbackForm({ category }: { category: "feature" | "bug" }) {
 function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
-  const [values, setValues] = useState(empty);
+  // A draft held while this account signed in again comes back; any other account starts empty.
+  const [values, setValues] = useState<Values>(() => take_feedback_draft(category, auth.user?.uid) ?? empty);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  // Required-field checking starts at the first submit and then follows the fields as they are corrected.
+  const [validating, setValidating] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const requestId = useRef(randomUUID());
   const pending = useRef(false);
   const mounted = useRef(true);
@@ -63,6 +78,11 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
   const feature = category === "feature";
   const title = feature ? "Suggest a Feature" : "Report a Bug";
   const signedIn = Boolean(auth.user && auth.configured && auth.user.uid !== "development");
+  const validation = validating ? missing_fields_message(values) : "";
+  function sign_in_again() {
+    remember_feedback_form(category, auth.user ? { uid: auth.user.uid, draft: values } : undefined);
+    router.push("/sign-in");
+  }
   async function submit() {
     if (pending.current) return;
     if (!signedIn) {
@@ -70,21 +90,23 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
       router.push("/sign-in");
       return;
     }
-    if (!values.title.trim() || !values.description.trim()) {
-      setError("Enter a title and description before submitting.");
-      return;
-    }
+    setValidating(true);
+    if (missing_fields_message(values)) return;
     pending.current = true;
     setBusy(true);
     setError("");
+    setSessionExpired(false);
     try {
       await submit_feedback({ ...values, category, requestId: requestId.current });
       if (mounted.current) setSent(true);
     } catch (failure) {
-      if (mounted.current)
-        setError(
-          failure instanceof Error ? failure.message : "Feedback could not be sent. Please try again.",
-        );
+      if (!mounted.current) return;
+      // The draft stays in the form for every failure, so the person can retry without retyping.
+      setSessionExpired(
+        failure instanceof FeedbackSubmitError &&
+          (failure.code === "AUTH_EXPIRED" || failure.code === "AUTH_REQUIRED"),
+      );
+      setError(failure instanceof Error ? failure.message : "Feedback could not be sent. Please try again.");
     } finally {
       pending.current = false;
       if (mounted.current) setBusy(false);
@@ -141,6 +163,16 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
                 />
               </View>
             ))}
+            {validation ? (
+              <Text
+                testID="feedback-validation"
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[s.text, { color: theme.text }]}
+              >
+                {validation}
+              </Text>
+            ) : null}
             {error ? (
               <Text
                 accessibilityRole="alert"
@@ -150,6 +182,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
                 {error}
               </Text>
             ) : null}
+            {sessionExpired ? <PrimaryButton label="Sign in again" onPress={sign_in_again} /> : null}
             {!signedIn ? (
               <Text style={[s.text, { color: theme.text }]}>
                 Sign in with your Votic account to submit feedback.

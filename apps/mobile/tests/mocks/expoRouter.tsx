@@ -7,6 +7,7 @@ export const router = {
   back: jest.fn(),
   canGoBack: jest.fn(() => true),
   replace: jest.fn(),
+  setParams: jest.fn(),
 };
 export const searchParams: { current: Record<string, string> } = { current: {} };
 export function useLocalSearchParams() {
@@ -37,6 +38,7 @@ export function reset_expo_router_mock() {
   router.back.mockReset();
   router.canGoBack.mockReset().mockReturnValue(true);
   router.replace.mockReset();
+  router.setParams.mockReset();
   searchParams.current = {};
   stackScreens.length = 0;
 }

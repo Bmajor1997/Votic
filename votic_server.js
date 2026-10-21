@@ -107,6 +107,9 @@ export function create_votic_handler(options = {}) {
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
  // With FIREBASE_PROJECT_ID set, every /api/ request needs a signed-in Votic account.
  const authorize = options.authorize || (env.FIREBASE_PROJECT_ID ? create_firebase_authorizer(env.FIREBASE_PROJECT_ID) : () => true);
+ // Without a verifier every request is anonymous, so features tied to an account must say they are unavailable,
+ // not ask a person who is already signed in to sign in.
+ const sign_in_verified = Boolean(options.authorize || env.FIREBASE_PROJECT_ID);
  const premium_required = env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorizePremium);
  const authorize_premium = options.authorizePremium || create_premium_authorizer(env, { fetchImpl: options.revenueCatFetchImpl });
  let active_extractions = 0, next_prune = 0, ai_day = "", ai_calls = 0;
@@ -162,7 +165,7 @@ export function create_votic_handler(options = {}) {
  const handle_feedback = async (request, response, path, identity, ai_client, client) => {
     response.setHeader("Cache-Control", "no-store");
     const admin = path.startsWith("/api/admin/");
-    require_feedback_access(identity, env, feedback_admins, admin);
+    require_feedback_access(identity, env, feedback_admins, admin, sign_in_verified);
     rate_limit(`${ai_client}:feedback`, admin ? 100 : 20);
     rate_limit(`${client}:feedback`, admin ? 200 : 50);
     const body = await read_json_body(request, 70_000, config.body_timeout_ms);
@@ -190,7 +193,7 @@ export function create_votic_handler(options = {}) {
    }
    if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
    const identity = await authorize(request, path);
-   if (!identity) throw new HttpError(401, "Authentication is required.");
+   if (!identity) throw auth_error(request);
    // A signed-in account gets its own AI allowance; otherwise it is shared by network address.
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
    const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature });
@@ -262,7 +265,7 @@ export function create_votic_handler(options = {}) {
       catch (error) {
         rethrow_parser_failure(error, signal, name, logger);
         if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;
-        if (!env.OPENAI_API_KEY) throw new HttpError(503, "Scanned PDF OCR is not configured.");
+        if (!env.OPENAI_API_KEY) throw new HttpError(503, "Reading scanned PDFs is temporarily unavailable. Try again later, or import a PDF with selectable text.");
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
         const limit = take_ai_call(ai_client);
         if (limit) throw new HttpError(limit === AI_LIMIT_MESSAGE ? 503 : 429, limit);
@@ -291,7 +294,7 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && path === "/api/scan") {
     rate_limit(`${client}:scan`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
-    if (!env.OPENAI_API_KEY) throw new HttpError(503, "Camera text recognition is not connected yet.");
+    if (!env.OPENAI_API_KEY) throw new HttpError(503, "Camera text recognition is temporarily unavailable. Try again later, or import a document instead.");
     let name = safe_scan_filename(request);
     await with_extraction_slot(request_started, response, async ({ signal, remaining }) => {
       let body = await read_body(request, Math.min(config.max_document_bytes, 12_000_000), Math.min(config.body_timeout_ms, remaining()));
@@ -324,9 +327,9 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
     // The free readiness check has its own bucket so each voice question spends one transcription slot.
     rate_limit(path === "/api/voice-question-status" ? `${client}:voice-status` : `${client}:voice`, config.help_rate_limit);
-    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable because this Votic server is not configured to verify sign-in.");
+    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
     if (!identity?.uid) throw new HttpError(401, "Sign in to use voice questions.");
-    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are not enabled on this Votic server yet. You can still type your question.");
+    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
     if (path === "/api/voice-question-status") {
       await read_body(request, 1024, config.body_timeout_ms);
       send_json(response, 200, { ready: true });
@@ -361,7 +364,7 @@ export function create_votic_handler(options = {}) {
       if (document) {
         const safe_document = validate_review_document(document, { too_long_message: HELP_DOCUMENT_TOO_LONG, preserve_section_indexes: true });
         const limit_message = env.OPENAI_API_KEY ? take_ai_call(ai_client) : null;
-        if (!env.OPENAI_API_KEY) answer = "Questions about this document require the AI connection. I can still help you use Votic without sending the document.";
+        if (!env.OPENAI_API_KEY) answer = "Answers about this document are temporarily unavailable. I can still help you use Votic without sending the document.";
         else if (limit_message) answer = `${limit_message} Your document remains open, and I can still help with Votic’s controls.`;
         else try { ({ answer, sectionIndex, sectionTitle, quote } = await answer_document_question(question, safe_document, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style })); mode = "document-ai"; }
         catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic document help unavailable; using built-in guidance", ai_failure_reason(error)); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
@@ -371,7 +374,7 @@ export function create_votic_handler(options = {}) {
   }
    if (request.method === "POST" && path === "/api/review") {
       rate_limit(`${client}:review`, config.review_rate_limit);
-      if (!env.OPENAI_API_KEY) throw new HttpError(503, "AI review is not connected yet. The local review is still available.");
+      if (!env.OPENAI_API_KEY) throw new HttpError(503, "AI review is temporarily unavailable. The local review is still available.");
       const payload = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
       const document = validate_review_document(payload);
       const limit_message = take_ai_call(ai_client);
@@ -394,8 +397,26 @@ export function create_votic_handler(options = {}) {
  handler.close = () => { if (!options.usageStore) usage_store.close(); };
  return handler;
 }
-function require_feedback_access(identity, env, admins, admin) {
-  if (!identity?.uid) throw new HttpError(401, "Sign in to submit feedback.");
+/** 401 that says whether signing in (again) will help: no credential at all, or one that is expired or invalid. */
+function auth_error(request) {
+  const presented = /^Bearer\s+\S+$/i.test(String(request.headers.authorization || ""));
+  const error = presented
+    ? new HttpError(401, "Your sign-in has expired. Sign in again to continue.")
+    : new HttpError(401, "Sign in to continue.");
+  error.code = presented ? "AUTH_EXPIRED" : "AUTH_REQUIRED";
+  return error;
+}
+function require_feedback_access(identity, env, admins, admin, sign_in_verified) {
+  if (!sign_in_verified) {
+    const error = new HttpError(503, "Feedback is temporarily unavailable. Your message is still here, so please try again later.");
+    error.code = "AUTH_UNAVAILABLE";
+    throw error;
+  }
+  if (!identity?.uid) {
+    const error = new HttpError(401, "Sign in to submit feedback.");
+    error.code = "AUTH_REQUIRED";
+    throw error;
+  }
   if (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
     throw new HttpError(503, "Feedback storage is unavailable. Please try again later.");
   if (admin && !admins.has(identity.uid)) throw new HttpError(403, "Administrator access is required.");
@@ -428,11 +449,36 @@ export function validate_production_security(env = process.env) {
  if (Object.keys(env).some((name) => /^EXPO_PUBLIC_.*REVENUECAT.*SECRET/i.test(name)))
    throw new Error("RevenueCat secret configuration must remain in backend environment variables.");
 }
+/**
+ * Startup lines saying which features this server can provide and which setting turns each missing one on.
+ * Names settings only; values (keys, project IDs aside) are never printed.
+ */
+export function capability_report(env = process.env) {
+  const on = (value) => Boolean(String(value || "").trim());
+  const lines = [];
+  lines.push(on(env.FIREBASE_PROJECT_ID)
+    ? `  Sign-in verification: on (Firebase project ${String(env.FIREBASE_PROJECT_ID).trim()})`
+    : "  Sign-in verification: OFF. Set FIREBASE_PROJECT_ID. Until then feedback, account deletion and voice questions are unavailable, and requests are not tied to accounts.");
+  lines.push(on(env.OPENAI_API_KEY)
+    ? `  AI features: on (model ${String(env.OPENAI_MODEL || "default").trim()})`
+    : "  AI features: OFF. Set OPENAI_API_KEY. Until then camera text recognition, scanned PDFs, document answers and AI review are unavailable; text documents, built-in help and webpage import still work.");
+  lines.push(on(env.OPENAI_API_KEY) && env.VOTIC_VOICE_QUESTIONS_ENABLED === "true" && on(env.FIREBASE_PROJECT_ID)
+    ? "  Voice questions: on"
+    : "  Voice questions: off (needs OPENAI_API_KEY, FIREBASE_PROJECT_ID and VOTIC_VOICE_QUESTIONS_ENABLED=true).");
+  const keys = String(env.VOTIC_CLIENT_KEYS || "").split(",").filter((key) => key.trim()).length;
+  lines.push(keys
+    ? `  App client keys: required (${keys} configured). Apps must set EXPO_PUBLIC_VOTIC_CLIENT_KEY to one of them.`
+    : "  App client keys: not required.");
+  return lines;
+}
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
  validate_production_security();
  const port = positive_integer("PORT", 4173);
  const server_host = process.env.VOTIC_HOST || "0.0.0.0";
- create_votic_server().listen(port, server_host, () => console.log(`Votic is ready on port ${port} for local and mobile devices`));
+ create_votic_server().listen(port, server_host, () => {
+   console.log(`Votic is ready on ${server_host}:${port} for local and mobile devices`);
+   for (const line of capability_report(process.env)) console.log(line);
+ });
 }
 
 async function read_body(request, limit, timeout_ms) {
@@ -450,7 +496,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

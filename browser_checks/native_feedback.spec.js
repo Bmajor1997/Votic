@@ -116,7 +116,7 @@ test("regular users and forged tokens cannot open the dashboard", async ({
     .getByRole("button", { name: "Open dashboard", exact: true })
     .click();
   await expect(page.locator("#message")).toContainText(
-    "Authentication is required",
+    "Your sign-in has expired. Sign in again to continue.",
   );
   await expect(page.locator("#dashboard")).toBeHidden();
 });

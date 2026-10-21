@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { submit_feedback } from "../api/voticApi";
+import { FeedbackSubmitError, submit_feedback } from "../api/voticApi";
 import { set_auth_token_provider } from "../api/authToken";
 vi.mock("expo-constants", () => ({ default: { expoConfig: { hostUri: "127.0.0.1:8081" } } }));
 vi.mock("../storage/accountDeletion", () => ({ notify_remote_account_deletion: vi.fn() }));
@@ -48,5 +48,33 @@ describe("feedback API transport", () => {
     vi.stubGlobal("fetch", request);
     await expect(submit_feedback(input)).rejects.toThrow("Today's feedback limit reached");
     await expect(submit_feedback(input)).rejects.toThrow("could not confirm");
+  });
+  it.each(["AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"] as const)(
+    "passes the server's %s code to the form so it can say what will help",
+    async (code) => {
+      vi.stubGlobal("__DEV__", true);
+      set_auth_token_provider(async () => "signed-token");
+      vi.stubGlobal(
+        "fetch",
+        vi
+          .fn()
+          .mockResolvedValue({ ok: false, status: 401, json: async () => ({ error: "Server says", code }) }),
+      );
+      const failure = await submit_feedback(input).catch((error) => error);
+      expect(failure).toBeInstanceOf(FeedbackSubmitError);
+      expect(failure).toMatchObject({ message: "Server says", code });
+    },
+  );
+  it("ignores codes it doesn't know", async () => {
+    vi.stubGlobal("__DEV__", true);
+    set_auth_token_provider(async () => "signed-token");
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue({ ok: false, status: 400, json: async () => ({ error: "Bad", code: "OTHER" }) }),
+    );
+    const failure = await submit_feedback(input).catch((error) => error);
+    expect(failure.code).toBeUndefined();
   });
 });

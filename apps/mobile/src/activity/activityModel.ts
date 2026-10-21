@@ -435,6 +435,12 @@ export function insights(log: ActivityLog, period: Period, now = new Date()) {
 // ---------- Formatting ----------
 
 /** "2 h 5 min", "45 min", "under 1 min", or "0 min". */
+/**
+ * The one display rule for time, shared by Home, Statistics, and the home-screen widgets: durations are added at
+ * full precision and each shown value is rounded once, to the nearest minute. A total is never rebuilt from
+ * rounded parts, so Home and Statistics always agree (2.6 + 1.6 minutes is "4 min" everywhere), even though the
+ * Reading and Listening figures on their own may not add up to it exactly.
+ */
 export function format_duration(ms: number) {
   const minutes = Math.round(ms / 60_000);
   if (ms > 0 && minutes === 0) return "under 1 min";

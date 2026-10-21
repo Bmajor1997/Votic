@@ -25,6 +25,8 @@ import { NoteGroupCard } from "../../src/notes/components/NoteGroupCard";
 import { NoteOptionsMenu } from "../../src/notes/components/NoteOptionsMenu";
 import { NotesFilterSheet } from "../../src/notes/components/NotesFilterSheet";
 import { NoteViewer } from "../../src/notes/components/NoteViewer";
+import { useRequestedNote } from "../../src/notes/useRequestedNote";
+import { MissingNoteNotice } from "../../src/notes/components/MissingNoteNotice";
 import { automatic_note_title, note_type_label } from "../../src/notes/noteMetadata";
 import {
   advanced_filter_count,
@@ -48,7 +50,7 @@ import {
 export default function Notes() {
   const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
-  const { documents, openDocument, savePassage, removePassage, addQuickNote } = useDocumentLibrary();
+  const { documents, loaded, openDocument, savePassage, removePassage, addQuickNote } = useDocumentLibrary();
   const [query, setQuery] = useState("");
   const [notebookId, setNotebookId] = useState<string | null>(null);
   const [filter, setFilter] = useState<NotesFilter>("all");
@@ -68,6 +70,8 @@ export default function Notes() {
     [documents, query, filter, notebookId, dateFilter, tagFilter],
   );
   const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
+  // Home opens a single note here by its stable IDs, so a Quick Note shows that note, not the whole notebook.
+  const missingNote = useRequestedNote(documents, loaded, setViewing);
   const walkthrough = useWalkthrough();
   const listTarget = useWalkthroughTarget("notes.list");
   const emptyTarget = useWalkthroughTarget("notes.empty");
@@ -201,6 +205,7 @@ export default function Notes() {
         </Pressable>
       }
     >
+      <MissingNoteNotice visible={missingNote} />
       {!notebook ? (
         <View style={{ gap: 6 }}>
           <Text accessibilityRole="header" style={[s.emptyTitle, { color: theme.text }]}>

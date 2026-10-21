@@ -38,8 +38,11 @@ async function resolve_public_url(value, lookupImpl) {
   if (url.username || url.password) throw new WebImportError("Webpage links cannot contain sign-in credentials.");
   const hostname = url.hostname.replace(/^\[|\]$/g, "").toLowerCase().replace(/\.$/, "");
   if (BLOCKED_HOSTS.has(hostname) || hostname.endsWith(".local")) throw new WebImportError("That webpage address is not public.");
-  const addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] :
-    await lookupImpl(hostname, { all: true, verbatim: true });
+  let addresses;
+  try {
+    addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] :
+      await lookupImpl(hostname, { all: true, verbatim: true });
+  } catch (error) { throw network_failure(error); }
   if (!addresses.length || addresses.some((item) => private_ip(item.address))) throw new WebImportError("That webpage address is not public.");
   return { url, addresses };
 }
@@ -140,23 +143,49 @@ function link_menu(node) {
   const words = links.reduce((total, text) => total + text.split(/\s+/).length, 0);
   return linkChars >= visible(plain_text(node)) * 0.8 && words / links.length <= 4;
 }
+/**
+ * Structure markers. Newlines in HTML source are formatting, not paragraphs (an essay wrapped at 70 columns would
+ * otherwise become hundreds of one-line passages), so source whitespace collapses to a space and real structure is
+ * carried by these: PARAGRAPH for blocks, list items and doubled <br>, LINE for a single <br> or a line of <pre>.
+ */
+const PARAGRAPH = String.fromCharCode(0x2029), LINE = String.fromCharCode(0x2028);
+const SPACE_RUN = new RegExp(`[^\\S${LINE}${PARAGRAPH}]+`, "g");
+const DOUBLE_BREAK = new RegExp(`(?: ?${LINE} ?){2,}`, "g");
+/** A text node's words: source whitespace becomes one space, except that <pre> keeps its lines. */
+function text_value(value, pre) {
+  return pre ? value.replace(/\r\n?|\n/g, LINE) : value.replace(/\s+/g, " ");
+}
 /** Text in reading order. Stops at the first back-matter heading (`state.ended`), once there's text to read. */
-function readable_text(node, state = { ended: false, chars: 0, run: new Set() }) {
+function readable_text(node, state = { ended: false, chars: 0, run: new Set() }, pre = false) {
   if (state.ended) return "";
   if (node.nodeName === "#text") {
     state.chars += node.value.trim().length;
-    return node.value;
+    return text_value(node.value, pre);
   }
   if (page_chrome(node) || link_menu(node)) return "";
   if (state.chars > 0 && (back_matter_heading(node) || state.run.has(node))) {
     state.ended = true;
     return "";
   }
-  if (["br", "hr"].includes(node.tagName)) return "\n";
-  const text = (node.childNodes || []).map((child) => readable_text(child, state)).join("");
-  if (node.tagName === "li") return `\n• ${text}\n`;
+  if (node.tagName === "br") return LINE;
+  if (node.tagName === "hr") return PARAGRAPH;
+  const inside = pre || node.tagName === "pre";
+  const text = (node.childNodes || []).map((child) => readable_text(child, state, inside)).join("");
+  if (node.tagName === "li") return `${PARAGRAPH}• ${text}${PARAGRAPH}`;
   if (["td", "th"].includes(node.tagName)) return `${text} `;
-  return BLOCK_TAGS.has(node.tagName) ? `\n${text}\n` : text;
+  return BLOCK_TAGS.has(node.tagName) ? `${PARAGRAPH}${text}${PARAGRAPH}` : text;
+}
+const CLUTTER = /^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i;
+/** Paragraphs separated by a blank line; a single <br> stays a line break inside its paragraph. */
+function structured_text(source) {
+  return source
+    .replace(SPACE_RUN, " ")
+    // Legacy pages separate paragraphs with <br><br> instead of <p>.
+    .replace(DOUBLE_BREAK, PARAGRAPH)
+    .split(PARAGRAPH)
+    .map((paragraph) => paragraph.split(LINE).map((line) => line.trim()).filter(Boolean).join("\n"))
+    .filter((paragraph) => paragraph && !CLUTTER.test(paragraph))
+    .join("\n\n");
 }
 function validate_html_tree(root) {
   const pending = [{ node: root, depth: 0 }];
@@ -192,10 +221,7 @@ export function clean_webpage_html(html) {
   const articles = find_tags(document, "article").map((node) => [node, readable_text(node).trim().length]);
   const article = articles.sort((a, b) => b[1] - a[1])[0]?.[0];
   const region = article || find_tag(document, "main") || find_tag(document, "body") || document;
-  const source = readable_text(region, { ended: false, chars: 0, run: back_matter_run(region) }).replace(/\r/g, "").replace(/[ \t\u00a0]+/g, " ").replace(/ *\n */g, "\n").trim();
-  const kept = source.split("\n").map((line) => line.trim()).filter(Boolean)
-    .filter((line) => !/^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i.test(line));
-  const text = kept.join("\n\n");
+  const text = structured_text(readable_text(region, { ended: false, chars: 0, run: back_matter_run(region) }));
   if (text.length > 400_000) throw new WebImportError("That webpage contains too much text to import completely.");
   return { title, text };
 }
@@ -211,6 +237,79 @@ async function read_html_stream(reader) {
     chunks.push(Buffer.from(chunk));
   }
   return Buffer.concat(chunks, size).toString("utf8");
+}
+
+/** An RFC 9110 product token with a comment. Votic names itself honestly and never poses as a browser. */
+export const WEB_IMPORT_USER_AGENT = "Votic/1.0 (webpage importer)";
+const TRY_ELSEWHERE = "Try another page or import a document instead.";
+const JAVASCRIPT_PAGE = `This webpage needs a full web browser to show its text, so Votic can't import it. ${TRY_ELSEWHERE}`;
+
+/** How long a 429's Retry-After asks to wait, in seconds, from either a number of seconds or an HTTP date. */
+export function retry_after_seconds(value, now = Date.now()) {
+  const text = String(value || "").trim();
+  if (/^\d+$/.test(text)) return Number(text);
+  const date = Date.parse(text);
+  return Number.isFinite(date) ? Math.max(0, Math.round((date - now) / 1000)) : null;
+}
+function wait_phrase(seconds) {
+  if (seconds === null) return "Try again later.";
+  if (seconds < 90) return "Try again in a minute.";
+  if (seconds < 3600) return `Try again in about ${Math.round(seconds / 60)} minutes.`;
+  return "Try again later.";
+}
+/**
+ * The user-facing reason a webpage response can't be imported. Each message says only what the response shows:
+ * a 403 says access was denied; an unexplained failure never claims the site blocked Votic.
+ */
+export function http_failure(response, now = Date.now()) {
+  const { status } = response;
+  if ([401, 403].includes(status))
+    return /challenge/i.test(response.headers.get("cf-mitigated") || "")
+      ? `This website asked for a browser check that Votic can't complete. ${TRY_ELSEWHERE}`
+      : `This website denied Votic access. ${TRY_ELSEWHERE}`;
+  if ([404, 410].includes(status)) return "That webpage wasn't found. Check the address and try again.";
+  if (status === 429)
+    return `This website is limiting requests right now. ${wait_phrase(retry_after_seconds(response.headers.get("retry-after"), now))}`;
+  if (status >= 500) return "That website is having trouble right now. Try again later.";
+  return `That website returned an error (HTTP ${status}). ${TRY_ELSEWHERE}`;
+}
+/** A connection problem described by what failed (finding the site, trusting it, or reaching it), never by guess. */
+export function network_failure(error) {
+  if (error instanceof WebImportError) return error;
+  const code = String(error?.code || error?.cause?.code || "");
+  if (["ENOTFOUND", "EAI_NONAME", "EAI_NODATA"].includes(code))
+    return new WebImportError("Votic couldn't find that website. Check the address and try again.");
+  if (code === "EAI_AGAIN")
+    return new WebImportError("Votic couldn't look up that website right now. Check your connection and try again.");
+  if (/^(?:CERT_|ERR_TLS|ERR_SSL|UNABLE_TO_VERIFY|SELF_SIGNED|DEPTH_ZERO|HOSTNAME_MISMATCH)/.test(code) || code === "ERR_TLS_CERT_ALTNAME_INVALID")
+    return new WebImportError("That website's secure connection couldn't be verified, so Votic didn't download it.");
+  if (["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "EHOSTUNREACH", "ENETUNREACH", "EPIPE"].includes(code))
+    return new WebImportError("Votic couldn't connect to that website. Try again later.");
+  return new WebImportError("The webpage could not be downloaded. Try again later.");
+}
+/** Bot checks and script-only shells that arrive as HTTP 200 but contain no page text. */
+export function needs_javascript(response, html) {
+  if (/challenge/i.test(response.headers.get("cf-mitigated") || "")) return true;
+  const head = html.slice(0, 20_000);
+  return /<title>\s*just a moment\.{0,3}\s*<\/title>/i.test(head) || /\/cdn-cgi\/challenge-platform\//i.test(head) ||
+    /enable javascript and cookies to continue/i.test(head);
+}
+function readable_type_failure(type) {
+  if (type.includes("application/pdf")) return "That link is a PDF file. Download it, then import it as a document.";
+  return "That link does not point to a readable webpage.";
+}
+/** Why a non-redirect response can't be imported, judged from its status and headers, or null to read it. */
+function rejected_response(response) {
+  if (!response.ok) return http_failure(response);
+  const type = (response.headers.get("content-type") || "").toLowerCase();
+  if (!type.includes("text/html") && !type.includes("application/xhtml+xml")) return readable_type_failure(type);
+  return needs_javascript(response, "") ? JAVASCRIPT_PAGE : null;
+}
+/** Too little article text: a script-only page says so; otherwise the page simply had no article. */
+function too_little_text(html) {
+  return /<noscript[^>]*>[^<]{0,300}javascript/i.test(html)
+    ? JAVASCRIPT_PAGE
+    : "Votic could not find enough readable article text on that webpage.";
 }
 
 export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000, signal } = {}) {
@@ -244,18 +343,22 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
       }, remaining());
     });
     const download = async () => {
-      response = await fetchImpl(target.url, {
-        redirect: "manual", signal: controller.signal,
-        headers: { "User-Agent": "Votic/1.0 webpage importer", "Accept": "text/html,application/xhtml+xml", "Accept-Encoding": "identity" },
-      }, target.addresses);
+      try {
+        response = await fetchImpl(target.url, {
+          redirect: "manual", signal: controller.signal,
+          headers: { "User-Agent": WEB_IMPORT_USER_AGENT, "Accept": "text/html,application/xhtml+xml", "Accept-Encoding": "identity" },
+        }, target.addresses);
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        throw network_failure(error);
+      }
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get("location");
         if (!location || redirects === 3) throw new WebImportError("The webpage redirected too many times.");
         return { redirect: location };
       }
-      if (!response.ok) throw new WebImportError("The webpage could not be downloaded.");
-      const type = (response.headers.get("content-type") || "").toLowerCase();
-      if (!type.includes("text/html") && !type.includes("application/xhtml+xml")) throw new WebImportError("That link does not point to a readable webpage.");
+      const rejection = rejected_response(response);
+      if (rejection) throw new WebImportError(rejection);
       const encoding = (response.headers.get("content-encoding") || "identity").toLowerCase();
       const decoders = { gzip: createGunzip, deflate: createInflate, br: createBrotliDecompress };
       if (encoding !== "identity" && !Object.hasOwn(decoders, encoding)) throw new WebImportError("That webpage uses an unsupported content encoding.");
@@ -272,10 +375,11 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
       }
       reader = body.getReader();
       const html = await read_html_stream(reader);
+      if (needs_javascript(response, html)) throw new WebImportError(JAVASCRIPT_PAGE);
       const cleaned = await clean_webpage_isolated(html, {
         signal: controller.signal, timeoutMs: Math.min(5000, remaining()),
       });
-      if (cleaned.text.length < 80) throw new WebImportError("Votic could not find enough readable article text on that webpage.");
+      if (cleaned.text.length < 80) throw new WebImportError(too_little_text(html));
       return { ...cleaned, url: target.url.toString() };
     };
     let result;

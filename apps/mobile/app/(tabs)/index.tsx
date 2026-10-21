@@ -108,6 +108,11 @@ export default function Home() {
           notes={notes}
           onOpen={({ document, passage }) => {
             if (transition.transitioning) return;
+            // A Quick Note has no document passage to show; open that one note instead of the whole notebook.
+            if (document.notebookKind) {
+              router.push({ pathname: "/notes", params: { note: passage.id, notebook: document.id } });
+              return;
+            }
             openDocument(document.id, passage.sentenceIndex);
             router.push("/reader");
           }}

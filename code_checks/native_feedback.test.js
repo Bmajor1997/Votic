@@ -313,9 +313,14 @@ test("concurrent SQLite workers cannot inflate counts or lose submissions", asyn
   }
 });
 test("API requires identity even in development and prevents forged admin access and cross-user reads", async () => {
-  await serve({ env: {} }, async (base) =>
-    assert.equal((await post(base, "/api/feedback", body())).status, 401),
-  );
+  // Without sign-in verification nothing is accepted. It is refused as unavailable, since signing in can't help.
+  await serve({ env: {} }, async (base) => {
+    const refused = await post(base, "/api/feedback", body());
+    assert.equal(refused.status, 503);
+    const { code, error } = await refused.json();
+    assert.equal(code, "AUTH_UNAVAILABLE");
+    assert.doesNotMatch(error, /sign in/i);
+  });
   await serve(
     { env: { VOTIC_FEEDBACK_ADMIN_UIDS: "admin" }, authorize: auth },
     async (base) => {

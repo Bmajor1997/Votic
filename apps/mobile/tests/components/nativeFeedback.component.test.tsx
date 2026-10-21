@@ -107,4 +107,83 @@ describe("Native feedback", () => {
     await act(async () => fakeAuth.setUser({ uid: "other", email: null, displayName: null }));
     expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("");
   });
+  it("updates and then clears the required-field message as each field is filled", async () => {
+    await render_with_providers(<FeedbackForm category="bug" />);
+    expect(screen.queryByTestId("feedback-validation")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
+    expect(screen.getByTestId("feedback-validation")).toHaveTextContent(
+      "Enter a title and description before submitting.",
+    );
+    await fireEvent.changeText(screen.getByLabelText("Title (required)"), "Crash");
+    expect(screen.getByTestId("feedback-validation")).toHaveTextContent(
+      "Enter a description before submitting.",
+    );
+    await fireEvent.changeText(screen.getByLabelText("Description (required)"), "The reader closed.");
+    expect(screen.queryByTestId("feedback-validation")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    // Emptying a field again brings back only the message for that field.
+    await fireEvent.changeText(screen.getByLabelText("Title (required)"), "  ");
+    expect(screen.getByTestId("feedback-validation")).toHaveTextContent("Enter a title before submitting.");
+  });
+  it("keeps a server error while typing, separate from field validation", async () => {
+    jest.spyOn(api, "submit_feedback").mockRejectedValueOnce(new Error("Today's feedback limit reached"));
+    await render_with_providers(<FeedbackForm category="bug" />);
+    await fill();
+    await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
+    await fireEvent.changeText(screen.getByLabelText("Description (required)"), "Let me listen offline.");
+    expect(screen.getByText("Today's feedback limit reached")).toBeTruthy();
+    expect(screen.queryByTestId("feedback-validation")).toBeNull();
+  });
+  it("tells a signed-in person the service is unavailable instead of asking them to sign in", async () => {
+    jest
+      .spyOn(api, "submit_feedback")
+      .mockRejectedValueOnce(
+        new api.FeedbackSubmitError(
+          "Feedback is temporarily unavailable. Your message is still here, so please try again later.",
+          "AUTH_UNAVAILABLE",
+        ),
+      );
+    await render_with_providers(<FeedbackForm category="bug" />);
+    await fill();
+    await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/^Feedback is temporarily unavailable\./);
+    expect(screen.queryByRole("button", { name: "Sign in again" })).toBeNull();
+    expect(screen.queryByText(/Sign in/)).toBeNull();
+    expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("Offline listening");
+    expect(screen.getByRole("button", { name: "Submit" })).toBeTruthy();
+  });
+  it("offers to sign in again after an expired session and returns the draft to the same account only", async () => {
+    jest
+      .spyOn(api, "submit_feedback")
+      .mockRejectedValueOnce(
+        new api.FeedbackSubmitError("Your sign-in has expired. Sign in again to continue.", "AUTH_EXPIRED"),
+      );
+    const first = await render_with_providers(<FeedbackForm category="bug" />);
+    await fill();
+    await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
+    expect(screen.getByRole("alert")).toHaveTextContent(/^Your sign-in has expired\./);
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in again" }));
+    expect(router.push).toHaveBeenCalledWith("/sign-in");
+    await first.unmount();
+    // Back from sign-in as the same account: the draft is restored, once.
+    const again = await render_with_providers(<FeedbackForm category="bug" />);
+    expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("Offline listening");
+    expect(screen.getByLabelText("Description (required)")).toHaveDisplayValue("Let me listen on a flight.");
+    await again.unmount();
+    await render_with_providers(<FeedbackForm category="bug" />);
+    expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("");
+  });
+  it("never hands a held draft to a different account", async () => {
+    jest
+      .spyOn(api, "submit_feedback")
+      .mockRejectedValueOnce(new api.FeedbackSubmitError("Your sign-in has expired.", "AUTH_EXPIRED"));
+    const first = await render_with_providers(<FeedbackForm category="bug" />);
+    await fill();
+    await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in again" }));
+    await first.unmount();
+    fakeAuth.reset({ uid: "someone-else", email: null, displayName: null });
+    await render_with_providers(<FeedbackForm category="bug" />);
+    expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("");
+  });
 });

@@ -197,8 +197,6 @@ function Overview({ period }: { period: Period }) {
   const summary = summarize(log, period.start, period.end);
   const comparison = insights(log, period).comparison;
   const ask = ask_summary(log, period.start, period.end);
-  // Preserve the rounding rule: the visible total equals the two time tiles.
-  const total = (Math.round(summary.reading / 60_000) + Math.round(summary.listening / 60_000)) * 60_000;
   return (
     <>
       <View style={[s.heroCard, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
@@ -207,7 +205,9 @@ function Overview({ period }: { period: Period }) {
           <Ionicons accessible={false} name="book-outline" size={26} color={theme.heroText} />
         </View>
         <View accessible accessibilityLabel={`Total time, ${spoken_duration(summary.total)}`}>
-          <Text style={[s.hero, { color: theme.heroText }]}>{format_duration(total)}</Text>
+          <Text testID="statistics-total" style={[s.hero, { color: theme.heroText }]}>
+            {format_duration(summary.total)}
+          </Text>
           <Text style={[s.sub, { color: theme.heroMuted }]}>Reading and listening in this period</Text>
         </View>
         <View style={[s.heroNote, { borderTopColor: theme.border }]}>
