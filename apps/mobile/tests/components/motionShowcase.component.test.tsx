@@ -3,6 +3,8 @@ import { fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
 import { Animated } from "react-native";
 import Welcome from "../../app/welcome";
+import Home from "../../app/(tabs)/index";
+import SignIn from "../../app/sign-in";
 import { MOTION_SAMPLE, MotionShowcase } from "../../src/components/animations/MotionShowcase";
 import { VoticPulse } from "../../src/components/animations/VoticPulse";
 import { fakeAuth } from "../mocks/authBackend";
@@ -20,14 +22,16 @@ function all_text(node: unknown): string {
   return (element?.children ?? []).map(all_text).join(" ");
 }
 
-it("offers the motion lab on the welcome screen only in test builds", async () => {
-  fakeAuth.reset(null);
-  const rendered = await render_with_providers(<Welcome />);
-  expect(screen.getByRole("button", { name: /Preview Votic animations/ })).toBeTruthy();
-  await rendered.unmount();
-  await render_with_providers(<Welcome motionLab={false} />);
+it.each([
+  { name: "welcome", Screen: Welcome },
+  { name: "sign-in", Screen: SignIn },
+  { name: "Home", Screen: Home },
+])("does not offer animation previews on $name, including test builds", async ({ name, Screen }) => {
+  fakeAuth.reset(name === "Home" ? { uid: "test-user", email: "test@example.com", displayName: null } : null);
+  await render_with_providers(<Screen />);
   expect(screen.queryByRole("button", { name: /Preview Votic animations/ })).toBeNull();
   expect(screen.queryByText("Preview animations")).toBeNull();
+  expect(screen.queryByRole("header", { name: "Votic motion lab" })).toBeNull();
 });
 
 it("spells Votic correctly everywhere and offers only real, labelled demos", async () => {

@@ -18,6 +18,7 @@ import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
+import { DocumentOpenSheet } from "../../src/documents/DocumentOpenSheet";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
   SORTS,
@@ -29,7 +30,7 @@ import {
 } from "../../src/documents/documentDisplay";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { readable_documents, VoticDocument } from "../../src/documents/types";
-import { useDocumentImport } from "../../src/documents/useDocumentImport";
+import { open_from, useDocumentImport } from "../../src/documents/useDocumentImport";
 import {
   useWalkthrough,
   useWalkthroughTarget,
@@ -65,6 +66,7 @@ export default function Documents() {
   const [createOpen, setCreateOpen] = useState(false);
   const [addDocumentOpen, setAddDocumentOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
+  const [openingDocument, setOpeningDocument] = useState<VoticDocument | null>(null);
   const [menuDocument, setMenuDocument] = useState<VoticDocument | null>(null);
   const walkthrough = useWalkthrough();
   const uploadTarget = useWalkthroughTarget("documents.upload");
@@ -99,18 +101,14 @@ export default function Documents() {
   const collectionLabel =
     collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection;
 
-  function open(document: VoticDocument) {
+  function open(document: VoticDocument, mode: "read" | "listen") {
     const source = cardRefs.current[document.id];
     if (transition.transitioning) return;
+    setOpeningDocument(null);
     openDocument(document.id);
-    if (!source) {
-      router.push("/reader");
-      return;
-    }
-    source.measureInWindow((x, y, width, height) =>
-      transition.openReader({ x, y, width, height }, () => router.push("/reader")),
-    );
+    open_from({ current: source }, transition, { mode });
   }
+
   function create_collection() {
     const clean = collectionName.trim();
     if (!clean) return;
@@ -297,8 +295,8 @@ export default function Documents() {
                       <Pressable
                         accessibilityRole="button"
                         accessibilityLabel={`Open ${title}`}
-                        accessibilityHint={`${file_type_label(document.sourceName)}. ${progress_label(document)}`}
-                        onPress={() => open(document)}
+                        accessibilityHint={`${file_type_label(document.sourceName)}. ${progress_label(document)}. Choose Read or Listen.`}
+                        onPress={() => setOpeningDocument(document)}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
                         <DocumentCover document={document} size="md" />
@@ -394,7 +392,12 @@ export default function Documents() {
         </View>
       )}
 
-      <DocumentActionsSheet document={menuDocument} onClose={() => setMenuDocument(null)} onOpen={open} />
+      <DocumentActionsSheet
+        document={menuDocument}
+        onClose={() => setMenuDocument(null)}
+        onOpen={setOpeningDocument}
+      />
+      <DocumentOpenSheet document={openingDocument} onClose={() => setOpeningDocument(null)} onOpen={open} />
 
       <Modal
         visible={addDocumentOpen}

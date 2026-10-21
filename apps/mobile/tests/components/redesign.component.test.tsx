@@ -17,6 +17,7 @@ import {
   empty_log,
   parse_log,
 } from "../../src/activity/activityModel";
+import { LIBRARY_KEY } from "../../src/documents/documentStorage";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { router, searchParams } from "../mocks/expoRouter";
 import { render_with_providers, test_document } from "../renderWithProviders";
@@ -121,6 +122,41 @@ describe("Documents", () => {
         "Add a file from your device or a connected cloud storage provider to read and listen.",
       ),
     ).toBeTruthy();
+  });
+
+  it.each(["read", "listen"] as const)(
+    "offers a choice and opens the selected document in %s mode",
+    async (mode) => {
+      await render_with_providers(<Documents />, { documents: [report, guide] });
+      await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL" }));
+      expect(router.push).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: "Read" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
+      await fireEvent.press(screen.getByRole("button", { name: mode === "read" ? "Read" : "Listen" }));
+      expect(router.push).toHaveBeenCalledTimes(1);
+      expect(router.push).toHaveBeenLastCalledWith({ pathname: "/reader", params: { mode } });
+      expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
+      await waitFor(async () => {
+        const saved = JSON.parse(
+          (await AsyncStorage.getItem(account_storage_key(LIBRARY_KEY, "test-user"))) || "[]",
+        );
+        const selected = saved.find((item: { id: string }) => item.id === report.id);
+        expect(selected).toMatchObject({ id: report.id, sentenceIndex: 1, progress: 0.5 });
+        expect(selected.lastOpenedAt).toBeGreaterThan(5);
+      });
+    },
+  );
+
+  it("cancels without opening a document and also offers the choice from document options", async () => {
+    await render_with_providers(<Documents />, { documents: [report] });
+    await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
+    expect(router.push).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "More options for q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Open" }));
+    expect(screen.getByRole("button", { name: "Read" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
   });
 
   it("renames a document while keeping its original filename in Details", async () => {
