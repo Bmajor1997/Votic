@@ -1,3 +1,4 @@
+import { decode_document_bytes } from "../apps/mobile/src/documents/textEncoding.js";
 import { parse } from "parse5";
 import { parse_document_isolated } from "./document_parser.js";
 /* global Response */
@@ -246,7 +247,8 @@ async function read_html_stream(reader) {
     if (size > MAX_HTML_BYTES) throw new WebImportError("That webpage is too large to import.");
     chunks.push(Buffer.from(chunk));
   }
-  return Buffer.concat(chunks, size).toString("utf8");
+  try { return decode_document_bytes(Buffer.concat(chunks, size)); }
+  catch { throw new WebImportError("This webpage’s text encoding could not be read safely. Save or export it as UTF-8 HTML or text, then import that file."); }
 }
 
 /** An RFC 9110 product token with a comment. Votic names itself honestly and never poses as a browser. */

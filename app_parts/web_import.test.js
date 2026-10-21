@@ -319,3 +319,12 @@ test("empty stream chunks cannot spin past the work budget", async () => {
 test("oversized readable text is rejected instead of silently truncated", () => {
   assert.throws(() => clean_webpage_html('<article>' + 'word '.repeat(80001) + '</article>'), /completely/);
 });
+
+test("web imports preserve BOM UTF-16 and explain unsupported encoding instead of replacing bytes", async () => {
+  const html = "<article><p>Résumé 日本語 😀. " + "A useful sentence in this public article. ".repeat(5) + "</p></article>";
+  const body = Buffer.concat([Buffer.from([255,254]), Buffer.from(html,"utf16le")]);
+  const options = { lookupImpl: async () => [{address:"203.0.113.10",family:4}], fetchImpl: async () => new Response(body,{headers:{"content-type":"text/html"}}) };
+  const result = await import_public_webpage("https://public.test/article", options);
+  assert.match(result.text,/Résumé 日本語 😀/);
+  await assert.rejects(() => import_public_webpage("https://public.test/article", { ...options, fetchImpl: async () => new Response(Buffer.from([60,112,62,233,60,47,112,62]),{headers:{"content-type":"text/html"}}) }), /text encoding.*UTF-8/);
+});

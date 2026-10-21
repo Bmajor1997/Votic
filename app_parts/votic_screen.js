@@ -1,3 +1,4 @@
+import { decode_document_bytes } from "./text_encoding.js";
 import { build_document, build_review, build_worksheet_export, format_playback_rate, format_time, keyboard_command, location_for_progress, normalize_highlight_theme, normalize_resume_snapshot, parse_document_text, PLAYBACK_RATES, progress_for_sentence, section_timing, speech_segment, worksheet_control_id, worksheet_control_type } from "./document_tools.js";
 let doc = null;
 let documentTitle = "";
@@ -153,7 +154,7 @@ el.documentFile.addEventListener("change", async () => {
       if (file.size > 25_000_000) throw new Error("Document is too large. The current limit is 25 MB.");
       const response = await fetch("/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": encodeURIComponent(file.name) }, body: file });
       const result = await response.json(); if (!response.ok) throw new Error(result.error || "The document could not be read."); pending_document_text = result.text;
-    } else { pending_document_text = await file.text(); }
+    } else { if (file.size > 25_000_000) throw new Error("Document is too large. The current limit is 25 MB."); pending_document_text = decode_document_bytes(await file.arrayBuffer()); }
     if (!pending_document_text.trim()) throw new Error("This document does not contain readable text.");
     el.selectedFile.textContent = `${file.name} · Ready`;
     el.loadDocument.disabled = false;

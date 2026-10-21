@@ -27,6 +27,7 @@ const public_files = new Map([
   ["/easy_to_read_look.css", ["easy_to_read_look.css", "text/css; charset=utf-8"]],
   ["/app_parts/votic_screen.js", ["app_parts/votic_screen.js", "text/javascript; charset=utf-8"]],
   ["/app_parts/document_tools.js", ["app_parts/document_tools.js", "text/javascript; charset=utf-8"]],
+  ["/app_parts/text_encoding.js", ["apps/mobile/src/documents/textEncoding.js", "text/javascript; charset=utf-8"]],
   ["/assets/votic-mark.png", ["assets/votic-mark.png", "image/png"]],
 ]);
 const security_headers = {
