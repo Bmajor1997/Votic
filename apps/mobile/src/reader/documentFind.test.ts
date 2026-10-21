@@ -19,3 +19,39 @@ it("returns document locations, no results, bounded matches, and canceled search
   expect(await find_document_matches(["a".repeat(5000)], "a", () => false)).toHaveLength(1001);
   expect(await find_document_matches(["a"], "a", () => true)).toEqual([]);
 });
+
+it("preserves original highlight offsets across Unicode case pairs without expanding characters", () => {
+  expect(literal_matches("İ before ÉTÉ 😀 𐐀", "été")).toEqual([{ offset: 9, length: 3 }]);
+  expect(literal_matches("İ i ı I", "i")).toEqual([
+    { offset: 2, length: 1 },
+    { offset: 6, length: 1 },
+  ]);
+  expect(literal_matches("Σ σ ς", "σ")).toEqual([
+    { offset: 0, length: 1 },
+    { offset: 2, length: 1 },
+    { offset: 4, length: 1 },
+  ]);
+  expect(literal_matches("K K k", "k")).toHaveLength(3);
+  expect(literal_matches("ſ S s", "s")).toHaveLength(3);
+  expect(literal_matches("ß ẞ ss", "ß")).toEqual([
+    { offset: 0, length: 1 },
+    { offset: 2, length: 1 },
+  ]);
+  expect(literal_matches("😀𐐀𐐨", "𐐨")).toEqual([
+    { offset: 2, length: 2 },
+    { offset: 4, length: 2 },
+  ]);
+});
+
+it("treats hostile-looking queries literally and bounds repeated-prefix matches", () => {
+  expect(literal_matches("a".repeat(200000), "(a+)+$")).toEqual([]);
+  expect(literal_matches("a".repeat(200000) + "b", "a".repeat(119) + "b")).toEqual([
+    { offset: 199881, length: 120 },
+  ]);
+  expect(literal_matches("ababa", "aba")).toEqual([{ offset: 0, length: 3 }]);
+  expect(literal_matches("aaaa", "a", 0)).toEqual([]);
+  expect(literal_matches("aaaa", "a", 2)).toEqual([
+    { offset: 0, length: 1 },
+    { offset: 1, length: 1 },
+  ]);
+});
