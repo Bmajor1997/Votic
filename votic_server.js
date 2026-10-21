@@ -429,6 +429,7 @@ function scan_mime_type(name, body) {
   throw new HttpError(415, "This scan does not match a supported JPEG, PNG, or WebP image.");
 }
 function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.(docx|pptx|epub|odt)$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); if (/\.(rtf)$/i.test(name)) return body.subarray(0, 5).toString("latin1") === "{\\rtf"; if (/\.html?$/i.test(name)) return !body.includes(0); if (/\.ppt$/i.test(name)) return body.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])); return false; }
+// Map parser lifecycle failures here; other errors continue to the caller's PDF OCR fallback.
 function rethrow_parser_failure(error, signal, name, logger) {
   if (signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
   if (error.code === "PARSER_TIMEOUT") throw new HttpError(504, error.message);
