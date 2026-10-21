@@ -1,3 +1,5 @@
+import { MOTION } from "../../motion/motionSpec";
+import { CompletionRing } from "../../motion/CompletionRing";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, useEffect, useState } from "react";
 import {
@@ -24,14 +26,13 @@ export type FinishSummary =
   | { status: "error"; message: string };
 
 /** Where the bar starts before it fills to the end, so the last stretch is what you see completing. */
-const FILL_FROM = 0.85;
-const FILL_MS = 600;
-const STROKE_MS = 180;
-const CONTENT_MS = 260;
+const FILL_MS = MOTION.finish.ring;
+const STROKE_MS = MOTION.finish.short;
+const CONTENT_MS = MOTION.finish.totals;
 
 /**
- * Shown when someone finishes a document. The progress bar fills to the end and glows, a checkmark draws itself,
- * then the card offers a summary (the same request as Ask Votic's "Summarize this document"), a follow-up question,
+ * Shown when someone finishes a document. The ring closes, a checkmark draws itself,
+ * then totals appear before the card offers a summary (the same request as Ask Votic's "Summarize this document"), a follow-up question,
  * and the next document. With Less motion everything appears at once.
  */
 export function CompletionModal({
@@ -124,36 +125,47 @@ export function CompletionModal({
                   <Text style={[s.label, { color: theme.mutedText }]}>Passages</Text>
                 </View>
               </View>
-              {canSummarize ? (
-                <SummarySection
-                  summary={summary}
-                  onSummarize={onSummarize}
-                  listen={summaryListen}
-                  onSave={onSaveSummary}
-                />
-              ) : null}
-              <View style={s.actions}>
-                <CompletionAction
-                  icon="chatbubble-ellipses-outline"
-                  label="Ask a follow-up"
-                  onPress={onAskFollowUp}
-                />
-                {nextUpTitle ? (
-                  <CompletionAction
-                    icon="arrow-forward-circle-outline"
-                    label="Next up"
-                    detail={nextUpTitle}
-                    accessibilityLabel={`Next up: ${nextUpTitle}`}
-                    onPress={onNextUp}
+              <Animated.View
+                style={{
+                  width: "100%",
+                  gap: spacing.md,
+                  opacity: motion.actions,
+                  transform: [
+                    { translateY: motion.actions.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) },
+                  ],
+                }}
+              >
+                {canSummarize ? (
+                  <SummarySection
+                    summary={summary}
+                    onSummarize={onSummarize}
+                    listen={summaryListen}
+                    onSave={onSaveSummary}
                   />
-                ) : (
+                ) : null}
+                <View style={s.actions}>
                   <CompletionAction
-                    icon="add-circle-outline"
-                    label="Add a document"
-                    onPress={onAddDocument}
+                    icon="chatbubble-ellipses-outline"
+                    label="Ask a follow-up"
+                    onPress={onAskFollowUp}
                   />
-                )}
-              </View>
+                  {nextUpTitle ? (
+                    <CompletionAction
+                      icon="arrow-forward-circle-outline"
+                      label="Next up"
+                      detail={nextUpTitle}
+                      accessibilityLabel={`Next up: ${nextUpTitle}`}
+                      onPress={onNextUp}
+                    />
+                  ) : (
+                    <CompletionAction
+                      icon="add-circle-outline"
+                      label="Add a document"
+                      onPress={onAddDocument}
+                    />
+                  )}
+                </View>
+              </Animated.View>
             </Animated.View>
           </ScrollView>
         </View>
@@ -164,37 +176,37 @@ export function CompletionModal({
 
 type FinishMotion = {
   fill: Animated.Value;
-  glow: Animated.Value;
   short: Animated.Value;
   long: Animated.Value;
   content: Animated.Value;
+  actions: Animated.Value;
 };
 
 /** Plays the finish once each time the card opens; with Less motion it starts at the end. */
 function useFinishMotion(visible: boolean, reduceMotion: boolean): FinishMotion {
   const [motion] = useState<FinishMotion>(() => ({
     fill: new Animated.Value(1),
-    glow: new Animated.Value(0),
     short: new Animated.Value(1),
     long: new Animated.Value(1),
     content: new Animated.Value(1),
+    actions: new Animated.Value(1),
   }));
   useEffect(() => {
     const values = Object.values(motion);
     values.forEach((value) => value.stopAnimation());
     if (!visible || reduceMotion) {
       motion.fill.setValue(1);
-      motion.glow.setValue(0);
       motion.short.setValue(1);
       motion.long.setValue(1);
       motion.content.setValue(1);
+      motion.actions.setValue(1);
       return;
     }
     motion.fill.setValue(0);
-    motion.glow.setValue(0);
     motion.short.setValue(0);
     motion.long.setValue(0);
     motion.content.setValue(0);
+    motion.actions.setValue(0);
     const settings = { useNativeDriver: true, isInteraction: false };
     const sequence = Animated.sequence([
       Animated.timing(motion.fill, {
@@ -203,27 +215,20 @@ function useFinishMotion(visible: boolean, reduceMotion: boolean): FinishMotion 
         duration: FILL_MS,
         easing: Easing.out(Easing.cubic),
       }),
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(motion.glow, { ...settings, toValue: 1, duration: 220 }),
-          Animated.timing(motion.glow, { ...settings, toValue: 0, duration: 420 }),
-        ]),
-        Animated.sequence([
-          Animated.timing(motion.short, {
-            ...settings,
-            toValue: 1,
-            duration: STROKE_MS,
-            easing: Easing.out(Easing.quad),
-          }),
-          Animated.timing(motion.long, {
-            ...settings,
-            toValue: 1,
-            duration: STROKE_MS + 60,
-            easing: Easing.out(Easing.quad),
-          }),
-          Animated.timing(motion.content, { ...settings, toValue: 1, duration: CONTENT_MS }),
-        ]),
-      ]),
+      Animated.timing(motion.short, {
+        ...settings,
+        toValue: 1,
+        duration: STROKE_MS,
+        easing: Easing.out(Easing.quad),
+      }),
+      Animated.timing(motion.long, {
+        ...settings,
+        toValue: 1,
+        duration: MOTION.finish.long,
+        easing: Easing.out(Easing.quad),
+      }),
+      Animated.timing(motion.content, { ...settings, toValue: 1, duration: CONTENT_MS }),
+      Animated.timing(motion.actions, { ...settings, toValue: 1, duration: MOTION.finish.actions }),
     ]);
     sequence.start();
     return () => sequence.stop();
@@ -231,7 +236,7 @@ function useFinishMotion(visible: boolean, reduceMotion: boolean): FinishMotion 
   return motion;
 }
 
-/** The progress bar completing, then a checkmark drawn in two strokes. Decorative: the header says it in words. */
+/** The ring closes, then a checkmark draws in two strokes. Decorative: the header says it in words. */
 function FinishMark({ motion }: { motion: FinishMotion }) {
   const { theme } = useVoticTheme();
   return (
@@ -242,38 +247,31 @@ function FinishMark({ motion }: { motion: FinishMotion }) {
       testID="finish-mark"
       style={s.mark}
     >
-      <View style={s.checkCircle}>
-        <View style={[StyleSheet.absoluteFill, s.checkCircleFill, { backgroundColor: theme.accent }]} />
-        <View style={s.check}>
-          <Animated.View
-            style={[
-              s.strokeShort,
-              { backgroundColor: theme.onAccent, transform: [{ rotate: "45deg" }, { scaleX: motion.short }] },
-            ]}
-          />
-          <Animated.View
-            style={[
-              s.strokeLong,
-              { backgroundColor: theme.onAccent, transform: [{ rotate: "-45deg" }, { scaleX: motion.long }] },
-            ]}
-          />
+      <View style={{ width: 88, height: 88, alignItems: "center", justifyContent: "center" }}>
+        <CompletionRing progress={motion.fill} color={theme.accent} track={theme.border} />
+        <View style={s.checkCircle}>
+          <View style={[StyleSheet.absoluteFill, s.checkCircleFill, { backgroundColor: theme.accent }]} />
+          <View style={s.check}>
+            <Animated.View
+              style={[
+                s.strokeShort,
+                {
+                  backgroundColor: theme.onAccent,
+                  transform: [{ rotate: "45deg" }, { scaleX: motion.short }],
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                s.strokeLong,
+                {
+                  backgroundColor: theme.onAccent,
+                  transform: [{ rotate: "-45deg" }, { scaleX: motion.long }],
+                },
+              ]}
+            />
+          </View>
         </View>
-      </View>
-      <View style={[s.track, { backgroundColor: theme.border }]}>
-        <Animated.View
-          style={[
-            s.fill,
-            {
-              backgroundColor: theme.accent,
-              transform: [
-                { scaleX: motion.fill.interpolate({ inputRange: [0, 1], outputRange: [FILL_FROM, 1] }) },
-              ],
-            },
-          ]}
-        />
-        <Animated.View
-          style={[s.glow, { backgroundColor: theme.accent, shadowColor: theme.accent, opacity: motion.glow }]}
-        />
       </View>
       <Text style={[s.complete, { color: theme.accentText }]}>100% read</Text>
     </View>
@@ -460,27 +458,6 @@ const s = StyleSheet.create({
     height: 4,
     borderRadius: 2,
     transformOrigin: "left",
-  },
-  track: { width: "100%", height: 8, borderRadius: 4, overflow: "visible" },
-  fill: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: 4,
-    transformOrigin: "left",
-  },
-  glow: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    borderRadius: 4,
-    shadowOpacity: 0.9,
-    shadowRadius: 10,
-    elevation: 6,
   },
   complete: { fontSize: 13, fontWeight: "700" },
   title: { ...typography.screenTitle, fontSize: 26, textAlign: "center" },

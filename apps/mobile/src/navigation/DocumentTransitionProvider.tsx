@@ -1,8 +1,15 @@
+import { MOTION } from "../motion/motionSpec";
 import { PropsWithChildren, createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Animated } from "react-native";
+import { Animated, Easing } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
-export type DocumentSourceRect = { x: number; y: number; width: number; height: number };
+export type DocumentSourceRect = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  heading?: { text: string; x: number; y: number; width: number; height: number };
+};
 type TransitionContextValue = {
   openReader: (source: DocumentSourceRect, navigate: () => void) => void;
   beginReader: () => void;
@@ -40,7 +47,12 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
       setTransitioning(false);
       return;
     }
-    Animated.timing(progress, { toValue: 1, duration: 240, useNativeDriver: true }).start(({ finished }) => {
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: MOTION.document.open,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
       if (finished) {
         locked.current = false;
         setTransitioning(false);
@@ -59,12 +71,19 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
         locked.current = false;
         setTransitioning(false);
         navigate();
+        setSourceRect(null);
         return;
       }
-      Animated.timing(progress, { toValue: 0, duration: 190, useNativeDriver: true }).start(() => {
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: MOTION.document.close,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start(() => {
         locked.current = false;
         setTransitioning(false);
         navigate();
+        setSourceRect(null);
       });
     },
     [progress, reduceMotion],

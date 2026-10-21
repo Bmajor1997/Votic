@@ -1,5 +1,7 @@
+import { useMotionValue } from "../../motion/useMotionValue";
+import { MOTION } from "../../motion/motionSpec";
 import { router } from "expo-router";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Animated, Pressable, Text, TextInput, View } from "react-native";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 import type { useReaderFind } from "../useReaderFind";
 import { SleepTimerControl } from "./SleepTimerControl";
@@ -14,32 +16,55 @@ export function ReaderTools({
   find: ReturnType<typeof useReaderFind>;
 }) {
   const { theme } = useVoticTheme();
+  const modeProgress = useMotionValue(listening ? 1 : 0, MOTION.mode.duration);
   const button = { minHeight: 48, paddingHorizontal: 12, justifyContent: "center" as const };
   return (
     <View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
-        {(["read", "listen"] as const).map((mode) => (
-          <Pressable
-            key={mode}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: listening === (mode === "listen") }}
-            style={button}
-            onPress={() => {
-              if (listening === (mode === "listen")) return;
-              find.close();
-              void stop().then(() => router.setParams({ mode, autoplay: "0" }));
+        <View style={{ flexDirection: "row", borderRadius: 24, backgroundColor: theme.surfaceMuted }}>
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              top: 3,
+              bottom: 3,
+              left: 3,
+              width: MOTION.mode.pillWidth - 6,
+              borderRadius: 22,
+              backgroundColor: theme.sentenceHighlight,
+              transform: [
+                {
+                  translateX: modeProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, MOTION.mode.pillWidth],
+                  }),
+                },
+              ],
             }}
-          >
-            <Text
-              style={{
-                color: listening === (mode === "listen") ? theme.accentText : theme.mutedText,
-                fontWeight: "700",
+          />
+          {(["read", "listen"] as const).map((mode) => (
+            <Pressable
+              key={mode}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: listening === (mode === "listen") }}
+              style={[button, { width: MOTION.mode.pillWidth, alignItems: "center" }]}
+              onPress={() => {
+                if (listening === (mode === "listen")) return;
+                find.close();
+                void stop().then(() => router.setParams({ mode, autoplay: "0" }));
               }}
             >
-              {mode === "read" ? "Read" : "Listen"}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                style={{
+                  color: listening === (mode === "listen") ? theme.accentText : theme.mutedText,
+                  fontWeight: "700",
+                }}
+              >
+                {mode === "read" ? "Read" : "Listen"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Find within document"

@@ -1,3 +1,4 @@
+import { MotionFeedbackNotice } from "../motion/MotionFeedback";
 import { PropsWithChildren, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Animated, StyleSheet, Text, View } from "react-native";
@@ -56,6 +57,7 @@ export function Screen({
           {children}
         </FadingScrollView>
       </Animated.View>
+      <MotionFeedbackNotice />
     </SafeAreaView>
   );
 }

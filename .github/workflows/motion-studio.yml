@@ -1,0 +1,36 @@
+name: Motion Studio
+on:
+  push:
+    paths:
+      [
+        "apps/motion-studio/**",
+        "apps/mobile/src/motion/motionSpec.ts",
+        ".github/workflows/motion-studio.yml",
+      ]
+  pull_request:
+    paths:
+      [
+        "apps/motion-studio/**",
+        "apps/mobile/src/motion/motionSpec.ts",
+        ".github/workflows/motion-studio.yml",
+      ]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/motion-studio
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/motion-studio/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build

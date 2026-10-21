@@ -1,3 +1,10 @@
+import { useReaderMotion } from "../src/motion/useReaderMotion";
+import { useReaderDuration } from "../src/reader/useReaderDuration";
+import { PlaybackMorph } from "../src/motion/PlaybackMorph";
+import { FeedbackPop } from "../src/motion/FeedbackPop";
+import { ModeMotion } from "../src/motion/ModeMotion";
+import { MotionFeedbackNotice } from "../src/motion/MotionFeedback";
+import { ReaderTitleBridge } from "../src/motion/ReaderTitleBridge";
 import { ReaderTools } from "../src/reader/components/ReaderTools";
 import { FindHighlight } from "../src/reader/components/FindHighlight";
 import { useReaderFind } from "../src/reader/useReaderFind";
@@ -176,6 +183,7 @@ function ReaderContent() {
   const [availableHeight, setAvailableHeight] = useState<number | null>(null);
   const {
     activeDocument,
+    flush,
     documents,
     openDocument,
     savePassage,
@@ -184,6 +192,7 @@ function ReaderContent() {
     completeDocument,
     updatePlaybackRate,
   } = useDocumentLibrary();
+  const { showSaved, titleNode, rootNode: readerRoot, titleOpacity, bookmarkTrigger } = useReaderMotion();
   const activeId = activeDocument?.id;
   const nextUp = useMemo(() => next_up(documents, activeId), [documents, activeId]);
   const passages = useMemo(
@@ -1195,12 +1204,7 @@ function ReaderContent() {
     openDocument(id);
     router.replace({ pathname: "/reader", params: { mode: listening ? "listen" : "read" } });
   }
-  const totalWords = useMemo(
-    () => word_matches(activeDocument?.plainText || "").length,
-    [activeDocument?.plainText],
-  );
-  const totalSeconds = totalWords / Math.max(0.1, 2.6 * rate);
-  const elapsedSeconds = totalSeconds * progress;
+  const { totalSeconds, elapsedSeconds } = useReaderDuration(activeDocument?.plainText, rate, progress);
   const sentenceHighlight =
     accessibility.highlightMode === "sentence" || accessibility.highlightMode === "both";
   const wordHighlight = accessibility.highlightMode === "word" || accessibility.highlightMode === "both";
@@ -1242,6 +1246,9 @@ function ReaderContent() {
       updatedAt: now,
     });
     setSaveOpen(false);
+    void flush()
+      .then(() => showSaved("bookmark", activeDocument.title))
+      .catch(() => {});
     // After the save sheet has closed, the first time a passage is saved from the Reader.
     if (!savedPassage) setTimeout(() => walkthrough.request("reader.saved"), 400);
   }
@@ -1273,7 +1280,7 @@ function ReaderContent() {
   });
 
   return (
-    <View style={s.safe}>
+    <View ref={readerRoot} style={s.safe}>
       <Animated.View
         style={[
           s.safe,
@@ -1344,23 +1351,33 @@ function ReaderContent() {
                       onPress={open_save_passage}
                       style={({ pressed }) => [sheetStyles.iconButton, { opacity: pressed ? 0.55 : 1 }]}
                     >
-                      <Ionicons
-                        name={savedPassage ? "bookmark" : "bookmark-outline"}
-                        size={22}
-                        color={savedPassage ? theme.accentText : theme.text}
-                      />
+                      <FeedbackPop trigger={bookmarkTrigger}>
+                        <Ionicons
+                          name={savedPassage ? "bookmark" : "bookmark-outline"}
+                          size={22}
+                          color={savedPassage ? theme.accentText : theme.text}
+                        />
+                      </FeedbackPop>
                     </Pressable>
                   </View>
                 </View>
                 <ReaderTools listening={listening} stop={stop} find={find} />
                 <View ref={progressTarget} collapsable={false} style={s.documentHeader}>
-                  <Text
+                  <Animated.Text
+                    ref={titleNode}
                     numberOfLines={1}
                     maxFontSizeMultiplier={1.2}
-                    style={[s.title, s.compactTitle, { color: theme.text }]}
+                    style={[
+                      s.title,
+                      s.compactTitle,
+                      {
+                        color: theme.text,
+                        opacity: titleOpacity,
+                      },
+                    ]}
                   >
                     {document_heading(activeDocument, "Document reader")}
-                  </Text>
+                  </Animated.Text>
                   <View style={s.progressCopy}>
                     <Text maxFontSizeMultiplier={1.2} style={[s.progressText, { color: theme.mutedText }]}>
                       {Math.round(progress * 100)}% read
@@ -1498,134 +1515,139 @@ function ReaderContent() {
                   importantForAccessibility={dockCovered ? "no-hide-descendants" : "auto"}
                 >
                   <View style={[s.dock, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                    <View style={s.compactDockActions}>
-                      <Pressable
-                        ref={askTarget}
-                        accessibilityRole="button"
-                        accessibilityLabel="Ask Votic about this page"
-                        onPress={open_ask_votic}
-                        style={({ pressed }) => [
-                          s.readingAsk,
-                          { backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
-                        ]}
-                      >
-                        <VoticLogo compact markOnly progress={progress} />
-                        <Text numberOfLines={1} style={[s.readingAskText, { color: theme.text }]}>
-                          Ask Votic
-                        </Text>
-                      </Pressable>
-                      {listening && !listenExpanded ? (
+                    <ModeMotion key={listening ? "listen" : "read"} listening={listening}>
+                      <View style={s.compactDockActions}>
                         <Pressable
-                          ref={playTarget}
+                          ref={askTarget}
                           accessibilityRole="button"
-                          accessibilityLabel={playing ? "Pause" : "Play"}
-                          onPress={toggle}
+                          accessibilityLabel="Ask Votic about this page"
+                          onPress={open_ask_votic}
                           style={({ pressed }) => [
-                            s.compactPlay,
-                            { backgroundColor: theme.playButton },
-                            !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.95 : 1 }] },
+                            s.readingAsk,
+                            { backgroundColor: pressed ? theme.surfaceMuted : theme.surface },
                           ]}
                         >
-                          <Ionicons name={playing ? "pause" : "play"} size={20} color={theme.playIcon} />
+                          <VoticLogo compact markOnly progress={progress} />
+                          <Text numberOfLines={1} style={[s.readingAskText, { color: theme.text }]}>
+                            Ask Votic
+                          </Text>
                         </Pressable>
-                      ) : null}
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={
-                          listening
-                            ? listenExpanded
-                              ? "Collapse listening controls"
-                              : "Expand listening controls"
-                            : listenExpanded
-                              ? "Hide reading tools"
-                              : "Show reading tools"
-                        }
-                        ref={moreTarget}
-                        accessibilityState={{ expanded: listenExpanded }}
-                        onPress={() => {
-                          if (!listenExpanded) walkthrough.pressed("reader.more");
-                          setListenExpanded((expanded) => !expanded);
-                        }}
-                        style={({ pressed }) => [s.expandButton, { opacity: pressed ? 0.62 : 1 }]}
-                      >
-                        <Text style={[s.expandLabel, { color: theme.mutedText }]}>
-                          {listenExpanded ? "Less" : "More"}
-                        </Text>
-                        <Ionicons
-                          name={listenExpanded ? "chevron-down" : "chevron-up"}
-                          size={18}
-                          color={theme.mutedText}
-                        />
-                      </Pressable>
-                    </View>
-                    {listening && listenExpanded ? (
-                      <View style={[s.controls, s.compactControls]}>
+                        {listening && !listenExpanded ? (
+                          <Pressable
+                            ref={playTarget}
+                            accessibilityRole="button"
+                            accessibilityLabel={playing ? "Pause" : "Play"}
+                            onPress={toggle}
+                            style={({ pressed }) => [
+                              s.compactPlay,
+                              { backgroundColor: theme.playButton },
+                              !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.95 : 1 }] },
+                            ]}
+                          >
+                            <PlaybackMorph playing={playing} size={20} color={theme.playIcon} />
+                          </Pressable>
+                        ) : null}
                         <Pressable
-                          disabled={index === 0}
-                          accessibilityRole="button"
-                          accessibilityLabel="Previous passage"
-                          onPress={() => jump(-1)}
-                          style={({ pressed }) => [
-                            s.control,
-                            { opacity: index === 0 ? 0.3 : pressed ? 0.55 : 1 },
-                          ]}
-                        >
-                          <Ionicons
-                            name="play-skip-back"
-                            size={25}
-                            color={index === 0 ? theme.mutedText : theme.text}
-                          />
-                        </Pressable>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={playing ? "Pause" : "Play"}
-                          onPress={toggle}
-                          style={({ pressed }) => [
-                            s.play,
-                            { backgroundColor: theme.playButton },
-                            !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.96 : 1 }] },
-                          ]}
-                        >
-                          <Ionicons name={playing ? "pause" : "play"} size={30} color={theme.playIcon} />
-                        </Pressable>
-                        <Pressable
-                          disabled={!passages.length}
                           accessibilityRole="button"
                           accessibilityLabel={
-                            index >= passages.length - 1 ? "Finish document" : "Next passage"
+                            listening
+                              ? listenExpanded
+                                ? "Collapse listening controls"
+                                : "Expand listening controls"
+                              : listenExpanded
+                                ? "Hide reading tools"
+                                : "Show reading tools"
                           }
-                          onPress={() => (index >= passages.length - 1 ? finish_document() : jump(1))}
-                          style={({ pressed }) => [
-                            s.control,
-                            { opacity: !passages.length ? 0.3 : pressed ? 0.55 : 1 },
-                          ]}
+                          ref={moreTarget}
+                          accessibilityState={{ expanded: listenExpanded }}
+                          onPress={() => {
+                            if (!listenExpanded) walkthrough.pressed("reader.more");
+                            setListenExpanded((expanded) => !expanded);
+                          }}
+                          style={({ pressed }) => [s.expandButton, { opacity: pressed ? 0.62 : 1 }]}
                         >
+                          <Text style={[s.expandLabel, { color: theme.mutedText }]}>
+                            {listenExpanded ? "Less" : "More"}
+                          </Text>
                           <Ionicons
-                            name={index >= passages.length - 1 ? "checkmark" : "play-skip-forward"}
-                            size={index >= passages.length - 1 ? 29 : 25}
-                            color={theme.text}
+                            name={listenExpanded ? "chevron-down" : "chevron-up"}
+                            size={18}
+                            color={theme.mutedText}
                           />
                         </Pressable>
                       </View>
-                    ) : null}
-                    {listening && listenExpanded ? (
-                      <View style={s.playbackMeta}>
-                        <Text maxFontSizeMultiplier={1.15} style={[s.timeText, { color: theme.mutedText }]}>
-                          {clock_label(elapsedSeconds)} / {clock_label(totalSeconds)}
-                        </Text>
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityLabel={`Playback speed ${format_playback_rate(rate)}`}
-                          onPress={() => setSheet("listen")}
-                          style={s.rateButton}
-                        >
-                          <Text maxFontSizeMultiplier={1.15} style={[s.rateText, { color: theme.mutedText }]}>
-                            {format_playback_rate(rate)}
+                      {listening && listenExpanded ? (
+                        <View style={[s.controls, s.compactControls]}>
+                          <Pressable
+                            disabled={index === 0}
+                            accessibilityRole="button"
+                            accessibilityLabel="Previous passage"
+                            onPress={() => jump(-1)}
+                            style={({ pressed }) => [
+                              s.control,
+                              { opacity: index === 0 ? 0.3 : pressed ? 0.55 : 1 },
+                            ]}
+                          >
+                            <Ionicons
+                              name="play-skip-back"
+                              size={25}
+                              color={index === 0 ? theme.mutedText : theme.text}
+                            />
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={playing ? "Pause" : "Play"}
+                            onPress={toggle}
+                            style={({ pressed }) => [
+                              s.play,
+                              { backgroundColor: theme.playButton },
+                              !accessibility.reduceMotion && { transform: [{ scale: pressed ? 0.96 : 1 }] },
+                            ]}
+                          >
+                            <PlaybackMorph playing={playing} size={30} color={theme.playIcon} />
+                          </Pressable>
+                          <Pressable
+                            disabled={!passages.length}
+                            accessibilityRole="button"
+                            accessibilityLabel={
+                              index >= passages.length - 1 ? "Finish document" : "Next passage"
+                            }
+                            onPress={() => (index >= passages.length - 1 ? finish_document() : jump(1))}
+                            style={({ pressed }) => [
+                              s.control,
+                              { opacity: !passages.length ? 0.3 : pressed ? 0.55 : 1 },
+                            ]}
+                          >
+                            <Ionicons
+                              name={index >= passages.length - 1 ? "checkmark" : "play-skip-forward"}
+                              size={index >= passages.length - 1 ? 29 : 25}
+                              color={theme.text}
+                            />
+                          </Pressable>
+                        </View>
+                      ) : null}
+                      {listening && listenExpanded ? (
+                        <View style={s.playbackMeta}>
+                          <Text maxFontSizeMultiplier={1.15} style={[s.timeText, { color: theme.mutedText }]}>
+                            {clock_label(elapsedSeconds)} / {clock_label(totalSeconds)}
                           </Text>
-                          <Ionicons name="speedometer-outline" size={15} color={theme.mutedText} />
-                        </Pressable>
-                      </View>
-                    ) : null}
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={`Playback speed ${format_playback_rate(rate)}`}
+                            onPress={() => setSheet("listen")}
+                            style={s.rateButton}
+                          >
+                            <Text
+                              maxFontSizeMultiplier={1.15}
+                              style={[s.rateText, { color: theme.mutedText }]}
+                            >
+                              {format_playback_rate(rate)}
+                            </Text>
+                            <Ionicons name="speedometer-outline" size={15} color={theme.mutedText} />
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </ModeMotion>
                     {/* Progress lives once, under the document title. */}
                     {listenExpanded ? (
                       <View
@@ -1906,6 +1928,12 @@ function ReaderContent() {
           </SafeAreaView>
         </Animated.View>
       </Animated.View>
+      <ReaderTitleBridge
+        rootNode={readerRoot}
+        titleNode={titleNode}
+        title={document_heading(activeDocument, "Document reader")}
+      />
+      <MotionFeedbackNotice bottom={dockHeight + 20} />
       <WalkthroughOverlay host="reader" />
     </View>
   );

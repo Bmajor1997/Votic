@@ -2,7 +2,7 @@ import { useImportSave } from "./useImportSave";
 import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
 import { RefObject, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { IMPORT_TYPES, validate_import } from "./importDocument";
@@ -86,6 +86,7 @@ export function open_from(
   sourceRef: RefObject<View | null>,
   transition: ReturnType<typeof useDocumentTransition>,
   params?: Record<string, string>,
+  heading?: { text: string; node: Text | null },
 ) {
   const target = params ? { pathname: "/reader" as const, params } : "/reader";
   const source = sourceRef.current;
@@ -93,7 +94,16 @@ export function open_from(
     router.push(target);
     return;
   }
-  source.measureInWindow((x, y, width, height) =>
-    transition.openReader({ x, y, width, height }, () => router.push(target)),
-  );
+  source.measureInWindow((x, y, width, height) => {
+    if (!heading?.node) {
+      transition.openReader({ x, y, width, height }, () => router.push(target));
+      return;
+    }
+    heading.node.measureInWindow((tx, ty, tw, th) =>
+      transition.openReader(
+        { x, y, width, height, heading: { text: heading.text, x: tx, y: ty, width: tw, height: th } },
+        () => router.push(target),
+      ),
+    );
+  });
 }

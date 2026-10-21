@@ -262,7 +262,11 @@ export function RecentShelf({
   optionsTargetRef,
 }: {
   documents: VoticDocument[];
-  onOpen: (document: VoticDocument, source: React.RefObject<View | null>) => void;
+  onOpen: (
+    document: VoticDocument,
+    source: React.RefObject<View | null>,
+    heading: { text: string; node: Text | null },
+  ) => void;
   onMore: (document: VoticDocument) => void;
   targetRef?: Target;
   optionsTargetRef?: Target;
@@ -292,7 +296,7 @@ export function RecentShelf({
           <RecentCard
             key={document.id}
             document={document}
-            onOpen={(source) => onOpen(document, source)}
+            onOpen={(source, heading) => onOpen(document, source, heading)}
             onMore={() => onMore(document)}
             moreRef={index === 0 ? optionsTargetRef : undefined}
           />
@@ -309,7 +313,7 @@ function RecentCard({
   moreRef,
 }: {
   document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>) => void;
+  onOpen: (source: React.RefObject<View | null>, heading: { text: string; node: Text | null }) => void;
   onMore: () => void;
   moreRef?: Target;
 }) {
@@ -317,6 +321,7 @@ function RecentCard({
   const colors = widget_palette(theme.isDark, document_widget_tone(document.sourceName));
   const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
+  const titleRef = useRef<Text>(null);
   const title = readable_title(document.title);
   const percent = Math.round(document.progress * 100);
   return (
@@ -338,14 +343,18 @@ function RecentCard({
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
         accessibilityHint={progress_label(document)}
-        onPress={() => onOpen(ref)}
+        onPress={() => onOpen(ref, { text: title, node: titleRef.current })}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
         <View style={[s.recentCover, { backgroundColor: colors.art }]}>
           <WidgetHalo color={colors.strong} />
           <HomeDocumentArtwork document={document} />
         </View>
-        <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={[s.recentTitle, { color: colors.ink }]}>
+        <Text
+          ref={titleRef}
+          numberOfLines={fontScale > 1.2 ? undefined : 2}
+          style={[s.recentTitle, { color: colors.ink }]}
+        >
           {title}
         </Text>
         {document.progress >= 1 ? (

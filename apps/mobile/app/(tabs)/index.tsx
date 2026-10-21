@@ -69,11 +69,16 @@ export default function Home() {
         <ContinueCard
           document={featured}
           targetRef={continueTarget}
-          onOpen={(source, listen) => {
+          onOpen={(source, listen, heading) => {
             if (transition.transitioning) return;
             openDocument(featured.id);
             // Listen opens with narration controls and starts playing; Read opens without audio controls.
-            open_from(source, transition, listen ? { mode: "listen", autoplay: "1" } : { mode: "read" });
+            open_from(
+              source,
+              transition,
+              listen ? { mode: "listen", autoplay: "1" } : { mode: "read" },
+              heading,
+            );
           }}
         />
       ) : null}
@@ -83,10 +88,10 @@ export default function Home() {
           documents={recent}
           targetRef={recentTarget}
           optionsTargetRef={optionsTarget}
-          onOpen={(document, source) => {
+          onOpen={(document, source, heading) => {
             if (transition.transitioning) return;
             openDocument(document.id);
-            open_from(source, transition, { mode: "read" });
+            open_from(source, transition, { mode: "read" }, heading);
           }}
           onMore={setMenuDocument}
         />
@@ -128,11 +133,17 @@ function ContinueCard({
   targetRef,
 }: {
   document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>, listen: boolean) => void;
+  onOpen: (
+    source: React.RefObject<View | null>,
+    listen: boolean,
+    heading: { text: string; node: Text | null },
+  ) => void;
   targetRef?: (node: View | null) => void;
 }) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "chapter");
+  const cardRef = useRef<View>(null);
+  const titleRef = useRef<Text>(null);
   const listenRef = useRef<View>(null);
   const readRef = useRef<View>(null);
   const title = readable_title(document.title);
@@ -143,7 +154,10 @@ function ContinueCard({
   const readLabel = "Continue Reading";
   return (
     <View
-      ref={targetRef}
+      ref={(node) => {
+        cardRef.current = node;
+        targetRef?.(node);
+      }}
       collapsable={false}
       testID="home-continue-card"
       style={[s.featured, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -153,7 +167,9 @@ function ContinueCard({
       <View style={s.featuredTop}>
         <HomeDocumentArtwork document={document} featured />
         <View style={s.featuredCopy}>
-          <Text style={[s.featuredTitle, { color: colors.ink }]}>{title}</Text>
+          <Text ref={titleRef} style={[s.featuredTitle, { color: colors.ink }]}>
+            {title}
+          </Text>
           <Text style={[s.featuredMeta, { color: colors.detail }]}>{position_label(document)}</Text>
           <View
             accessible
@@ -178,7 +194,7 @@ function ContinueCard({
             accessibilityRole="button"
             accessibilityLabel={`${listenLabel}: ${title}`}
             accessibilityHint="Opens the Reader and plays from where you left off"
-            onPress={() => onOpen(listenRef, true)}
+            onPress={() => onOpen(cardRef, true, { text: title, node: titleRef.current })}
             style={({ pressed }) => [
               s.primary,
               s.featuredButton,
@@ -193,7 +209,7 @@ function ContinueCard({
             accessibilityRole="button"
             accessibilityLabel={`${readLabel}: ${title}`}
             accessibilityHint="Opens the document for reading, without audio controls"
-            onPress={() => onOpen(readRef, false)}
+            onPress={() => onOpen(cardRef, false, { text: title, node: titleRef.current })}
             style={({ pressed }) => [
               s.secondary,
               s.featuredButton,

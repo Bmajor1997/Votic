@@ -66,6 +66,7 @@ describe("document import", () => {
     await waitFor(() =>
       expect(extract_document).toHaveBeenCalledWith("Votic test.rtf", expect.anything(), expect.anything()),
     );
+    await waitFor(() => expect(screen.getByText("Added to your library")).toBeTruthy());
   });
 });
 
@@ -113,6 +114,7 @@ it("finishes the import even though the Android file picker sends Votic to the b
       "Chapter one. The picker came and went.",
     ]),
   );
+  await waitFor(() => expect(screen.getByText("Added to your library")).toBeTruthy());
   expect(screen.queryByText(/Couldn't add/)).toBeNull();
 });
 

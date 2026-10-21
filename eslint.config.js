@@ -23,7 +23,7 @@ const sharedGlobals = {
 
 export default [
   // apps/mobile has its own TypeScript/React lint config (apps/mobile/eslint.config.js).
-  { ignores: ["node_modules/**", "playwright-report/**", "test-results/**", "apps/mobile/**"] },
+  { ignores: ["node_modules/**", "playwright-report/**", "test-results/**", "apps/mobile/**", "apps/motion-studio/build/**"] },
   {
     files: ["**/*.js"],
     languageOptions: { ecmaVersion: "latest", sourceType: "module", globals: sharedGlobals },

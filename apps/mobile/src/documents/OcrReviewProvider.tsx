@@ -1,3 +1,4 @@
+import { useMotionFeedback } from "../motion/MotionFeedback";
 import { account_writable } from "../storage/accountDeletion";
 import { load_ocr_review, store_ocr_review } from "./ocrReviewStorage";
 import {
@@ -38,6 +39,7 @@ const Context = createContext<Value | null>(null);
 export function OcrReviewProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush } = useAccountData();
   const library = useDocumentLibrary();
+  const { show } = useMotionFeedback();
   const { theme } = useVoticTheme();
   const [record, setRecord] = useState<Review | null>(null);
   const [visible, setVisible] = useState(false);
@@ -142,6 +144,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
       if (!mounted.current) return;
       setRecord(null);
       setVisible(false);
+      show("import", document.title);
       const waiting = callback.current;
       callback.current = null;
       if (waiting) waiting(document);

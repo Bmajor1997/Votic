@@ -1,3 +1,4 @@
+import { MOTION } from "../motion/motionSpec";
 import type { Animated } from "react-native";
 import type { DocumentSourceRect } from "./DocumentTransitionProvider";
 
@@ -52,7 +53,7 @@ export function reader_motion({
     // The document stays hidden until its opening layout is ready.
     readerOpacity: readerReady
       ? transitionProgress.interpolate({
-          inputRange: [0, 0.62, 1],
+          inputRange: [0, MOTION.document.textFrom, 1],
           outputRange: [0, 0, 1],
           extrapolate: "clamp",
         })

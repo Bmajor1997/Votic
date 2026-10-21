@@ -1,3 +1,4 @@
+import { useMotionFeedback } from "../motion/MotionFeedback";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { useEffect, useRef, useState } from "react";
 import { Alert, AppState } from "react-native";
@@ -14,6 +15,7 @@ export function useNoteDraftProtection(
 ) {
   const { uid, registerFlush } = useAccountData();
   const { flush } = useDocumentLibrary();
+  const { show } = useMotionFeedback();
   const [saving, setSaving] = useState(false);
   const initial = useRef(JSON.stringify(draft));
   const latest = useRef(draft);
@@ -83,6 +85,7 @@ export function useNoteDraftProtection(
         await commit();
         await flush();
         await clear();
+        show("note", draft.title.trim() || item.document.title, item.passage.id);
       } catch {
         Alert.alert(
           "Note save incomplete",

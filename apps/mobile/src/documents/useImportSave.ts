@@ -1,3 +1,4 @@
+import { useMotionFeedback } from "../motion/MotionFeedback";
 import { useCallback } from "react";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
 import { useOcrReview } from "./OcrReviewProvider";
@@ -7,14 +8,16 @@ import { import_origin, is_page_photo } from "./importDocument";
 export function useImportSave() {
   const { addTextDocumentDurably } = useDocumentLibrary();
   const { review } = useOcrReview();
+  const { show } = useMotionFeedback();
   return useCallback(
-    (name: string, text: string, playbackRate: number) => {
+    async (name: string, text: string, playbackRate: number) => {
       if (!text.trim()) throw new Error("This document does not contain readable text.");
       const options = { playbackRate, origin: import_origin(name) };
-      return is_page_photo(name)
-        ? review(name, [text], options)
-        : addTextDocumentDurably(name, text, options);
+      if (is_page_photo(name)) return review(name, [text], options);
+      const document = await addTextDocumentDurably(name, text, options);
+      show("import", document.title);
+      return document;
     },
-    [addTextDocumentDurably, review],
+    [addTextDocumentDurably, review, show],
   );
 }

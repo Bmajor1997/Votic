@@ -128,7 +128,11 @@ describe("Colorful Home cards", () => {
       more = jest.fn();
     await render_with_providers(<RecentShelf documents={[recent]} onOpen={open} onMore={more} />);
     await fireEvent.press(screen.getByRole("button", { name: "Open Field Guide" }));
-    expect(open).toHaveBeenCalledWith(recent, expect.objectContaining({ current: expect.anything() }));
+    expect(open).toHaveBeenCalledWith(
+      recent,
+      expect.objectContaining({ current: expect.anything() }),
+      expect.objectContaining({ text: recent.title, node: expect.anything() }),
+    );
     await fireEvent.press(screen.getByRole("button", { name: "More options for Field Guide" }));
     expect(more).toHaveBeenCalledWith(recent);
   });
@@ -154,7 +158,11 @@ describe("Colorful Home cards", () => {
         156,
       );
       await fireEvent.press(screen.getByRole("button", { name: `Open ${longTitle}` }));
-      expect(open).toHaveBeenCalledWith(document, expect.anything());
+      expect(open).toHaveBeenCalledWith(
+        document,
+        expect.anything(),
+        expect.objectContaining({ text: longTitle, node: expect.anything() }),
+      );
     } finally {
       await act(async () => Dimensions.set({ window: originalWindow, screen: originalScreen }));
     }

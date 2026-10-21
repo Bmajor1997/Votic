@@ -1,3 +1,4 @@
+import { useMotionFeedback } from "../src/motion/MotionFeedback";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -14,6 +15,7 @@ export default function ImportWebScreen() {
   const { theme } = useVoticTheme();
   const { addTextDocumentDurably } = useDocumentLibrary();
   const session = useImportSession();
+  const { show } = useMotionFeedback();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
@@ -25,12 +27,15 @@ export default function ImportWebScreen() {
     try {
       const page = await import_web_page(url, job.signal);
       if (!job.current()) return;
-      await addTextDocumentDurably(page.title + ".txt", page.text, {
+      const saved = await addTextDocumentDurably(page.title + ".txt", page.text, {
         playbackRate: defaultPlaybackRate,
         origin: "webpage",
         sourceUrl: page.url,
       });
-      if (job.current()) router.replace("/reader");
+      if (job.current()) {
+        show("import", saved.title);
+        router.replace("/reader");
+      }
     } catch (error) {
       if (!job.current()) return;
       Alert.alert("Could not import webpage", error instanceof Error ? error.message : "Try another link.");

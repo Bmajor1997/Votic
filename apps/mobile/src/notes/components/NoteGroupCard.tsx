@@ -1,3 +1,5 @@
+import { FeedbackPop } from "../../motion/FeedbackPop";
+import { saved_motion_trigger, useMotionFeedback } from "../../motion/MotionFeedback";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { DocumentCover } from "../../components/DocumentCover";
@@ -37,6 +39,7 @@ export function NoteGroupCard({
   previewLimit?: number;
 }) {
   const { theme } = useVoticTheme();
+  const { event } = useMotionFeedback();
   const color = document_type_color(document.sourceName);
   const noteCount = passages.filter((passage) => passage.note.trim()).length;
   const savedCount = passages.length - noteCount;
@@ -78,85 +81,86 @@ export function NoteGroupCard({
         const selected = selectedIds.includes(selectionId);
         const hasNote = Boolean(passage.note.trim());
         return (
-          <View
-            key={passage.id}
-            style={[
-              s.row,
-              {
-                borderTopColor: theme.border,
-                backgroundColor: passage.tags?.includes("votic") ? theme.brandTint : theme.surface,
-              },
-            ]}
-          >
+          <FeedbackPop key={passage.id} trigger={saved_motion_trigger(event, "note", passage.id)}>
             <View
               style={[
-                s.accent,
+                s.row,
                 {
-                  backgroundColor: passage.tags?.includes("votic")
-                    ? theme.accent
-                    : hasNote
-                      ? "#B7791F"
-                      : color,
+                  borderTopColor: theme.border,
+                  backgroundColor: passage.tags?.includes("votic") ? theme.brandTint : theme.surface,
                 },
               ]}
-            />
-            {selecting ? (
+            >
+              <View
+                style={[
+                  s.accent,
+                  {
+                    backgroundColor: passage.tags?.includes("votic")
+                      ? theme.accent
+                      : hasNote
+                        ? "#B7791F"
+                        : color,
+                  },
+                ]}
+              />
+              {selecting ? (
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${selected ? "Deselect" : "Select"} note from ${title}`}
+                  onPress={() => onToggleSelected(selectionId)}
+                  style={s.selectionBox}
+                >
+                  <Ionicons
+                    name={selected ? "checkmark-circle" : "ellipse-outline"}
+                    size={23}
+                    color={selected ? theme.accentText : theme.mutedText}
+                  />
+                </Pressable>
+              ) : null}
               <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: selected }}
-                accessibilityLabel={`${selected ? "Deselect" : "Select"} note from ${title}`}
-                onPress={() => onToggleSelected(selectionId)}
-                style={s.selectionBox}
+                accessibilityRole="button"
+                accessibilityLabel={`View note from ${title}`}
+                onPress={() => (selecting ? onToggleSelected(selectionId) : onView({ document, passage }))}
+                style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
               >
-                <Ionicons
-                  name={selected ? "checkmark-circle" : "ellipse-outline"}
-                  size={23}
-                  color={selected ? theme.accentText : theme.mutedText}
-                />
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`View note from ${title}`}
-              onPress={() => (selecting ? onToggleSelected(selectionId) : onView({ document, passage }))}
-              style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
-            >
-              <Text style={[s.meta, { color: theme.mutedText }]}>
-                {hasNote ? note_type_label(passage.noteType) : "Saved passage"} ·{" "}
-                {date_label(passage.updatedAt)}
-                {passage.pinned ? " · Pinned" : ""}
-              </Text>
-              {hasNote ? (
-                <View style={s.titleRow}>
-                  <Text numberOfLines={1} style={[s.title, { color: theme.text }]}>
-                    {automatic_note_title(passage)}
-                  </Text>
-                  {passage.tags?.includes("votic") ? (
-                    <View style={[s.voticBadge, { backgroundColor: theme.sentenceHighlight }]}>
-                      <Ionicons name="sparkles" size={12} color={theme.accentText} />
-                      <Text style={[s.voticBadgeText, { color: theme.accentText }]}>Votic</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-              <Text numberOfLines={3} style={[s.text, { color: theme.text }]}>
-                {passage.note.trim() || passage.text}
-              </Text>
-              {passage.tags?.length ? (
-                <Text numberOfLines={1} style={[s.tags, { color: theme.accentText }]}>
-                  {passage.tags.map((tag) => `#${tag}`).join("  ")}
+                <Text style={[s.meta, { color: theme.mutedText }]}>
+                  {hasNote ? note_type_label(passage.noteType) : "Saved passage"} ·{" "}
+                  {date_label(passage.updatedAt)}
+                  {passage.pinned ? " · Pinned" : ""}
                 </Text>
-              ) : null}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`More options for ${hasNote ? "note" : "saved passage"}`}
-              onPress={() => onMore({ document, passage })}
-              style={s.more}
-            >
-              <Ionicons name="ellipsis-horizontal" size={20} color={theme.mutedText} />
-            </Pressable>
-          </View>
+                {hasNote ? (
+                  <View style={s.titleRow}>
+                    <Text numberOfLines={1} style={[s.title, { color: theme.text }]}>
+                      {automatic_note_title(passage)}
+                    </Text>
+                    {passage.tags?.includes("votic") ? (
+                      <View style={[s.voticBadge, { backgroundColor: theme.sentenceHighlight }]}>
+                        <Ionicons name="sparkles" size={12} color={theme.accentText} />
+                        <Text style={[s.voticBadgeText, { color: theme.accentText }]}>Votic</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+                <Text numberOfLines={3} style={[s.text, { color: theme.text }]}>
+                  {passage.note.trim() || passage.text}
+                </Text>
+                {passage.tags?.length ? (
+                  <Text numberOfLines={1} style={[s.tags, { color: theme.accentText }]}>
+                    {passage.tags.map((tag) => `#${tag}`).join("  ")}
+                  </Text>
+                ) : null}
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`More options for ${hasNote ? "note" : "saved passage"}`}
+                onPress={() => onMore({ document, passage })}
+                style={s.more}
+              >
+                <Ionicons name="ellipsis-horizontal" size={20} color={theme.mutedText} />
+              </Pressable>
+            </View>
+          </FeedbackPop>
         );
       })}
       {hidden > 0 ? (

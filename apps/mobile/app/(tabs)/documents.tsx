@@ -48,6 +48,7 @@ export default function Documents() {
   const { reduceMotion } = useAccessibilityPreferences();
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
+  const titleRefs = useRef<Record<string, Text | null>>({});
   const uploadRef = useRef<View>(null);
   const library = useDocumentLibrary();
   const { collections, loaded, openDocument, addCollection } = library;
@@ -105,7 +106,12 @@ export default function Documents() {
     if (transition.transitioning) return;
     setOpeningDocument(null);
     openDocument(document.id);
-    open_from({ current: source }, transition, { mode });
+    open_from(
+      { current: source },
+      transition,
+      { mode },
+      { text: readable_title(document.title), node: titleRefs.current[document.id] },
+    );
   }
 
   function create_collection() {
@@ -303,7 +309,13 @@ export default function Documents() {
                           {sort === "recent" && index === 0 && document.lastOpenedAt ? (
                             <Text style={[s.recentLabel, { color: theme.accentText }]}>RECENTLY OPENED</Text>
                           ) : null}
-                          <Text numberOfLines={2} style={[s.rowTitle, { color: theme.text }]}>
+                          <Text
+                            ref={(node) => {
+                              titleRefs.current[document.id] = node;
+                            }}
+                            numberOfLines={2}
+                            style={[s.rowTitle, { color: theme.text }]}
+                          >
                             {title}
                           </Text>
                           <Text numberOfLines={1} style={[s.rowMeta, { color: theme.mutedText }]}>
