@@ -1,9 +1,9 @@
 name: Web Browser Smoke Tests
 on:
   push:
-    paths: ["app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
+    paths: ["admin/**", "app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
   pull_request:
-    paths: ["app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
+    paths: ["admin/**", "app_parts/**", "votic_server.js", "votic_home_page.html", "*.css", "browser_checks/**", "browser_check_settings.js", "package*.json", ".github/workflows/browser-checks.yml"]
   workflow_dispatch:
 permissions:
   contents: read

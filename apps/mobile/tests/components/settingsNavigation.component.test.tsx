@@ -25,7 +25,7 @@ describe("Settings categories", () => {
       "Accessibility",
       "Personalization",
       "Help",
-      "Share feedback",
+      "Feedback",
     ]);
     for (const row of rows) {
       expect(row.props.accessibilityHint).toMatch(/^Opens/);

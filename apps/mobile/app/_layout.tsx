@@ -1,5 +1,6 @@
 import { AccountDataProvider } from "../src/storage/AccountDataProvider";
-import { Stack } from "expo-router";
+import { take_feedback_destination } from "../src/feedback/feedbackNavigation";
+import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
@@ -38,6 +39,14 @@ function ThemedStack() {
   useEffect(() => {
     if (hydrated) Promise.resolve(SplashScreen.hideAsync?.()).catch(() => {});
   }, [hydrated]);
+  useEffect(() => {
+    if (!user || !hydrated || setup.loading || subscription.checking) return;
+    const frame = requestAnimationFrame(() => {
+      const destination = take_feedback_destination();
+      if (destination) router.replace(destination);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [user, hydrated, setup.loading, subscription.checking]);
   if (!hydrated) return null;
   const signedIn = Boolean(user);
   const personalized = signedIn && setup.personalized;
@@ -119,6 +128,9 @@ function ThemedStack() {
               <Stack.Protected guard={signedIn}>
                 <Stack.Screen name="account" options={slide} />
                 <Stack.Screen name="library-backup" options={slide} />
+                <Stack.Screen name="feedback/index" options={slide} />
+                <Stack.Screen name="feedback/feature" options={slide} />
+                <Stack.Screen name="feedback/bug" options={slide} />
               </Stack.Protected>
             </Stack>
           </SetupAccent>

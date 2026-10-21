@@ -282,3 +282,31 @@ export async function import_web_page(url: string, signal?: AbortSignal): Promis
     url: typeof result.url === "string" ? result.url : url.trim(),
   };
 }
+
+export type FeedbackInput = {
+  category: "feature" | "bug";
+  requestId: string;
+  title: string;
+  description: string;
+  steps?: string;
+  expected?: string;
+  actual?: string;
+};
+export async function submit_feedback(input: FeedbackInput) {
+  const response = await api_fetch(
+    "/api/feedback",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    API_TIMEOUT_MS,
+    undefined,
+    "Sign in to submit feedback.",
+  );
+  if (!response.ok)
+    throw new Error(server_error(response.result, "Feedback could not be sent. Please try again."));
+  if (typeof response.result.id !== "string")
+    throw new Error("Votic could not confirm your feedback. Please try again.");
+  return response.result.id;
+}

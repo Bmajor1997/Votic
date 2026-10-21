@@ -1,3 +1,4 @@
+import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
@@ -15,6 +16,9 @@ import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, va
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
 const public_files = new Map([
+  ["/admin/feedback", ["admin/feedback.html", "text/html; charset=utf-8"]],
+  ["/admin/feedback.js", ["admin/feedback.js", "text/javascript; charset=utf-8"]],
+  ["/admin/feedback.css", ["admin/feedback.css", "text/css; charset=utf-8"]],
   ["/delete-account", ["account_deletion_page.html", "text/html; charset=utf-8"]],
   ["/", ["votic_home_page.html", "text/html; charset=utf-8"]],
   ["/votic_home_page.html", ["votic_home_page.html", "text/html; charset=utf-8"]],
@@ -99,6 +103,7 @@ export function create_votic_handler(options = {}) {
  const env = options.env || process.env, config = { ...load_server_config(env), ...options.config };
  validate_production_security(env);
  const usage_store = options.usageStore || create_usage_store(env);
+ const feedback_admins = new Set(String(env.VOTIC_FEEDBACK_ADMIN_UIDS || "").split(",").map(uid => uid.trim()).filter(Boolean));
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
  // With FIREBASE_PROJECT_ID set, every /api/ request needs a signed-in Votic account.
  const authorize = options.authorize || (env.FIREBASE_PROJECT_ID ? create_firebase_authorizer(env.FIREBASE_PROJECT_ID) : () => true);
@@ -154,11 +159,28 @@ export function create_votic_handler(options = {}) {
       throw new HttpError(400, error instanceof WebImportError ? error.message : "Votic could not import that webpage. Check the address and try again.");
     }
  };
+ const handle_feedback = async (request, response, path, identity, ai_client, client) => {
+    response.setHeader("Cache-Control", "no-store");
+    const admin = path.startsWith("/api/admin/");
+    require_feedback_access(identity, env, feedback_admins, admin);
+    rate_limit(`${ai_client}:feedback`, admin ? 100 : 20);
+    rate_limit(`${client}:feedback`, admin ? 200 : 50);
+    const body = await read_json_body(request, 70_000, config.body_timeout_ms);
+    const feedback = usage_store.feedback;
+    if (path === "/api/feedback") send_json(response, 201, feedback.create(identity.uid, body));
+    else if (path === "/api/admin/feedback/list") send_json(response, 200, feedback.dashboard(body?.query ?? "", body?.page ?? 0));
+    else if (path === "/api/admin/feedback/details") {
+      if (typeof body?.id !== "string") throw new HttpError(400, "Choose a feedback group.");
+      send_json(response, 200, feedback.details(body.id, body.page ?? 0));
+    } else if (path === "/api/admin/feedback/mutate") send_json(response, 200, feedback.mutate(body));
+    else throw new HttpError(404, "Not found.");
+ };
  const handler = async (request, response) => {
   const request_started = Date.now();
   set_security_headers(response);
   try {
    const path = safe_request_path(request), client = client_address(request, config.trust_proxy);
+   private_cache_headers(path, response);
    rate_limit(`${client}:all`, config.general_rate_limit);
    if (["/healthz", "/readyz"].includes(path) && request.method === "GET") {
     let ready = path === "/healthz";
@@ -193,6 +215,7 @@ export function create_votic_handler(options = {}) {
     send_json(response, 200, { active: true });
     return;
    }
+   if (is_feedback_path(path)) { await handle_feedback(request, response, path, identity, ai_client, client); return; }
    if (request.method === "POST" && path === "/api/report-answer") {
     if (!identity?.uid) throw new HttpError(401, "Sign in to report an answer.");
     if (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
@@ -364,16 +387,34 @@ export function create_votic_handler(options = {}) {
     return;
   }
    if (path.startsWith("/api/")) throw new HttpError(404, "Not found.");
-   if (!["GET", "HEAD"].includes(request.method)) throw new HttpError(405, "Method not allowed.", { Allow: "GET, HEAD" });
-   const public_file = public_files.get(path);
-   if (!public_file) throw new HttpError(404, "Not found.");
-   const [relative, type] = public_file, body = await (options.readPublicFile || readFile)(resolve(root, relative));
-   set_security_headers(response, { "Content-Type": type, "Content-Length": body.length, "Cache-Control": path === "/" || path === "/votic_home_page.html" ? "no-cache" : "public, max-age=3600" });
-   response.writeHead(200).end(request.method === "HEAD" ? undefined : body);
+   await serve_public_file(request,response,path,env,options);
+
   } catch (error) { send_error(response, error, logger); }
  };
  handler.close = () => { if (!options.usageStore) usage_store.close(); };
  return handler;
+}
+function require_feedback_access(identity, env, admins, admin) {
+  if (!identity?.uid) throw new HttpError(401, "Sign in to submit feedback.");
+  if (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
+    throw new HttpError(503, "Feedback storage is unavailable. Please try again later.");
+  if (admin && !admins.has(identity.uid)) throw new HttpError(403, "Administrator access is required.");
+}
+function is_feedback_path(path) { return path === "/api/feedback" || path.startsWith("/api/admin/feedback"); }
+function private_cache_headers(path, response) {
+  if (path.startsWith("/api/") || path.startsWith("/admin/")) response.setHeader("Cache-Control", "no-store");
+}
+async function serve_public_file(request,response,path,env,options) {
+   if (!["GET", "HEAD"].includes(request.method)) throw new HttpError(405, "Method not allowed.", { Allow: "GET, HEAD" });
+   if (path === "/admin/feedback-config") {
+    send_json(response, 200, { apiKey: env.FIREBASE_WEB_API_KEY || "", clientKey: env.VOTIC_FEEDBACK_WEB_CLIENT_KEY || "" }, { "Cache-Control": "no-store" });
+    return;
+   }
+   const public_file = public_files.get(path);
+   if (!public_file) throw new HttpError(404, "Not found.");
+   const [relative, type] = public_file, body = await (options.readPublicFile || readFile)(resolve(root, relative));
+   set_security_headers(response, { "Content-Type": type, "Content-Length": body.length, ...(path === "/admin/feedback" ? { "Content-Security-Policy": security_headers["Content-Security-Policy"].replace("connect-src 'self'", "connect-src 'self' https://identitytoolkit.googleapis.com") } : {}), "Cache-Control": path === "/" || path === "/votic_home_page.html" ? "no-cache" : path.startsWith("/admin/") ? "no-store" : "public, max-age=3600" });
+   response.writeHead(200).end(request.method === "HEAD" ? undefined : body);
 }
 export function create_votic_server(options = {}) { const handler = create_votic_handler(options); const server = createServer(handler); server.on("close", handler.close); return server; }
 export function validate_production_security(env = process.env) {
@@ -409,7 +450,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

@@ -1,5 +1,5 @@
-import { Linking, Pressable, Text, View } from "react-native";
-import { VOTIC_FEEDBACK_FORM_URL } from "../feedback/feedbackLinks";
+import { Pressable, Text, View } from "react-native";
+import { remember_feedback_form } from "../feedback/feedbackNavigation";
 import { useEffect } from "react";
 import { record_screen_failure } from "../storage/diagnostics";
 
@@ -25,10 +25,13 @@ export function AppErrorScreen({ retry }: { retry: () => Promise<void> }) {
       </Pressable>
       <Pressable
         accessibilityRole="button"
-        onPress={() => void Linking.openURL(VOTIC_FEEDBACK_FORM_URL).catch(() => {})}
+        onPress={() => {
+          remember_feedback_form("bug");
+          void retry().catch(() => {});
+        }}
         style={{ minHeight: 48, justifyContent: "center" }}
       >
-        <Text style={{ color: "#124fa1" }}>Contact support</Text>
+        <Text style={{ color: "#124fa1" }}>Reopen and report a bug</Text>
       </Pressable>
     </View>
   );

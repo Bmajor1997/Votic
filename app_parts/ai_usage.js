@@ -1,5 +1,6 @@
+import { create_feedback_store } from "./feedback.js";
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync } from "node:fs";
+import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { setInterval, clearInterval } from "node:timers";
@@ -54,7 +55,8 @@ function number_setting(env, name, fallback) {
 export function create_usage_store(env = {}, { now = () => new Date(), path = env.VOTIC_AI_USAGE_DB || ":memory:" } = {}) {
   if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
   const db = new DatabaseSync(path);
-  db.exec(`PRAGMA busy_timeout=5000;
+  if (path !== ":memory:") chmodSync(path, 0o600);
+  db.exec(`PRAGMA busy_timeout=5000; PRAGMA secure_delete=ON; PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS ai_usage (
       request_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, feature TEXT NOT NULL, model TEXT NOT NULL,
       started_at TEXT NOT NULL, completed_at TEXT, status TEXT NOT NULL, provider_request_id TEXT, response_id TEXT,
@@ -74,8 +76,10 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
     CREATE TABLE IF NOT EXISTS client_events (
       day TEXT NOT NULL, code TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(day,code)
     );`);
+  const feedback = create_feedback_store(db, { now, accountDeleted: uid => Boolean(db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid))) });
   // Keep only the bounded financial-control window for anonymized deleted-account rows.
   const prune = () => {
+    feedback.prune();
     db.prepare("DELETE FROM ai_usage WHERE user_id LIKE 'deleted:%' AND started_at<?")
       .run(new Date(now().getTime() - 90 * 86400000).toISOString());
     db.prepare("DELETE FROM ai_reports WHERE created_at<?").run(new Date(now().getTime() - 30 * 86400000).toISOString());
@@ -96,6 +100,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
     report_bytes: number_setting(env, "VOTIC_REPORT_MAX_BYTES", 50_000_000),
   };
   return {
+    feedback,
     reserve({ user_id, feature, model, input_bound, output_bound, rates }) {
       const started_at = now().toISOString(), month = started_at.slice(0, 7) + "-01T00:00:00.000Z", day = started_at.slice(0, 10) + "T00:00:00.000Z";
       const minute = new Date(Date.parse(started_at) - 60000).toISOString();
@@ -186,6 +191,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
           .run(deletion_key(uid), "deleted:" + randomUUID(), now().toISOString());
         const row = db.prepare("SELECT anonymous_id FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid));
         db.prepare("DELETE FROM ai_reports WHERE user_id=?").run(uid);
+        feedback.remove_user(uid);
         // Preserve global spending limits, without the original account identifier or provider linkage.
         db.prepare("UPDATE ai_usage SET user_id=?,provider_request_id=NULL,response_id=NULL WHERE user_id IN (?,?)")
           .run(row.anonymous_id, uid, "user:" + uid);

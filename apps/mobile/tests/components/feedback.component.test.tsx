@@ -1,35 +1,21 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, screen } from "@testing-library/react-native";
 import { Linking } from "react-native";
+import { router } from "expo-router";
 import Settings from "../../app/(tabs)/settings";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { render_with_providers } from "../renderWithProviders";
 
-const URL = "https://votic.userjot.com/?openFeedback";
-
-describe("Votic feedback", () => {
-  it("opens the UserJot submission form from Settings without attaching personal data", async () => {
-    const open = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
+describe("Votic feedback entry", () => {
+  it("opens native Feedback from Settings without opening a browser", async () => {
+    const open = jest.spyOn(Linking, "openURL");
     await render_with_providers(<Settings />);
-    await fireEvent.press(screen.getByRole("button", { name: "Share feedback" }));
-    expect(open).toHaveBeenCalledWith(URL);
+    await fireEvent.press(screen.getByRole("button", { name: "Feedback" }));
+    expect(router.push).toHaveBeenCalledWith("/feedback");
+    expect(open).not.toHaveBeenCalled();
   });
-
-  it("appears once, on the main Settings page, not again under Help", async () => {
+  it("appears once on main Settings, not again under Help", async () => {
     await render_with_providers(<SettingsDetailScreen category="help" />);
-    expect(screen.queryByRole("button", { name: "Share feedback" })).toBeNull();
-  });
-
-  it("can be retried after the browser fails to open", async () => {
-    const open = jest
-      .spyOn(Linking, "openURL")
-      .mockRejectedValueOnce(new Error("browser unavailable"))
-      .mockResolvedValue(true);
-    await render_with_providers(<Settings />);
-    await fireEvent.press(screen.getByRole("button", { name: "Share feedback" }));
-    expect(screen.getByRole("alert")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Share feedback" }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(open).toHaveBeenLastCalledWith(URL);
+    expect(screen.queryByRole("button", { name: "Feedback" })).toBeNull();
   });
 });

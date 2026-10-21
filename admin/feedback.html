@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Votic · Private Feedback</title>
+    <link rel="stylesheet" href="/admin/feedback.css" />
+    <script type="module" src="/admin/feedback.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="brand">VOTIC / ADMINISTRATOR</p>
+        <h1>Feedback</h1>
+        <p>Private insights from the people using Votic.</p>
+        <button id="signout" hidden>Sign out</button>
+      </header>
+      <p id="message" role="status" aria-live="polite"></p>
+      <section id="login">
+        <h2>Sign in to Votic</h2>
+        <p>
+          Use your existing Votic administrator account. Access is checked by
+          the server.
+        </p>
+        <form id="login-form">
+          <label
+            >Email<input
+              id="email"
+              type="email"
+              autocomplete="username"
+              required
+              maxlength="254" /></label
+          ><label
+            >Password<input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              maxlength="4096" /></label
+          ><button type="submit">Sign in</button>
+        </form>
+        <details>
+          <summary>Use an existing Votic session</summary>
+          <p>
+            For administrators using a social sign-in, provide a current
+            Firebase ID token from your trusted Votic session. It remains in
+            this page's memory only.
+          </p>
+          <form id="token-form">
+            <label
+              >Votic ID token<input
+                id="token"
+                type="password"
+                autocomplete="off"
+                required
+                maxlength="20000" /></label
+            ><button type="submit">Open dashboard</button>
+          </form>
+        </details>
+      </section>
+      <div id="dashboard" hidden>
+        <div class="stats">
+          <section>
+            <h2>Feature Requests</h2>
+            <strong id="feature-total">0</strong>
+            <p>Total submissions</p>
+          </section>
+          <section>
+            <h2>Bug Reports</h2>
+            <strong id="bug-total">0</strong>
+            <p>Total submissions</p>
+          </section>
+        </div>
+        <section id="urgent-section">
+          <h2>Needs priority attention</h2>
+          <p>
+            Unresolved critical, security, privacy, data-loss, and blocking
+            issues.
+          </p>
+          <div id="urgent"></div>
+        </section>
+        <form id="search-form">
+          <label
+            >Search feedback<input
+              id="search"
+              type="search"
+              maxlength="200" /></label
+          ><button type="submit">Search</button
+          ><button type="button" id="refresh">Refresh</button>
+        </form>
+        <div class="columns">
+          <section>
+            <h2>Most Requested Features</h2>
+            <div id="features"></div>
+          </section>
+          <section>
+            <h2>Most Reported Bugs</h2>
+            <div id="bugs"></div>
+          </section>
+        </div>
+        <div class="pagination">
+          <button id="previous">Previous page</button><span id="page"></span
+          ><button id="next">Next page</button>
+        </div>
+        <section
+          id="details"
+          hidden
+          aria-label="Feedback group details"
+        ></section>
+      </div>
+    </main>
+  </body>
+</html>
