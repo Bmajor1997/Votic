@@ -36,20 +36,28 @@ in [native-feedback-system.md](native-feedback-system.md).
 | iOS simulator build | Not run locally: Linux environment |
 | Existing Playwright browser suite | Attempted; 7 launch failures because Chromium is unavailable |
 | New admin Playwright tests | Attempted; 3 launch failures for the same missing executable |
+| Cloud Chromium browser suite | **10 passed**, including all 3 new admin tests |
 | Chromium installation | Attempted; download returned an invalid/truncated archive |
 | Live Firebase/RevenueCat/device verification | Not performed; live credentials and physical/emulated device unavailable here |
 
-The local browser launch failures are environment blockers, not passing tests or
-skipped assertions. GitHub's first browser run did execute: 9 passed and 1 failed
-on an assertion that inspected the old list during an in-flight merge. A follow-up
-adds an accessible busy state, prevents dashboard interaction during operations,
-and waits for completion while retaining the exact +2 and group-count assertions.
-The second cloud run verified merge counts, then caught a missing exact accessible
-label on the status dropdown. The dropdown now has an explicit aria-label;
-the next cloud rerun must be checked before claiming the complete browser suite passes.
-The dashboard remains unverified in the local container. Browser tests are committed for the existing Chromium CI
-workflow, including both sections without tabs, safe rendering of malicious
-feedback, denied users, merge/separate/status, and unique counts.
+Local browser launch failures remain an environment limitation. The cloud Chromium
+suite subsequently **passed all 10 tests**, including all three new administrator
+end-to-end tests, at code commit `1c8a7597f75d162399636a6ccb0007870d92d392`.
+Run: https://github.com/Bmajor1997/Votic/actions/runs/39603967080
+
+The first two cloud attempts exposed an operation synchronization gap and a
+missing exact accessible label on a dropdown. Both were corrected; the same
+merge counts, group-count, authorization, status, separation, and malicious-text
+assertions passed without being weakened. The administrator interface now shows
+an accessible busy state and prevents interaction during operations.
+
+Cloud mobile reliability also passed on implementation commit `7b3377c` (native
+and backend code unchanged in the subsequent dashboard fixes). Android full native
+build is running, and the iOS build is queued at the time of this report. Their
+results must be checked separately; neither is claimed as passed here.
+
+Browser tests cover both sections without tabs, safe rendering of malicious
+feedback, denied users, merge/separate/status, and unique-user counts.
 
 Backend tests executed signed-token verification with generated RSA test keys,
 forged-role/expired-token rejection, unauthorized access, cross-user read denial,
@@ -87,7 +95,7 @@ root navigation. API tests verify the actual Firebase-token request transport.
 - Manually test TalkBack, large system text, keyboard behavior, themes, reduced
   motion, network failures, and deletion on Android before release.
 - Check remote CI against the published feature-branch head. This report does
-  **not** assert that cloud builds or browser tests have passed.
+  **not** assert that native cloud builds have passed.
 
 No production deployment, database migration, Firebase rules/provider changes,
 RevenueCat configuration changes, or production credential provisioning was
