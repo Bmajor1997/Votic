@@ -237,9 +237,7 @@ export function create_votic_handler(options = {}) {
       let result;
       try { result = await (options.extractDocument || parse_document_isolated)(name, body, { signal, timeoutMs: Math.min(config.parser_timeout_ms, remaining()), workerUrl: options.parserWorkerUrl }); }
       catch (error) {
-        if (signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
-        if (error.code === "PARSER_TIMEOUT") throw new HttpError(504, error.message);
-        if (error.code === "PARSER_STOPPED") { logger.warn?.("Votic document parser stopped unexpectedly", { type: name.split(".").at(-1)?.toLowerCase() }); throw new HttpError(422, error.message); }
+        rethrow_parser_failure(error, signal, name, logger);
         if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;
         if (!env.OPENAI_API_KEY) throw new HttpError(503, "Scanned PDF OCR is not configured.");
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
@@ -431,6 +429,14 @@ function scan_mime_type(name, body) {
   throw new HttpError(415, "This scan does not match a supported JPEG, PNG, or WebP image.");
 }
 function valid_signature(name, body) { if (/\.pdf$/i.test(name)) return body.subarray(0, 5).toString("ascii") === "%PDF-"; if (/\.(docx|pptx|epub|odt)$/i.test(name)) return body.length >= 4 && body[0] === 0x50 && body[1] === 0x4b && [3, 5, 7].includes(body[2]) && [4, 6, 8].includes(body[3]); if (/\.(rtf)$/i.test(name)) return body.subarray(0, 5).toString("latin1") === "{\\rtf"; if (/\.html?$/i.test(name)) return !body.includes(0); if (/\.ppt$/i.test(name)) return body.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])); return false; }
+function rethrow_parser_failure(error, signal, name, logger) {
+  if (signal.aborted) throw new HttpError(504, "Document processing was canceled or took too long.");
+  if (error.code === "PARSER_TIMEOUT") throw new HttpError(504, error.message);
+  if (error.code === "PARSER_STOPPED") {
+    logger.warn?.("Votic document parser stopped unexpectedly", { type: name.split(".").at(-1)?.toLowerCase() });
+    throw new HttpError(422, error.message);
+  }
+}
 function extraction_error_message(error) {
   const message = String(error?.message || error);
   if (/password|encrypted/i.test(message)) return "This document is password-protected. Remove the password and upload it again.";

@@ -46,9 +46,12 @@ const loopWorker = new URL("./fixtures/stuck_parser.js", import.meta.url);
 const crashingWorker = new URL("./fixtures/crashing_parser.js", import.meta.url);
 test("a parser that crashes gives a clear error, and the server keeps running", async () => {
   await assert.rejects(parse_document_isolated("broken.pdf", Buffer.alloc(0), { workerUrl: crashingWorker }), { code: "PARSER_STOPPED" });
-  await with_server({ parserWorkerUrl: crashingWorker }, async (base) => {
+  const warnings = [];
+  await with_server({ parserWorkerUrl: crashingWorker, logger: { warn: (...args) => warnings.push(args), error() {} } }, async (base) => {
     const response = await upload(base, Buffer.from("%PDF-1.4"));
-    assert.ok(response.status >= 400);
+    assert.equal(response.status, 422);
+    assert.match((await response.json()).error, /Try saving it again/);
+    assert.deepEqual(warnings, [["Votic document parser stopped unexpectedly", { type: "pdf" }]]);
     // The server is still up for the next request.
     assert.equal((await fetch(base + "/healthz")).status, 200);
   });
