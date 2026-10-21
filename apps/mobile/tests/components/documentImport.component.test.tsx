@@ -36,6 +36,37 @@ describe("document import", () => {
     expect(alert).not.toHaveBeenCalled();
     expect(extract_document).not.toHaveBeenCalled();
   });
+
+  it("lets Android pick an RTF file labelled text/rtf, without opening the picker to every file type", async () => {
+    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+      canceled: false,
+      assets: [
+        {
+          name: "Votic test.rtf",
+          uri: "file:///notes.rtf",
+          mimeType: "text/rtf",
+          size: 202,
+          lastModified: 1,
+        },
+      ],
+    } as DocumentPicker.DocumentPickerResult);
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      arrayBuffer: async () => new TextEncoder().encode("{\\rtf1 Tides}").buffer,
+    })) as unknown as typeof fetch;
+    jest.mocked(extract_document).mockResolvedValue("The Moon's gravity causes two high tides each day.");
+    await render_with_providers(<Documents />);
+    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
+    const { type } = jest.mocked(DocumentPicker.getDocumentAsync).mock.calls[0][0] as { type: string[] };
+    expect(type).toEqual(expect.arrayContaining(["application/rtf", "text/rtf"]));
+    // The filter still names each supported type rather than allowing anything.
+    expect(type).not.toContain("*/*");
+    expect(type.every((mime) => !mime.includes("*"))).toBe(true);
+    await waitFor(() =>
+      expect(extract_document).toHaveBeenCalledWith("Votic test.rtf", expect.anything(), expect.anything()),
+    );
+  });
 });
 
 it("keeps import choices scrollable with bottom safe-area clearance and working destinations", async () => {

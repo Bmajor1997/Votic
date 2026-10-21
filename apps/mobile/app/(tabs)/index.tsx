@@ -110,7 +110,10 @@ export default function Home() {
             if (transition.transitioning) return;
             // A Quick Note has no document passage to show; open that one note instead of the whole notebook.
             if (document.notebookKind) {
-              router.push({ pathname: "/notes", params: { note: passage.id, notebook: document.id } });
+              router.push({
+                pathname: "/notes",
+                params: { note: passage.id, notebook: document.id, from: "home" },
+              });
               return;
             }
             openDocument(document.id, passage.sentenceIndex);

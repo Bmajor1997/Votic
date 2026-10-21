@@ -12,6 +12,7 @@ import { create_premium_authorizer, PremiumVerificationError } from "./app_parts
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
 import { AccountDeletionError, delete_account_data } from "./app_parts/account_deletion.js";
+import { check_understanding_with_ai, UnderstandingCheckError, validate_understanding_request } from "./app_parts/understanding_check.js";
 import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
 const MAX_DOCUMENT_BYTES = 25_000_000;
@@ -148,6 +149,23 @@ export function create_votic_handler(options = {}) {
    try { return await work({ signal: controller.signal, remaining }); }
    finally { clearTimeout(deadline); response.removeListener("close", disconnected); active_extractions -= 1; }
  };
+ // Check my understanding: grades one answer against the part of the document read so far. Nothing is graded
+ // without the AI service; a failure says so instead of falling back to word matching.
+ const handle_understanding_check = async (request, response, client, ai_client, paid_fetch) => {
+    rate_limit(`${client}:review`, config.review_rate_limit);
+    if (!env.OPENAI_API_KEY) throw new HttpError(503, "Checking answers is temporarily unavailable. Your answer is still here, so try again later.");
+    const check = validate_understanding_request(await read_json_body(request, 40_000, config.body_timeout_ms));
+    const limit_message = take_ai_call(ai_client);
+    if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, limit_message);
+    try {
+      send_json(response, 200, await check_understanding_with_ai(check, { env, fetch_impl: paid_fetch("understanding-check"), timeout_ms: config.ai_timeout_ms }));
+    } catch (error) {
+      if (error.status === 429) throw error;
+      // The provider's status only: never the document, the answer, or the provider's message.
+      logger.warn?.("Votic understanding check unavailable", ai_failure_reason(error));
+      throw new HttpError(503, "Votic couldn't check this answer right now. Your answer is still here, so try again in a moment.");
+    }
+ };
  const handle_web_import = async (request, response, client, request_started) => {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
     const payload = await read_json_body(request, Math.min(config.max_json_bytes, 20_000), config.body_timeout_ms);
@@ -247,7 +265,7 @@ export function create_votic_handler(options = {}) {
     send_json(response, 200, { received: true });
     return;
    }
-   if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) {
+   if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review", "/api/check-understanding"].includes(path)) {
     if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
     if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
    }
@@ -291,6 +309,10 @@ export function create_votic_handler(options = {}) {
     await handle_web_import(request, response, client, request_started);
     return;
    }
+   if (request.method === "POST" && path === "/api/check-understanding") {
+    await handle_understanding_check(request, response, client, ai_client, paid_fetch);
+    return;
+   }
    if (request.method === "POST" && path === "/api/scan") {
     rate_limit(`${client}:scan`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
@@ -327,9 +349,9 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && ["/api/voice-question-status", "/api/transcribe-question"].includes(path)) {
     // The free readiness check has its own bucket so each voice question spends one transcription slot.
     rate_limit(path === "/api/voice-question-status" ? `${client}:voice-status` : `${client}:voice`, config.help_rate_limit);
-    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
+    if (!env.FIREBASE_PROJECT_ID && !options.authorize) throw new HttpError(503, "Voice questions are unavailable right now.");
     if (!identity?.uid) throw new HttpError(401, "Sign in to use voice questions.");
-    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are unavailable right now. You can still type your question.");
+    if (!env.OPENAI_API_KEY || env.VOTIC_VOICE_QUESTIONS_ENABLED !== "true") throw new HttpError(503, "Voice questions are unavailable right now.");
     if (path === "/api/voice-question-status") {
       await read_body(request, 1024, config.body_timeout_ms);
       send_json(response, 200, { ready: true });
@@ -496,7 +518,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError || error instanceof UnderstandingCheckError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

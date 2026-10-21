@@ -261,6 +261,57 @@ export async function transcribe_voice_question(bytes: ArrayBuffer, signal?: Abo
   return result.text.trim();
 }
 
+export type UnderstandingVerdict =
+  "supported" | "partially_supported" | "contradicted" | "unrelated" | "insufficient";
+export type UnderstandingCheck = {
+  verdict: UnderstandingVerdict;
+  feedback: string;
+  /** Short quotes from the part of the document read so far that the verdict rests on. */
+  evidence: string[];
+  missing: string | null;
+};
+const VERDICTS: UnderstandingVerdict[] = [
+  "supported",
+  "partially_supported",
+  "contradicted",
+  "unrelated",
+  "insufficient",
+];
+/**
+ * Grades one Check my understanding answer on the Votic server. A failure throws with a message to show; there is
+ * no on-device fallback, because matching words can't tell whether an answer is right.
+ */
+export async function check_understanding(
+  question: string,
+  answer: string,
+  source: string,
+  signal?: AbortSignal,
+): Promise<UnderstandingCheck> {
+  const response = await api_fetch(
+    "/api/check-understanding",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, answer, source }),
+    },
+    30_000,
+    signal,
+  );
+  const result = response.result;
+  if (!response.ok)
+    throw new Error(server_error(result, "Votic couldn't check this answer right now. Please try again."));
+  if (!VERDICTS.includes(result.verdict as UnderstandingVerdict) || typeof result.feedback !== "string")
+    throw new Error("Votic couldn't check this answer right now. Please try again.");
+  return {
+    verdict: result.verdict as UnderstandingVerdict,
+    feedback: result.feedback,
+    evidence: Array.isArray(result.evidence)
+      ? result.evidence.filter((item) => typeof item === "string")
+      : [],
+    missing: typeof result.missing === "string" ? result.missing : null,
+  };
+}
+
 export async function import_web_page(url: string, signal?: AbortSignal): Promise<ImportedWebPage> {
   const response = await api_fetch(
     "/api/import-url",

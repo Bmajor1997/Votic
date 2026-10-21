@@ -48,6 +48,7 @@
               "application/vnd.ms-powerpoint",
               "application/epub+zip",
               "application/rtf",
+              "text/rtf",
               "application/vnd.oasis.opendocument.text",
               "text/html",
               "image/jpeg",

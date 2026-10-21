@@ -49,6 +49,7 @@ import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
 import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
+import { voice_error_text } from "../src/voice/voiceErrorText";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { SendArrow } from "../src/components/SendArrow";
 import { useQuickNoteEditor } from "../src/notes/useQuickNoteEditor";
@@ -1642,13 +1643,12 @@ function ReaderContent() {
                     ) : null}
                     {askVoiceError ? (
                       <Text
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite"
                         onLayout={(event) => setAskVoiceErrorHeight(event.nativeEvent.layout.height)}
                         style={[s.askError, { color: theme.text, backgroundColor: theme.surfaceMuted }]}
                       >
-                        {askVoiceError}{" "}
-                        {askVoicePhase === "error"
-                          ? "Retry transcription or discard the recording."
-                          : "You can still type your question."}
+                        {voice_error_text(askVoiceError, askVoicePhase)}
                       </Text>
                     ) : null}
                     <View

@@ -26,6 +26,7 @@ import { useWebAutoGrow } from "../src/components/useWebAutoGrow";
 import type { TextRevealFrame } from "../src/components/textReveal";
 import { VoiceRecordingArea } from "../src/components/VoiceRecordingArea";
 import { KeyboardDictationButton, type VoiceInputPhase } from "../src/components/KeyboardDictationButton";
+import { voice_error_text } from "../src/voice/voiceErrorText";
 import { AIResponse, AIThinking } from "../src/components/AIResponse";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { useAccessibilityPreferences } from "../src/accessibility/AccessibilityProvider";
@@ -600,11 +601,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
           </FadingScrollView>
           <View>
             {voiceError ? (
-              <Text style={[s.voiceError, { color: theme.text }]}>
-                {voiceError}{" "}
-                {voicePhase === "error"
-                  ? "Retry transcription or discard the recording."
-                  : "You can still type your question."}
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+                style={[s.voiceError, { color: theme.text }]}
+              >
+                {voice_error_text(voiceError, voicePhase)}
               </Text>
             ) : null}
             <View

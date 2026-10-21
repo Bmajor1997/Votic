@@ -193,10 +193,11 @@ test("durable daily caps survive handler/process restart and identity spoofing c
 test("voice readiness fails before recording when configuration is missing, without paid calls", async () => {
   for (const [settings, authorizer, message] of [
     // Missing sign-in verification, the feature switch, or the AI key: each is a server setting the person can't
-    // fix, so all say voice is unavailable and that typing still works, without naming configuration.
-    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /unavailable right now\. You can still type/],
-    [env, () => ({ uid: "voice-user" }), /unavailable right now\. You can still type/],
-    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /unavailable right now\. You can still type/],
+    // fix, so all say voice is unavailable, without naming configuration. The app adds the reminder that typing
+    // still works, so the server doesn't repeat it.
+    [{ ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, undefined, /^Voice questions are unavailable right now\.$/],
+    [env, () => ({ uid: "voice-user" }), /^Voice questions are unavailable right now\.$/],
+    [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /^Voice questions are unavailable right now\.$/],
   ]) {
     await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
       const response = await post(base, "/api/voice-question-status", {});
