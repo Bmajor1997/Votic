@@ -36,11 +36,8 @@ export function FeedbackScreen() {
 const definitions = [
   { key: "title", label: "Title (required)", max: 120 },
   { key: "description", label: "Description (required)", max: 5000 },
-  { key: "steps", label: "Steps to reproduce (optional)", max: 3000 },
-  { key: "expected", label: "Expected behavior (optional)", max: 2000 },
-  { key: "actual", label: "Actual behavior (optional)", max: 2000 },
 ] as const;
-const empty = { title: "", description: "", steps: "", expected: "", actual: "" };
+const empty = { title: "", description: "" };
 
 export function FeedbackForm({ category }: { category: "feature" | "bug" }) {
   const auth = useAuth();
@@ -120,32 +117,30 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
               Your feedback is private and shared with the Votic team. Please avoid passwords, payment
               details, and private document content.
             </Text>
-            {definitions
-              .filter((field) => category === "bug" || field.key === "title" || field.key === "description")
-              .map((field) => (
-                <View key={field.key} style={s.field}>
-                  <Text style={[s.label, { color: theme.text }]}>{field.label}</Text>
-                  <TextInput
-                    accessibilityLabel={field.label}
-                    accessibilityHint={`Maximum ${field.max} characters`}
-                    value={values[field.key]}
-                    maxLength={field.max}
-                    editable={!busy}
-                    multiline={field.key !== "title"}
-                    textAlignVertical="top"
-                    onChangeText={(value) => {
-                      requestId.current = randomUUID();
-                      setValues((current) => ({ ...current, [field.key]: value }));
-                    }}
-                    placeholderTextColor={theme.mutedText}
-                    style={[
-                      s.input,
-                      field.key !== "title" && s.multiline,
-                      { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface },
-                    ]}
-                  />
-                </View>
-              ))}
+            {definitions.map((field) => (
+              <View key={field.key} style={s.field}>
+                <Text style={[s.label, { color: theme.text }]}>{field.label}</Text>
+                <TextInput
+                  accessibilityLabel={field.label}
+                  accessibilityHint={`Maximum ${field.max} characters`}
+                  value={values[field.key]}
+                  maxLength={field.max}
+                  editable={!busy}
+                  multiline={field.key !== "title"}
+                  textAlignVertical="top"
+                  onChangeText={(value) => {
+                    requestId.current = randomUUID();
+                    setValues((current) => ({ ...current, [field.key]: value }));
+                  }}
+                  placeholderTextColor={theme.mutedText}
+                  style={[
+                    s.input,
+                    field.key !== "title" && s.multiline,
+                    { color: theme.text, borderColor: theme.border, backgroundColor: theme.surface },
+                  ]}
+                />
+              </View>
+            ))}
             {error ? (
               <Text
                 accessibilityRole="alert"

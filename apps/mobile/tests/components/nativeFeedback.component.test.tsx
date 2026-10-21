@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StyleSheet } from "react-native";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
+import * as Crypto from "expo-crypto";
 import { FeedbackScreen, FeedbackForm } from "../../src/feedback/FeedbackScreens";
 import * as api from "../../src/api/voticApi";
 import { fakeAuth } from "../mocks/authBackend";
@@ -39,6 +40,7 @@ describe("Native feedback", () => {
     );
   });
   it("preserves bug fields after an error, shows loading, prevents double submission and retries", async () => {
+    jest.spyOn(Crypto, "randomUUID").mockReturnValue("caa14067-ae9a-47c8-b2ba-405af42d3870");
     let resolve: (id: string) => void = () => {};
     const submit = jest
       .spyOn(api, "submit_feedback")
@@ -51,12 +53,20 @@ describe("Native feedback", () => {
       );
     await render_with_providers(<FeedbackForm category="bug" />, { reduceMotion: true });
     await fill();
-    await fireEvent.changeText(screen.getByLabelText("Steps to reproduce (optional)"), "Lock the phone");
-    await fireEvent.changeText(screen.getByLabelText("Expected behavior (optional)"), "Continue reading");
-    await fireEvent.changeText(screen.getByLabelText("Actual behavior (optional)"), "Stops reading");
+    expect(screen.getAllByLabelText(/\((required|optional)\)/)).toHaveLength(2);
+    expect(screen.queryByLabelText("Steps to reproduce (optional)")).toBeNull();
+    expect(screen.queryByLabelText("Expected behavior (optional)")).toBeNull();
+    expect(screen.queryByLabelText("Actual behavior (optional)")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Server unavailable");
-    expect(screen.getByLabelText("Steps to reproduce (optional)")).toHaveDisplayValue("Lock the phone");
+    expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("Offline listening");
+    expect(screen.getByLabelText("Description (required)")).toHaveDisplayValue("Let me listen on a flight.");
+    expect(submit).toHaveBeenLastCalledWith({
+      category: "bug",
+      title: "Offline listening",
+      description: "Let me listen on a flight.",
+      requestId: expect.any(String),
+    });
     await fireEvent.press(screen.getByRole("button", { name: "Submit" }));
     expect(screen.getByRole("button", { name: "Submit" }).props.accessibilityState).toEqual({
       busy: true,
