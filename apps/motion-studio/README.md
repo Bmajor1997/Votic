@@ -21,3 +21,7 @@ The shared timing and play/pause geometry live in `../mobile/src/motion/motionSp
 Remotion authors frame-based previews. React Native `Animated` supplies the corresponding interactive behavior on Android/iOS; it follows real navigation, audio and durable-storage results. No embedded videos, browser player, WebView, extra native package or artificial processing delay is used in the app. System or in-app Reduce motion switches animations to their final state. The preview's scheduled events likewise switch immediately in reduced-motion mode.
 
 Use `npm run lint` for ESLint/TypeScript and `npm run build` for a reproducible Studio bundle. Generated `build/` and rendered `out/` files are excluded from Git.
+
+## Licence
+
+Remotion is not MIT-licensed. Its licence is free for individuals and for companies with up to three employees; larger companies need a paid company licence from remotion.pro. This Studio is a development preview only (nothing from it ships in the app), but check the current Remotion licence terms before Votic grows past that size or uses Remotion for anything else.
