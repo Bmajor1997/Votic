@@ -77,7 +77,8 @@ export async function find_document_matches(passages: string[], query: string, c
 export function match_context(text: string, match: { offset: number; length: number }, radius = 60) {
   const start = Math.max(0, match.offset - radius);
   const end = Math.min(text.length, match.offset + match.length + radius);
-  const from = start === 0 ? 0 : text.indexOf(" ", start) + 1 || start;
+  const nextSpace = text.indexOf(" ", start);
+  const from = start > 0 && nextSpace >= start && nextSpace < match.offset ? nextSpace + 1 : start;
   const lastSpace = text.lastIndexOf(" ", end);
   const to = end === text.length || lastSpace <= match.offset + match.length ? end : lastSpace;
   return `${from > 0 ? "…" : ""}${text.slice(from, to).replace(/\s+/g, " ").trim()}${to < text.length ? "…" : ""}`;

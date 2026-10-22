@@ -68,3 +68,12 @@ it("describes the words around a match for screen readers", () => {
   expect(match_context(text, { offset, length: 5 }, 20)).toBe("…every evening to light the great lamp…");
   expect(match_context("Short line.", { offset: 0, length: 5 })).toBe("Short line.");
 });
+
+it("keeps a match inside a long token in its preview", () => {
+  for (const suffix of [" end", ""]) {
+    const text = "a".repeat(100) + "target" + "b".repeat(100) + suffix;
+    const context = match_context(text, { offset: 100, length: 6 });
+    expect(context).toContain("target");
+    expect(context.length).toBeLessThanOrEqual(128);
+  }
+});

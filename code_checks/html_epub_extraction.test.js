@@ -196,3 +196,20 @@ test("a decorative image in an EPUB chapter does not cut the chapter short", asy
   const text = await extract("book.epub", book);
   assert_in_order(text, ["# Chapter One", "First paragraph.", "More words.", "The rest of the chapter that must be read."]);
 });
+
+test("hidden nested list descendants stay excluded while following siblings survive", async () => {
+  const page = '<main><ul><li hidden>Hidden parent<ul><li>Hidden nested item<ol><li>Hidden deep item</li></ol></li></ul></li><li>Visible item</li></ul>' +
+    '<dl><dd hidden>Hidden definition<dl><dt>Hidden term</dt><dd>Hidden detail</dd></dl></dd><dt>Visible term</dt><dd>Visible definition</dd></dl><p>Ending.</p></main>';
+  const book = await epub({ c1: chapter("Nested lists", page) }, ["c1"]);
+  for (const text of [await extract("nested.html", Buffer.from(page)), await extract("nested.epub", book)]) {
+    assert_absent(text, ["Hidden"]);
+    assert_in_order(text, ["Visible item", "Visible term", "Visible definition", "Ending."]);
+  }
+});
+
+test("unclosed hidden content stays excluded through the end of the file", async () => {
+  for (const tag of ["div", "p", "li", "dd"]) {
+    const text = await extract("unfinished.html", Buffer.from(`<p>Visible.</p><${tag} hidden>Hidden content`));
+    assert.equal(text, "Visible.");
+  }
+});

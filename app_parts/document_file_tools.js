@@ -434,9 +434,9 @@ export function html_file_text(html, { chrome = false, book = false } = {}) {
         i = end;
         continue;
       }
-      // A hidden element whose end can't be found is read rather than allowed to swallow the rest of the page.
+      // An unclosed hidden element still hides its remaining contents.
       const end = IMPLIED_END.has(name) ? implied_end(lower, name, i) : element_end(lower, name, i);
-      if (end !== -1) i = end;
+      i = end === -1 ? html.length : end;
       continue;
     }
     parts.push(structure_text(name, ending, lists));
@@ -470,21 +470,57 @@ function list_text(name, ending, lists) {
 }
 const VOID_HTML = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
 /** Elements whose closing tag HTML lets authors leave out, and the tags that end them implicitly. */
-const IMPLIED_END = new Map([
-  ["p", /<\/p[\s>]|<(?:p|div|h[1-6]|ul|ol|dl|table|section|article|header|footer|aside|blockquote|pre|hr|nav|main|figure|form|address)[\s/>]|<\/(?:div|section|article|main|body|li|td|blockquote)[\s>]/g],
-  ["li", /<\/li[\s>]|<li[\s/>]|<\/(?:ul|ol)[\s>]/g],
-  ["dt", /<\/dt[\s>]|<(?:dt|dd)[\s/>]|<\/dl[\s>]/g],
-  ["dd", /<\/dd[\s>]|<(?:dt|dd)[\s/>]|<\/dl[\s>]/g],
-]);
+const IMPLIED_END = new Set(["p", "li", "dt", "dd"]);
+const PARAGRAPH_END = /<\/p[\s>]|<(?:p|div|h[1-6]|ul|ol|dl|table|section|article|header|footer|aside|blockquote|pre|hr|nav|main|figure|form|address)[\s/>]|<\/(?:div|section|article|main|body|li|td|blockquote)[\s>]/g;
 /** Where a hidden <p>, <li>, <dt> or <dd> ends: after its own closing tag, or where the next element implicitly ends it. */
 function implied_end(lower, name, from) {
-  const pattern = IMPLIED_END.get(name);
+  if (name !== "p") return list_item_end(lower, name, from);
+  const pattern = PARAGRAPH_END;
   pattern.lastIndex = from;
   const match = pattern.exec(lower);
   if (!match) return -1;
   if (!match[0].startsWith(`</${name}`)) return match.index;
-  const after = lower.indexOf(">", match.index);
-  return after === -1 ? -1 : after + 1;
+  return after_tag(lower, match.index);
+}
+/** A nested list belongs to its hidden parent item; only a sibling item can end that parent implicitly. */
+function list_item_end(lower, name, from) {
+  const pattern = /<!--|<\/?(?:li|ul|ol|dt|dd|dl|script|style)(?=[\s/>])/g;
+  pattern.lastIndex = from;
+  let depth = 0, match;
+  while ((match = pattern.exec(lower))) {
+    const token = match[0];
+    if (token === "<!--") {
+      const end = lower.indexOf("-->", pattern.lastIndex);
+      if (end === -1) return -1;
+      pattern.lastIndex = end + 3;
+      continue;
+    }
+    const closing = token[1] === "/", tag = token.slice(closing ? 2 : 1);
+    if (!closing && HIDDEN_HTML.has(tag)) {
+      const end = hidden_end(lower, lower, tag, pattern.lastIndex);
+      if (end === -1) return -1;
+      pattern.lastIndex = end;
+      continue;
+    }
+    if (list_container(name, tag)) {
+      if (closing && depth === 0) return match.index;
+      depth += closing ? -1 : 1;
+    } else if (depth === 0 && ends_list_item(name, tag, closing)) {
+      if (!closing) return match.index;
+      return after_tag(lower, pattern.lastIndex);
+    }
+  }
+  return -1;
+}
+function list_container(name, tag) {
+  return name === "li" ? tag === "ul" || tag === "ol" : tag === "dl";
+}
+function ends_list_item(name, tag, closing) {
+  return tag === name || (!closing && name !== "li" && (tag === "dt" || tag === "dd"));
+}
+function after_tag(html, from) {
+  const end = html.indexOf(">", from);
+  return end === -1 ? -1 : end + 1;
 }
 /** Script, style and similar contents end at the first closing tag: their text is not markup, so nothing nests. */
 function hidden_end(lower, html, name, from) {

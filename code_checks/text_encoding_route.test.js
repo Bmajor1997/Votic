@@ -26,6 +26,20 @@ test("production parser reads older Windows/Latin-1 HTML instead of refusing it"
   assert.equal(result.status, 200);
   assert.equal(result.data.text.trim(), "Café “quoted” – résumé");
 });
+test("UTF-8 BOM takes precedence over stale legacy HTML metadata", async () => {
+  const body = Buffer.concat([Buffer.from([239,187,191]), Buffer.from('<meta charset="windows-1252"><p>Café 日本語 😀</p>')]);
+  const result = await extract("fixture.html", body);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.text, "Café 日本語 😀");
+});
+test("declared or BOM UTF-8 corruption is rejected instead of guessed as Windows text", async () => {
+  for (const prefix of [Buffer.from([239,187,191]), Buffer.from('<meta charset="utf-8">')]) {
+    const body = Buffer.concat([prefix, Buffer.from("<p>caf"), Buffer.from([195]), Buffer.from("</p>")]);
+    const result = await extract("fixture.html", body);
+    assert.equal(result.status, 400);
+    assert.match(result.data.error, /Save or export it as UTF-8/);
+  }
+});
 test("production parser honours a saved page's declared charset", async () => {
   const body = Buffer.concat([Buffer.from('<meta charset="shift_jis"><p>'), Buffer.from([0x93,0xfa,0x96,0x7b,0x8c,0xea]), Buffer.from("</p>")]);
   const result = await extract("fixture.html", body);

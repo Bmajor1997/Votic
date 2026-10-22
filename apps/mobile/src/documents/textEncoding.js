@@ -127,8 +127,12 @@ export function decode_text_file(input, declared) {
   const charset = String(declared || "")
     .trim()
     .toLowerCase();
-  const bom = (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff);
-  if (bom) return decode_document_bytes(bytes);
+  const bom =
+    (bytes[0] === 0xff && bytes[1] === 0xfe) ||
+    (bytes[0] === 0xfe && bytes[1] === 0xff) ||
+    (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf);
+  // A Unicode signature wins over stale metadata. Explicit UTF-8 must never fall back to a legacy guess.
+  if (bom || UTF8.has(charset)) return decode_document_bytes(bytes);
   if (looks_binary(bytes)) throw new Error(NOT_TEXT_ERROR);
   const declaredText = decode_declared(bytes, charset);
   if (declaredText !== null) return declaredText;
