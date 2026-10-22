@@ -26,6 +26,9 @@ export function PaywallIntro() {
         {goal.title}
       </Text>
       <Text style={[s.subtitle, { color: theme.heroMuted }]}>{goal.detail}</Text>
+      <Text style={[s.accessNote, { color: theme.heroText }]}>
+        A subscription is required for your documents. Try the sample preview for free.
+      </Text>
     </View>
   );
 }
@@ -50,8 +53,8 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
         <View style={s.help}>
           <Text style={[p.benefitTitle, { color: theme.text }]}>How do I cancel?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
-            Payment is handled by {store}. Manage or cancel in your {store} subscription settings, before the
-            renewal date shown above, to avoid the next charge.
+            Payment is handled by {store}. Manage or cancel in your {store} subscription settings before the
+            next renewal to avoid another charge.
           </Text>
           <Text style={[p.benefitTitle, { color: theme.text }]}>Already subscribed?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
@@ -75,6 +78,7 @@ const s = StyleSheet.create({
   hero: { borderRadius: 28, padding: 20, gap: 12 },
   brand: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
   title: { fontSize: 36, lineHeight: 42, fontWeight: "800", letterSpacing: -1.2 },
+  accessNote: { fontSize: 14, lineHeight: 21 },
   subtitle: { fontSize: 16, lineHeight: 24 },
   helpCard: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 16 },
   help: { gap: 10, paddingBottom: 16 },

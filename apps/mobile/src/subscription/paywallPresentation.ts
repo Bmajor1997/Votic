@@ -117,7 +117,11 @@ export function annual_value(plan: SubscriptionPlan, plans: SubscriptionPlan[]) 
       style: "currency",
       currency: plan.currencyCode,
     }).format(plan.priceAmount / 12);
-    return { savings, equivalent, comparison: `Save ${savings}% compared with 12 monthly payments` };
+    return {
+      savings,
+      equivalent,
+      comparison: `Save ${savings}% compared with 12 monthly payments at regular prices`,
+    };
   } catch {
     return null;
   }

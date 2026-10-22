@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
@@ -33,6 +34,7 @@ import {
   primary_action_label,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
+import { STORE_SUBSCRIPTIONS_URL } from "../src/subscription/subscriptionStatus";
 import { store_deadline } from "../src/subscription/storeDeadline";
 import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
@@ -46,7 +48,7 @@ type IconName = React.ComponentProps<typeof Ionicons>["name"];
 export const PREMIUM_FEATURES: { icon: IconName; title: string; detail: string }[] = [
   {
     icon: "document-text-outline",
-    title: "Read anything",
+    title: "Bring your documents",
     detail: "PDFs, Word, PowerPoint, EPUB, web articles, and camera scans.",
   },
   {
@@ -57,7 +59,7 @@ export const PREMIUM_FEATURES: { icon: IconName; title: string; detail: string }
   {
     icon: "chatbubble-ellipses-outline",
     title: "Ask Votic",
-    detail: "Get answers from your documents, read aloud or saved to your notes.",
+    detail: "Get answers from your documents. AI usage allowances apply.",
   },
   {
     icon: "bookmark-outline",
@@ -98,10 +100,13 @@ type Message = { icon?: IconName; text: string };
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
+  const { height, fontScale } = useWindowDimensions();
+  // Let all content scroll together when a fixed checkout would crowd out the page.
+  const inlineCheckout = height < 600 || fontScale >= 1.5;
   const [expandedBenefits, setExpandedBenefits] = useState(false);
   const celebration = usePurchaseCelebration();
   const subscription = useSubscription();
-  const { service, entitlement, legal } = subscription;
+  const { service, entitlement } = subscription;
   const unavailable = service.unavailableReason;
   const [plans, setPlans] = useState<SubscriptionPlan[] | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -144,9 +149,8 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     if (entitlement.status === "unknown") void subscription.refresh().catch(() => {});
   }
 
-  // A trial that has already been used is never promised again, whatever the product offers.
-  const usedTrial = entitlement.status === "expired";
-  const shown = (plans || []).map((plan) => (usedTrial ? { ...plan, trial: null } : plan));
+  // Eligibility comes from the store; an expired paid subscription does not prove a trial was used.
+  const shown = plans || [];
   const selected = shown.find((plan) => plan.id === selectedId) ?? null;
   const working = purchasing || restoring;
 
@@ -221,66 +225,65 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
         : null;
 
-  return (
-    <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
-        <PaywallIntro />
-        <PaywallPreview disabled={working} />
-        <View
-          accessibilityLabel="Included with Votic Premium"
-          style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
-        >
-          <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
-            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
-              Read. Listen. Understand.
-            </Text>
-            <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
-          </View>
-          {subscription.recoveryError ? (
-            <Text accessibilityRole="alert" style={{ color: theme.text }}>
-              {subscription.recoveryError}
+  const checkout = (
+    <SafeAreaView
+      edges={["bottom"]}
+      style={[
+        s.footer,
+        inlineCheckout && s.inlineFooter,
+        { borderTopColor: theme.border, backgroundColor: theme.surface },
+      ]}
+    >
+      {message ? <FormMessage icon={message.icon} text={message.text} /> : null}
+      {unavailable ? (
+        subscription.canBypass ? (
+          <SecondaryButton
+            label="Continue without a subscription (testing build)"
+            onPress={subscription.bypass}
+          />
+        ) : null
+      ) : plans === null ? (
+        <View accessible accessibilityLabel="Loading Votic Premium" style={s.loading}>
+          <ActivityIndicator color={theme.accentText} />
+        </View>
+      ) : !shown.length ? (
+        <>
+          <Text accessibilityRole="alert" style={[s.summary, { color: theme.text }]}>
+            {loadFailed
+              ? "Votic couldn't load Votic Premium. Check your connection and try again."
+              : "Votic Premium isn't available to buy right now. Please try again later."}
+          </Text>
+          <SecondaryButton label="Try again" onPress={retry} />
+        </>
+      ) : (
+        <>
+          {selected ? (
+            <Text accessibilityLiveRegion="polite" style={[s.summary, { color: theme.text }]}>
+              {billing_summary(selected, STORE)}
             </Text>
           ) : null}
-          {(expandedBenefits ? PREMIUM_FEATURES : PREMIUM_FEATURES.slice(0, 3)).map((feature, index) => (
-            <View
-              key={feature.title}
-              accessible
-              accessibilityLabel={`${feature.title}. ${feature.detail} Included.`}
-              style={[
-                s.row,
-                index < PREMIUM_FEATURES.length - 1 && {
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                  borderBottomColor: theme.border,
-                },
-              ]}
-            >
-              <View style={[s.featureIcon, { backgroundColor: theme.brandTint }]}>
-                <Ionicons name={feature.icon} size={21} color={theme.accentText} />
-              </View>
-              <View style={s.benefitCopy}>
-                <Text style={[p.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
-                <Text style={[p.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
-              </View>
-            </View>
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={expandedBenefits ? "Show fewer benefits" : "See all included benefits"}
-            accessibilityState={{ expanded: expandedBenefits }}
-            onPress={() => setExpandedBenefits(!expandedBenefits)}
-            style={p.disclosure}
-          >
-            <Text style={[p.benefitTitle, { color: theme.accentText }]}>
-              {expandedBenefits ? "Show less" : "See everything included"}
-            </Text>
-            <Ionicons
-              name={expandedBenefits ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={theme.accentText}
-            />
-          </Pressable>
-        </View>
+          <PrimaryButton
+            label={primary_action_label(selected)}
+            busy={purchasing}
+            disabled={!selected || restoring}
+            accessibilityHint={selected ? billing_summary(selected, STORE) : undefined}
+            onPress={() => void purchase()}
+          />
+        </>
+      )}
+      <CheckoutLinks working={working} restoring={restoring} restore={restore} onMessage={setMessage} />
+    </SafeAreaView>
+  );
 
+  return (
+    <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
+      <ScrollView
+        testID="paywall-content"
+        contentContainerStyle={s.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <PaywallIntro />
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Choose your plan
         </Text>
@@ -362,6 +365,64 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             {billing_terms(selected, { now: now(), store: STORE, formatDate: format_long_date })}
           </Text>
         ) : null}
+        {inlineCheckout ? checkout : null}
+
+        <PaywallPreview disabled={working} />
+        <View
+          accessibilityLabel="Included with Votic Premium"
+          style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
+        >
+          <View style={[s.tableHeader, { borderBottomColor: theme.border }]}>
+            <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
+              Read. Listen. Understand.
+            </Text>
+            <Text style={[s.included, { color: theme.accentText }]}>Included</Text>
+          </View>
+          {subscription.recoveryError ? (
+            <Text accessibilityRole="alert" style={{ color: theme.text }}>
+              {subscription.recoveryError}
+            </Text>
+          ) : null}
+          {(expandedBenefits ? PREMIUM_FEATURES : PREMIUM_FEATURES.slice(0, 3)).map((feature, index) => (
+            <View
+              key={feature.title}
+              accessible
+              accessibilityLabel={`${feature.title}. ${feature.detail} Included.`}
+              style={[
+                s.row,
+                index < PREMIUM_FEATURES.length - 1 && {
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                  borderBottomColor: theme.border,
+                },
+              ]}
+            >
+              <View style={[s.featureIcon, { backgroundColor: theme.brandTint }]}>
+                <Ionicons name={feature.icon} size={21} color={theme.accentText} />
+              </View>
+              <View style={s.benefitCopy}>
+                <Text style={[p.benefitTitle, { color: theme.text }]}>{feature.title}</Text>
+                <Text style={[p.detail, { color: theme.mutedText }]}>{feature.detail}</Text>
+              </View>
+            </View>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={expandedBenefits ? "Show fewer benefits" : "See all included benefits"}
+            accessibilityState={{ expanded: expandedBenefits }}
+            onPress={() => setExpandedBenefits(!expandedBenefits)}
+            style={p.disclosure}
+          >
+            <Text style={[p.benefitTitle, { color: theme.accentText }]}>
+              {expandedBenefits ? "Show less" : "See everything included"}
+            </Text>
+            <Ionicons
+              name={expandedBenefits ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={theme.accentText}
+            />
+          </Pressable>
+        </View>
+
         <PaywallQuestions store={STORE} />
 
         <Pressable
@@ -378,65 +439,58 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         </Pressable>
       </ScrollView>
 
-      {/* The offer, the button, and Restore stay in view while the rest scrolls. */}
-      <SafeAreaView
-        edges={["bottom"]}
-        style={[s.footer, { borderTopColor: theme.border, backgroundColor: theme.surface }]}
-      >
-        {message ? <FormMessage icon={message.icon} text={message.text} /> : null}
-        {unavailable ? (
-          subscription.canBypass ? (
-            <SecondaryButton
-              label="Continue without a subscription (testing build)"
-              onPress={subscription.bypass}
-            />
-          ) : null
-        ) : plans === null ? (
-          <View accessible accessibilityLabel="Loading Votic Premium" style={s.loading}>
-            <ActivityIndicator color={theme.accentText} />
-          </View>
-        ) : !shown.length ? (
-          <>
-            <Text accessibilityRole="alert" style={[s.summary, { color: theme.text }]}>
-              {loadFailed
-                ? "Votic couldn't load Votic Premium. Check your connection and try again."
-                : "Votic Premium isn't available to buy right now. Please try again later."}
-            </Text>
-            <SecondaryButton label="Try again" onPress={retry} />
-          </>
-        ) : (
-          <>
-            {selected ? (
-              <Text style={[s.summary, { color: theme.mutedText }]}>{billing_summary(selected)}</Text>
-            ) : null}
-            <PrimaryButton
-              label={primary_action_label(selected)}
-              busy={purchasing}
-              disabled={!selected || restoring}
-              accessibilityHint={selected ? billing_summary(selected) : undefined}
-              onPress={() => void purchase()}
-            />
-          </>
-        )}
-        <View style={s.links}>
-          <FooterLink label="Manage account" disabled={working} onPress={() => router.push("/account")} />
-          {!unavailable ? (
-            <FooterLink
-              label={restoring ? "Restoring…" : "Restore Purchases"}
-              disabled={working}
-              onPress={() => void restore()}
-            />
-          ) : null}
-          {legal.termsUrl ? (
-            <FooterLink label="Terms" onPress={() => void Linking.openURL(legal.termsUrl!)} />
-          ) : null}
-          {legal.privacyUrl ? (
-            <FooterLink label="Privacy" onPress={() => void Linking.openURL(legal.privacyUrl!)} />
-          ) : null}
-        </View>
-      </SafeAreaView>
+      {!inlineCheckout ? checkout : null}
       {celebration.overlay}
     </SafeAreaView>
+  );
+}
+
+/** Store management and recovery remain available even when offerings fail to load. */
+function CheckoutLinks({
+  working,
+  restoring,
+  restore,
+  onMessage,
+}: {
+  working: boolean;
+  restoring: boolean;
+  restore: () => Promise<void>;
+  onMessage: (message: Message) => void;
+}) {
+  const { service, legal } = useSubscription();
+  const unavailable = service.unavailableReason;
+  return (
+    <>
+      {!unavailable ? (
+        <FooterLink
+          label={`Manage or cancel in ${STORE}`}
+          disabled={working}
+          onPress={() =>
+            void Linking.openURL(STORE_SUBSCRIPTIONS_URL).catch(() =>
+              onMessage({
+                text: `Couldn't open ${STORE}. Open your store app's subscription settings to manage or cancel.`,
+              }),
+            )
+          }
+        />
+      ) : null}
+      <View style={s.links}>
+        <FooterLink label="Manage account" disabled={working} onPress={() => router.push("/account")} />
+        {!unavailable ? (
+          <FooterLink
+            label={restoring ? "Restoring…" : "Restore Purchases"}
+            disabled={working}
+            onPress={() => void restore()}
+          />
+        ) : null}
+        {legal.termsUrl ? (
+          <FooterLink label="Terms" onPress={() => void Linking.openURL(legal.termsUrl!)} />
+        ) : null}
+        {legal.privacyUrl ? (
+          <FooterLink label="Privacy" onPress={() => void Linking.openURL(legal.privacyUrl!)} />
+        ) : null}
+      </View>
+    </>
   );
 }
 
@@ -508,6 +562,7 @@ const s = StyleSheet.create({
   terms: { fontSize: 12, lineHeight: 18 },
   signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
   signOutText: { fontSize: 14, textAlign: "center" },
+  inlineFooter: { borderWidth: 1, borderRadius: radii.lg },
   footer: { padding: spacing.md, gap: spacing.sm, borderTopWidth: 1 },
   loading: { minHeight: 54, alignItems: "center", justifyContent: "center" },
   summary: { fontSize: 13, lineHeight: 19, textAlign: "center" },

@@ -31,6 +31,8 @@ export type SubscriptionPlan = {
   priceAmount?: number;
   currencyCode?: string;
   billingPeriod: Period | null;
+  /** Eligible paid introductory phases, in charge order, using localized store prices. */
+  introductoryPrices?: { priceString: string; period: Period; cycles: number }[];
   /** Free trial length from the store configuration, or null when the plan has no free trial. */
   trial: Period | null;
 };
