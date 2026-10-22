@@ -34,7 +34,18 @@ type Options = { playbackRate: number; origin: DocumentOrigin };
 type Value = {
   review: (name: string, pages: string[], options: Options) => Promise<VoticDocument | null>;
   resume: () => void;
+  /** Throws before any paid text recognition starts if a new review could not be opened afterwards. */
+  ensureAvailable: () => void;
 };
+/** A saved, unfinished scan review must be finished or discarded before another image is read. */
+export class UnfinishedScanError extends Error {
+  constructor() {
+    super(
+      "You have an unfinished scan review. Resume or discard it before scanning or importing another image, so text recognition isn't used twice.",
+    );
+    this.name = "UnfinishedScanError";
+  }
+}
 const Context = createContext<Value | null>(null);
 export function OcrReviewProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush } = useAccountData();
@@ -51,6 +62,16 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     latest.current = record;
   }, [record]);
+  const availability = useRef({ ready, error });
+  useEffect(() => {
+    availability.current = { ready, error };
+  }, [ready, error]);
+  // Stable, so screens can list it in effect dependencies without restarting an import.
+  const ensureAvailable = useCallback(() => {
+    if (!availability.current.ready)
+      throw new Error(availability.current.error || "Scan review is loading. Please try again.");
+    if (latest.current) throw new UnfinishedScanError();
+  }, []);
   const mounted = useRef(true);
   const callback = useRef<((document: VoticDocument | null) => void) | null>(null);
   const queue = useRef(Promise.resolve());
@@ -182,12 +203,10 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
   return (
     <Context.Provider
       value={{
+        ensureAvailable,
         review: async (name, pages, options) => {
           if (!ready) throw new Error(error || "Scan review is loading. Please try again.");
-          if (latest.current)
-            throw new Error(
-              "An unfinished scan review is saved. Resume or discard it in Settings → Help before importing another image.",
-            );
+          if (latest.current) throw new UnfinishedScanError();
           const next = {
             id: `scan-review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             name,

@@ -1,6 +1,19 @@
 export type DocumentMatch = { passage: number; offset: number; length: number };
 /** Unicode simple-case comparison without expanding one character into several (e.g. ß into ss). */
+const QUOTES: Record<string, string> = {
+  "\u2018": "'",
+  "\u2019": "'",
+  "\u201b": "'",
+  "\u2032": "'",
+  "\u02bc": "'",
+  "\u201c": '"',
+  "\u201d": '"',
+  "\u201e": '"',
+  "\u2033": '"',
+};
 function fold_character(character: string) {
+  // Typed straight quotes find the curly ones PDFs and books use ("don't" finds "don’t"), one character for one.
+  if (QUOTES[character]) return QUOTES[character];
   if (character <= "\x7f") return character >= "A" && character <= "Z" ? character.toLowerCase() : character;
   // Default Unicode matching keeps dotless i distinct from ASCII i/I.
   if (character === "ı") return character;
@@ -58,4 +71,14 @@ export async function find_document_matches(passages: string[], query: string, c
     if (index % 32 === 31) await new Promise<void>((resolve) => setTimeout(resolve, 0));
   }
   return matches;
+}
+
+/** The words around a match, so a screen reader can say what was found and not only where it is in the list. */
+export function match_context(text: string, match: { offset: number; length: number }, radius = 60) {
+  const start = Math.max(0, match.offset - radius);
+  const end = Math.min(text.length, match.offset + match.length + radius);
+  const from = start === 0 ? 0 : text.indexOf(" ", start) + 1 || start;
+  const lastSpace = text.lastIndexOf(" ", end);
+  const to = end === text.length || lastSpace <= match.offset + match.length ? end : lastSpace;
+  return `${from > 0 ? "…" : ""}${text.slice(from, to).replace(/\s+/g, " ").trim()}${to < text.length ? "…" : ""}`;
 }

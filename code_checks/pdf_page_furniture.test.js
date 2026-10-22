@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import { create_votic_server } from "../votic_server.js";
+import { readFileSync } from "node:fs";
+import { extract_document, reconstruct_pdf_page_text } from "../app_parts/document_file_tools.js";
 
 /**
  * A text PDF with one page per entry. Each line is drawn 20 points below the last, starting near the top edge, so
@@ -135,4 +137,32 @@ test("production PDF route reads uneven columns and mixed full-width blocks in v
   ];
   const text = await extract(text_pdf([positioned], { reverse: true }));
   assert_in_order(text, [positioned[0], positioned[1], positioned[3], positioned[2], positioned[4], positioned[5], positioned[6]].map((v) => v.text));
+});
+
+// Real PDFs (made with ReportLab) whose lines are split into several pieces by bold, italic and monospace text.
+const fixture = (name) => readFileSync(new URL(`./fixtures/pdf/${name}`, import.meta.url));
+const words = (text) => text.split(/\s+/).filter(Boolean).join(" ");
+test("a one-column PDF with bold, italic and code words keeps every line in order", async () => {
+  const text = words(await extract_document("one-column.pdf", fixture("one-column-mixed-fonts.pdf")));
+  for (let section = 1; section <= 14; section++)
+    assert.ok(
+      text.includes(`Section ${section}. Votic reads documents aloud for people who prefer listening. The quick brown fox jumps over the lazy dog near the riverbank today. It has italic emphasis and a bold phrase in the middle of the line, plus monospace code here. Paragraph ${section} ends. Short end ${section}.`),
+      `section ${section} out of order:\n${text.slice(0, 1500)}`,
+    );
+});
+test("a two-column PDF with mixed fonts reads the left column, then the right", async () => {
+  const text = words(await extract_document("two-column.pdf", fixture("two-column-mixed-fonts.pdf")));
+  const order = Array.from({ length: 16 }, (_, index) => text.indexOf(`Section ${index + 1}. Votic reads`));
+  assert.ok(order.every((at) => at >= 0), text.slice(0, 1500));
+  assert.deepEqual([...order].sort((a, b) => a - b), order, text.slice(0, 1500));
+  assert.match(text, /in the middle of the line, plus monospace code here\. Paragraph 1 ends\. Short end 1\. Section 2\./);
+});
+test("a two-column table of words stays in rows rather than reading every label first", () => {
+  const item = (str, x, y, width) => ({ str, transform: [1, 0, 0, 12, x, y], width, height: 12 });
+  const rows = ["Name", "Role", "Office", "Phone"].flatMap((label, index) => [
+    item(label, 40, 700 - index * 20, 40),
+    item(`Value for ${label.toLowerCase()} entry`, 330, 700 - index * 20, 140),
+  ]);
+  const text = reconstruct_pdf_page_text(rows);
+  assert.ok(text.indexOf("Value for name entry") < text.indexOf("Role"), text);
 });

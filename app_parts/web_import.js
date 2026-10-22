@@ -1,4 +1,4 @@
-import { decode_document_bytes } from "../apps/mobile/src/documents/textEncoding.js";
+import { decode_text_file, declared_html_charset, header_charset } from "../apps/mobile/src/documents/textEncoding.js";
 import { parse } from "parse5";
 import { parse_document_isolated } from "./document_parser.js";
 /* global Response */
@@ -236,7 +236,7 @@ export function clean_webpage_html(html) {
   if (text.length > 400_000) throw new WebImportError("That webpage contains too much text to import completely.");
   return { title, text };
 }
-async function read_html_stream(reader) {
+async function read_html_stream(reader, contentType = "") {
   const chunks = [];
   let size = 0;
   for (let reads = 0; ; reads += 1) {
@@ -247,7 +247,9 @@ async function read_html_stream(reader) {
     if (size > MAX_HTML_BYTES) throw new WebImportError("That webpage is too large to import.");
     chunks.push(Buffer.from(chunk));
   }
-  try { return decode_document_bytes(Buffer.concat(chunks, size)); }
+  const bytes = Buffer.concat(chunks, size);
+  // The header's charset wins, then the page's own <meta charset>; older Latin-1/Windows pages still read correctly.
+  try { return decode_text_file(bytes, header_charset(contentType) || declared_html_charset(bytes)); }
   catch { throw new WebImportError("This webpage’s text encoding could not be read safely. Save or export it as UTF-8 HTML or text, then import that file."); }
 }
 
@@ -386,7 +388,7 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
         body = Readable.toWeb(decoder);
       }
       reader = body.getReader();
-      const html = await read_html_stream(reader);
+      const html = await read_html_stream(reader, response.headers.get("content-type") || "");
       if (needs_javascript(response, html)) throw new WebImportError(JAVASCRIPT_PAGE);
       const cleaned = await clean_webpage_isolated(html, {
         signal: controller.signal, timeoutMs: Math.min(5000, remaining()),

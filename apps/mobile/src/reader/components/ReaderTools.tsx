@@ -101,7 +101,7 @@ export function ReaderTools({
                 ? "Enter text to find"
                 : !find.matches.length
                   ? "No results"
-                  : `${find.selected + 1} of ${Math.min(find.matches.length, 1000)}${find.matches.length > 1000 ? "+ (first 1,000 shown)" : ""}`}
+                  : `${find.selected + 1} of ${Math.min(find.matches.length, 1000)}${find.matches.length > 1000 ? "+ (first 1,000 shown)" : ""}${find.context ? `: ${find.context}` : ""}`}
           </Text>
           <View style={{ flexDirection: "row" }}>
             <Pressable

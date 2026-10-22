@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { DocumentMatch, find_document_matches } from "./documentFind";
+import { AccessibilityInfo, Platform } from "react-native";
+import { DocumentMatch, find_document_matches, match_context } from "./documentFind";
 import { word_matches } from "./readerText";
 
 export function useReaderFind(
@@ -37,12 +38,20 @@ export function useReaderFind(
     if (open && match) navigate.current(match.passage);
   }, [open, match]);
   const words = match ? word_matches(passages[match.passage]) : [];
+  const context = match ? match_context(passages[match.passage], match) : "";
+  const total = Math.min(matches.length, 1000);
+  // Android reads the live result line; iOS has no live regions, so the match is announced directly.
+  useEffect(() => {
+    if (open && context && Platform.OS === "ios")
+      AccessibilityInfo.announceForAccessibility(`${selected + 1} of ${total}. ${context}`);
+  }, [open, context, selected, total]);
   return {
     open,
     query,
     matches,
     selected,
     busy,
+    context,
     location:
       open && match
         ? {

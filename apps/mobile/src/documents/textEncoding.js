@@ -1,5 +1,7 @@
 export const TEXT_ENCODING_ERROR =
   "This file's text encoding could not be read safely. Save or export it as UTF-8 text, then import it again.";
+export const NOT_TEXT_ERROR =
+  "This file does not look like text. Check that you chose the right file, then try again.";
 /** Shared by native imports and the Node parser. No platform APIs or encoding guesses. */
 export function decode_document_bytes(input) {
   const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
@@ -72,4 +74,93 @@ function utf8_point(bytes, at, first, fail) {
   }
   if (invalid_point(point, length)) fail();
   return { at, point };
+}
+
+/** Windows-1252 bytes 0x80–0x9F. Others (0xA0–0xFF) match Latin-1; the five undefined bytes pass through (WHATWG). */
+const CP1252 = [
+  0x20ac, 0x81, 0x201a, 0x192, 0x201e, 0x2026, 0x2020, 0x2021, 0x2c6, 0x2030, 0x160, 0x2039, 0x152, 0x8d,
+  0x17d, 0x8f, 0x90, 0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x2dc, 0x2122, 0x161, 0x203a,
+  0x153, 0x9d, 0x17e, 0x178,
+];
+function windows_1252(bytes) {
+  const parts = [],
+    chunk = [];
+  for (const byte of bytes) {
+    chunk.push(byte >= 0x80 && byte <= 0x9f ? CP1252[byte - 0x80] : byte);
+    if (chunk.length === 4096) {
+      parts.push(String.fromCharCode(...chunk));
+      chunk.length = 0;
+    }
+  }
+  parts.push(String.fromCharCode(...chunk));
+  return parts.join("");
+}
+/** NUL bytes or many control characters mean a binary file, which is never read aloud as text. */
+function looks_binary(bytes) {
+  let controls = 0;
+  for (const byte of bytes) {
+    if (byte === 0) return true;
+    if (byte < 0x20 && byte !== 9 && byte !== 10 && byte !== 12 && byte !== 13 && byte !== 27) controls += 1;
+  }
+  return controls > Math.max(8, bytes.length / 100);
+}
+const LATIN = new Set([
+  "windows-1252",
+  "cp1252",
+  "iso-8859-1",
+  "iso8859-1",
+  "latin1",
+  "l1",
+  "us-ascii",
+  "ascii",
+  "x-cp1252",
+]);
+const UTF8 = new Set(["utf-8", "utf8", "unicode-1-1-utf-8"]);
+
+/**
+ * Text from a plain-text, Markdown or HTML file. UTF-8 (with or without a BOM) and BOM UTF-16 are read exactly.
+ * Older Windows files (Windows-1252 / Latin-1) are read as such instead of being refused; a declared charset is
+ * honoured when the platform can decode it. Binary data is refused rather than read aloud as noise.
+ */
+export function decode_text_file(input, declared) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const charset = String(declared || "")
+    .trim()
+    .toLowerCase();
+  const bom = (bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff);
+  if (bom) return decode_document_bytes(bytes);
+  if (looks_binary(bytes)) throw new Error(NOT_TEXT_ERROR);
+  const declaredText = decode_declared(bytes, charset);
+  if (declaredText !== null) return declaredText;
+  try {
+    return decode_document_bytes(bytes);
+  } catch {
+    return windows_1252(bytes);
+  }
+}
+/** Text in a declared single-byte or legacy charset, or null to fall back to detection. */
+function decode_declared(bytes, charset) {
+  if (LATIN.has(charset)) return windows_1252(bytes);
+  if (!charset || UTF8.has(charset) || typeof TextDecoder !== "function") return null;
+  let decoder = null;
+  try {
+    decoder = new TextDecoder(charset);
+  } catch {
+    return null; // Unknown label: fall back to detection.
+  }
+  return ["utf-8", "utf-16le", "utf-16be"].includes(decoder.encoding) ? null : decoder.decode(bytes);
+}
+/** The charset a saved web page declares in its first bytes: <meta charset> or an http-equiv Content-Type. */
+export function declared_html_charset(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+  const head = String.fromCharCode(...bytes.subarray(0, 2048));
+  const match =
+    /<meta[^>]+charset\s*=\s*["']?\s*([a-z0-9._:-]+)/i.exec(head) ||
+    /<\?xml[^>]+encoding\s*=\s*["']([a-z0-9._:-]+)/i.exec(head);
+  return match ? match[1].toLowerCase() : null;
+}
+/** A charset from a Content-Type header value such as "text/html; charset=ISO-8859-1". */
+export function header_charset(value) {
+  const match = /charset\s*=\s*["']?([a-z0-9._:-]+)/i.exec(String(value || ""));
+  return match ? match[1].toLowerCase() : null;
 }

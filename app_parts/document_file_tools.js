@@ -1,4 +1,4 @@
-import { decode_document_bytes } from "../apps/mobile/src/documents/textEncoding.js";
+import { decode_document_bytes, decode_text_file, declared_html_charset } from "../apps/mobile/src/documents/textEncoding.js";
 import { pdf_reading_blocks } from "./pdf_layout.js";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
@@ -67,7 +67,7 @@ async function pdf_page_needs_ocr(page) {
 
 export async function extract_document(name, buffer) {
   // An uploaded HTML file is usually a saved web page, so its site navigation and page furniture are left out.
-  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(decode_document_bytes(buffer), { chrome: true }));
+  if (/\.html?$/i.test(name)) return clean_extracted_text(html_file_text(decode_text_file(buffer, declared_html_charset(buffer)), { chrome: true }));
   if (/\.rtf$/i.test(name)) return extract_rtf(buffer);
   if (/\.odt$/i.test(name)) return extract_odt(buffer);
   if (/\.epub$/i.test(name)) return extract_epub(buffer);
@@ -367,7 +367,9 @@ const BOOK_NAVIGATION = /\b(?:toc|landmarks|page-list|doc-toc|doc-pagelist)\b/i;
 function skipped_element(name, attributes, { chrome, book, inContent }) {
   const style = /\bstyle\s*=\s*(["'])(.*?)\1/is.exec(attributes)?.[2] || "";
   if (/(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))\s*(?:!important)?\s*(?:;|$)/i.test(style)) return true;
-  if (/(?:^|\s)hidden(?:[\s=/]|$)/i.test(attributes) || /aria-hidden\s*=\s*["']?true/i.test(attributes)) return true;
+  // The hidden attribute itself, not the word "hidden" inside a value such as class="text-lg hidden md:block".
+  const names = attributes.replace(/(["']).*?\1/gs, '""');
+  if (/(?:^|\s)hidden(?:[\s=/]|$)/i.test(names) || /aria-hidden\s*=\s*["']?true/i.test(attributes)) return true;
   if (chrome) {
     if (name === "nav" || /role\s*=\s*["']?navigation/i.test(attributes)) return true;
     if ((name === "footer" || name === "aside") && !inContent) return true;
@@ -423,11 +425,18 @@ export function html_file_text(html, { chrome = false, book = false } = {}) {
     const ending = Boolean(tag[1]), name = tag[2].toLowerCase();
     const self_closing = html[close - 1] === "/";
     if (name === "article" || name === "main") content_depth = Math.max(0, content_depth + (ending ? -1 : self_closing ? 0 : 1));
-    if (!ending && !self_closing && (HIDDEN_HTML.has(name) ||
+    // A void element (<img aria-hidden="true">, <br hidden>) has no contents to skip, so it is never skipped past.
+    if (!ending && !self_closing && !VOID_HTML.has(name) && (HIDDEN_HTML.has(name) ||
         skipped_element(name, html.slice(open + 1 + name.length, close), { chrome, book, inContent: content_depth > 0 }))) {
-      const end = HIDDEN_HTML.has(name) ? hidden_end(lower, html, name, i) : element_end(lower, name, i);
-      if (end === -1) break;
-      i = end;
+      if (HIDDEN_HTML.has(name)) {
+        const end = hidden_end(lower, html, name, i);
+        if (end === -1) break;
+        i = end;
+        continue;
+      }
+      // A hidden element whose end can't be found is read rather than allowed to swallow the rest of the page.
+      const end = IMPLIED_END.has(name) ? implied_end(lower, name, i) : element_end(lower, name, i);
+      if (end !== -1) i = end;
       continue;
     }
     parts.push(structure_text(name, ending, lists));
@@ -458,6 +467,24 @@ function list_text(name, ending, lists) {
   if (ending) return "";
   const depth = lists.length - 1;
   return depth >= 0 && lists[depth] !== null ? `\n${(lists[depth] += 1)}. ` : "\n• ";
+}
+const VOID_HTML = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+/** Elements whose closing tag HTML lets authors leave out, and the tags that end them implicitly. */
+const IMPLIED_END = new Map([
+  ["p", /<\/p[\s>]|<(?:p|div|h[1-6]|ul|ol|dl|table|section|article|header|footer|aside|blockquote|pre|hr|nav|main|figure|form|address)[\s/>]|<\/(?:div|section|article|main|body|li|td|blockquote)[\s>]/g],
+  ["li", /<\/li[\s>]|<li[\s/>]|<\/(?:ul|ol)[\s>]/g],
+  ["dt", /<\/dt[\s>]|<(?:dt|dd)[\s/>]|<\/dl[\s>]/g],
+  ["dd", /<\/dd[\s>]|<(?:dt|dd)[\s/>]|<\/dl[\s>]/g],
+]);
+/** Where a hidden <p>, <li>, <dt> or <dd> ends: after its own closing tag, or where the next element implicitly ends it. */
+function implied_end(lower, name, from) {
+  const pattern = IMPLIED_END.get(name);
+  pattern.lastIndex = from;
+  const match = pattern.exec(lower);
+  if (!match) return -1;
+  if (!match[0].startsWith(`</${name}`)) return match.index;
+  const after = lower.indexOf(">", match.index);
+  return after === -1 ? -1 : after + 1;
 }
 /** Script, style and similar contents end at the first closing tag: their text is not markup, so nothing nests. */
 function hidden_end(lower, html, name, from) {

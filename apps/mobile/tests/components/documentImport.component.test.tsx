@@ -3,13 +3,13 @@ import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as DocumentPicker from "expo-document-picker";
 import { Alert, StyleSheet } from "react-native";
 import Documents from "../../app/(tabs)/documents";
-import { extract_document } from "../../src/api/voticApi";
+import { extract_document, scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import { create_document_store } from "../../src/documents/documentStorage";
 import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
-jest.mock("../../src/api/voticApi", () => ({ extract_document: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({ extract_document: jest.fn(), scan_document_image: jest.fn() }));
 const realFetch = global.fetch;
 afterEach(() => {
   global.fetch = realFetch;
@@ -148,4 +148,30 @@ it("imports BOM UTF-16 text through the picker without silently replacing Unicod
   await waitFor(async () =>
     expect((await create_document_store("test-user").loadDocuments())[0]?.plainText).toBe(expected),
   );
+});
+
+it("does not send a picked photo for text recognition while a scan review is unfinished", async () => {
+  const { store_ocr_review } = jest.requireActual<typeof import("../../src/documents/ocrReviewStorage")>(
+    "../../src/documents/ocrReviewStorage",
+  );
+  await store_ocr_review("test-user", {
+    id: "scan-review-saved",
+    name: "Earlier scan.txt",
+    pages: ["Earlier page."],
+    playbackRate: 1,
+    origin: "scan",
+  });
+  jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+    canceled: false,
+    assets: [{ name: "page.jpg", uri: "file:///page.jpg", mimeType: "image/jpeg", size: 8, lastModified: 1 }],
+  } as DocumentPicker.DocumentPickerResult);
+  global.fetch = jest.fn(async () => ({
+    ok: true,
+    arrayBuffer: async () => new ArrayBuffer(8),
+  })) as unknown as typeof fetch;
+  await render_with_providers(<Documents />);
+  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
+  expect(await screen.findByText(/unfinished scan review/)).toBeTruthy();
+  expect(scan_document_image).not.toHaveBeenCalled();
 });

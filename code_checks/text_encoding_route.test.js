@@ -21,10 +21,16 @@ test("production HTML parser preserves BOM UTF-16 in both byte orders", async ()
     assert.equal(result.data.text.trim(), text);
   }
 });
-test("production parser rejects malformed HTML encoding with a safe recovery action", async () => {
-  const result = await extract("fixture.html", Buffer.from([60,112,62,233,60,47,112,62]));
-  assert.equal(result.status, 400);
-  assert.match(result.data.error, /Save or export it as UTF-8/);
+test("production parser reads older Windows/Latin-1 HTML instead of refusing it", async () => {
+  const result = await extract("fixture.html", Buffer.from("<p>Caf\xe9 \x93quoted\x94 \x96 r\xe9sum\xe9</p>", "latin1"));
+  assert.equal(result.status, 200);
+  assert.equal(result.data.text.trim(), "Café “quoted” – résumé");
+});
+test("production parser honours a saved page's declared charset", async () => {
+  const body = Buffer.concat([Buffer.from('<meta charset="shift_jis"><p>'), Buffer.from([0x93,0xfa,0x96,0x7b,0x8c,0xea]), Buffer.from("</p>")]);
+  const result = await extract("fixture.html", body);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.text.trim(), "日本語");
 });
 test("EPUB chapter XML uses strict BOM decoding instead of implicit UTF-8 replacement", async () => {
   const zip = new JSZip();

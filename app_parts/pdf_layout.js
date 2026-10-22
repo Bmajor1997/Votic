@@ -1,46 +1,101 @@
-/** Conservative geometric columns. Page-wide headings divide the page into independent reading bands. */
+/**
+ * Conservative PDF column detection. A page is read as columns only when there is a real gutter: a vertical strip
+ * that most lines leave empty, with prose-width lines on both sides. Ordinary one-column text, where lines run
+ * across the middle of the page and are merely split into pieces by bold, italic or code fonts, keeps its line
+ * order. Lines that cross the gutter (titles, full-width paragraphs) divide the page into bands read top to bottom.
+ */
+const MAX_FRAGMENTS = 4000;
+
 export function pdf_reading_blocks(fragments, depth = 0) {
-  if (fragments.length < 4 || depth > 2) return [fragments];
-  const cut = column_cut(fragments);
-  if (cut === null) return [fragments];
-  const spans = fragments.filter((f) => f.x < cut && f.x + f.width > cut).sort((a, b) => b.y - a.y);
-  const spanning = new Set(spans);
-  let remaining = fragments.filter((f) => !spanning.has(f));
+  if (fragments.length < 4 || fragments.length > MAX_FRAGMENTS || depth > 2) return [fragments];
+  const rows = pdf_rows(fragments);
+  const cut = column_cut(rows);
+  if (!cut) return [fragments];
   const blocks = [];
-  for (const span of spans) {
-    const before = remaining.filter((f) => f.y > span.y + Math.max(2, span.height / 2));
-    blocks.push(...columns(before, cut, depth));
-    blocks.push([span]);
-    const read = new Set(before);
-    remaining = remaining.filter((f) => !read.has(f));
+  let band = [];
+  const flush = () => {
+    if (band.length) blocks.push(...columns(band, cut, depth));
+    band = [];
+  };
+  for (const row of rows) {
+    if (crosses(row, cut)) {
+      flush();
+      blocks.push(row.fragments);
+    } else band.push(...row.fragments);
   }
-  blocks.push(...columns(remaining, cut, depth));
+  flush();
   return blocks.filter((block) => block.length);
 }
+
+/** Fragments grouped into visual lines, top to bottom. */
+function pdf_rows(fragments) {
+  const sorted = [...fragments].sort((a, b) => b.y - a.y || a.x - b.x);
+  const rows = [];
+  for (const fragment of sorted) {
+    const row = rows.at(-1);
+    if (row && Math.abs(row.y - fragment.y) <= Math.max(2, Math.min(row.height, fragment.height) * 0.45)) {
+      row.fragments.push(fragment);
+      row.height = Math.max(row.height, fragment.height);
+    } else rows.push({ y: fragment.y, height: fragment.height, fragments: [fragment] });
+  }
+  return rows;
+}
+
+const crosses = (row, cut) => row.fragments.some((f) => f.x < cut.right && f.x + f.width > cut.left);
+
 function columns(fragments, cut, depth) {
-  const left = fragments.filter((f) => f.x < cut);
-  const right = fragments.filter((f) => f.x >= cut);
+  const middle = (cut.left + cut.right) / 2;
+  const left = fragments.filter((f) => f.x + f.width / 2 < middle);
+  const right = fragments.filter((f) => f.x + f.width / 2 >= middle);
   // Numeric data is a strong table signal: keep row alignment rather than reading all labels first.
   if (right.length && right.filter((f) => /^[\d\s.,%$€£()+−-]+$/.test(f.text)).length / right.length > 0.6)
-    return [fragments.sort((a, b) => b.y - a.y || a.x - b.x)];
-  const ordered = fragments.filter((f) => f.direction === "rtl").length > fragments.length / 2 ? [right, left] : [left, right];
-  return ordered.flatMap((column) => pdf_reading_blocks(column, depth + 1));
+    return [[...fragments].sort((a, b) => b.y - a.y || a.x - b.x)];
+  const rtl = fragments.filter((f) => f.direction === "rtl").length > fragments.length / 2;
+  return (rtl ? [right, left] : [left, right]).flatMap((column) => pdf_reading_blocks(column, depth + 1));
 }
-function column_cut(fragments) {
-  const min = fragments.reduce((value, f) => Math.min(value, f.x), Infinity);
-  const max = fragments.reduce((value, f) => Math.max(value, f.x + f.width), -Infinity);
+
+/**
+ * The gutter between two columns, or null. Candidate positions in the middle of the text area are tested; one is
+ * accepted only when at least half the lines (and at least three) leave the strip empty, and at least two lines on
+ * each side are as wide as a column of prose. The widest run of accepted positions gives the gutter.
+ */
+function column_cut(rows) {
+  const all = rows.flatMap((row) => row.fragments);
+  const min = Math.min(...all.map((f) => f.x));
+  const max = Math.max(...all.map((f) => f.x + f.width));
   const width = max - min;
-  const starts = [...new Set(fragments.map((f) => Math.round(f.x)))].sort((a, b) => a - b);
-  if (starts.length > 128) return null; // Bound analysis of irregular drawings; retain the extracted row order.
-  let best = null, score = 0;
-  for (const start of starts) {
-    const left = fragments.filter((f) => f.x + f.width <= start - Math.max(24, width * 0.04) && f.width >= width * 0.15);
-    const right = fragments.filter((f) => f.x >= start && f.width >= width * 0.15);
-    if (new Set(left.map((f) => Math.round(f.y / 4))).size < 2 || new Set(right.map((f) => Math.round(f.y / 4))).size < 2) continue;
-    const edge = left.reduce((value, f) => Math.max(value, f.x + f.width), -Infinity);
-    const gap = start - edge;
-    const candidate = gap * Math.min(left.length, right.length);
-    if (candidate > score) { score = candidate; best = (edge + start) / 2; }
+  if (!(width > 0)) return null;
+  const half = Math.max(5, width * 0.012);
+  const steps = 120;
+  let best = null,
+    run = null;
+  for (let step = Math.round(steps * 0.25); step <= Math.round(steps * 0.75); step++) {
+    const at = min + (width * step) / steps;
+    const ok = gutter_at(rows, at - half, at + half, width);
+    if (ok) {
+      run = run ? { ...run, end: at } : { start: at, end: at };
+      if (!best || run.end - run.start > best.end - best.start) best = run;
+    } else run = null;
   }
-  return best;
+  if (!best) return null;
+  const center = (best.start + best.end) / 2;
+  return { left: center - half, right: center + half };
+}
+
+function gutter_at(rows, left, right, width) {
+  let open = 0,
+    leftProse = 0,
+    rightProse = 0;
+  for (const row of rows) {
+    if (row.fragments.some((f) => f.x < right && f.x + f.width > left)) continue;
+    open += 1;
+    const sides = [row.fragments.filter((f) => f.x + f.width <= left), row.fragments.filter((f) => f.x >= right)];
+    const extent = (side) =>
+      side.length
+        ? Math.max(...side.map((f) => f.x + f.width)) - Math.min(...side.map((f) => f.x))
+        : 0;
+    if (extent(sides[0]) >= width * 0.2) leftProse += 1;
+    if (extent(sides[1]) >= width * 0.2) rightProse += 1;
+  }
+  return open >= 3 && open >= rows.length / 2 && leftProse >= 2 && rightProse >= 2;
 }

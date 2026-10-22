@@ -43,11 +43,12 @@ it("finds and navigates matches while preserving the saved location and completi
   await fireEvent.press(screen.getByRole("button", { name: "Find within document" }));
   await fireEvent.changeText(screen.getByLabelText("Search document text"), "target");
   await act(async () => jest.advanceTimersByTime(200));
-  await waitFor(() => expect(screen.getByText("1 of 2")).toBeTruthy());
+  // The result line says what was found, not only where it is in the list.
+  await waitFor(() => expect(screen.getByText("1 of 2: One target sentence.")).toBeTruthy());
   await fireEvent.press(screen.getByRole("button", { name: "Next match" }));
-  expect(screen.getByText("2 of 2")).toBeTruthy();
+  expect(screen.getByText("2 of 2: Second target sentence.")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Previous match" }));
-  expect(screen.getByText("1 of 2")).toBeTruthy();
+  expect(screen.getByText("1 of 2: One target sentence.")).toBeTruthy();
   await fireEvent.changeText(screen.getByLabelText("Search document text"), "absent");
   await act(async () => jest.advanceTimersByTime(200));
   expect(screen.getByText("No results")).toBeTruthy();

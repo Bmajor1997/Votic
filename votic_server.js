@@ -1,4 +1,4 @@
-import { TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
+import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
@@ -529,7 +529,7 @@ function rethrow_parser_failure(error, signal, name, logger) {
 }
 function extraction_error_message(error) {
   const message = String(error?.message || error);
-  if (message === TEXT_ENCODING_ERROR) return TEXT_ENCODING_ERROR;
+  if (message === TEXT_ENCODING_ERROR || message === NOT_TEXT_ERROR) return message;
   if (/password|encrypted/i.test(message)) return "This document is password-protected. Remove the password and upload it again.";
   if (/no selectable text|scanned/i.test(message)) return "Votic could not find selectable text in this PDF. It may be a scanned document; scanned-PDF reading is not supported yet.";
   if (/not a zip|package not found|file is not a zip|eof marker|malformed|invalid pdf|invalid.*(?:ppt|cfb|ole)|compound file/i.test(message)) return "This file appears to be damaged or is not a valid PDF, Word, PowerPoint, or EPUB document. Try opening and saving it again, then re-upload it.";

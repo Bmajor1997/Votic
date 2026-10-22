@@ -1,4 +1,4 @@
-import { useOcrReview } from "../src/documents/OcrReviewProvider";
+import { UnfinishedScanError, useOcrReview } from "../src/documents/OcrReviewProvider";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
@@ -26,7 +26,7 @@ type ScanPage = { uri: string; width?: number; height?: number };
 
 export default function ScanDocumentScreen() {
   const { theme } = useVoticTheme();
-  const { review } = useOcrReview();
+  const { review, resume, ensureAvailable } = useOcrReview();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -78,6 +78,13 @@ export default function ScanDocumentScreen() {
 
   async function finish_scan() {
     if (!pages.length || processing) return;
+    // Check before any page is sent for text recognition, so a blocked review never wastes a paid read.
+    try {
+      ensureAvailable();
+    } catch (error) {
+      show_scan_problem(error);
+      return;
+    }
     const job = session.start();
     if (!job) return;
     setProcessing(true);
@@ -125,14 +132,25 @@ export default function ScanDocumentScreen() {
       if (saved && job.current()) router.replace("/reader");
     } catch (error) {
       if (!job.current()) return;
-      Alert.alert(
-        "Could not read scan",
-        error instanceof Error ? error.message : "Votic could not read these scanned pages.",
-      );
+      show_scan_problem(error);
     } finally {
       job.finish();
       setProcessing(false);
     }
+  }
+
+  function show_scan_problem(error: unknown) {
+    if (error instanceof UnfinishedScanError) {
+      Alert.alert("Finish your saved scan first", error.message, [
+        { text: "Not now", style: "cancel" },
+        { text: "Resume review", onPress: resume },
+      ]);
+      return;
+    }
+    Alert.alert(
+      "Could not read scan",
+      error instanceof Error ? error.message : "Votic could not read these scanned pages.",
+    );
   }
 
   if (!permission) {

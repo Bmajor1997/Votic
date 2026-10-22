@@ -8,11 +8,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { spacing, radii } from "../src/design/tokens";
 import {
   IMPORT_TYPES,
+  is_page_photo,
   supported_document,
   UNSUPPORTED_TYPE_MESSAGE,
   validate_import,
 } from "../src/documents/importDocument";
 import { read_imported_text } from "../src/documents/readImportedText";
+import { useOcrReview } from "../src/documents/OcrReviewProvider";
 import { useImportSession } from "../src/documents/useImportSession";
 import { remove_import_temp } from "../src/documents/importCache";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
@@ -25,6 +27,7 @@ function fallback_name(mimeType: string | null) {
 export default function HandleShare() {
   const { theme } = useVoticTheme();
   const saveImported = useImportSave();
+  const { ensureAvailable } = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const { resolvedSharedPayloads, isResolving, error } = useIncomingShare();
@@ -54,12 +57,10 @@ export default function HandleShare() {
         if (!supported_document(name)) throw new Error(UNSUPPORTED_TYPE_MESSAGE);
 
         setStatus(`Importing ${name}…`);
-        validate_import({
-          name,
-          size: payload.contentSize,
-          uri,
-          mimeType: payload.contentMimeType,
-        });
+        check_shared_import(
+          { name, size: payload.contentSize, uri, mimeType: payload.contentMimeType },
+          ensureAvailable,
+        );
 
         const response = await fetch(uri);
         temporaryUri = uri;
@@ -90,7 +91,15 @@ export default function HandleShare() {
     };
 
     void import_shared_document();
-  }, [saveImported, defaultPlaybackRate, error, isResolving, resolvedSharedPayloads, session]);
+  }, [
+    saveImported,
+    ensureAvailable,
+    defaultPlaybackRate,
+    error,
+    isResolving,
+    resolvedSharedPayloads,
+    session,
+  ]);
 
   const problem = failure || error?.message || null;
 
@@ -147,3 +156,9 @@ const s = StyleSheet.create({
   },
   buttonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "800" },
 });
+
+/** Validates a shared file and, for a photo, checks a text review can open before paying for text recognition. */
+function check_shared_import(details: Parameters<typeof validate_import>[0], ensureAvailable: () => void) {
+  validate_import(details);
+  if (is_page_photo(details.name)) ensureAvailable();
+}

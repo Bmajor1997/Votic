@@ -155,3 +155,44 @@ test("an EPUB navigation element without table-of-contents meaning is kept as bo
   );
   assert_in_order(await extract("walk.epub", book), ["Before the walk:", "Turn left at the harbor wall."]);
 });
+
+test("a hidden image, field or line break never stops the rest of a saved page from being read", async () => {
+  const page = `<!doctype html><html><body><main>
+    <h1>Field notes</h1>
+    <p>Intro <img src="ornament.png" alt="" aria-hidden="true"> continues here.</p>
+    <p>Before the form.</p><input hidden name="token"><p>After the form.</p>
+    <p>Line one<br aria-hidden="true">Line two</p>
+    <p hidden>Secret draft paragraph<p>First visible after the hidden one.
+    <ul><li hidden>Hidden item<li>Shown item</ul>
+    <div class="text-lg hidden md:block">Shown on larger screens.</div>
+    <p>The final paragraph must be read.</p>
+  </main></body></html>`;
+  const text = await extract("notes.html", Buffer.from(page));
+  assert_in_order(text, [
+    "# Field notes",
+    "Intro",
+    "continues here.",
+    "Before the form.",
+    "After the form.",
+    "Line one\nLine two",
+    "First visible after the hidden one.",
+    "Shown item",
+    "Shown on larger screens.",
+    "The final paragraph must be read.",
+  ]);
+  assert_absent(text, ["Secret draft paragraph", "Hidden item"]);
+});
+
+test("a decorative image in an EPUB chapter does not cut the chapter short", async () => {
+  const book = await epub(
+    {
+      c1: chapter(
+        "One",
+        '<h1>Chapter One</h1><p>First paragraph. <img src="orn.png" alt="" aria-hidden="true"/> More words.</p><img src="rule.png" role="presentation" hidden><p>The rest of the chapter that must be read.</p>',
+      ),
+    },
+    ["c1"],
+  );
+  const text = await extract("book.epub", book);
+  assert_in_order(text, ["# Chapter One", "First paragraph.", "More words.", "The rest of the chapter that must be read."]);
+});

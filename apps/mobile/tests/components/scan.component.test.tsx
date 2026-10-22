@@ -93,3 +93,36 @@ it("keeps page order and successful OCR work after a recoverable failure, withou
     "First captured page.\n\nCorrected second page.",
   );
 });
+
+it("asks to finish a saved scan review before paying to read new pages", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  const { store_ocr_review } = jest.requireActual<typeof import("../../src/documents/ocrReviewStorage")>(
+    "../../src/documents/ocrReviewStorage",
+  );
+  await store_ocr_review("test-user", {
+    id: "scan-review-saved",
+    name: "Earlier scan.txt",
+    pages: ["Earlier page."],
+    playbackRate: 1,
+    origin: "scan",
+  });
+  jest.mocked(scan_document_image).mockClear();
+  await render_with_providers(<ScanDocumentScreen />);
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Review scan text" }));
+  await waitFor(() =>
+    expect(alert).toHaveBeenCalledWith(
+      "Finish your saved scan first",
+      expect.stringMatching(/unfinished scan review/),
+      expect.arrayContaining([expect.objectContaining({ text: "Resume review" })]),
+    ),
+  );
+  expect(scan_document_image).not.toHaveBeenCalled();
+  const resume = (alert.mock.calls.at(-1)?.[2] as { text: string; onPress?: () => void }[]).find(
+    (button) => button.text === "Resume review",
+  );
+  await act(async () => resume?.onPress?.());
+  expect((await screen.findByLabelText("Recognized text, page 1")).props.value).toBe("Earlier page.");
+});

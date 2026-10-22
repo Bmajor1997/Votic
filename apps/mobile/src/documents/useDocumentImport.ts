@@ -5,8 +5,9 @@ import { RefObject, useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
-import { IMPORT_TYPES, validate_import } from "./importDocument";
+import { IMPORT_TYPES, is_page_photo, validate_import } from "./importDocument";
 import { read_imported_text } from "./readImportedText";
+import { UnfinishedScanError, useOcrReview } from "./OcrReviewProvider";
 import { useImportSession } from "./useImportSession";
 import { remove_import_temp } from "./importCache";
 
@@ -18,6 +19,7 @@ export type ImportFailure = { name: string | null; message: string };
  */
 export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErrors = false } = {}) {
   const saveImported = useImportSave();
+  const ocrReview = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const transition = useDocumentTransition();
@@ -48,6 +50,8 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       name = asset.name;
       setProcessingName(asset.name);
       validate_import({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
+      // A photo needs a text review afterwards; check that one can open before paying for text recognition.
+      if (is_page_photo(asset.name)) ocrReview.ensureAvailable();
       const response = await fetch(asset.uri, { signal: job.signal });
       if (!response.ok)
         throw new Error("Votic could not access this file. Please choose it again from your device.");
@@ -59,6 +63,11 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       if (!job.current()) return;
       const message = error instanceof Error ? error.message : "Votic could not read this document.";
       if (inlineErrors) setFailure({ name, message });
+      else if (error instanceof UnfinishedScanError)
+        Alert.alert("Finish your saved scan first", message, [
+          { text: "Not now", style: "cancel" },
+          { text: "Resume review", onPress: ocrReview.resume },
+        ]);
       else Alert.alert("Could not import document", message);
     } finally {
       try {

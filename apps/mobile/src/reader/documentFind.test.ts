@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { find_document_matches, literal_matches } from "./documentFind";
+import { find_document_matches, literal_matches, match_context } from "./documentFind";
 
 it("finds literal punctuation and Unicode without regex interpretation", () => {
   expect(literal_matches("Café (a+b).* café (a+b).* 日本語 😀", "(a+b).*")).toEqual([
@@ -54,4 +54,17 @@ it("treats hostile-looking queries literally and bounds repeated-prefix matches"
     { offset: 0, length: 1 },
     { offset: 1, length: 1 },
   ]);
+});
+
+it("finds curly apostrophes and quotes from typed straight ones, keeping highlight offsets", () => {
+  expect(literal_matches("We don’t stop. “Quoted” text.", "don't")).toEqual([{ offset: 3, length: 5 }]);
+  expect(literal_matches("We don’t stop. “Quoted” text.", '"quoted"')).toEqual([{ offset: 15, length: 8 }]);
+  expect(literal_matches("It's plain ASCII.", "it’s")).toEqual([{ offset: 0, length: 4 }]);
+});
+
+it("describes the words around a match for screen readers", () => {
+  const text = "The lighthouse keeper climbed the stairs every evening to light the great lamp before dark.";
+  const offset = text.indexOf("light the");
+  expect(match_context(text, { offset, length: 5 }, 20)).toBe("…every evening to light the great lamp…");
+  expect(match_context("Short line.", { offset: 0, length: 5 })).toBe("Short line.");
 });
