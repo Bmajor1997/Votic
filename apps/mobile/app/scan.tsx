@@ -82,7 +82,6 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
     setTorch,
     pages,
     current,
-    show_problem,
     show_page,
     add_page,
     rotate,
@@ -148,7 +147,7 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
             selected={current.id}
             busy={busy}
             progress={processingPage ? `Reading page ${processingPage} of ${pages.length}` : null}
-            onTitle={(title) => void draft.commit({ ...draft.latest.current, title }).catch(show_problem)}
+            onTitle={draft.rename}
             onSelect={show_page}
             onAdd={() => add_page()}
             onRetake={() => add_page(current.id)}

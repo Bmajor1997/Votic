@@ -83,3 +83,14 @@ it("rejects oversized photos and unsafe restored filenames", async () => {
   );
   await expect(native.scan_page_uri("a", "../another-account.jpg")).rejects.toThrow("Invalid scan photo");
 });
+it("deletes one obsolete page photo for its owner and ignores unsafe names", async () => {
+  mockFiles.set("file:///cache/photo.jpg", new ArrayBuffer(8));
+  const keep = await native.persist_scan_photo("a", "page-keep.jpg", "file:///cache/photo.jpg");
+  const old = await native.persist_scan_photo("a", "page-old.jpg", "file:///cache/photo.jpg");
+  const other = await native.persist_scan_photo("b", "page-old.jpg", "file:///cache/photo.jpg");
+  await native.delete_scan_photo("a", "page-old.jpg");
+  await native.delete_scan_photo("a", "../page-keep.jpg");
+  expect(mockFiles.has(old)).toBe(false);
+  expect(mockFiles.has(keep)).toBe(true);
+  expect(mockFiles.has(other)).toBe(true);
+});

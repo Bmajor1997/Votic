@@ -28,14 +28,21 @@ export async function persist_scan_photo(uid: string, id: string, uri: string) {
   return target.uri;
 }
 /** Called on account erasure even if a prior manifest write failed, so orphan photos are erased too. */
-export async function delete_scan_photos(uid: string, keep?: string[]) {
+export async function delete_scan_photos(uid: string) {
   if (Platform.OS === "web") {
-    for (const key of webPhotos.keys())
-      if (key.startsWith(`${uid}:`) && !keep?.some((id) => key === `${uid}:${id}`)) webPhotos.delete(key);
+    for (const key of webPhotos.keys()) if (key.startsWith(`${uid}:`)) webPhotos.delete(key);
     return;
   }
   const directory = await folder(uid);
-  if (!directory.exists) return;
-  if (!keep) directory.delete();
-  else for (const file of directory.list()) if (!keep.includes(file.name)) file.delete();
+  if (directory.exists) directory.delete();
+}
+/** Removes one replaced or removed page photo, only after the draft that no longer uses it has been saved. */
+export async function delete_scan_photo(uid: string, id: string) {
+  if (!/^page-[a-z0-9-]{1,100}\.jpg$/.test(id)) return;
+  if (Platform.OS === "web") {
+    webPhotos.delete(`${uid}:${id}`);
+    return;
+  }
+  const file = new File(await folder(uid), id);
+  if (file.exists) file.delete();
 }

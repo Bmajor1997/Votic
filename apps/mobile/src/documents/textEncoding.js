@@ -131,8 +131,12 @@ export function decode_text_file(input, declared) {
     (bytes[0] === 0xff && bytes[1] === 0xfe) ||
     (bytes[0] === 0xfe && bytes[1] === 0xff) ||
     (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf);
-  // A Unicode signature wins over stale metadata. Explicit UTF-8 must never fall back to a legacy guess.
-  if (bom || UTF8.has(charset)) return decode_document_bytes(bytes);
+  // A Unicode signature wins over stale metadata and is never second-guessed.
+  if (bom) return decode_document_bytes(bytes);
+  if (UTF8.has(charset)) {
+    const text = declared_utf8(bytes);
+    if (text !== null) return text;
+  }
   if (looks_binary(bytes)) throw new Error(NOT_TEXT_ERROR);
   const declaredText = decode_declared(bytes, charset);
   if (declaredText !== null) return declaredText;
@@ -141,6 +145,35 @@ export function decode_text_file(input, declared) {
   } catch {
     return windows_1252(bytes);
   }
+}
+/**
+ * Text declared as UTF-8. Valid UTF-8 is returned. If the bytes also contain real UTF-8 characters, the file is
+ * corrupted UTF-8 and is refused. If they contain none, the label is simply wrong (common on older sites and saved
+ * pages written in Windows-1252), so null lets the caller read it as that legacy text.
+ */
+function declared_utf8(bytes) {
+  try {
+    return decode_document_bytes(bytes);
+  } catch (error) {
+    if (has_utf8_sequence(bytes)) throw error;
+    return null;
+  }
+}
+/** Whether any well-formed multi-byte UTF-8 character appears. */
+function has_utf8_sequence(bytes) {
+  const invalid = () => {
+    throw new Error(TEXT_ENCODING_ERROR);
+  };
+  for (let at = 0; at < bytes.length; at++) {
+    if (utf8_length(bytes[at]) < 1) continue;
+    try {
+      utf8_point(bytes, at + 1, bytes[at], invalid);
+      return true;
+    } catch {
+      // Not a complete character here; keep looking.
+    }
+  }
+  return false;
 }
 /** Text in a declared single-byte or legacy charset, or null to fall back to detection. */
 function decode_declared(bytes, charset) {

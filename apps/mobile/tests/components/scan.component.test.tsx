@@ -237,3 +237,84 @@ it("does not silently drop a blank page and lets the user remove it", async () =
   await screen.findByRole("button", { name: "Take photo" });
   expect(screen.queryByRole("button", { name: "Select page 1" })).toBeNull();
 });
+
+it("deletes replaced, rotated and removed page photos once the saved scan no longer uses them", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  const { fakeScanPhotos } =
+    jest.requireActual<typeof import("../mocks/scanDraftFiles")>("../mocks/scanDraftFiles");
+  const { load_scan_draft } = jest.requireActual<typeof import("../../src/documents/scanDraftStorage")>(
+    "../../src/documents/scanDraftStorage",
+  );
+  fakeScanPhotos.clear();
+  await render_with_providers(<ScanDocumentScreen />);
+  await take_page("file:///camera/one.jpg");
+  await add_page("file:///camera/two.jpg");
+  await fireEvent.press(screen.getByRole("button", { name: "Rotate page" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Retake page" }));
+  await take_page("file:///camera/two-again.jpg");
+  await fireEvent.press(screen.getByRole("button", { name: "Select page 1" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Remove page" }));
+  await act(async () =>
+    alert.mock.calls
+      .at(-1)?.[2]
+      ?.find((button) => button.text === "Remove")
+      ?.onPress?.(),
+  );
+  const draft = await load_scan_draft("test-user");
+  expect(draft?.pages).toHaveLength(1);
+  // Only the photo the saved scan still uses remains on the device.
+  expect([...fakeScanPhotos.keys()]).toEqual([`test-user:${draft!.pages[0].id}`]);
+  expect(fakeScanPhotos.get(`test-user:${draft!.pages[0].id}`)).toBe("file:///camera/two-again.jpg");
+});
+
+it("rotating a page whose text was already read does not pay to read it again", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest
+    .mocked(scan_document_image)
+    .mockReset()
+    .mockResolvedValueOnce("First page read.")
+    .mockRejectedValueOnce(new Error("Offline"))
+    .mockResolvedValueOnce("Second page read.");
+  await render_with_providers(<ScanDocumentScreen />);
+  await take_page("file:///camera/one.jpg");
+  await add_page("file:///camera/two.jpg");
+  await fireEvent.press(screen.getByRole("button", { name: "Finish scan" }));
+  await waitFor(() => expect(scan_document_image).toHaveBeenCalledTimes(2));
+  await fireEvent.press(screen.getByRole("button", { name: "Select page 1" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Rotate page" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Finish scan" }));
+  expect((await screen.findByLabelText("Recognized text, page 1")).props.value).toBe("First page read.");
+  expect(jest.mocked(scan_document_image).mock.calls.map((call) => call[0])).toEqual([
+    "scan-page-1.jpg",
+    "scan-page-2.jpg",
+    "scan-page-2.jpg",
+  ]);
+});
+
+it("saves the title once typing pauses, and a failed save is shown in place instead of an alert per letter", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  const storage = jest.requireActual<typeof import("../../src/documents/scanDraftStorage")>(
+    "../../src/documents/scanDraftStorage",
+  );
+  await render_with_providers(<ScanDocumentScreen />);
+  await take_page("file:///camera/one.jpg");
+  const store = jest.spyOn(storage, "store_scan_draft");
+  for (const title of ["M", "My", "My n", "My notes"])
+    await fireEvent.changeText(screen.getByLabelText("Scanned document title"), title);
+  expect(screen.getByLabelText("Scanned document title").props.value).toBe("My notes");
+  expect(store).not.toHaveBeenCalled();
+  await act(async () => jest.advanceTimersByTime(500));
+  await waitFor(() => expect(store).toHaveBeenCalledTimes(1));
+  expect(store.mock.calls[0][1].title).toBe("My notes");
+  alert.mockClear();
+  store.mockRejectedValue(new Error("Disk full"));
+  for (const title of ["My notes 2", "My notes 23"])
+    await fireEvent.changeText(screen.getByLabelText("Scanned document title"), title);
+  await act(async () => jest.advanceTimersByTime(500));
+  expect(await screen.findByText(/Draft changes could not be saved/)).toBeTruthy();
+  expect(alert).not.toHaveBeenCalled();
+  store.mockRestore();
+});

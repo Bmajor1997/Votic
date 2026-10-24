@@ -213,3 +213,13 @@ test("unclosed hidden content stays excluded through the end of the file", async
     assert.equal(text, "Visible.");
   }
 });
+
+test("an unclosed hidden element ends where its parent closes, so the rest of the page is still read", async () => {
+  const page = `<main><p>Intro <span aria-hidden="true">★ decorative<b>star</p><p>Second paragraph must stay.</p>
+    <div><i hidden>hidden note</div><p>Third paragraph must stay.</p></main><footer>Site footer</footer>`;
+  const book = await epub({ c1: chapter("Unclosed", page) }, ["c1"]);
+  for (const text of [await extract("unclosed.html", Buffer.from(page)), await extract("unclosed.epub", book)]) {
+    assert_in_order(text, ["Intro", "Second paragraph must stay.", "Third paragraph must stay."]);
+    assert_absent(text, ["decorative", "star", "hidden note"]);
+  }
+});

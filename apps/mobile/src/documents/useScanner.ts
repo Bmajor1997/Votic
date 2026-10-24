@@ -7,7 +7,7 @@ import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useImportSession } from "./useImportSession";
 import { remove_import_temp } from "./importCache";
-import { useScanDraft } from "./useScanDraft";
+import { ScanSaveError, useScanDraft } from "./useScanDraft";
 import { MAX_SCAN_PAGES, move_scan_page } from "./scanDraftModel";
 import { recognize_scan_pages, ScanPageError } from "./scanRecognition";
 import { rotate_scan_photo } from "./scanPhoto";
@@ -44,7 +44,7 @@ export function useScanner() {
         setCameraMode(false);
       }
       Alert.alert(
-        "Could not read scan",
+        error instanceof ScanSaveError ? "Could not save scan" : "Could not read scan",
         error instanceof Error ? error.message : "Please try again. Your saved pages are kept.",
       );
     }
@@ -102,7 +102,8 @@ export function useScanner() {
       const rotated = await rotate_scan_photo(current.uri);
       try {
         if (!session.active()) return;
-        const id = await draft.photo(rotated.uri, current.id);
+        const text = current.text ?? completedPages.current.get(current.id);
+        const id = await draft.photo(rotated.uri, current.id, text);
         if (session.active()) show_page(id);
       } finally {
         remove_import_temp(rotated.uri);
@@ -130,11 +131,7 @@ export function useScanner() {
         style: "destructive",
         onPress: () =>
           void run(async () => {
-            const next = {
-              ...draft.latest.current,
-              pages: draft.latest.current.pages.filter((p) => p.id !== current.id),
-            };
-            await draft.commit(next);
+            const next = await draft.remove(current.id);
             if (next.pages.length) show_page(next.pages[0].id);
             else add_page();
           }),
@@ -225,7 +222,6 @@ export function useScanner() {
     setTorch,
     pages,
     current,
-    show_problem,
     show_page,
     capture,
     add_page,

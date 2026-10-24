@@ -21,6 +21,8 @@ test("text files from older Windows apps are read instead of refused; binary dat
   assert.equal(decode_text_file(Buffer.from("caf\xe9", "latin1"), "iso-8859-1"), "café");
   assert.equal(decode_text_file(Buffer.from([0x93,0xfa,0x96,0x7b]), "shift_jis"), "日本");
   assert.equal(decode_text_file(Buffer.from("plain"), "made-up-charset"), "plain");
+  assert.equal(decode_text_file(Buffer.from("caf\xe9", "latin1"), "utf-8"), "café");
+  assert.throws(() => decode_text_file(Buffer.concat([Buffer.from("café "), Buffer.from([0xe9])]), "utf-8"), /UTF-8/);
   assert.throws(() => decode_text_file(new Uint8Array([72,0,105])), /does not look like text/);
   assert.throws(() => decode_text_file(new Uint8Array(Array.from({ length: 200 }, (_, i) => i % 8))), /does not look like text/);
   assert.equal(declared_html_charset(Buffer.from('<head><meta http-equiv="Content-Type" content="text/html; charset=windows-1252">')), "windows-1252");

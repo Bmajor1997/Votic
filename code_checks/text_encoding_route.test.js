@@ -34,7 +34,8 @@ test("UTF-8 BOM takes precedence over stale legacy HTML metadata", async () => {
 });
 test("declared or BOM UTF-8 corruption is rejected instead of guessed as Windows text", async () => {
   for (const prefix of [Buffer.from([239,187,191]), Buffer.from('<meta charset="utf-8">')]) {
-    const body = Buffer.concat([prefix, Buffer.from("<p>caf"), Buffer.from([195]), Buffer.from("</p>")]);
+    // Real UTF-8 ("café") next to a broken character is corrupted UTF-8, not a legacy file.
+    const body = Buffer.concat([prefix, Buffer.from("<p>café caf"), Buffer.from([195]), Buffer.from("</p>")]);
     const result = await extract("fixture.html", body);
     assert.equal(result.status, 400);
     assert.match(result.data.error, /Save or export it as UTF-8/);
@@ -54,4 +55,11 @@ test("EPUB chapter XML uses strict BOM decoding instead of implicit UTF-8 replac
   const result = await extract("fixture.epub", await zip.generateAsync({ type: "nodebuffer" }));
   assert.equal(result.status, 200);
   assert.match(result.data.text, /Résumé 日本語 😀/);
+});
+
+test("a page labelled UTF-8 but saved in Windows-1252 is read as Windows text", async () => {
+  const body = Buffer.from('<meta charset="utf-8"><p>Caf\xe9 \x93quoted\x94 r\xe9sum\xe9</p>', "latin1");
+  const result = await extract("mislabelled.html", body);
+  assert.equal(result.status, 200);
+  assert.equal(result.data.text.trim(), "Café “quoted” résumé");
 });

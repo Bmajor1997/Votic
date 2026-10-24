@@ -434,9 +434,10 @@ export function html_file_text(html, { chrome = false, book = false } = {}) {
         i = end;
         continue;
       }
-      // An unclosed hidden element still hides its remaining contents.
+      // An unclosed hidden element still hides its remaining contents, but only up to where its parent closes
+      // (as browsers do), so one missing closing tag never hides the rest of the page.
       const end = IMPLIED_END.has(name) ? implied_end(lower, name, i) : element_end(lower, name, i);
-      i = end === -1 ? html.length : end;
+      i = end === -1 ? enclosing_end(lower, i) : end;
       continue;
     }
     parts.push(structure_text(name, ending, lists));
@@ -517,6 +518,38 @@ function list_container(name, tag) {
 }
 function ends_list_item(name, tag, closing) {
   return tag === name || (!closing && name !== "li" && (tag === "dt" || tag === "dd"));
+}
+/**
+ * Where an unclosed element ends: at the first closing tag that belongs to an element opened before it (its parent
+ * or another ancestor), or the end of the file. Elements opened inside it are tracked so their own closing tags
+ * don't count; script and style contents are skipped whole.
+ */
+function enclosing_end(lower, from) {
+  const pattern = /<!--|<(\/?)([a-z][a-z0-9:-]*)[^>]*>/g;
+  const open = [];
+  pattern.lastIndex = from;
+  let match;
+  while ((match = pattern.exec(lower))) {
+    if (match[0] === "<!--") {
+      const end = lower.indexOf("-->", pattern.lastIndex);
+      if (end === -1) break;
+      pattern.lastIndex = end + 3;
+      continue;
+    }
+    const [tag, closing, name] = match;
+    if (!closing) {
+      if (HIDDEN_HTML.has(name) && !tag.endsWith("/>")) {
+        const end = hidden_end(lower, lower, name, pattern.lastIndex);
+        if (end === -1) break;
+        pattern.lastIndex = end;
+      } else if (!VOID_HTML.has(name) && !tag.endsWith("/>")) open.push(name);
+      continue;
+    }
+    const at = open.lastIndexOf(name);
+    if (at === -1) return match.index;
+    open.length = at;
+  }
+  return lower.length;
 }
 function after_tag(html, from) {
   const end = html.indexOf(">", from);
