@@ -69,6 +69,7 @@
     "source-map-js": "1.2.2",
     "@bacons/xcode": {
       "@expo/plist": "0.8.1"
-    }
+    },
+    "zod": "4.6.6"
   }
 }
