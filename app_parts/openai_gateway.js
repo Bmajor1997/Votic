@@ -22,7 +22,7 @@ export function response_text(result) {
 /** All paid requests use the same ledger. Reserve before sending; retain uncertain charges on timeout.
  * Deliberately no automatic retry: a timeout may already have spent tokens at the provider.
  */
-export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
+export function accounted_fetch({ fetch_impl, store, env, user_id, feature, allowance }) {
   return async (url, options) => {
     const transcription = url === "https://api.openai.com/v1/audio/transcriptions";
     if (!transcription && url !== "https://api.openai.com/v1/responses") throw new Error("Unsupported AI endpoint");
@@ -48,7 +48,7 @@ export function accounted_fetch({ fetch_impl, store, env, user_id, feature }) {
     // A short transcription is bounded by the model's 16K context / 2K max output.
     const input_bound = transcription ? 16000 : image_count * 50000 + Buffer.byteLength(accounting_payload, "utf8") + 1024;
     const output_bound = transcription ? 2000 : payload.max_output_tokens;
-    const request_id = store.reserve({ user_id, feature, model, input_bound, output_bound, rates });
+    const request_id = store.reserve({ user_id, feature, model, input_bound, output_bound, rates, allowance });
     let finished = false;
     const controller = new AbortController();
     let reject_cancellation;

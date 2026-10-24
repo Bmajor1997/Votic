@@ -297,7 +297,11 @@ describe("Votic Premium", () => {
     expect(screen.getByText("Try Votic Premium free for 2 weeks")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Read. Listen. Understand." })).toBeTruthy();
     expect(screen.getByLabelText(/^Ask Votic\. .* Included\.$/)).toBeTruthy();
-    expect(screen.getByText("2 weeks free, then $9.99/month. Cancel anytime.")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /2 weeks free, then \$9.99\/month. Auto-renews. Cancel anytime in (App Store|Google Play)/,
+      ),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
     expect(screen.getByTestId("access").props.children).toBe("false:none");
   });
@@ -326,17 +330,20 @@ describe("Votic Premium", () => {
     expect(screen.getByText(/waiting for approval/)).toBeTruthy();
     fakeSubscriptions.nextPurchase = {
       kind: "failed",
-      message: "Your purchase couldn't be completed. You weren't charged. Please try again.",
+      message: "Your purchase couldn't be confirmed. Use Restore Purchases before trying again.",
     };
     await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
     expect(
-      screen.getByText("Your purchase couldn't be completed. You weren't charged. Please try again."),
+      screen.getByText("Your purchase couldn't be confirmed. Use Restore Purchases before trying again."),
     ).toBeTruthy();
     expect(screen.getByTestId("access").props.children).toBe("false:none");
   });
 
-  it("never offers the trial again after a subscription has ended", async () => {
-    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("expired") });
+  it("shows regular pricing for a lapsed subscriber when the store reports no eligible trial", async () => {
+    fakeSubscriptions.reset({
+      defaultEntitlement: entitlement_of("expired"),
+      plans: [{ ...TWO_WEEK_TRIAL_PLAN, trial: null }],
+    });
     await render_paywall();
     expect(screen.queryByText(/free for 2 weeks/)).toBeNull();
     expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();

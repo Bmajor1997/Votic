@@ -1,3 +1,4 @@
+import { UsageLimitNoticeCard, useUsageLimitNotice } from "../src/subscription/UsageLimitNotice";
 import { useReaderMotion } from "../src/motion/useReaderMotion";
 import { useReaderDuration } from "../src/reader/useReaderDuration";
 import { PlaybackMorph } from "../src/motion/PlaybackMorph";
@@ -171,6 +172,7 @@ export default function Reader() {
 }
 
 function ReaderContent() {
+  const usageLimitNotice = useUsageLimitNotice();
   const quickNote = useQuickNoteEditor();
   const { theme } = useVoticTheme();
   const { uid } = useAccountData();
@@ -1764,6 +1766,7 @@ function ReaderContent() {
                             {askError}
                           </Text>
                         ) : null}
+                        <UsageLimitNoticeCard {...usageLimitNotice} />
                       </ScrollView>
                     ) : null}
                     {askVoiceError ? (

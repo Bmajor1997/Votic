@@ -61,7 +61,7 @@ describe("purchase errors", () => {
     });
     expect(purchase_outcome_from_error(new Error("boom"))).toMatchObject({
       kind: "failed",
-      message: expect.stringMatching(/weren't charged/),
+      message: expect.stringMatching(/Restore Purchases/),
     });
   });
 });
@@ -81,6 +81,7 @@ describe("plans from store products", () => {
       }),
     ).toEqual({
       id: "$rc_monthly",
+      productId: "votic_monthly",
       priceString: "$4.99",
       billingPeriod: { count: 1, unit: "month" },
       trial: { count: 7, unit: "day" },
@@ -107,4 +108,45 @@ describe("plans from store products", () => {
     expect(parse_iso_period("P14D")).toEqual({ count: 14, unit: "day" });
     expect(parse_iso_period("monthly")).toBeNull();
   });
+});
+
+it("preserves store-localized paid introductory phases without calling them free", () => {
+  const base = { identifier: "monthly", priceString: "9,99 €", subscriptionPeriod: "P1M", introPrice: null };
+  const apple = plan_from_store_product("month", {
+    ...base,
+    introPrice: {
+      price: 0.99,
+      priceString: "0,99 €",
+      periodUnit: "MONTH",
+      periodNumberOfUnits: 1,
+      cycles: 3,
+    },
+  });
+  const google = plan_from_store_product("month", {
+    ...base,
+    introPhases: [
+      {
+        price: { amountMicros: 990000, formatted: "0,99 €" },
+        billingPeriod: { value: 1, unit: "MONTH" },
+        billingCycleCount: 3,
+      },
+    ],
+  });
+  for (const plan of [apple, google]) {
+    expect(plan.trial).toBeNull();
+    expect(plan.introductoryPrices).toEqual([
+      { priceString: "0,99 €", period: { count: 1, unit: "month" }, cycles: 3 },
+    ]);
+  }
+});
+
+it("never promises a charge was absent after an uncertain purchase error", () => {
+  for (const code of ["2", "99", undefined]) {
+    const outcome = purchase_outcome_from_error({ code });
+    expect(outcome.kind).toBe("failed");
+    if (outcome.kind === "failed") {
+      expect(outcome.message).not.toMatch(/weren't charged/);
+      expect(outcome.message).toMatch(/Restore Purchases/);
+    }
+  }
 });

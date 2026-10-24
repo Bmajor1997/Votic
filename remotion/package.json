@@ -8,9 +8,12 @@
     "render:paywall": "remotion render src/index.ts VoticPremium out/premium.mp4"
   },
   "dependencies": {
-    "@remotion/cli": "4.0.532",
+    "@remotion/cli": "4.0.538",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "remotion": "4.0.532"
+    "remotion": "4.0.538"
+  },
+  "overrides": {
+    "zod": "4.6.6"
   }
 }

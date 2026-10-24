@@ -1,3 +1,4 @@
+import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { MotionFeedbackNotice } from "../motion/MotionFeedback";
 import { PropsWithChildren, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -14,7 +15,8 @@ export function Screen({
   children,
   hideTitle = false,
   titleAction,
-}: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode }>) {
+  brand,
+}: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode; brand?: ReactNode }>) {
   const { theme } = useVoticTheme();
   const { persistenceError } = useDocumentLibrary();
   const transition = useDocumentTransition();
@@ -32,7 +34,7 @@ export function Screen({
           showsVerticalScrollIndicator={false}
         >
           <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
-            <VoticLogo />
+            {brand ?? <VoticLogo />}
             <View style={s.headerIcon} />
           </View>
           {persistenceError ? (
@@ -55,6 +57,7 @@ export function Screen({
             </View>
           ) : null}
           {children}
+          <UsageLimitNotice />
         </FadingScrollView>
       </Animated.View>
       <MotionFeedbackNotice />

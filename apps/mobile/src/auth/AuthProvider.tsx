@@ -6,6 +6,7 @@ import * as Speech from "expo-speech";
 import { notification_player } from "../playback/notificationPlayback";
 import { publish_widget_snapshot } from "../widgets/widgetBridge";
 import { signed_out_snapshot } from "../widgets/widgetSnapshot";
+import { erase_scan_draft } from "../documents/scanDraftStorage";
 import { clear_import_cache } from "../documents/importCache";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { set_auth_token_provider } from "../api/authToken";
@@ -13,7 +14,10 @@ import { resume_local_deletions } from "../storage/accountDeletion";
 import { resume_library_restores } from "../storage/libraryBackup";
 import { AuthBackend, VoticUser, create_auth_backend } from "./authBackend";
 
+import { create_home_entrance_session, HomeEntranceSession } from "../motion/homeEntranceSession";
+
 type AuthValue = {
+  homeEntrance: HomeEntranceSession;
   user: VoticUser | null;
   /** True once the saved session (if any) has been restored, so the app knows which screen to show. */
   hydrated: boolean;
@@ -47,6 +51,7 @@ const DEVELOPMENT_USER: VoticUser = {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [backend] = useState(create_auth_backend);
+  const [homeEntrance] = useState(create_home_entrance_session);
   const [user, setUser] = useState<VoticUser | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [deletionsRecovered, setDeletionsRecovered] = useState(false);
@@ -55,6 +60,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let current = true;
     void resume_local_deletions(async (uid) => {
+      await erase_scan_draft(uid);
       const player = notification_player();
       if (player?.get_state().accountId === uid) await player.stop();
       await player?.clear_activity?.(uid);
@@ -104,6 +110,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(
     () =>
       backend.subscribe((next) => {
+        homeEntrance.observe(next?.uid ?? null, !reported.current && Boolean(next));
         set_diagnostic_owner(next?.uid ?? null);
         setUser(next);
         // The first report is the saved session. Any account after that was signed in during this launch.
@@ -114,7 +121,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         reportedUid.current = next?.uid ?? null;
         setHydrated(true);
       }),
-    [backend],
+    [backend, homeEntrance],
   );
   useEffect(() => {
     if (!user) return;
@@ -161,6 +168,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   return (
     <AuthContext.Provider
       value={{
+        homeEntrance,
         user: user ?? (developmentUser ? DEVELOPMENT_USER : null),
         hydrated: hydrated && exploreRestored && deletionsRecovered,
         sessionRestored: sessionRestored && !developmentUser,

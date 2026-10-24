@@ -61,12 +61,11 @@ export function purchase_outcome_from_error(error: unknown): PurchaseOutcome {
   if (code === STORE_PROBLEM)
     return {
       kind: "failed",
-      message:
-        "The store had a problem completing your purchase. You weren't charged. Try again in a moment.",
+      message: "The store had a problem confirming your purchase. Use Restore Purchases before trying again.",
     };
   return {
     kind: "failed",
-    message: "Your purchase couldn't be completed. You weren't charged. Please try again.",
+    message: "Your purchase couldn't be confirmed. Use Restore Purchases before trying again.",
   };
 }
 
@@ -96,7 +95,18 @@ export type StoreProductLike = {
   price?: number;
   currencyCode?: string;
   subscriptionPeriod: string | null;
-  introPrice: { price: number; periodUnit: string; periodNumberOfUnits: number; cycles: number } | null;
+  introPrice: {
+    price: number;
+    priceString?: string;
+    periodUnit: string;
+    periodNumberOfUnits: number;
+    cycles: number;
+  } | null;
+  introPhases?: {
+    price: { formatted: string; amountMicros: number };
+    billingPeriod: { unit: string; value: number };
+    billingCycleCount: number | null;
+  }[];
   freePhase?: { billingPeriod: { unit: string; value: number }; billingCycleCount: number | null } | null;
 };
 
@@ -120,6 +130,7 @@ export function plan_from_store_product(packageId: string, product: StoreProduct
     };
   return {
     id: packageId,
+    productId: product.identifier,
     priceString: product.priceString,
     ...(typeof product.price === "number" &&
     Number.isFinite(product.price) &&
@@ -129,5 +140,39 @@ export function plan_from_store_product(packageId: string, product: StoreProduct
       : {}),
     billingPeriod: parse_iso_period(product.subscriptionPeriod),
     trial,
+    ...paid_intro_prices(product),
   };
+}
+
+/** Normalize eligible, localized introductory charges separately from free-trial detection. */
+function paid_intro_prices(product: StoreProductLike) {
+  const intro = product.introPrice;
+  const introductoryPrices: NonNullable<SubscriptionPlan["introductoryPrices"]> = [];
+  if (
+    intro &&
+    intro.price > 0 &&
+    intro.priceString &&
+    UNITS[intro.periodUnit] &&
+    intro.periodNumberOfUnits > 0 &&
+    intro.cycles > 0
+  )
+    introductoryPrices.push({
+      priceString: intro.priceString,
+      period: { count: intro.periodNumberOfUnits, unit: UNITS[intro.periodUnit] },
+      cycles: intro.cycles,
+    });
+  for (const phase of product.introPhases ?? []) {
+    if (
+      phase.price.amountMicros > 0 &&
+      phase.price.formatted &&
+      UNITS[phase.billingPeriod.unit] &&
+      phase.billingPeriod.value > 0
+    )
+      introductoryPrices.push({
+        priceString: phase.price.formatted,
+        period: { count: phase.billingPeriod.value, unit: UNITS[phase.billingPeriod.unit] },
+        cycles: Math.max(1, phase.billingCycleCount || 1),
+      });
+  }
+  return introductoryPrices.length ? { introductoryPrices } : {};
 }

@@ -7,10 +7,13 @@ export function VoticLogo({
   compact = false,
   markOnly = false,
   progress,
+  animate = true,
 }: {
   compact?: boolean;
   markOnly?: boolean;
   progress?: number;
+  /** A whole-logo entrance owns its motion, so the wings stay still within it. */
+  animate?: boolean;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -20,7 +23,7 @@ export function VoticLogo({
   const wing3 = useState(() => new Animated.Value(1))[0];
 
   useEffect(() => {
-    if (progress !== undefined || reduceMotion) {
+    if (progress !== undefined || reduceMotion || !animate) {
       [wing1, wing2, wing3].forEach((value) => value.setValue(1));
       return;
     }
@@ -39,7 +42,7 @@ export function VoticLogo({
     ]);
     animation.start();
     return () => animation.stop();
-  }, [progress, reduceMotion, wing1, wing2, wing3]);
+  }, [progress, reduceMotion, animate, wing1, wing2, wing3]);
 
   const wing = (value: Animated.Value, top: number, height: number, wingIndex: number) => {
     const fill = progress === undefined ? 1 : Math.max(0, Math.min(1, progress * 3 - wingIndex));

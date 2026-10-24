@@ -1,3 +1,4 @@
+import { allowance_notifier } from "../../src/subscription/allowanceNotice";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
@@ -159,6 +160,29 @@ describe("Reader", () => {
     expect(screen.getByText("40% through Field Guide")).toBeTruthy();
     expect(screen.getByText("You were reading about the second passage.")).toBeTruthy();
     expect(screen.queryByText("Conversation summary")).toBeNull();
+  });
+
+  it("keeps the first Catch up limit notice inline without opening subscription options", async () => {
+    askVoticMock.mockImplementationOnce(async () => {
+      allowance_notifier()({
+        code: "AI_MONTHLY_ALLOWANCE",
+        resetsAt: new Date(Date.now() + 86400000).toISOString(),
+      });
+      throw new Error("You've reached your monthly AI allowance.");
+    });
+    const halfway = test_document("halfway", "Field Guide", {
+      ...book,
+      id: "halfway",
+      progress: 0.4,
+      sentenceIndex: 1,
+    });
+    await render_with_providers(<OpenedReader />, { documents: [halfway], reduceMotion: true });
+    await fireEvent.press(screen.getByText("More"));
+    await fireEvent.press(screen.getByRole("button", { name: "Catch up" }));
+    expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View plans" })).toBeTruthy();
+    expect(router.push).not.toHaveBeenCalledWith("/subscription");
+    await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
   });
 
   it("shows the document's passages and reading progress", async () => {

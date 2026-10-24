@@ -1,5 +1,6 @@
 import { beforeEach, expect, it, vi } from "vitest";
-import Purchases, { CustomerInfo } from "react-native-purchases";
+import { Platform } from "react-native";
+import Purchases, { CustomerInfo, PurchasesPackage } from "react-native-purchases";
 import { create_revenue_cat_service } from "./revenueCatService";
 
 vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
@@ -15,6 +16,12 @@ vi.mock("react-native-purchases", () => ({
     getAppUserID: vi.fn(),
     getCustomerInfo: vi.fn(),
     restorePurchases: vi.fn(),
+    getOfferings: vi.fn(),
+    getProducts: vi.fn(),
+    PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS" },
+    purchasePackage: vi.fn(),
+    checkTrialOrIntroductoryPriceEligibility: vi.fn(),
+    INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
   },
 }));
 
@@ -44,6 +51,7 @@ async function flush() {
 }
 beforeEach(() => {
   vi.resetAllMocks();
+  Object.assign(Platform, { OS: "android" });
   sdk.isAnonymous.mockResolvedValue(false);
   sdk.logOut.mockResolvedValue(info(false));
 });
@@ -153,4 +161,123 @@ it("discards an in-flight customer read when identity changes", async () => {
   await service.identify("b");
   reading.resolve(info(true));
   expect((await refresh).status).toBe("unknown");
+});
+
+function offer() {
+  return {
+    identifier: "monthly",
+    product: {
+      identifier: "pro_monthly",
+      priceString: "9,99 €",
+      price: 9.99,
+      currencyCode: "EUR",
+      subscriptionPeriod: "P1M",
+      introPrice: { price: 0, priceString: "0,00 €", periodUnit: "DAY", periodNumberOfUnits: 7, cycles: 1 },
+      defaultOption: {
+        freePhase: { billingPeriod: { unit: "DAY", value: 7 }, billingCycleCount: 1 },
+        pricingPhases: [
+          {
+            recurrenceMode: 2,
+            billingPeriod: { unit: "DAY", value: 7 },
+            billingCycleCount: 1,
+            price: { amountMicros: 0, formatted: "0,00 €" },
+          },
+          {
+            recurrenceMode: 2,
+            billingPeriod: { unit: "MONTH", value: 1 },
+            billingCycleCount: 3,
+            price: { amountMicros: 990000, formatted: "0,99 €" },
+          },
+          {
+            recurrenceMode: 1,
+            billingPeriod: { unit: "MONTH", value: 1 },
+            billingCycleCount: 0,
+            price: { amountMicros: 9990000, formatted: "9,99 €" },
+          },
+        ],
+      },
+    },
+  } as unknown as PurchasesPackage;
+}
+function offerings(item = offer()) {
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [item] } } as never);
+}
+
+it("shows Android's eligible free and paid phases, excludes regular renewal from introductory charges, and buys the shown package", async () => {
+  offerings();
+  sdk.logIn.mockResolvedValue({ customerInfo: info(false), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
+  const service = create_revenue_cat_service("public-key", "pro");
+  await service.identify("a");
+  const [plan] = await service.getPlans();
+  expect(plan.trial).toEqual({ count: 7, unit: "day" });
+  expect(plan.introductoryPrices).toEqual([
+    { priceString: "0,99 €", period: { count: 1, unit: "month" }, cycles: 3 },
+  ]);
+  expect((await service.purchase(plan.id)).kind).toBe("purchased");
+  expect(sdk.purchasePackage).toHaveBeenCalledWith(expect.objectContaining({ identifier: "monthly" }));
+  expect(sdk.checkTrialOrIntroductoryPriceEligibility).not.toHaveBeenCalled();
+});
+
+it.each([2, 1, 0, "offline"])(
+  "only shows iOS introductory terms with positive eligibility (%s)",
+  async (status) => {
+    Object.assign(Platform, { OS: "ios" });
+    offerings();
+    if (status === "offline")
+      sdk.checkTrialOrIntroductoryPriceEligibility.mockRejectedValue(new Error("offline"));
+    else sdk.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({ pro_monthly: { status } } as never);
+    const service = create_revenue_cat_service("public-key", "pro");
+    const [plan] = await service.getPlans();
+    expect(plan.trial).toEqual(status === 2 ? { count: 7, unit: "day" } : null);
+    expect(plan.introductoryPrices).toBeUndefined();
+    expect(plan.priceString).toBe("9,99 €");
+  },
+);
+
+it("hides a paid iOS introduction when eligibility cannot be confirmed", async () => {
+  Object.assign(Platform, { OS: "ios" });
+  const item = offer();
+  offerings({
+    ...item,
+    product: {
+      ...item.product,
+      introPrice: { ...item.product.introPrice!, price: 0.99, priceString: "0,99 €" },
+    },
+  });
+  sdk.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({ pro_monthly: { status: 0 } } as never);
+  const service = create_revenue_cat_service("public-key", "pro");
+  expect((await service.getPlans())[0].introductoryPrices).toBeUndefined();
+});
+
+it("discards offering eligibility results when the store account changes", async () => {
+  Object.assign(Platform, { OS: "ios" });
+  offerings();
+  const eligibility = deferred<Record<string, { status: number }>>();
+  sdk.checkTrialOrIntroductoryPriceEligibility.mockReturnValue(eligibility.promise as never);
+  sdk.logIn.mockResolvedValue({ customerInfo: info(false), created: false });
+  const service = create_revenue_cat_service("public-key", "pro");
+  await service.identify("a");
+  const plans = service.getPlans();
+  await flush();
+  await service.identify("b");
+  eligibility.resolve({ pro_monthly: { status: 2 } });
+  expect(await plans).toEqual([]);
+});
+
+it("reads upgrade prices without altering onboarding packages or trusting another account", async () => {
+  const service = create_revenue_cat_service("key", "pro");
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  await service.identify("a");
+  sdk.getProducts.mockResolvedValue([
+    { identifier: "plus", priceString: "€14,99", subscriptionPeriod: "P1M", introPrice: null } as never,
+  ]);
+  expect(await service.getUpgradePlans?.(["plus"])).toMatchObject([
+    { productId: "plus", priceString: "€14,99", trial: null },
+  ]);
+  expect(sdk.getProducts).toHaveBeenCalledWith(["plus"], "SUBS");
+  sdk.getAppUserID.mockResolvedValue("other");
+  expect(await service.getUpgradePlans?.(["plus"])).toEqual([]);
 });

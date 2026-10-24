@@ -39,6 +39,7 @@ const APP = [
   "statistics",
   "home-screen-widgets",
   "widget",
+  "subscription",
   "account",
   "library-backup",
   "recently-deleted",
@@ -79,6 +80,7 @@ describe("root navigation", () => {
       ),
     ).toEqual([
       "personalize",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -96,6 +98,7 @@ describe("root navigation", () => {
     await seed_storage({ accountSetup: { completedAt: null } });
     expect(await render_layout()).toEqual([
       "paywall",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -109,6 +112,7 @@ describe("root navigation", () => {
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
     ).toEqual([
       "widgets-intro",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -126,6 +130,7 @@ describe("root navigation", () => {
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired"))),
     ).toEqual([
       "paywall",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -141,6 +146,7 @@ describe("root navigation", () => {
     await seed_storage({});
     expect(await render_layout()).toEqual([
       "paywall",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -155,6 +161,7 @@ describe("root navigation", () => {
     await seed_storage({ accountSetup: { completedAt: null } });
     expect(await render_layout()).toEqual([
       "widgets-intro",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -169,6 +176,7 @@ describe("root navigation", () => {
     await seed_storage({ accountSetup: { completedAt: null, widgetsIntroducedAt: 1 } });
     expect(await render_layout()).toEqual([
       "ready",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -213,6 +221,7 @@ describe("root navigation", () => {
     });
     expect(current_screens()).toEqual([
       "personalize",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",
@@ -238,6 +247,7 @@ describe("root navigation", () => {
     });
     expect(await render_layout()).toEqual([
       "personalize",
+      "subscription",
       "account",
       "library-backup",
       "recently-deleted",

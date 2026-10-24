@@ -30,9 +30,13 @@ export function plan_name(plan: SubscriptionPlan) {
 /** The date a free trial ends if started now. Months and years are counted on the calendar, like the stores do. */
 export function trial_end_date(trial: Period, now: Date) {
   const end = new Date(now.getTime());
-  if (trial.unit === "month") end.setMonth(end.getMonth() + trial.count);
-  else if (trial.unit === "year") end.setFullYear(end.getFullYear() + trial.count);
-  else end.setDate(end.getDate() + trial.count * DAYS_PER[trial.unit]);
+  if (trial.unit === "month" || trial.unit === "year") {
+    const day = end.getDate();
+    end.setDate(1);
+    end.setMonth(end.getMonth() + (trial.unit === "year" ? trial.count * 12 : trial.count));
+    const lastDay = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+    end.setDate(Math.min(day, lastDay));
+  } else end.setDate(end.getDate() + trial.count * DAYS_PER[trial.unit]);
   return end;
 }
 
@@ -42,12 +46,22 @@ export function price_label(plan: SubscriptionPlan) {
   return per ? `${plan.priceString}/${per}` : plan.priceString;
 }
 
-/** Short billing line above the button, e.g. "2 weeks free, then $9.99/month. Cancel anytime." */
-export function billing_summary(plan: SubscriptionPlan) {
-  const price = price_label(plan);
-  return plan.trial
-    ? `${period_length(plan.trial)} free, then ${price}. Cancel anytime.`
-    : `${price}. Cancel anytime.`;
+/** Every eligible paid phase, followed by the regular renewal price. */
+export function price_sequence(plan: SubscriptionPlan) {
+  return [
+    ...(plan.introductoryPrices ?? []).map(
+      (intro) =>
+        `${intro.priceString} per ${billing_period_label(intro.period)} for ${intro.cycles} payment${intro.cycles === 1 ? "" : "s"}`,
+    ),
+    price_label(plan),
+  ].join(", then ");
+}
+
+/** Adjacent to checkout: trial, actual charge sequence, auto-renewal, and where to cancel. */
+export function billing_summary(plan: SubscriptionPlan, store?: "App Store" | "Google Play") {
+  const price = price_sequence(plan);
+  const offer = plan.trial ? `${period_length(plan.trial)} free, then ${price}.` : `${price}.`;
+  return `${offer} Auto-renews. Cancel anytime${store ? ` in ${store}` : ""}.`;
 }
 
 /**
@@ -55,7 +69,10 @@ export function billing_summary(plan: SubscriptionPlan) {
  * full "then $x" sentence stays in billing_summary above the button.
  */
 export function plan_card_detail(plan: SubscriptionPlan) {
-  return plan.trial ? `Includes a ${period_adjective(plan.trial)} free trial` : null;
+  const details = [];
+  if (plan.trial) details.push(`Includes a ${period_adjective(plan.trial)} free trial`);
+  if (plan.introductoryPrices?.length) details.push(`Introductory offer: ${price_sequence(plan)}`);
+  return details.join(". ") || null;
 }
 
 /**
@@ -64,7 +81,9 @@ export function plan_card_detail(plan: SubscriptionPlan) {
  */
 export function primary_action_label(plan: SubscriptionPlan | null) {
   if (!plan) return "Subscribe";
-  return plan.trial ? "Start free trial" : `Subscribe for ${price_label(plan)}`;
+  const intro = plan.introductoryPrices?.[0];
+  const firstPrice = intro ? `${intro.priceString}/${billing_period_label(intro.period)}` : price_label(plan);
+  return plan.trial ? "Start free trial" : `Subscribe for ${firstPrice}`;
 }
 
 /** The paywall's heading, worded from the store's trial length: "Try Votic Premium free for 2 weeks". */
@@ -81,8 +100,8 @@ export function trial_timeline(
   return [
     { when: "Today", what: "Your free trial starts. Get everything in Votic Premium." },
     {
-      when: formatDate(trial_end_date(plan.trial, now)),
-      what: `Your subscription starts at ${price_label(plan)}. Cancel at least a day before and you won't be charged.`,
+      when: `Around ${formatDate(trial_end_date(plan.trial, now))}`,
+      what: `Billing begins at ${price_sequence(plan)}. The store confirms the exact date before you subscribe.`,
     },
   ];
 }
@@ -102,7 +121,12 @@ export function billing_terms(
   const per = billing_period_label(plan.billingPeriod) || "billing period";
   const renew = `Your subscription renews automatically at ${plan.priceString} per ${per} until you cancel.`;
   const cancel = `Cancel anytime in your ${store} subscription settings at least 24 hours before ${plan.trial ? "your trial ends" : "it renews"} to avoid being charged.`;
-  if (!plan.trial) return `You'll be charged ${plan.priceString} when you subscribe. ${renew} ${cancel}`;
+  if (!plan.trial) {
+    const intro = plan.introductoryPrices?.[0];
+    const charge = intro?.priceString ?? plan.priceString;
+    const introductory = intro ? ` Introductory pricing: ${price_sequence(plan)}.` : "";
+    return `You'll be charged ${charge} when you subscribe.${introductory} ${renew} ${cancel}`;
+  }
   const end = formatDate(trial_end_date(plan.trial, now));
-  return `Your ${period_adjective(plan.trial)} free trial starts today. You won't be charged until it ends on ${end}. ${renew} ${cancel}`;
+  return `Your ${period_adjective(plan.trial)} free trial starts when you subscribe. Estimated first charge: ${end}, at ${price_sequence(plan)}. The store confirms the exact date and terms before purchase. ${renew} ${cancel}`;
 }

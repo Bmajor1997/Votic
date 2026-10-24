@@ -34,18 +34,22 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
   const key = String(env.REVENUECAT_SECRET_API_KEY || "").trim();
   const entitlementId = String(env.REVENUECAT_ENTITLEMENT_ID || "pro").trim();
   const confirmed = new Map();
-  return async (uid) => {
-    if (typeof uid !== "string" || !uid) return false;
+  const subscription = async (uid) => {
+    if (typeof uid !== "string" || !uid) return { allowed: false, productId: null, store: null };
     if (!key) throw new PremiumVerificationError();
-    if ((confirmed.get(uid) ?? 0) > now()) return true;
+    const cached = confirmed.get(uid);
+    if (cached?.until > now()) return cached.profile;
     confirmed.delete(uid);
-    const allowed = await verify(uid);
-    if (allowed && cacheMs > 0) {
+    const profile = await verify(uid);
+    if (profile.allowed && cacheMs > 0) {
       if (confirmed.size >= PREMIUM_CACHE_LIMIT) confirmed.clear();
-      confirmed.set(uid, now() + cacheMs);
+      confirmed.set(uid, { until: now() + cacheMs, profile });
     }
-    return allowed;
+    return profile;
   };
+  const authorize = async (uid) => (await subscription(uid)).allowed;
+  authorize.subscription = subscription;
+  return authorize;
   async function verify(uid) {
     const controller = new AbortController();
     let timer;
@@ -61,7 +65,10 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
           redirect: "error",
         });
         if (!response.ok) throw new PremiumVerificationError();
-        return has_premium_entitlement(await response.json(), entitlementId, now());
+        const customer = await response.json();
+        const allowed = has_premium_entitlement(customer, entitlementId, now());
+        const entitlement = allowed ? customer.subscriber.entitlements[entitlementId] : null;
+        return { allowed, ...subscription_product(customer, entitlement) };
       };
       // The deadline covers headers AND body, including a transport that ignores AbortSignal.
       return await Promise.race([read(), deadline]);
@@ -69,4 +76,15 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
       throw new PremiumVerificationError();
     } finally { clearTimeout(timer); }
   }
+}
+
+/** Match RevenueCat's Android SKU:base-plan identity without confusing two plans under one SKU. */
+function subscription_product(customer, entitlement) {
+  const id = entitlement?.product_identifier;
+  if (typeof id !== "string") return { productId: null, store: null };
+  const product = customer.subscriber.subscriptions?.[id];
+  const store = typeof product?.store === "string" ? product.store : null;
+  const base = product?.product_plan_identifier;
+  const productId = store === "play_store" && typeof base === "string" && base.length ? `${id}:${base}` : id;
+  return { productId, store };
 }

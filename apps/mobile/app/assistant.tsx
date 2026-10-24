@@ -1,3 +1,4 @@
+import { UsageLimitNotice } from "../src/subscription/UsageLimitNotice";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -598,6 +599,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 </Animated.View>
               </View>
             ) : null}
+            <UsageLimitNotice />
           </FadingScrollView>
           <View>
             {voiceError ? (

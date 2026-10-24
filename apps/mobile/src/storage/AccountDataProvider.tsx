@@ -5,6 +5,7 @@ import * as Speech from "expo-speech";
 import { AppState, Modal, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { erase_scan_draft } from "../documents/scanDraftStorage";
 import { clear_import_cache } from "../documents/importCache";
 import {
   account_deletion_pending,
@@ -105,6 +106,7 @@ function AccountDataSession({
     await notification_player()?.stop();
     publish_widget_snapshot(JSON.stringify(signed_out_snapshot()), true);
     clear_import_cache();
+    await erase_scan_draft(account);
     await notification_player()?.clear_activity?.(account);
     await erase_local_account(account);
   }

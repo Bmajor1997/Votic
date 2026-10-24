@@ -127,9 +127,10 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       return safely((sdk) => sdk.getCustomerInfo());
     },
     async getPlans() {
+      const token = generation;
+      await identityQueue;
       const sdk = await load();
       const offerings = await sdk.getOfferings();
-      packages.clear();
       const available = offerings.current?.availablePackages || [];
       // Google Play only offers a free phase to people who are eligible for it. The App Store lists the
       // trial for everyone, so on iOS the trial is shown only when StoreKit confirms this person can get it
@@ -146,14 +147,44 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
             .map(([id]) => id),
         );
       }
+      if (token !== generation) return [];
+      packages.clear();
       return available.map((item) => {
         packages.set(item.identifier, item);
         const plan = plan_from_store_product(item.identifier, {
           ...item.product,
-          freePhase: item.product.defaultOption?.freePhase ?? null,
+          // Android terms must follow the exact option purchasePackage will select.
+          introPrice: Platform.OS === "ios" ? item.product.introPrice : null,
+          freePhase: Platform.OS === "android" ? (item.product.defaultOption?.freePhase ?? null) : null,
+          introPhases:
+            Platform.OS === "android"
+              ? (item.product.defaultOption?.pricingPhases.filter(
+                  (phase) =>
+                    (phase.recurrenceMode === 2 || phase.recurrenceMode === 3) &&
+                    phase.price.amountMicros > 0,
+                ) ?? [])
+              : [],
         });
-        return eligibleOnIos && !eligibleOnIos.has(item.product.identifier) ? { ...plan, trial: null } : plan;
+        return eligibleOnIos && !eligibleOnIos.has(item.product.identifier)
+          ? { ...plan, trial: null, introductoryPrices: undefined }
+          : plan;
       });
+    },
+    async getUpgradePlans(productIds) {
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser || !productIds.length) return [];
+      const sdk = await load();
+      if ((await sdk.getAppUserID()) !== owner) return [];
+      const products = await sdk.getProducts(productIds, sdk.PRODUCT_CATEGORY.SUBSCRIPTION);
+      if (token !== generation || owner !== identifiedUser) return [];
+      return products.map((product) =>
+        plan_from_store_product(product.identifier, {
+          ...product,
+          introPrice: null,
+        }),
+      );
     },
     async purchase(planId) {
       const token = generation;

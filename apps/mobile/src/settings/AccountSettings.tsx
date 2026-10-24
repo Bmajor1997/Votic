@@ -369,6 +369,15 @@ function PremiumRows() {
           void Linking.openURL(subscription.entitlement.managementUrl || STORE_SUBSCRIPTIONS_URL)
         }
       />
+      {has_access(subscription.entitlement.status) ? (
+        <AccountRow
+          label="View plans"
+          detail="Review your plan and available monthly options."
+          hint="Opens subscription options without changing your plan"
+          icon="arrow-up-circle-outline"
+          onPress={() => router.push("/subscription")}
+        />
+      ) : null}
       <AccountRow
         label="Restore purchases"
         detail="Already subscribed with this store account? Restore it here."

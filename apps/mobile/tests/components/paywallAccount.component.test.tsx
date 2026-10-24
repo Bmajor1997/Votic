@@ -1,6 +1,6 @@
 import { it, expect, jest } from "@jest/globals";
-import { fireEvent, screen } from "@testing-library/react-native";
-import { AccessibilityInfo } from "react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
+import { AccessibilityInfo, Dimensions } from "react-native";
 import Paywall, { PREMIUM_FEATURES } from "../../app/paywall";
 import AccountManagement from "../../app/account";
 import { fakeAuth } from "../mocks/authBackend";
@@ -33,7 +33,7 @@ it("keeps three benefits prominent and reveals the complete set on request", asy
   await render_with_providers(<Paywall />);
   await fireEvent.press(screen.getByRole("button", { name: "See all included benefits" }));
   for (const title of [
-    "Read anything",
+    "Bring your documents",
     "Listen as it's read aloud",
     "Ask Votic",
     "Pick up where you left off",
@@ -60,9 +60,9 @@ it("switches between real weekly, monthly and annual offers and purchases only t
   };
   fakeSubscriptions.reset({ plans: [month, year, week], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall now={() => new Date(2026, 9, 19, 12)} />);
-  expect(screen.getByText("Save 33% compared with 12 monthly payments")).toBeTruthy();
+  expect(screen.getByText("Save 33% compared with 12 monthly payments at regular prices")).toBeTruthy();
   await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
-  expect(screen.getByText(/Your subscription starts at \$79.99\/year/)).toBeTruthy();
+  expect(screen.getByText(/Billing begins at \$79.99\/year/)).toBeTruthy();
   await fireEvent.press(screen.getByRole("radio", { name: /^Weekly,/ }));
   expect(screen.queryByRole("header", { name: /Try Votic Premium free/ })).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $4.99/week" }));
@@ -85,14 +85,22 @@ it("says plainly when the store fails unexpectedly, without showing the technica
   expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
 });
 
-it("keeps the offer short: headline, preview, three benefits, plans, then the fine print", async () => {
+it("shows plans before the preview and keeps required subscription and renewal terms visible", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   // No numbered sections, no jump button and no extra "make it yours" block.
   expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
+  expect(
+    screen.getByText("A subscription is required for your documents. Try the sample preview for free."),
+  ).toBeTruthy();
+  expect(screen.getByText("Get answers from your documents. AI usage allowances apply.")).toBeTruthy();
+  expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
-  expect(screen.getByRole("header", { name: "Choose your plan" })).toBeTruthy();
+  const headers = screen.getAllByRole("header");
+  expect(headers.indexOf(screen.getByRole("header", { name: "Choose your plan" }))).toBeLessThan(
+    headers.indexOf(screen.getByRole("header", { name: "Read. Listen. Understand." })),
+  );
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
   // The full "then $9.99/month" sentence appears once, above the button.
   expect(screen.getAllByText(/2 weeks free, then \$9\.99\/month/)).toHaveLength(1);
@@ -131,3 +139,47 @@ it("never celebrates a purchase the store didn't confirm", async () => {
     expect(screen.queryByRole("header", { name: "You're in." })).toBeNull();
   }
 });
+
+it("keeps a store-verified trial for a lapsed subscriber instead of guessing their trial history", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("expired") });
+  await render_with_providers(<Paywall />);
+  expect(screen.getByRole("button", { name: "Start free trial" })).toBeTruthy();
+  expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
+});
+
+it("can restore even when offerings fail, and distinguishes no purchase from an unreachable store", async () => {
+  fakeSubscriptions.reset({ plans: new Error("offline"), defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
+  expect(screen.getByText(/No active Votic Premium subscription was found/)).toBeTruthy();
+  fakeSubscriptions.restoreResult = entitlement_of("unknown");
+  await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
+  expect(screen.getByText(/couldn't reach the store. Check your connection/)).toBeTruthy();
+  fakeSubscriptions.restoreResult = entitlement_of("active");
+  await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
+  expect(screen.getByText("Your Votic Premium subscription is restored.")).toBeTruthy();
+});
+
+it.each([
+  { width: 320, height: 568, fontScale: 1 },
+  { width: 390, height: 844, fontScale: 1.6 },
+])(
+  "keeps one checkout in the scrolling flow at $width × $height with font scale $fontScale",
+  async (dimensions) => {
+    const original = Dimensions.get("window");
+    Dimensions.set({ window: { ...original, ...dimensions } });
+    try {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+      await render_with_providers(<Paywall />, { reduceMotion: true });
+      const scroll = screen.getByTestId("paywall-content");
+      expect(within(scroll).getByRole("button", { name: "Start free trial" })).toBeTruthy();
+      expect(within(scroll).getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
+      expect(screen.getAllByRole("button", { name: "Start free trial" })).toHaveLength(1);
+    } finally {
+      await act(async () => {
+        Dimensions.set({ window: original });
+      });
+    }
+  },
+);
