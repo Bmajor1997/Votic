@@ -6,6 +6,7 @@ import * as Speech from "expo-speech";
 import { notification_player } from "../playback/notificationPlayback";
 import { publish_widget_snapshot } from "../widgets/widgetBridge";
 import { signed_out_snapshot } from "../widgets/widgetSnapshot";
+import { erase_scan_draft } from "../documents/scanDraftStorage";
 import { clear_import_cache } from "../documents/importCache";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { set_auth_token_provider } from "../api/authToken";
@@ -55,6 +56,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   useEffect(() => {
     let current = true;
     void resume_local_deletions(async (uid) => {
+      await erase_scan_draft(uid);
       const player = notification_player();
       if (player?.get_state().accountId === uid) await player.stop();
       await player?.clear_activity?.(uid);

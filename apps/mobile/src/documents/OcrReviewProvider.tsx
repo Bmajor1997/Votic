@@ -30,7 +30,12 @@ import { useDocumentLibrary } from "./DocumentLibraryProvider";
 import { DocumentOrigin, VoticDocument } from "./types";
 
 type Review = { id: string; name: string; pages: string[]; playbackRate: number; origin: DocumentOrigin };
-type Options = { playbackRate: number; origin: DocumentOrigin };
+type Options = {
+  playbackRate: number;
+  origin: DocumentOrigin;
+  importId?: string;
+  onPrepared?: () => Promise<void>;
+};
 type Value = {
   review: (name: string, pages: string[], options: Options) => Promise<VoticDocument | null>;
   resume: () => void;
@@ -208,10 +213,11 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
           if (!ready) throw new Error(error || "Scan review is loading. Please try again.");
           if (latest.current) throw new UnfinishedScanError();
           const next = {
-            id: `scan-review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            id: options.importId ?? `scan-review-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             name,
             pages,
-            ...options,
+            playbackRate: options.playbackRate,
+            origin: options.origin,
           };
           latest.current = next;
           setRecord(next);
@@ -219,6 +225,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
           setError(null);
           try {
             await persist();
+            await options.onPrepared?.();
           } catch {
             throw new Error(
               "Your scan review could not be saved. Keep Votic open and resume it from Settings → Help → Unfinished scan.",
