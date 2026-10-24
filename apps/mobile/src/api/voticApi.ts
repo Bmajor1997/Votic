@@ -1,3 +1,4 @@
+import { allowance_notifier } from "../subscription/allowanceNotice";
 import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
@@ -34,6 +35,7 @@ async function api_fetch(
   requireSignIn: boolean | string = false,
 ) {
   const signInMessage = typeof requireSignIn === "string" ? requireSignIn : "Sign in to use voice questions.";
+  const notify_allowance = allowance_notifier();
   const url = votic_api_url() + path;
   const controller = new AbortController();
   let reject_cancellation: (error: Error) => void = () => {};
@@ -69,6 +71,7 @@ async function api_fetch(
     });
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (response.status === 403 && result.code === "ACCOUNT_DELETED") notify_remote_account_deletion();
+    if (!response.ok) notify_allowance(result);
     return { ok: response.ok, result };
   };
   try {
@@ -328,4 +331,25 @@ export async function submit_feedback(input: FeedbackInput) {
   if (typeof response.result.id !== "string")
     throw new Error("Votic could not confirm your feedback. Please try again.");
   return response.result.id;
+}
+
+/** Server-verified product identity and optional higher-capacity products. Prices always come from the SDK. */
+export type SubscriptionOptions = {
+  current: { name: string; productId: string; store: "app_store" | "play_store" } | null;
+  upgrades: { productId: string; name: string; capacityMultiplier: number | null }[];
+};
+export async function subscription_options(): Promise<SubscriptionOptions> {
+  const response = await api_fetch(
+    "/api/subscription-options",
+    { method: "POST" },
+    API_TIMEOUT_MS,
+    undefined,
+    "Sign in to view subscription options.",
+  );
+  if (!response.ok)
+    throw new Error(server_error(response.result, "Subscription options are unavailable. Please try again."));
+  const result = response.result;
+  if (!Array.isArray(result.upgrades))
+    throw new Error("Subscription options are unavailable. Please try again.");
+  return result as SubscriptionOptions;
 }

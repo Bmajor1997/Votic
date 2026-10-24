@@ -81,6 +81,7 @@ describe("plans from store products", () => {
       }),
     ).toEqual({
       id: "$rc_monthly",
+      productId: "votic_monthly",
       priceString: "$4.99",
       billingPeriod: { count: 1, unit: "month" },
       trial: { count: 7, unit: "day" },

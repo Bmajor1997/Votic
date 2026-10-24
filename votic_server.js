@@ -1,3 +1,4 @@
+import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -104,6 +105,7 @@ const AI_CLIENT_LIMIT_MESSAGE = "You've reached today's limit for Votic's AI fea
 export function create_votic_handler(options = {}) {
  const env = options.env || process.env, config = { ...load_server_config(env), ...options.config };
  validate_production_security(env);
+ const tiers = subscription_tiers(env);
  const usage_store = options.usageStore || create_usage_store(env);
  const feedback_admins = new Set(String(env.VOTIC_FEEDBACK_ADMIN_UIDS || "").split(",").map(uid => uid.trim()).filter(Boolean));
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
@@ -180,6 +182,22 @@ export function create_votic_handler(options = {}) {
     } else if (path === "/api/admin/feedback/mutate") send_json(response, 200, feedback.mutate(body));
     else throw new HttpError(404, "Not found.");
  };
+ const handle_subscription_options = async (request, response, identity, ai_client) => {
+    if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to view subscription options.");
+    rate_limit(`${ai_client}:subscription-options`, 10);
+    await read_body(request, 1024, config.body_timeout_ms);
+    const profile = tiers.length && authorize_premium.subscription ? await authorize_premium.subscription(identity.uid) : null;
+    const current = verified_tier(tiers, profile);
+    send_json(response, 200, { current: current ? { name: current.name, productId: current.productId, store: current.store } : null,
+      upgrades: upgrade_options(tiers, current) });
+ };
+ const premium_allowance = async (path, identity) => {
+    if (!premium_required || !["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) return null;
+    if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
+    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
+    if (!tiers.length || !authorize_premium.subscription) return null;
+    return verified_tier(tiers, await authorize_premium.subscription(identity.uid));
+ };
  const handler = async (request, response) => {
   const request_started = Date.now();
   set_security_headers(response);
@@ -198,7 +216,8 @@ export function create_votic_handler(options = {}) {
    if (!identity) throw auth_error(request);
    // A signed-in account gets its own AI allowance; otherwise it is shared by network address.
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
-   const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature });
+   let allowance = null;
+   const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature, allowance });
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
    if (request.method === "POST" && path === "/api/delete-account") {
     if (!identity?.uid) throw new HttpError(401, "Sign in before deleting your account.");
@@ -249,10 +268,11 @@ export function create_votic_handler(options = {}) {
     send_json(response, 200, { received: true });
     return;
    }
-   if (premium_required && ["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) {
-    if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
-    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
+   if (request.method === "POST" && path === "/api/subscription-options") {
+    await handle_subscription_options(request, response, identity, ai_client);
+    return;
    }
+   allowance = await premium_allowance(path, identity);
    if (request.method === "POST" && path === "/api/extract") {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
@@ -498,7 +518,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(error instanceof AiLimitError && error.code === "AI_MONTHLY_ALLOWANCE" ? { code: error.code, resetsAt: error.resetsAt } : {}), ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

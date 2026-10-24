@@ -17,6 +17,8 @@ vi.mock("react-native-purchases", () => ({
     getCustomerInfo: vi.fn(),
     restorePurchases: vi.fn(),
     getOfferings: vi.fn(),
+    getProducts: vi.fn(),
+    PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS" },
     purchasePackage: vi.fn(),
     checkTrialOrIntroductoryPriceEligibility: vi.fn(),
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
@@ -262,4 +264,20 @@ it("discards offering eligibility results when the store account changes", async
   await service.identify("b");
   eligibility.resolve({ pro_monthly: { status: 2 } });
   expect(await plans).toEqual([]);
+});
+
+it("reads upgrade prices without altering onboarding packages or trusting another account", async () => {
+  const service = create_revenue_cat_service("key", "pro");
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  await service.identify("a");
+  sdk.getProducts.mockResolvedValue([
+    { identifier: "plus", priceString: "€14,99", subscriptionPeriod: "P1M", introPrice: null } as never,
+  ]);
+  expect(await service.getUpgradePlans?.(["plus"])).toMatchObject([
+    { productId: "plus", priceString: "€14,99", trial: null },
+  ]);
+  expect(sdk.getProducts).toHaveBeenCalledWith(["plus"], "SUBS");
+  sdk.getAppUserID.mockResolvedValue("other");
+  expect(await service.getUpgradePlans?.(["plus"])).toEqual([]);
 });

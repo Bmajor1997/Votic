@@ -130,6 +130,7 @@ export function plan_from_store_product(packageId: string, product: StoreProduct
     };
   return {
     id: packageId,
+    productId: product.identifier,
     priceString: product.priceString,
     ...(typeof product.price === "number" &&
     Number.isFinite(product.price) &&

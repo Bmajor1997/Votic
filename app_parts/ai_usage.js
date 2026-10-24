@@ -9,7 +9,10 @@ export const AI_EXECUTION_LEASE_MS = 90_000;
 const deletion_key = (uid) => createHash("sha256").update(uid).digest("hex");
 
 export class AiLimitError extends Error {
-  constructor(message) { super(message); this.status = 429; this.headers = { "Retry-After": "60" }; }
+  constructor(message, code, resetsAt) {
+    super(message); this.status = 429; this.headers = { "Retry-After": "60" };
+    this.code = code; this.resetsAt = resetsAt;
+  }
 }
 
 // USD per million tokens, Standard processing, verified 2026-10-05.
@@ -101,10 +104,11 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
   };
   return {
     feedback,
-    reserve({ user_id, feature, model, input_bound, output_bound, rates }) {
+    reserve({ user_id, feature, model, input_bound, output_bound, rates, allowance }) {
       const started_at = now().toISOString(), month = started_at.slice(0, 7) + "-01T00:00:00.000Z", day = started_at.slice(0, 10) + "T00:00:00.000Z";
       const minute = new Date(Date.parse(started_at) - 60000).toISOString();
       const reserved_tokens = input_bound + output_bound;
+      const user_limits = allowance || { monthlyTokens: limits.user_tokens, monthlyBudgetUsd: limits.user_cost };
       // Reserve the most expensive input category; cache writes can cost more than uncached input.
       const reserved_cost = estimate_cost({ input_tokens: input_bound, output_tokens: output_bound, cached_tokens: 0, cache_write_tokens: 0 }, { ...rates, input: Math.max(rates.input, rates.cached, rates.cache_write) });
       db.exec("BEGIN IMMEDIATE");
@@ -117,11 +121,12 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
         const global = db.prepare("SELECT COALESCE(SUM(estimated_cost_usd),0) AS cost FROM ai_usage WHERE started_at>=?").get(month);
         const counts = db.prepare(`SELECT SUM(started_at>=?) AS daily, SUM(started_at>=?) AS minute, SUM(status='pending') AS active FROM ai_usage WHERE user_id=?`).get(day, minute, user_id);
         const global_daily = db.prepare("SELECT COUNT(*) AS count FROM ai_usage WHERE started_at>=?").get(day).count;
-        if (sums.tokens + reserved_tokens > limits.user_tokens || sums.cost + reserved_cost > limits.user_cost)
-          throw new AiLimitError("You've reached your monthly AI allowance. Try again next month.");
         if (global.cost + reserved_cost > limits.global_cost) throw new AiLimitError("Votic's monthly AI budget has been reached. Try again next month.");
         if (counts.daily >= limits.user_daily || global_daily >= limits.global_daily) throw new AiLimitError("Today's AI allowance has been reached. Try again tomorrow.");
         if (counts.minute >= limits.user_rate || counts.active >= limits.concurrency) throw new AiLimitError("Too many AI requests. Please try again shortly.");
+        if (sums.tokens + reserved_tokens > user_limits.monthlyTokens || sums.cost + reserved_cost > user_limits.monthlyBudgetUsd)
+          throw new AiLimitError("You've reached your monthly AI allowance. Try again next month.", "AI_MONTHLY_ALLOWANCE",
+            new Date(Date.UTC(Number(started_at.slice(0, 4)), Number(started_at.slice(5, 7)), 1)).toISOString());
         const request_id = randomUUID();
         db.prepare(`INSERT INTO ai_usage (request_id,user_id,feature,model,started_at,status,reserved_tokens,allowance_tokens,reserved_cost,estimated_cost_usd,pricing_json) VALUES (?,?,?,?,?,'pending',?,?,?,?,?)`)
           .run(request_id, user_id, feature, model, started_at, reserved_tokens, reserved_tokens, reserved_cost, reserved_cost, JSON.stringify(rates));

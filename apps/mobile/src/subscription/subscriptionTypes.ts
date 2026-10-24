@@ -25,6 +25,8 @@ export type Period = { count: number; unit: PeriodUnit };
 /** One purchasable plan, described entirely by the store's product data. */
 export type SubscriptionPlan = {
   id: string;
+  /** Exact store product identifier, used to match server-verified upgrade options. */
+  productId?: string;
   /** Localized price from the store, e.g. "$4.99". */
   priceString: string;
   /** Numeric store price, used only for honest same-currency savings comparisons. */
@@ -54,6 +56,8 @@ export interface SubscriptionService {
   reset(): Promise<void>;
   refresh(): Promise<Entitlement>;
   getPlans(): Promise<SubscriptionPlan[]>;
+  /** Read upgrade products independently of the onboarding offering. Never starts a purchase. */
+  getUpgradePlans?(productIds: string[]): Promise<SubscriptionPlan[]>;
   purchase(planId: string): Promise<PurchaseOutcome>;
   restore(): Promise<Entitlement>;
   /** Called whenever the store reports a change (renewal, expiry, refund). Returns an unsubscribe function. */

@@ -170,6 +170,22 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
           : plan;
       });
     },
+    async getUpgradePlans(productIds) {
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser || !productIds.length) return [];
+      const sdk = await load();
+      if ((await sdk.getAppUserID()) !== owner) return [];
+      const products = await sdk.getProducts(productIds, sdk.PRODUCT_CATEGORY.SUBSCRIPTION);
+      if (token !== generation || owner !== identifiedUser) return [];
+      return products.map((product) =>
+        plan_from_store_product(product.identifier, {
+          ...product,
+          introPrice: null,
+        }),
+      );
+    },
     async purchase(planId) {
       const token = generation;
       const owner = identifiedUser;

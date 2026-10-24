@@ -1,3 +1,4 @@
+import { UpgradeNoticeHost } from "../src/subscription/UpgradeNoticeHost";
 import { MotionFeedbackProvider } from "../src/motion/MotionFeedback";
 import { NativeActivitySync } from "../src/playback/NativeActivitySync";
 import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
@@ -130,6 +131,7 @@ function ThemedStack() {
                     <Stack.Screen name="widget" options={{ animation: "none" }} />
                   </Stack.Protected>
                   <Stack.Protected guard={signedIn}>
+                    <Stack.Screen name="subscription" options={slide} />
                     <Stack.Screen name="account" options={slide} />
                     <Stack.Screen name="library-backup" options={slide} />
                     <Stack.Screen name="recently-deleted" options={slide} />
@@ -139,6 +141,7 @@ function ThemedStack() {
                     <Stack.Screen name="feedback/bug" options={slide} />
                   </Stack.Protected>
                 </Stack>
+                <UpgradeNoticeHost />
               </SetupAccent>
             </WalkthroughProvider>
           </DocumentTransitionProvider>
