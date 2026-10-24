@@ -1,3 +1,4 @@
+import { HomeLogoEntrance } from "./HomeLogoEntrance";
 import { Composition } from "remotion";
 import {
   DocumentOpen,
@@ -10,6 +11,19 @@ import {
 } from "./Scenes";
 export const RemotionRoot = () => (
   <>
+    <Composition
+      id="HomeLogoEntrance"
+      component={HomeLogoEntrance}
+      durationInFrames={180}
+      fps={60}
+      width={390}
+      height={844}
+      defaultProps={{
+        dark: false,
+        reducedMotion: false,
+        returningSession: false,
+      }}
+    />
     <Composition
       id="DocumentOpen"
       component={DocumentOpen}

@@ -5,6 +5,7 @@ import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork"
 import { widget_palette } from "../../src/home/widgetDesign";
 import { EmptyContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
 import { home_notes } from "../../src/home/homeModel";
+import { HomeLogoEntrance } from "../../src/home/HomeLogoEntrance";
 import { Screen } from "../../src/components/Screen";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
@@ -48,7 +49,7 @@ export default function Home() {
   );
 
   return (
-    <Screen title="Home" hideTitle>
+    <Screen title="Home" hideTitle brand={<HomeLogoEntrance ready={loaded} />}>
       {!loaded ? (
         <View accessible accessibilityLabel="Loading your library" style={s.loading}>
           <ActivityIndicator color={theme.accentText} />

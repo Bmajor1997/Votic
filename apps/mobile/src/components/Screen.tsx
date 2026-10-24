@@ -14,7 +14,8 @@ export function Screen({
   children,
   hideTitle = false,
   titleAction,
-}: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode }>) {
+  brand,
+}: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode; brand?: ReactNode }>) {
   const { theme } = useVoticTheme();
   const { persistenceError } = useDocumentLibrary();
   const transition = useDocumentTransition();
@@ -32,7 +33,7 @@ export function Screen({
           showsVerticalScrollIndicator={false}
         >
           <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
-            <VoticLogo />
+            {brand ?? <VoticLogo />}
             <View style={s.headerIcon} />
           </View>
           {persistenceError ? (

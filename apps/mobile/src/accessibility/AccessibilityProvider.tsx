@@ -13,6 +13,8 @@ export type HighlightMode = "off" | "sentence" | "word" | "both";
 
 type AccessibilityPreferences = {
   hydrated: boolean;
+  /** Initial device motion preference and local settings have both loaded. */
+  motionReady: boolean;
   textSize: TextSize;
   setTextSize: (value: TextSize) => void;
   readingSpacing: ReadingSpacing;
@@ -48,6 +50,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   const [voiceIdentifier, setVoiceIdentifier] = useState<string | null>(null);
   const [reduceMotionPreference, setReduceMotionPreference] = useState(false);
   const [systemReduceMotion, setSystemReduceMotion] = useState(false);
+  const [systemMotionReady, setSystemMotionReady] = useState(false);
   const reduceMotion = reduceMotionPreference || systemReduceMotion;
   const setReduceMotion = setReduceMotionPreference;
   const [wordEmphasis, setWordEmphasis] = useState(true);
@@ -73,7 +76,10 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
 
   useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled()
-      .then(setSystemReduceMotion)
+      .then((enabled) => {
+        setSystemReduceMotion(enabled);
+        setSystemMotionReady(true);
+      })
       .catch(() => {});
     const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setSystemReduceMotion);
     return () => subscription.remove();
@@ -109,6 +115,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     <AccessibilityContext.Provider
       value={{
         hydrated,
+        motionReady: hydrated && systemMotionReady,
         textSize,
         setTextSize,
         readingSpacing,
