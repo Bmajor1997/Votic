@@ -371,8 +371,8 @@ function PremiumRows() {
       />
       {has_access(subscription.entitlement.status) ? (
         <AccountRow
-          label="Upgrade plan"
-          detail="See available plans, monthly prices, and additional AI capacity."
+          label="View plans"
+          detail="Review your plan and available monthly options."
           hint="Opens subscription options without changing your plan"
           icon="arrow-up-circle-outline"
           onPress={() => router.push("/subscription")}

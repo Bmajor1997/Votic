@@ -1,3 +1,4 @@
+import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { MotionFeedbackNotice } from "../motion/MotionFeedback";
 import { PropsWithChildren, ReactNode } from "react";
 import { Ionicons } from "@expo/vector-icons";
@@ -56,6 +57,7 @@ export function Screen({
             </View>
           ) : null}
           {children}
+          <UsageLimitNotice />
         </FadingScrollView>
       </Animated.View>
       <MotionFeedbackNotice />

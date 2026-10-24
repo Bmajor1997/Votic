@@ -130,7 +130,7 @@ function AccountUpgradeOptions() {
       ) : offers.length ? (
         <>
           <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-            Need more AI capacity?
+            Available plans
           </Text>
           {offers.map((offer) => (
             <View

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { upgrade_offers } from "./upgradeOffers";
-import { allowance_notifier, subscribe_allowance_notice } from "./allowanceNotice";
+import { allowance_notifier, subscribe_allowance_notice, claim_allowance_notice } from "./allowanceNotice";
 import type { SubscriptionOptions } from "../api/voticApi";
 import type { SubscriptionPlan } from "./subscriptionTypes";
 const options: SubscriptionOptions = {
@@ -52,4 +52,15 @@ describe("upgrade offers", () => {
       stopNew();
     }
   });
+});
+
+it("suppresses repeated notices across screens while allowing a new auth generation", () => {
+  const owner = {};
+  const reset = "2099-11-01T00:00:00Z";
+  expect(claim_allowance_notice(owner, 1, reset)).toBe(true);
+  expect(claim_allowance_notice(owner, 1, reset)).toBe(false);
+  expect(claim_allowance_notice(owner, 2, reset)).toBe(true);
+  expect(claim_allowance_notice({}, 1, reset)).toBe(true);
+  expect(claim_allowance_notice(owner, 2, "invalid")).toBe(false);
+  expect(claim_allowance_notice(owner, 2, "2000-01-01T00:00:00Z")).toBe(false);
 });

@@ -1,3 +1,4 @@
+import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScanDraft } from "./scanDraftModel";
 
@@ -84,6 +85,7 @@ export function ScanPageReview(props: Props) {
       <Text accessibilityLiveRegion="polite" style={s.copy}>
         {props.progress || "Finish scan checks the text from every page before saving one document."}
       </Text>
+      <UsageLimitNotice />
     </ScrollView>
   );
 }

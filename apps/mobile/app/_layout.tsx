@@ -1,4 +1,3 @@
-import { UpgradeNoticeHost } from "../src/subscription/UpgradeNoticeHost";
 import { MotionFeedbackProvider } from "../src/motion/MotionFeedback";
 import { NativeActivitySync } from "../src/playback/NativeActivitySync";
 import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
@@ -141,7 +140,6 @@ function ThemedStack() {
                     <Stack.Screen name="feedback/bug" options={slide} />
                   </Stack.Protected>
                 </Stack>
-                <UpgradeNoticeHost />
               </SetupAccent>
             </WalkthroughProvider>
           </DocumentTransitionProvider>

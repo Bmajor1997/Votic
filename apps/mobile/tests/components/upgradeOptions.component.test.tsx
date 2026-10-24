@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { AppState, AppStateStatus, Linking } from "react-native";
 import * as api from "../../src/api/voticApi";
 import { UpgradeOptions } from "../../src/subscription/UpgradeOptions";
-import { UpgradeNoticeHost } from "../../src/subscription/UpgradeNoticeHost";
+import { UsageLimitNotice } from "../../src/subscription/UsageLimitNotice";
 import { allowance_notifier } from "../../src/subscription/allowanceNotice";
 import { fakeSubscriptions } from "../mocks/subscriptionService";
 import { fakeAuth } from "../mocks/authBackend";
@@ -14,6 +14,7 @@ const options: api.SubscriptionOptions = {
   upgrades: [{ productId: "plus", name: "Plus", capacityMultiplier: 2 }],
 };
 function setup() {
+  jest.setSystemTime(new Date("2026-10-24T12:00:00Z"));
   jest.spyOn(api, "subscription_options").mockResolvedValue(options);
   fakeSubscriptions.plans = [
     {
@@ -59,41 +60,41 @@ it("recovers from a store-open failure without buying or changing entitlements",
 });
 it("dismisses personal monthly notices once per period and ignores all other failures", async () => {
   setup();
-  await render_with_providers(<UpgradeNoticeHost />);
+  await render_with_providers(<UsageLimitNotice />);
   const request = allowance_notifier();
   await act(async () => request({ code: "SERVICE_LIMIT", resetsAt: "2026-11-01T00:00:00Z" }));
-  expect(screen.queryByText("Monthly AI allowance reached")).toBeNull();
+  expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
   const result = { code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-01T00:00:00Z" };
   await act(async () => request(result));
-  expect(screen.getByText("Monthly AI allowance reached")).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Not now" }));
+  expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Dismiss AI usage notice" }));
   await act(async () => request(result));
-  expect(screen.queryByText("Monthly AI allowance reached")).toBeNull();
+  expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
   await act(async () => request({ ...result, resetsAt: "2026-12-01T00:00:00Z" }));
-  expect(screen.getByText("Monthly AI allowance reached")).toBeTruthy();
+  expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
 });
 it("does not show another account a notice from an old request", async () => {
   setup();
-  await render_with_providers(<UpgradeNoticeHost />);
+  await render_with_providers(<UsageLimitNotice />);
   const oldRequest = allowance_notifier();
   await act(async () => {
     fakeAuth.setUser({ uid: "other-user", email: "other@example.test", displayName: null });
   });
   await act(async () => oldRequest({ code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-01T00:00:00Z" }));
-  expect(screen.queryByText("Monthly AI allowance reached")).toBeNull();
+  expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
 });
 
 it("resets notice suppression for a new sign-in and respects Less motion", async () => {
   setup();
-  await render_with_providers(<UpgradeNoticeHost />, { reduceMotion: true });
+  await render_with_providers(<UsageLimitNotice />, { reduceMotion: true });
   const result = { code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-01T00:00:00Z" };
   await act(async () => allowance_notifier()(result));
-  await fireEvent.press(screen.getByRole("button", { name: "Not now" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Dismiss AI usage notice" }));
   const user = fakeAuth.user;
   await act(async () => fakeAuth.setUser(null));
   await act(async () => fakeAuth.setUser(user));
   await act(async () => allowance_notifier()(result));
-  expect(screen.getByText("Monthly AI allowance reached")).toBeTruthy();
+  expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
 });
 it("drops late offer loading when the account changes", async () => {
   setup();

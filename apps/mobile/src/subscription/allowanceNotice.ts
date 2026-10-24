@@ -19,3 +19,18 @@ export function allowance_notifier() {
       if (listeners.has(listener)) listener({ resetsAt: new Date(date).toISOString() });
   };
 }
+
+// Weak ownership follows the AuthProvider lifetime. A generation change forgets the prior session.
+const noticeSessions = new WeakMap<object, { generation: number; shown: Set<string> }>();
+export function claim_allowance_notice(owner: object, generation: number, resetsAt: string) {
+  const reset = Date.parse(resetsAt);
+  if (!Number.isFinite(reset) || reset <= Date.now()) return false;
+  let session = noticeSessions.get(owner);
+  if (session?.generation !== generation) {
+    session = { generation, shown: new Set() };
+    noticeSessions.set(owner, session);
+  }
+  if (session.shown.has(resetsAt)) return false;
+  session.shown.add(resetsAt);
+  return true;
+}
