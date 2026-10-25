@@ -190,7 +190,7 @@ export function create_votic_handler(options = {}) {
     await read_body(request, 1024, config.body_timeout_ms);
     const profile = tiers.length && authorize_premium.subscription ? await authorize_premium.subscription(identity.uid) : null;
     const current = verified_tier(tiers, profile);
-    send_json(response, 200, { current: current ? { name: current.name, productId: current.productId, store: current.store } : null,
+    send_json(response, 200, { current: current ? { name: current.name, productId: current.productId, store: current.store, monthlyCredits: current.monthlyCredits ?? null } : null,
       upgrades: upgrade_options(tiers, current) });
  };
  const premium_allowance = async (path, identity) => {
