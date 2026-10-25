@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Animated, Image, StyleSheet, Text, View } from "react-native";
+import { Animated, Image, StyleSheet, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { VoticWordmark } from "./VoticWordmark";
 
 export function VoticLogo({
   compact = false,
@@ -22,8 +23,9 @@ export function VoticLogo({
   const wing2 = useState(() => new Animated.Value(1))[0];
   const wing3 = useState(() => new Animated.Value(1))[0];
 
+  const wordmark = !markOnly && progress === undefined;
   useEffect(() => {
-    if (progress !== undefined || reduceMotion || !animate) {
+    if (wordmark || progress !== undefined || reduceMotion || !animate) {
       [wing1, wing2, wing3].forEach((value) => value.setValue(1));
       return;
     }
@@ -42,7 +44,7 @@ export function VoticLogo({
     ]);
     animation.start();
     return () => animation.stop();
-  }, [progress, reduceMotion, animate, wing1, wing2, wing3]);
+  }, [wordmark, progress, reduceMotion, animate, wing1, wing2, wing3]);
 
   const wing = (value: Animated.Value, top: number, height: number, wingIndex: number) => {
     const fill = progress === undefined ? 1 : Math.max(0, Math.min(1, progress * 3 - wingIndex));
@@ -72,6 +74,9 @@ export function VoticLogo({
     );
   };
 
+  // The full logo is the wordmark built from separate V and letter layers; the mark alone keeps its
+  // reading-progress wings (Reader and Ask Votic).
+  if (wordmark) return <VoticWordmark compact={compact} pulse={animate && !reduceMotion} />;
   return (
     <View accessible accessibilityRole="image" accessibilityLabel="Votic logo" style={s.row}>
       <View style={{ width: size, height: size, marginTop: 1 }}>
@@ -93,7 +98,6 @@ export function VoticLogo({
         {wing(wing2, 0.31, 0.34, 1)}
         {wing(wing3, 0.62, 0.38, 2)}
       </View>
-      {markOnly ? null : <Text style={[compact ? s.compact : s.logo, { color: theme.text }]}>otic</Text>}
     </View>
   );
 }
@@ -101,6 +105,4 @@ export function VoticLogo({
 const s = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center" },
   wingClip: { position: "absolute", overflow: "hidden" },
-  logo: { fontSize: 30, lineHeight: 34, fontWeight: "900", letterSpacing: -1.2, marginLeft: -3 },
-  compact: { fontSize: 22, lineHeight: 24, fontWeight: "900", letterSpacing: -0.9, marginLeft: -3 },
 });

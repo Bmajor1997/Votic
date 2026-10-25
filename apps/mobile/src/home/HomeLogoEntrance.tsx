@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Animated, AppState, Easing, useWindowDimensions } from "react-native";
+import { Animated, AppState, Easing } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "../auth/AuthProvider";
 import { useAccountSetup } from "../onboarding/AccountSetupProvider";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useActivity } from "../activity/ActivityProvider";
-import { VoticLogo } from "../components/VoticLogo";
+import { VoticWordmark } from "../components/VoticWordmark";
 import { MOTION } from "../motion/motionSpec";
 
 /** Key by auth generation, including a sign-out/sign-in that React batches into one render. */
@@ -28,7 +28,6 @@ function SessionHomeLogo({ ready }: { ready: boolean }) {
   const [active, setActive] = useState(
     AppState.currentState !== "background" && AppState.currentState !== "inactive",
   );
-  const { width } = useWindowDimensions();
   const prepared =
     ready &&
     hydrated &&
@@ -53,7 +52,7 @@ function SessionHomeLogo({ ready }: { ready: boolean }) {
         settle();
         return;
       }
-      const deadline = setTimeout(settle, MOTION.homeLogo.settleDeadline);
+      let deadline = setTimeout(settle, MOTION.homeLogo.settleDeadline);
       if (!prepared || !active) return () => clearTimeout(deadline);
       let animation: Animated.CompositeAnimation | undefined;
       let started = false;
@@ -72,6 +71,10 @@ function SessionHomeLogo({ ready }: { ready: boolean }) {
             useNativeDriver: true,
             isInteraction: false,
           });
+          // Once the assembly is running, the safety deadline allows its full length, so it never cuts it short
+          // but still reveals the logo if the native driver never reports completion.
+          clearTimeout(deadline);
+          deadline = setTimeout(settle, MOTION.homeLogo.duration + MOTION.homeLogo.settleDeadline);
           animation.start(() => progress.setValue(1));
         } catch {
           progress.setValue(1);
@@ -86,20 +89,8 @@ function SessionHomeLogo({ ready }: { ready: boolean }) {
     }, [homeEntrance, uid, generation, progress, prepared, reduceMotion, active]),
   );
   return (
-    <Animated.View
-      testID="home-logo-entrance"
-      pointerEvents="none"
-      style={{
-        transform: [
-          {
-            translateX: reduceMotion
-              ? 0
-              : progress.interpolate({ inputRange: [0, 1], outputRange: [width, 0], extrapolate: "clamp" }),
-          },
-        ],
-      }}
-    >
-      <VoticLogo animate={false} />
+    <Animated.View testID="home-logo-entrance" pointerEvents="none">
+      <VoticWordmark entrance={progress} />
     </Animated.View>
   );
 }

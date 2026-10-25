@@ -58,9 +58,11 @@ function Fixture({ initiallyReady = true }: { initiallyReady?: boolean }) {
     </TestFocusContext.Provider>
   );
 }
+/** How much of the wordmark is still to enter: 1 before the assembly, 0 once the last letter (c) has settled. */
 function shift() {
-  const value = screen.getByTestId("home-logo-entrance").props.style.transform[0].translateX;
-  return typeof value === "number" ? value : value.__getValue();
+  const style = screen.getByTestId("votic-wordmark-letter-c").props.style;
+  const opacity = (Array.isArray(style) ? Object.assign({}, ...style.flat()) : style).opacity;
+  return 1 - (typeof opacity === "number" ? opacity : opacity.__getValue());
 }
 beforeEach(() => {
   runs.length = 0;
@@ -168,7 +170,10 @@ it("settles a native animation that never calls its completion callback", async 
   await frame();
   expect(runs).toHaveLength(1);
   expect(shift()).toBeGreaterThan(0);
+  // The safety deadline allows the whole assembly before revealing the finished logo.
   await act(async () => jest.advanceTimersByTime(MOTION.homeLogo.settleDeadline));
+  expect(shift()).toBeGreaterThan(0);
+  await act(async () => jest.advanceTimersByTime(MOTION.homeLogo.duration));
   expect(shift()).toBe(0);
 });
 it("keeps the logo visible if the native animation cannot start", async () => {
