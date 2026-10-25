@@ -1,7 +1,7 @@
 /** Shared by native interactions and Remotion. Milliseconds, logical pixels, no runtime dependency. */
 export const MOTION = {
   // One linear timeline drives the wordmark assembly; each piece has its own curve and overshoot.
-  homeLogo: { duration: 1500, settleDeadline: 2500, easing: [0, 0, 1, 1] },
+  homeLogo: { duration: 2000, settleDeadline: 2500, easing: [0, 0, 1, 1] },
   document: { open: 420, close: 240, textFrom: 0.42 },
   mode: { duration: 240, distance: 8, pillWidth: 88 },
   playback: { duration: 200, rows: 20 },
