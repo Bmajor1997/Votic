@@ -15,6 +15,7 @@ function valid_tier(tier) {
     typeof tier.name === "string" && tier.name.trim().length > 0 && tier.name.length <= 60 &&
     ["app_store", "play_store"].includes(tier.store) &&
     Number.isSafeInteger(tier.monthlyTokens) && tier.monthlyTokens > 0 &&
+    (tier.monthlyCredits === undefined || (Number.isSafeInteger(tier.monthlyCredits) && tier.monthlyCredits > 0)) &&
     typeof tier.monthlyBudgetUsd === "number" && Number.isFinite(tier.monthlyBudgetUsd) && tier.monthlyBudgetUsd > 0;
 }
 export function verified_tier(catalog, profile) {
