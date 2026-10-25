@@ -1,3 +1,4 @@
+import { create_credit_wallet, authorized_revenuecat_webhook } from "./app_parts/credit_wallet.js";
 import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
@@ -107,6 +108,7 @@ export function create_votic_handler(options = {}) {
  validate_production_security(env);
  const tiers = subscription_tiers(env);
  const usage_store = options.usageStore || create_usage_store(env);
+ const credit_wallet = env.VOTIC_CREDIT_PRODUCTS_JSON ? (options.creditWallet || create_credit_wallet(env)) : null;
  const feedback_admins = new Set(String(env.VOTIC_FEEDBACK_ADMIN_UIDS || "").split(",").map(uid => uid.trim()).filter(Boolean));
  const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
  // With FIREBASE_PROJECT_ID set, every /api/ request needs a signed-in Votic account.
@@ -212,6 +214,20 @@ export function create_votic_handler(options = {}) {
     return;
    }
    if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
+   // RevenueCat webhooks are authenticated with their own server-only secret, not Firebase.
+   // Never accept a credit grant from an app request or an unauthenticated event.
+   if (path === "/api/revenuecat-webhook") {
+    if (request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
+    if (!credit_wallet || !authorized_revenuecat_webhook(request.headers.authorization, env.REVENUECAT_WEBHOOK_SECRET))
+      throw new HttpError(401, "Unauthorized.");
+    const payload = await read_json_body(request, 16_384, config.body_timeout_ms);
+    const event = payload?.event;
+    if (!event || typeof event !== "object" || Array.isArray(event)) throw new HttpError(400, "Invalid webhook event.");
+    if (event.type === "REFUND" && typeof event.transaction_id === "string") credit_wallet.revoke(event.transaction_id);
+    else credit_wallet.grant(event);
+    send_json(response, 200, { received: true });
+    return;
+   }
    const identity = await authorize(request, path);
    if (!identity) throw auth_error(request);
    // A signed-in account gets its own AI allowance; otherwise it is shared by network address.
