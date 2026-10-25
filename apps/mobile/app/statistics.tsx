@@ -17,6 +17,7 @@ import {
   insights,
   month_calendar,
   period_for,
+  shown_total,
   spoken_duration,
   streaks,
   summarize,
@@ -205,9 +206,9 @@ function Overview({ period }: { period: Period }) {
           <Text style={[s.eyebrow, { color: theme.heroMuted }]}>TIME WITH YOUR DOCUMENTS</Text>
           <Ionicons accessible={false} name="book-outline" size={26} color={theme.heroText} />
         </View>
-        <View accessible accessibilityLabel={`Total time, ${spoken_duration(summary.total)}`}>
+        <View accessible accessibilityLabel={`Total time, ${spoken_duration(shown_total(summary))}`}>
           <Text testID="statistics-total" style={[s.hero, { color: theme.heroText }]}>
-            {format_duration(summary.total)}
+            {format_duration(shown_total(summary))}
           </Text>
           <Text style={[s.sub, { color: theme.heroMuted }]}>Reading and listening in this period</Text>
         </View>

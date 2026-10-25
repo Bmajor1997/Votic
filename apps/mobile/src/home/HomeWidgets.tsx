@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { format_duration, spoken_duration } from "../activity/activityModel";
+import { format_duration, shown_total, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { progress_label, readable_title } from "../documents/documentDisplay";
@@ -134,7 +134,7 @@ export function WeekWidget() {
   const listeningShare = week.total ? week.listening / week.total : 0;
   const spoken = week.total
     ? [
-        `This week: ${spoken_duration(week.total)}`,
+        `This week: ${spoken_duration(shown_total(week))}`,
         `reading ${spoken_duration(week.reading)}, listening ${spoken_duration(week.listening)}`,
         week.change !== null ? change_label(week.change) : null,
         insight,
@@ -181,7 +181,7 @@ export function WeekWidget() {
           {week.total ? (
             <>
               <Text testID="home-week-total" style={[s.weekTotal, { color: colors.ink }]}>
-                {format_duration(week.total)}
+                {format_duration(shown_total(week))}
               </Text>
               {week.change !== null ? (
                 <Text style={[s.meta, { color: colors.detail }]}>{change_label(week.change)}</Text>

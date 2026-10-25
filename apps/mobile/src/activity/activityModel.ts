@@ -452,6 +452,15 @@ export function insights(log: ActivityLog, period: Period, now = new Date()) {
 export function whole_minutes(ms: number) {
   return Math.floor(Math.max(0, ms) / 60_000);
 }
+/**
+ * The total to show beside separate reading and listening figures. Each figure is shown in completed minutes, so
+ * the total is their sum (24:40 reading + 1:40 listening shows 24 + 1 = 25, not 26), and the three always add up.
+ */
+export function shown_total(split: TimeSplit) {
+  const minutes = whole_minutes(split.reading) + whole_minutes(split.listening);
+  if (minutes) return minutes * 60_000;
+  return Math.min(split.reading + split.listening, 59_999);
+}
 export function format_duration(ms: number) {
   const minutes = whole_minutes(ms);
   if (ms > 0 && minutes === 0) return "under 1 min";
