@@ -68,7 +68,7 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
         const customer = await response.json();
         const allowed = has_premium_entitlement(customer, entitlementId, now());
         const entitlement = allowed ? customer.subscriber.entitlements[entitlementId] : null;
-        return { allowed, ...subscription_product(customer, entitlement) };
+        return { allowed, ...subscription_product(customer, entitlement), ...(entitlement ? { periodStart: entitlement.purchase_date, periodEnd: entitlement.expires_date } : {}) };
       };
       // The deadline covers headers AND body, including a transport that ignores AbortSignal.
       return await Promise.race([read(), deadline]);
