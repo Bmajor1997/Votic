@@ -289,6 +289,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
         answer_link(request, answer.sectionIndex),
         answer.quote,
         documents,
+        answer.answer,
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();

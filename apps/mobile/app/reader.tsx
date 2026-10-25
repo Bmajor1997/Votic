@@ -1,6 +1,7 @@
 import { UsageLimitNoticeCard, useUsageLimitNotice } from "../src/subscription/UsageLimitNotice";
 import { useReaderMotion } from "../src/motion/useReaderMotion";
 import { useReaderDuration } from "../src/reader/useReaderDuration";
+import { speech_start_guard } from "../src/reader/speechStartGuard";
 import { PlaybackMorph } from "../src/motion/PlaybackMorph";
 import { FeedbackPop } from "../src/motion/FeedbackPop";
 import { ModeMotion } from "../src/motion/ModeMotion";
@@ -586,6 +587,7 @@ function ReaderContent() {
         answer_link(request, answer.sectionIndex),
         answer.quote,
         activeDocument ? [activeDocument] : [],
+        answer.answer,
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
       if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
@@ -1041,15 +1043,22 @@ function ReaderContent() {
     setWordIndex(segment.startWord);
     setPlaying(true);
     onboarding.markTipSeen("reader-listen");
+    // The device's speech engine can fail without a callback (for example with no voices installed), so a passage that
+    // never starts is reported instead of leaving Play silently doing nothing.
+    const guard = speech_start_guard(() => {
+      if (is_current()) speech_failed();
+    });
     Speech.speak(spokenText, {
       rate: playbackRate,
       voice: accessibility.voiceIdentifier || undefined,
       onStart: () => {
+        guard.started();
         if (!is_current()) return;
         setIndex(at);
         setWordIndex(segment.startWord);
       },
       onBoundary: (event: any) => {
+        guard.started();
         if (!is_current() || (event?.name && event.name !== "word")) return;
         // Follow the native boundary directly: it fires as the word is spoken, so the highlight stays with the audio.
         const boundary = Number(event?.charIndex);
@@ -1060,17 +1069,28 @@ function ReaderContent() {
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {
+        guard.started();
         if (!is_current()) return;
         if (at < passages.length - 1) void begin_speech(at + 1, 0, session, false, playbackRate);
         else finish_document(false);
       },
       onStopped: () => {
+        guard.started();
         if (is_current()) setPlaying(false);
       },
       onError: () => {
-        if (is_current()) setPlaying(false);
+        guard.started();
+        if (is_current()) speech_failed();
       },
     });
+  }
+  function speech_failed() {
+    speechSession.current += 1;
+    setPlaying(false);
+    Alert.alert(
+      "Could not start listening",
+      "Votic couldn't start your device's reading voice. Check that a text-to-speech voice is installed, then try again.",
+    );
   }
   function toggle() {
     if (playing) void stop();

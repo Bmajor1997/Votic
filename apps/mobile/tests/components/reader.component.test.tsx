@@ -2,9 +2,10 @@ import { allowance_notifier } from "../../src/subscription/allowanceNotice";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Animated, BackHandler, Dimensions, Platform, StyleSheet } from "react-native";
+import { Alert, Animated, BackHandler, Dimensions, Platform, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Reader from "../../app/reader";
+import { SPEECH_START_TIMEOUT_MS } from "../../src/reader/speechStartGuard";
 import { ONBOARDING_KEY } from "../../src/onboarding/OnboardingProvider";
 import { ask_votic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
@@ -111,6 +112,28 @@ describe("Reader", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
     expect(askVoticMock).toHaveBeenCalledTimes(2);
     expect(screen.getByText("First passage here.")).toBeTruthy();
+  });
+  it("tells the listener when the device's reading voice never starts, instead of staying silent", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(last_speech().text).toBe("First passage here."));
+    await act(async () => jest.advanceTimersByTime(SPEECH_START_TIMEOUT_MS - 1));
+    expect(alert).not.toHaveBeenCalled();
+    await act(async () => jest.advanceTimersByTime(1));
+    expect(alert).toHaveBeenCalledWith("Could not start listening", expect.stringContaining("reading voice"));
+    expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+  });
+  it("reports a speech engine error and stays quiet once speech has started", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(last_speech().text).toBe("First passage here."));
+    await act(async () => last_speech().options.onStart?.());
+    await act(async () => jest.advanceTimersByTime(SPEECH_START_TIMEOUT_MS * 2));
+    expect(alert).not.toHaveBeenCalled();
+    await act(async () => (last_speech().options.onError as (() => void) | undefined)?.());
+    expect(alert).toHaveBeenCalledWith("Could not start listening", expect.any(String));
   });
   it("speaks continuous passages on Android and ignores callbacks from completed utterances", async () => {
     const platform = jest.replaceProperty(Platform, "OS", "android");
