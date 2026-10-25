@@ -2,21 +2,35 @@ import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useSt
 import { useColorScheme } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { load_theme_preferences, save_theme_preferences } from "../preferences/preferenceStorage";
-export type AccentName =
-  "blue" | "purple" | "orange" | "red" | "teal" | "emerald" | "indigo" | "rose" | "amber";
+export type AccentName = "blue" | "purple" | "pink" | "orange" | "green" | "graphite";
 export type AppearanceMode = "light" | "dark" | "system";
 export type ReaderAppearanceMode = "light" | "dark" | "sepia";
+/**
+ * Six clearly different accents. Each is dark enough for white text on buttons (at least 5:1), which keeps them in
+ * one deep range, so there are few of them, and they are spread apart in hue and grey.
+ */
 export const accentColors: Record<AccentName, string> = {
-  orange: "#B45309",
   blue: "#2563EB",
-  purple: "#7C3AED",
-  red: "#B91C1C",
-  teal: "#0F766E",
-  emerald: "#15803D",
-  indigo: "#4338CA",
-  rose: "#BE185D",
-  amber: "#A16207",
+  purple: "#9333EA",
+  pink: "#BE185D",
+  orange: "#C2410C",
+  green: "#15803D",
+  graphite: "#475569",
 };
+/** Accents earlier versions offered, moved to the closest current one so a saved choice keeps its look. */
+const RETIRED_ACCENTS: Record<string, AccentName> = {
+  indigo: "blue",
+  red: "pink",
+  rose: "pink",
+  amber: "orange",
+  teal: "green",
+  emerald: "green",
+};
+export function current_accent(saved: unknown): AccentName | null {
+  if (typeof saved !== "string") return null;
+  const name = Object.hasOwn(RETIRED_ACCENTS, saved) ? RETIRED_ACCENTS[saved] : saved;
+  return Object.hasOwn(accentColors, name) ? (name as AccentName) : null;
+}
 function with_alpha(hex: string, alpha: string) {
   return `${hex}${alpha}`;
 }
@@ -201,8 +215,9 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       // Earlier versions saved their orange default without anyone choosing it. Only a color that was
       // actually picked in Settings (or any color other than that old default) is kept.
       const chosen = saved?.accentChosen === true || (saved?.accentName && saved.accentName !== "orange");
-      if (chosen && saved.accentName in accentColors) {
-        setAccentName(saved.accentName);
+      const accent = current_accent(saved?.accentName);
+      if (chosen && accent) {
+        setAccentName(accent);
         setAccentChosen(true);
       }
       if (["light", "dark", "system"].includes(saved?.appearanceMode))

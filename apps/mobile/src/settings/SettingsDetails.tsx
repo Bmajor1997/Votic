@@ -134,17 +134,7 @@ function Toggle({
 function AppearanceSettings() {
   const { theme, accentName, setAccentName, appearanceMode, setAppearanceMode } = useVoticTheme();
   // Blue is Votic's default, so it comes first.
-  const colors: AccentName[] = [
-    "blue",
-    "orange",
-    "purple",
-    "red",
-    "teal",
-    "emerald",
-    "indigo",
-    "rose",
-    "amber",
-  ];
+  const colors: AccentName[] = ["blue", "purple", "pink", "orange", "green", "graphite"];
   return (
     <>
       <Section

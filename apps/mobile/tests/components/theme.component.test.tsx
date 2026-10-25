@@ -36,6 +36,30 @@ describe("Votic's color", () => {
     expect(accent()).toBe(`blue ${accentColors.blue}`);
   });
 
+  it.each([
+    ["indigo", "blue"],
+    ["red", "pink"],
+    ["rose", "pink"],
+    ["amber", "orange"],
+    ["teal", "green"],
+    ["emerald", "green"],
+  ])("moves a retired %s choice to the closest current color, %s", async (retired, current) => {
+    await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ accentName: retired, appearanceMode: "light" }));
+    await render_theme();
+    await waitFor(() =>
+      expect(accent()).toBe(`${current} ${accentColors[current as keyof typeof accentColors]}`),
+    );
+    await waitFor(async () =>
+      expect(await saved()).toMatchObject({ accentName: current, accentChosen: true }),
+    );
+  });
+
+  it("falls back to blue for an unknown saved color", async () => {
+    await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ accentName: "toString", accentChosen: true }));
+    await render_theme();
+    expect(accent()).toBe(`blue ${accentColors.blue}`);
+  });
+
   it("moves the old automatic orange to blue", async () => {
     await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ accentName: "orange", appearanceMode: "dark" }));
     await render_theme();

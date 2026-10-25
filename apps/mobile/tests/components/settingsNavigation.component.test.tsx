@@ -85,7 +85,7 @@ describe("Settings categories", () => {
 describe("Settings preferences", () => {
   it("keeps every accent color name on one line", async () => {
     await render_with_providers(<SettingsDetailScreen category="appearance" />);
-    for (const name of ["Orange", "Blue", "Purple", "Red", "Teal", "Emerald", "Indigo", "Rose", "Amber"]) {
+    for (const name of ["Blue", "Purple", "Pink", "Orange", "Green", "Graphite"]) {
       const label = screen.getByText(name);
       expect(label.props.numberOfLines).toBe(1);
       expect(label.props.adjustsFontSizeToFit).toBe(true);

@@ -24,9 +24,9 @@ async function tints_for(accentName: string, appearanceMode = "light") {
 describe("Backgrounds behind icons", () => {
   it("take on the chosen accent color in light and dark mode", async () => {
     const blue = await tints_for("blue");
-    const red = await tints_for("red");
-    expect(red).not.toEqual(blue);
+    const pink = await tints_for("pink");
+    expect(pink).not.toEqual(blue);
     expect(blue).toBe("#e5ecfd #dce6fc");
-    expect(await tints_for("red", "dark")).not.toEqual(await tints_for("blue", "dark"));
+    expect(await tints_for("pink", "dark")).not.toEqual(await tints_for("blue", "dark"));
   });
 });
