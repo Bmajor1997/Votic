@@ -222,7 +222,7 @@ describe("Notes", () => {
     await render_with_providers(<Notes />, { documents: [report] });
     expect(screen.getByText("No notes yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Select notes" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Open q3_board-report_FINAL notebook" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL notebook" }));
     expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
   });
@@ -243,7 +243,7 @@ describe("Notes", () => {
     await render_with_providers(<Notes />, { documents: [noted] });
     expect(screen.getByText("2 notes · 1 passage")).toBeTruthy();
     expect(screen.queryByText("Third")).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Open q3_board-report_FINAL notebook" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL notebook" }));
     expect(screen.getAllByText("Third").length).toBeGreaterThan(0);
     expect(screen.getAllByText("First").length).toBeGreaterThan(0);
     expect(screen.queryByRole("radio", { name: "Saved Passages" })).toBeNull();

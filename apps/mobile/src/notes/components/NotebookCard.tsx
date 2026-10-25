@@ -22,14 +22,18 @@ export function NotebookCard({
   const passages = entries.length - notes;
   const color = document_type_color(document.sourceName);
   const latest = Math.max(document.importedAt, ...entries.map((entry) => entry.updatedAt));
+  const quick = document.notebookKind === "quick-notes";
+  const title = readable_title(document.title);
+  // The source file's own name, so notes from similarly titled documents stay distinguishable.
+  const filename = quick ? null : document.sourceName.trim() || null;
   const counts = entries.length
     ? `${notes} ${notes === 1 ? "note" : "notes"} · ${passages} ${passages === 1 ? "passage" : "passages"}`
     : "No notes yet";
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Open ${document.title} notebook`}
-      accessibilityHint={`${counts}. Opens this document’s notes.`}
+      accessibilityLabel={`Open ${title} notebook`}
+      accessibilityHint={`${filename ? `From ${filename}. ` : ""}${counts}. Opens this document’s notes.`}
       onPress={onPress}
       style={({ pressed }) => [
         s.card,
@@ -49,22 +53,26 @@ export function NotebookCard({
       >
         <View style={[s.spine, { backgroundColor: color }]} />
         <View style={[s.icon, { backgroundColor: theme.surface }]}>
-          {document.notebookKind === "quick-notes" ? (
+          {quick ? (
             <Ionicons name="create-outline" size={28} color={theme.accentText} />
           ) : (
             <FileTypeIcon filename={document.sourceName} decorative />
           )}
         </View>
-        <Text style={[s.label, { color: theme.accentText }]}>
-          {document.notebookKind === "quick-notes" ? "PERSONAL" : "DOCUMENT"}
-        </Text>
+        {/* The icon already shows the format; a generic "DOCUMENT" label would hide which document this is. */}
+        {quick ? <Text style={[s.label, { color: theme.accentText }]}>PERSONAL</Text> : null}
         <View style={[s.rule, { backgroundColor: theme.border }]} />
         <View style={[s.rule, { backgroundColor: theme.border, width: "40%" }]} />
       </View>
       <View style={s.copy}>
         <Text numberOfLines={3} style={[s.title, { color: theme.text }]}>
-          {readable_title(document.title)}
+          {title}
         </Text>
+        {filename ? (
+          <Text numberOfLines={1} ellipsizeMode="middle" style={[s.filename, { color: theme.mutedText }]}>
+            {filename}
+          </Text>
+        ) : null}
         <Text style={[s.counts, { color: theme.mutedText }]}>{counts}</Text>
         <View style={s.footer}>
           <Text style={[s.date, { color: theme.mutedText }]}>
@@ -78,6 +86,7 @@ export function NotebookCard({
 }
 const s = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, overflow: "hidden" },
+  filename: { fontSize: 13, lineHeight: 18, marginTop: 2 },
   cover: { minHeight: 150, padding: 20, gap: 10 },
   spine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   icon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },

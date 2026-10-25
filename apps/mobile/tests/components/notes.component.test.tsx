@@ -52,6 +52,44 @@ describe("Notes", () => {
     expect(screen.getByText("1 note · 1 passage")).toBeTruthy();
   });
 
+  it("names each notebook by its document title and file, never a generic format label", async () => {
+    const note = (id: string) => ({
+      id,
+      sentenceIndex: 0,
+      text: "A passage.",
+      note: "A note.",
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    const library = [
+      test_document("intro", "Introduction to Psychology", {
+        sourceName: "Introduction to Psychology.pdf",
+        savedPassages: [note("n1")],
+      }),
+      test_document("rome", "The History of Ancient Rome", {
+        sourceName: "The History of Ancient Rome.epub",
+        savedPassages: [note("n2")],
+      }),
+      // A renamed document: its title is shown, with the original file underneath.
+      test_document("renamed", "Week 3 lecture", {
+        sourceName: "lecture_03_final.docx",
+        savedPassages: [note("n3")],
+      }),
+    ];
+    await render_with_providers(<Notes />, { documents: library });
+    for (const [title, file] of [
+      ["Introduction to Psychology", "Introduction to Psychology.pdf"],
+      ["The History of Ancient Rome", "The History of Ancient Rome.epub"],
+      ["Week 3 lecture", "lecture_03_final.docx"],
+    ]) {
+      const card = screen.getByRole("button", { name: `Open ${title} notebook` });
+      expect(card.props.accessibilityHint).toMatch(new RegExp(`^From ${file.replace(".", "\\.")}\\.`));
+      expect(screen.getByText(file)).toBeTruthy();
+    }
+    expect(screen.queryByText("DOCUMENT")).toBeNull();
+    expect(screen.queryByText(/^(PDF|EPUB) Document$/)).toBeNull();
+  });
+
   it("shows a written note and a saved passage differently", async () => {
     await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Open Psychology notebook" }));
