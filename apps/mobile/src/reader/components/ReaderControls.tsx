@@ -128,12 +128,15 @@ export function SeekableProgress({
 
 export function VoiceChoice({
   name,
+  detail,
   selected,
   previewing,
   onPreview,
   onSelect,
 }: {
   name: string;
+  /** Accent and connection needs, e.g. "British English", read after the name. */
+  detail?: string;
   selected: boolean;
   previewing: boolean;
   onPreview: () => void;
@@ -168,11 +171,14 @@ export function VoiceChoice({
       <Pressable
         accessibilityRole="radio"
         accessibilityState={{ checked: selected }}
-        accessibilityLabel={`Select ${name} voice`}
+        accessibilityLabel={detail ? `Select ${name} voice, ${detail}` : `Select ${name} voice`}
         onPress={onSelect}
         style={({ pressed }) => [s.voiceSelect, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <Text style={[s.voiceName, { color: selected ? theme.accentText : theme.text }]}>{name}</Text>
+        <View style={s.voiceCopy}>
+          <Text style={[s.voiceName, { color: selected ? theme.accentText : theme.text }]}>{name}</Text>
+          {detail ? <Text style={[s.voiceDetail, { color: theme.mutedText }]}>{detail}</Text> : null}
+        </View>
         {selected ? <Ionicons name="checkmark-circle" size={19} color={theme.accent} /> : null}
       </Pressable>
     </View>
@@ -256,6 +262,8 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  voiceCopy: { flex: 1, gap: 2 },
+  voiceDetail: { fontSize: 13, lineHeight: 18 },
   voiceName: { ...typography.control, fontSize: 15 },
   tool: {
     flex: 1,

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useMotionValue } from "../../motion/useMotionValue";
 import { MOTION } from "../../motion/motionSpec";
 import { router } from "expo-router";
@@ -10,10 +11,15 @@ export function ReaderTools({
   listening,
   stop,
   find,
+  voiceName,
+  onVoice,
 }: {
   listening: boolean;
   stop: () => Promise<void>;
   find: ReturnType<typeof useReaderFind>;
+  /** The voice reading this document, always shown while listening so people know they can change it. */
+  voiceName: string;
+  onVoice: () => void;
 }) {
   const { theme } = useVoticTheme();
   const modeProgress = useMotionValue(listening ? 1 : 0, MOTION.mode.duration);
@@ -73,6 +79,19 @@ export function ReaderTools({
         >
           <Text style={{ color: theme.accentText }}>Find</Text>
         </Pressable>
+        {listening ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Voice: ${voiceName}. Change voice`}
+            onPress={onVoice}
+            style={[button, { flexDirection: "row", alignItems: "center", gap: 6 }]}
+          >
+            <Ionicons name="person-circle-outline" size={18} color={theme.accentText} />
+            <Text numberOfLines={1} style={{ color: theme.accentText, fontWeight: "600" }}>
+              Voice: {voiceName}
+            </Text>
+          </Pressable>
+        ) : null}
         {listening ? <SleepTimerControl /> : null}
       </View>
       {find.open ? (

@@ -6,7 +6,7 @@ Welcome to Votic. This walkthrough is a real document, so you can try reading an
 
 ## Read and listen
 
-Choose Listen in the Reader, then press play at the bottom to hear this guide. Switching between Read and Listen keeps your position and never starts audio automatically. Votic highlights spoken words, and you can pause and resume where you stopped. Open the Listen controls to change speed, preview voices, and choose a voice. Each voice has its own name, so you can tell them apart.
+Choose Listen in the Reader, then press play at the bottom to hear this guide. Switching between Read and Listen keeps your position and never starts audio automatically. Votic highlights spoken words, and you can pause and resume where you stopped. Tap Voice at the top of the Reader to hear and choose a voice; the same voices are in Settings, Reading & Listening, Voice. Each voice has its own name and accent, so you can tell them apart. Open the Listen controls to change speed.
 
 In the Reader, Text changes the document's size, font, and spacing, and Color changes the page: Light, Dark, Sepia, or High contrast. Sepia is for the Reader; the app itself uses Light, Dark, or System.
 

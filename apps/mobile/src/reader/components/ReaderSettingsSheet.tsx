@@ -5,11 +5,12 @@ import { useAccessibilityPreferences } from "../../accessibility/AccessibilityPr
 import { PlaybackSpeedControl } from "../../components/PlaybackSpeedControl";
 import { radii, spacing, typography } from "../../design/tokens";
 import { ReaderAppearanceMode, useVoticTheme } from "../../theme/ThemeProvider";
-import { DeviceVoice, votic_voice_names } from "../voices";
-import { Choice, Setting, VoiceChoice } from "./ReaderControls";
+import { DeviceVoice } from "../voices";
+import { VoiceList } from "../../voices/VoiceList";
+import { Choice, Setting } from "./ReaderControls";
 import { sheetStyles } from "./sheetStyles";
 
-export type ReaderSheet = "text" | "color" | "focus" | "listen" | null;
+export type ReaderSheet = "text" | "color" | "focus" | "listen" | "voice" | null;
 
 const SHEET_COPY = {
   text: { title: "Text", subtitle: "Size, font, and spacing. Changes appear in the document immediately." },
@@ -19,6 +20,7 @@ const SHEET_COPY = {
   },
   focus: { title: "Reading focus", subtitle: "Choose the guidance that helps you track the text." },
   listen: { title: "Listen", subtitle: "Choose a voice and comfortable listening speed." },
+  voice: { title: "Voice", subtitle: "Tap play to hear a voice, then choose the one you like." },
 } as const;
 
 /**
@@ -31,6 +33,8 @@ export function ReaderSettingsSheet({
   rate,
   onRateChange,
   voices,
+  voiceNames,
+  voicesLoaded,
   previewVoiceIdentifier,
   onPreviewVoice,
   onSelectVoice,
@@ -40,6 +44,8 @@ export function ReaderSettingsSheet({
   rate: number;
   onRateChange: (rate: number) => void;
   voices: DeviceVoice[];
+  voiceNames: Record<string, string>;
+  voicesLoaded: boolean;
   previewVoiceIdentifier: string | null;
   /** Starts or stops a preview of the voice at this position in `voices`. */
   onPreviewVoice: (voice: DeviceVoice, name: string) => void;
@@ -47,7 +53,6 @@ export function ReaderSettingsSheet({
 }) {
   const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
-  const voiceNames = votic_voice_names(voices);
   const copy = sheet ? SHEET_COPY[sheet] : SHEET_COPY.listen;
   return (
     <Modal
@@ -246,30 +251,24 @@ export function ReaderSettingsSheet({
                 </View>
               </>
             ) : null}
-            {sheet === "listen" ? (
+            {sheet === "listen" || sheet === "voice" ? (
               <>
-                <OfflineVoiceStatus voice={accessibility.voiceIdentifier} />
-                <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
+                {sheet === "listen" ? (
+                  <>
+                    <OfflineVoiceStatus voice={accessibility.voiceIdentifier} />
+                    <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
+                  </>
+                ) : null}
                 <Setting label="Voice">
-                  {voices.length ? (
-                    voices.map((voice) => {
-                      const name = voiceNames[voice.identifier];
-                      return (
-                        <VoiceChoice
-                          key={voice.identifier}
-                          name={name}
-                          selected={accessibility.voiceIdentifier === voice.identifier}
-                          previewing={previewVoiceIdentifier === voice.identifier}
-                          onPreview={() => onPreviewVoice(voice, name)}
-                          onSelect={() => onSelectVoice(voice)}
-                        />
-                      );
-                    })
-                  ) : (
-                    <Text style={[s.emptyVoices, { color: theme.mutedText }]}>
-                      Your device voice will be used.
-                    </Text>
-                  )}
+                  <VoiceList
+                    voices={voices}
+                    names={voiceNames}
+                    loaded={voicesLoaded}
+                    selected={accessibility.voiceIdentifier}
+                    previewing={previewVoiceIdentifier}
+                    onPreview={onPreviewVoice}
+                    onSelect={onSelectVoice}
+                  />
                 </Setting>
               </>
             ) : null}
@@ -302,5 +301,4 @@ const s = StyleSheet.create({
   toggleCopy: { flex: 1 },
   toggleTitle: { ...typography.control },
   toggleDescription: { fontSize: 13, marginTop: 2 },
-  emptyVoices: { fontSize: 14, paddingVertical: spacing.sm },
 });

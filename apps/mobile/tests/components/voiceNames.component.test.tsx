@@ -19,6 +19,8 @@ describe("Voice names in the Listen sheet", () => {
         rate={1}
         onRateChange={() => {}}
         voices={voices}
+        voiceNames={votic_voice_names(voices)}
+        voicesLoaded
         previewVoiceIdentifier={null}
         onPreviewVoice={preview}
         onSelectVoice={() => {}}

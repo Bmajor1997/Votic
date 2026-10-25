@@ -103,7 +103,8 @@ import {
   word_matches,
   passages_left_label,
 } from "../src/reader/readerText";
-import { DeviceVoice, unique_english_voices, votic_voice_preview } from "../src/reader/voices";
+import { DeviceVoice, votic_voice_preview } from "../src/reader/voices";
+import { current_voice_name, useDeviceVoices } from "../src/voices/useDeviceVoices";
 import {
   apply_pronunciations,
   load_pronunciations,
@@ -254,7 +255,7 @@ function ReaderContent() {
   const summaryAt = conversationSummary?.after ?? 0;
   const [conversationSaved, setConversationSaved] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
-  const [voices, setVoices] = useState<DeviceVoice[]>([]);
+  const { voices, names: voiceNames, loaded: voicesLoaded } = useDeviceVoices();
   const [pronunciations, setPronunciations] = useState<PronunciationEntry[]>([]);
   const [previewVoiceIdentifier, setPreviewVoiceIdentifier] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
@@ -401,9 +402,6 @@ function ReaderContent() {
   });
 
   useEffect(() => {
-    void Speech.getAvailableVoicesAsync()
-      .then((available) => setVoices(unique_english_voices(available)))
-      .catch(() => setVoices([]));
     void load_pronunciations(uid).then(setPronunciations);
   }, [uid]);
   useEffect(
@@ -1363,7 +1361,13 @@ function ReaderContent() {
                     </Pressable>
                   </View>
                 </View>
-                <ReaderTools listening={listening} stop={stop} find={find} />
+                <ReaderTools
+                  listening={listening}
+                  stop={stop}
+                  find={find}
+                  voiceName={current_voice_name(voiceNames, accessibility.voiceIdentifier)}
+                  onVoice={() => setSheet("voice")}
+                />
                 <View ref={progressTarget} collapsable={false} style={s.documentHeader}>
                   <Animated.Text
                     ref={titleNode}
@@ -1635,6 +1639,21 @@ function ReaderContent() {
                           </Text>
                           <Pressable
                             accessibilityRole="button"
+                            accessibilityLabel={`Voice: ${current_voice_name(voiceNames, accessibility.voiceIdentifier)}. Change voice`}
+                            onPress={() => setSheet("voice")}
+                            style={s.rateButton}
+                          >
+                            <Ionicons name="person-circle-outline" size={15} color={theme.mutedText} />
+                            <Text
+                              maxFontSizeMultiplier={1.15}
+                              numberOfLines={1}
+                              style={[s.rateText, { color: theme.mutedText }]}
+                            >
+                              {current_voice_name(voiceNames, accessibility.voiceIdentifier)}
+                            </Text>
+                          </Pressable>
+                          <Pressable
+                            accessibilityRole="button"
                             accessibilityLabel={`Playback speed ${format_playback_rate(rate)}`}
                             onPress={() => setSheet("listen")}
                             style={s.rateButton}
@@ -1884,6 +1903,8 @@ function ReaderContent() {
               rate={rate}
               onRateChange={change_rate}
               voices={voices}
+              voiceNames={voiceNames}
+              voicesLoaded={voicesLoaded}
               previewVoiceIdentifier={previewVoiceIdentifier}
               onPreviewVoice={(voice, name) => {
                 if (previewVoiceIdentifier === voice.identifier) void stop();

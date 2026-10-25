@@ -1,4 +1,5 @@
 import { useOcrReview } from "../documents/OcrReviewProvider";
+import { current_voice_name, useDeviceVoices } from "../voices/useDeviceVoices";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { clean_local_document_text } from "../documents/importDocument";
 import { open_from } from "../documents/useDocumentImport";
@@ -205,6 +206,7 @@ function AppearanceSettings() {
 
 function ReadingSettings() {
   const a = useAccessibilityPreferences();
+  const { names: voiceNames } = useDeviceVoices();
   return (
     <>
       <Section title="Text size" detail="Set a comfortable size for reading.">
@@ -232,6 +234,15 @@ function ReadingSettings() {
         />
       </Section>
       <Section title="Listening">
+        <SettingsGroup>
+          <SettingsRow
+            label="Voice"
+            detail={`${current_voice_name(voiceNames, a.voiceIdentifier)}. Hear and choose from the voices on this device.`}
+            hint="Opens the list of voices, where you can preview and choose one"
+            icon="person-circle-outline"
+            onPress={() => router.push("/voices")}
+          />
+        </SettingsGroup>
         <Toggle
           label="Emphasize current word"
           detail="Make the spoken word slightly larger and bolder."

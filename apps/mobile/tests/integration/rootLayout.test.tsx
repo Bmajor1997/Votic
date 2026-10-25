@@ -35,6 +35,7 @@ const APP = [
   "scan",
   "import-web",
   "pronunciations",
+  "voices",
   "handle-share",
   "statistics",
   "home-screen-widgets",

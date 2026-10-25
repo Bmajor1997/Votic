@@ -123,6 +123,7 @@ function ThemedStack() {
                     <Stack.Screen name="scan" options={slide} />
                     <Stack.Screen name="import-web" options={slide} />
                     <Stack.Screen name="pronunciations" options={slide} />
+                    <Stack.Screen name="voices" options={slide} />
                     <Stack.Screen name="handle-share" options={fade} />
                     <Stack.Screen name="statistics" options={slide} />
                     <Stack.Screen name="home-screen-widgets" options={slide} />

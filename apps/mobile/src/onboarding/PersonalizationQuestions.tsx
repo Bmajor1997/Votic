@@ -16,6 +16,8 @@ import {
 import { format_playback_rate } from "../playback/rates";
 import { reader_type } from "../reader/readerText";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { useDeviceVoices } from "../voices/useDeviceVoices";
+import { featured_voices, voice_accent } from "../voices/voiceDetails";
 
 const STEPS = 4;
 
@@ -318,6 +320,11 @@ function ListeningStep({
   const [word, setWord] = useState(-1);
   const session = useRef(0);
   const highlightMode = a.highlightMode === "word" ? "both" : a.highlightMode;
+  const { voices, names } = useDeviceVoices();
+  // A few voices to try here, ordered once so choosing one doesn't reshuffle them; the full list is in
+  // Settings › Reading & Listening › Voice.
+  const [initialVoice] = useState(a.voiceIdentifier);
+  const shownVoices = featured_voices(voices, initialVoice, 4);
 
   function stop() {
     session.current += 1;
@@ -325,7 +332,7 @@ function ListeningStep({
     setWord(-1);
     void Speech.stop();
   }
-  function play(rate = defaultPlaybackRate) {
+  function play(rate = defaultPlaybackRate, voice = a.voiceIdentifier) {
     const current = session.current + 1;
     session.current = current;
     setPlaying(true);
@@ -340,7 +347,7 @@ function ListeningStep({
         if (session.current !== current) return;
         Speech.speak(LISTEN_SAMPLE, {
           rate,
-          voice: a.voiceIdentifier || undefined,
+          voice: voice || undefined,
           onBoundary: (event: { charIndex?: number }) => {
             if (session.current !== current) return;
             const offset = Number(event?.charIndex);
@@ -363,6 +370,11 @@ function ListeningStep({
     [],
   );
 
+  /** Choosing a voice saves it for every document and plays the sample in it, so it can be heard at once. */
+  function choose_voice(identifier: string) {
+    a.setVoiceIdentifier(identifier);
+    play(defaultPlaybackRate, identifier);
+  }
   function choose_speed(rate: number) {
     setDefaultPlaybackRate(rate);
     if (playing) play(rate);
@@ -430,6 +442,41 @@ function ListeningStep({
           ))}
         </Text>
       </View>
+      {shownVoices.length > 1 ? (
+        <>
+          <Text style={[s.groupLabel, { color: theme.text }]}>Voice</Text>
+          <View accessibilityRole="radiogroup" accessibilityLabel="Voice" style={s.speeds}>
+            {shownVoices.map((voice) => {
+              const selected = a.voiceIdentifier === voice.identifier;
+              const name = names[voice.identifier];
+              return (
+                <Pressable
+                  key={voice.identifier}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${name} voice, ${voice_accent(voice)}`}
+                  accessibilityHint="Chooses this voice and plays the sample"
+                  onPress={() => choose_voice(voice.identifier)}
+                  style={[
+                    s.speed,
+                    {
+                      borderColor: selected ? theme.accent : theme.border,
+                      backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
+                    },
+                  ]}
+                >
+                  <Text style={[s.speedText, { color: theme.text, fontWeight: selected ? "800" : "600" }]}>
+                    {name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={[s.voiceNote, { color: theme.mutedText }]}>
+            More voices are in Settings › Reading & Listening › Voice.
+          </Text>
+        </>
+      ) : null}
       <Text style={[s.groupLabel, { color: theme.text }]}>Speed</Text>
       <View accessibilityRole="radiogroup" style={s.speeds}>
         {SPEEDS.map((rate) => {
@@ -494,4 +541,5 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   speedText: { fontSize: 16 },
+  voiceNote: { fontSize: 14, lineHeight: 20 },
 });

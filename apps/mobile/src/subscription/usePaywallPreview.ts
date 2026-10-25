@@ -12,7 +12,9 @@ import { preview_word_at, preview_words } from "./paywallPresentation";
  * `text` is what gets read: the sample page, or words the visitor typed, which never leave the device.
  */
 export function usePaywallPreview(disabled: boolean, text: string) {
-  const { voiceIdentifier } = useAccessibilityPreferences();
+  const { voiceIdentifier, setVoiceIdentifier } = useAccessibilityPreferences();
+  // The list is ordered once, so choosing (and saving) a voice doesn't reshuffle the choices under the finger.
+  const initialVoice = useRef(voiceIdentifier);
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
   const [voice, setVoice] = useState<string | null>(voiceIdentifier);
   const [rate, setRate] = useState(1);
@@ -54,7 +56,7 @@ export function usePaywallPreview(disabled: boolean, text: string) {
       .then((available) => {
         if (!current) return;
         const english = unique_english_voices(available);
-        const preferred = english.find((item) => item.identifier === voiceIdentifier);
+        const preferred = english.find((item) => item.identifier === initialVoice.current);
         const choices = preferred ? [preferred, ...english.filter((item) => item !== preferred)] : english;
         setVoices(choices.slice(0, 3));
         setVoice(preferred?.identifier ?? choices[0]?.identifier ?? null);
@@ -63,7 +65,7 @@ export function usePaywallPreview(disabled: boolean, text: string) {
     return () => {
       current = false;
     };
-  }, [voiceIdentifier]);
+  }, []);
 
   useEffect(() => {
     blocked.current = disabled;
@@ -122,9 +124,11 @@ export function usePaywallPreview(disabled: boolean, text: string) {
     }
   }
 
+  /** The voice tried here becomes the reading voice, so it is the one heard after subscribing. */
   function chooseVoice(identifier: string) {
     stop();
     setVoice(identifier);
+    setVoiceIdentifier(identifier);
   }
   function chooseRate(value: number) {
     stop();
