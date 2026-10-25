@@ -143,7 +143,12 @@ describe("Settings account management", () => {
     });
     await render_with_providers(<Settings />, { documents: [doc] });
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
-    expect(screen.getByRole("header", { name: "Sign out of Votic?" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Sign out?" })).toBeTruthy();
+    expect(screen.getByText("Documents and notes saved on this device won't be deleted.")).toBeTruthy();
+    // The confirmation and the row stay short: no session explanation.
+    expect(
+      screen.queryByText(/End this session|ends your current session|account remains active/),
+    ).toBeNull();
     expect(backend.fakeAuth.calls).toEqual([]);
     await fireEvent.press(screen.getByRole("button", { name: "Cancel" }));
     expect(backend.fakeAuth.calls).toEqual([]);

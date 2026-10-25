@@ -106,10 +106,11 @@ export function AccountSettings() {
   const final = step === "deletion-final";
   const signingOut = step === "sign-out";
   const recovering = step === "recover-library";
+  const eyebrow = confirmation_eyebrow(signingOut, recovering, final);
   const title = recovering
     ? "Recover your older library?"
     : signingOut
-      ? "Sign out of Votic?"
+      ? "Sign out?"
       : final
         ? "Permanently delete account?"
         : "Before you delete your account";
@@ -172,14 +173,10 @@ export function AccountSettings() {
             <AccountRow
               ref={signOutRow}
               label="Sign out"
-              detail="End this session. Your account stays active, so you can sign back in later."
               hint="Shows a confirmation. Does not delete your account, local documents, or notes"
               icon="log-out-outline"
               onPress={() => open("sign-out")}
             />
-            <Text style={[s.detail, { color: theme.mutedText }]}>
-              Signing out does not delete documents or notes stored on this device.
-            </Text>
             {auth.configured ? (
               <View style={[s.deletion, { borderTopColor: theme.border }]}>
                 <Text accessibilityRole="header" style={[s.label, { color: theme.mutedText }]}>
@@ -215,13 +212,9 @@ export function AccountSettings() {
       >
         <SafeAreaView accessibilityViewIsModal style={[s.safe, { backgroundColor: theme.background }]}>
           <ScrollView contentContainerStyle={s.content}>
-            <Text style={[s.label, { color: final ? destructive : theme.accentText }]}>
-              {signingOut
-                ? "ACCOUNT ACCESS"
-                : final
-                  ? "FINAL CONFIRMATION · STEP 2 OF 2"
-                  : "ACCOUNT DELETION · STEP 1 OF 2"}
-            </Text>
+            {eyebrow ? (
+              <Text style={[s.label, { color: final ? destructive : theme.accentText }]}>{eyebrow}</Text>
+            ) : null}
             <Text ref={heading} accessibilityRole="header" style={[s.modalTitle, { color: theme.text }]}>
               {title}
             </Text>
@@ -234,8 +227,7 @@ export function AccountSettings() {
                 </Text>
               ) : signingOut ? (
                 <Text style={[s.body, { color: theme.text }]}>
-                  This ends your current session. Your Votic account remains active and you can sign back in
-                  later. Your documents and notes stored on this device will not be deleted.
+                  Documents and notes saved on this device won&apos;t be deleted.
                 </Text>
               ) : final ? (
                 <Text style={[s.body, { color: theme.text }]}>
@@ -394,6 +386,12 @@ function PremiumRows() {
   );
 }
 
+/** The small label above a confirmation's title; sign-out is a simple confirmation and has none. */
+function confirmation_eyebrow(signingOut: boolean, recovering: boolean, final: boolean) {
+  if (signingOut) return null;
+  if (recovering) return "OLDER LIBRARY";
+  return final ? "FINAL CONFIRMATION · STEP 2 OF 2" : "ACCOUNT DELETION · STEP 1 OF 2";
+}
 function AccountRow({
   label,
   detail,
@@ -404,7 +402,7 @@ function AccountRow({
   ref,
 }: {
   label: string;
-  detail: string;
+  detail?: string;
   hint: string;
   icon: ComponentProps<typeof Ionicons>["name"];
   onPress: () => void;
@@ -428,7 +426,7 @@ function AccountRow({
       <Ionicons name={icon} size={24} color={danger ? destructive : theme.accentText} accessible={false} />
       <View style={s.copy}>
         <Text style={[s.title, { color: danger ? destructive : theme.text }]}>{label}</Text>
-        <Text style={[s.detail, { color: theme.mutedText }]}>{detail}</Text>
+        {detail ? <Text style={[s.detail, { color: theme.mutedText }]}>{detail}</Text> : null}
       </View>
       <Ionicons name="chevron-forward" size={20} color={theme.mutedText} accessible={false} />
     </Pressable>
