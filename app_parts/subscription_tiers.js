@@ -11,12 +11,14 @@ export function subscription_tiers(env) {
 }
 function valid_tier(tier) {
   if (!tier || typeof tier !== "object" || Array.isArray(tier)) return false;
-  return typeof tier.productId === "string" && tier.productId.length > 0 && tier.productId.length <= 200 &&
-    typeof tier.name === "string" && tier.name.trim().length > 0 && tier.name.length <= 60 &&
+  const valid_text = (value, max) => typeof value === "string" && value.trim().length > 0 && value.length <= max;
+  const positive_integer = (value) => Number.isSafeInteger(value) && value > 0;
+  const positive_budget = (value) => typeof value === "number" && Number.isFinite(value) && value > 0;
+  return valid_text(tier.productId, 200) && valid_text(tier.name, 60) &&
     ["app_store", "play_store"].includes(tier.store) &&
-    Number.isSafeInteger(tier.monthlyTokens) && tier.monthlyTokens > 0 &&
-    (tier.monthlyCredits === undefined || (Number.isSafeInteger(tier.monthlyCredits) && tier.monthlyCredits > 0)) &&
-    typeof tier.monthlyBudgetUsd === "number" && Number.isFinite(tier.monthlyBudgetUsd) && tier.monthlyBudgetUsd > 0;
+    positive_integer(tier.monthlyTokens) &&
+    (tier.monthlyCredits === undefined || positive_integer(tier.monthlyCredits)) &&
+    positive_budget(tier.monthlyBudgetUsd);
 }
 export function verified_tier(catalog, profile) {
   if (!profile?.allowed) return null;
