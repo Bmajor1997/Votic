@@ -200,6 +200,18 @@ export function create_votic_handler(options = {}) {
     if (!tiers.length || !authorize_premium.subscription) return null;
     return verified_tier(tiers, await authorize_premium.subscription(identity.uid));
  };
+ // RevenueCat webhooks use a separate server secret and never trust app-originated grants.
+ const handle_revenuecat_webhook = async (request, response) => {
+    if (request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
+    if (!credit_wallet || !authorized_revenuecat_webhook(request.headers.authorization, env.REVENUECAT_WEBHOOK_SECRET))
+      throw new HttpError(401, "Unauthorized.");
+    const payload = await read_json_body(request, 16_384, config.body_timeout_ms);
+    const event = payload?.event;
+    if (!event || typeof event !== "object" || Array.isArray(event)) throw new HttpError(400, "Invalid webhook event.");
+    if (event.type === "REFUND" && typeof event.transaction_id === "string") credit_wallet.revoke(event.transaction_id);
+    else credit_wallet.grant(event);
+    send_json(response, 200, { received: true });
+ };
  const handler = async (request, response) => {
   const request_started = Date.now();
   set_security_headers(response);
@@ -214,18 +226,8 @@ export function create_votic_handler(options = {}) {
     return;
    }
    if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
-   // RevenueCat webhooks are authenticated with their own server-only secret, not Firebase.
-   // Never accept a credit grant from an app request or an unauthenticated event.
    if (path === "/api/revenuecat-webhook") {
-    if (request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
-    if (!credit_wallet || !authorized_revenuecat_webhook(request.headers.authorization, env.REVENUECAT_WEBHOOK_SECRET))
-      throw new HttpError(401, "Unauthorized.");
-    const payload = await read_json_body(request, 16_384, config.body_timeout_ms);
-    const event = payload?.event;
-    if (!event || typeof event !== "object" || Array.isArray(event)) throw new HttpError(400, "Invalid webhook event.");
-    if (event.type === "REFUND" && typeof event.transaction_id === "string") credit_wallet.revoke(event.transaction_id);
-    else credit_wallet.grant(event);
-    send_json(response, 200, { received: true });
+    await handle_revenuecat_webhook(request, response);
     return;
    }
    const identity = await authorize(request, path);
