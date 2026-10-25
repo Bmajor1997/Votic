@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
+import { StyleSheet } from "react-native";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { votic_voice_names } from "../../src/reader/voices";
@@ -44,6 +45,11 @@ describe("the voice on the Reader", () => {
     const button = await screen.findByRole("button", { name: "Voice: Device voice. Change voice" });
     await fireEvent.press(button);
     expect(screen.getByText("Tap play to hear a voice, then choose the one you like.")).toBeTruthy();
+    // The list fills the sheet's width; the sheet lays sections out in a row, which once squashed it.
+    expect(StyleSheet.flatten(screen.getByTestId("voice-list").props.style)).toMatchObject({
+      width: "100%",
+      alignSelf: "stretch",
+    });
     await fireEvent.press(screen.getByRole("radio", { name: `Select ${gb} voice, British English` }));
     await waitFor(async () => expect(await saved_voice()).toBe("voice-gb"));
     expect(screen.getAllByRole("button", { name: `Voice: ${gb}. Change voice` }).length).toBeGreaterThan(0);

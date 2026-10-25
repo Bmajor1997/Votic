@@ -318,3 +318,28 @@ it("saves the title once typing pauses, and a failed save is shown in place inst
   expect(alert).not.toHaveBeenCalled();
   store.mockRestore();
 });
+
+it("keeps the moved page selected after reopening a saved scan, so a second press keeps moving it", async () => {
+  const { load_scan_draft } = jest.requireActual<typeof import("../../src/documents/scanDraftStorage")>(
+    "../../src/documents/scanDraftStorage",
+  );
+  const first = await render_with_providers(<ScanDocumentScreen />);
+  await take_page("file:///camera/one.jpg");
+  await add_page("file:///camera/two.jpg");
+  await add_page("file:///camera/three.jpg");
+  const saved = await load_scan_draft("test-user");
+  const ids = saved!.pages.map((page) => page.id);
+  await first.unmount();
+  // Reopened: nothing is selected, so the last page is the one shown.
+  await render_with_providers(<ScanDocumentScreen />);
+  await screen.findByRole("button", { name: "Select page 3" });
+  await fireEvent.press(screen.getByRole("button", { name: "Move page earlier" }));
+  expect(screen.getByRole("button", { name: "Select page 2" }).props.accessibilityState.selected).toBe(true);
+  await fireEvent.press(screen.getByRole("button", { name: "Move page earlier" }));
+  expect(screen.getByRole("button", { name: "Select page 1" }).props.accessibilityState.selected).toBe(true);
+  expect((await load_scan_draft("test-user"))!.pages.map((page) => page.id)).toEqual([
+    ids[2],
+    ids[0],
+    ids[1],
+  ]);
+});

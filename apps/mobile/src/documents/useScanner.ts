@@ -112,15 +112,19 @@ export function useScanner() {
   }
   async function move(direction: -1 | 1) {
     if (!current) return;
-    await run(() =>
-      draft.commit(
+    const moving = current.id;
+    await run(async () => {
+      await draft.commit(
         move_scan_page(
           draft.latest.current,
-          pages.findIndex((p) => p.id === current.id),
+          pages.findIndex((p) => p.id === moving),
           direction,
         ),
-      ),
-    );
+      );
+      // Keep the moved page selected. After a draft is reopened nothing is selected yet, and the last page would
+      // otherwise become the "current" page, so the next press would move a different page.
+      if (session.active()) show_page(moving);
+    });
   }
   function remove_page() {
     if (!current) return;

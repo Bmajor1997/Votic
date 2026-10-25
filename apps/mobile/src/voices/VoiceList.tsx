@@ -31,7 +31,7 @@ export function VoiceList({
       </Text>
     );
   return (
-    <View accessibilityRole="radiogroup" accessibilityLabel="Voices" style={s.list}>
+    <View testID="voice-list" accessibilityRole="radiogroup" accessibilityLabel="Voices" style={s.list}>
       {voices.map((voice) => {
         const name = names[voice.identifier];
         return (
@@ -50,6 +50,7 @@ export function VoiceList({
   );
 }
 const s = StyleSheet.create({
-  list: { gap: spacing.sm },
+  // Full width: the Reader's sheet lays a section's contents in a row, which would squash an unsized list.
+  list: { gap: spacing.sm, width: "100%", alignSelf: "stretch" },
   empty: { fontSize: 14, paddingVertical: spacing.sm },
 });
