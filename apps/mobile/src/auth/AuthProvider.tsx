@@ -8,6 +8,7 @@ import { publish_widget_snapshot } from "../widgets/widgetBridge";
 import { signed_out_snapshot } from "../widgets/widgetSnapshot";
 import { erase_scan_draft } from "../documents/scanDraftStorage";
 import { clear_import_cache } from "../documents/importCache";
+import { remember_sign_in_email } from "./rememberedEmail";
 import { PropsWithChildren, createContext, useContext, useEffect, useRef, useState } from "react";
 import { set_auth_token_provider } from "../api/authToken";
 import { resume_local_deletions } from "../storage/accountDeletion";
@@ -113,6 +114,8 @@ export function AuthProvider({ children }: PropsWithChildren) {
         homeEntrance.observe(next?.uid ?? null, !reported.current && Boolean(next));
         set_diagnostic_owner(next?.uid ?? null);
         setUser(next);
+        if (next?.passwordSignIn && next.email)
+          void remember_sign_in_email(next.uid, next.email).catch(() => {});
         // The first report is the saved session. Any account after that was signed in during this launch.
         // Token refreshes report the same account again, which changes nothing here.
         if (!reported.current || next?.uid !== reportedUid.current)

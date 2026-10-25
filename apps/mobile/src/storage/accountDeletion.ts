@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { forget_sign_in_email } from "../auth/rememberedEmail";
 
 const PENDING = "votic.mobile.pending-deletion.v1:";
 const blocked = new Set<string>();
@@ -77,6 +78,7 @@ export async function erase_local_account(uid: string) {
       }),
   );
   if (keys.length) await AsyncStorage.multiRemove(keys);
+  await forget_sign_in_email(uid);
 }
 export async function finish_local_deletion(uid: string) {
   await erase_local_account(uid);

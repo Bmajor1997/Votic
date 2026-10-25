@@ -1,8 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TextInput, View } from "react-native";
 import { useAuth } from "../src/auth/AuthProvider";
 import { auth_error_message, looks_like_email } from "../src/auth/authErrors";
+import { remembered_sign_in_email } from "../src/auth/rememberedEmail";
 import {
   AccountScaffold,
   EmailDivider,
@@ -27,6 +28,21 @@ export default function SignIn() {
   const [error, setError] = useState("");
   const [triedSubmit, setTriedSubmit] = useState(false);
   const passwordRef = useRef<TextInput>(null);
+  const typed = useRef(false);
+
+  // After a sign-out, fill in the email this device last signed in with, unless someone has started typing.
+  useEffect(() => {
+    if (typeof params.email === "string" && params.email) return;
+    let current = true;
+    remembered_sign_in_email()
+      .then((saved) => {
+        if (current && saved && !typed.current) setEmail(saved);
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [params.email]);
 
   const emailError = triedSubmit && !looks_like_email(email) ? "Enter a valid email address." : "";
   const passwordError = triedSubmit && !password ? "Enter your password." : "";
@@ -56,7 +72,10 @@ export default function SignIn() {
         <Field label="Email" error={emailError}>
           <EmailInput
             value={email}
-            onChangeText={setEmail}
+            onChangeText={(text) => {
+              typed.current = true;
+              setEmail(text);
+            }}
             invalid={Boolean(emailError)}
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}

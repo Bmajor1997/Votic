@@ -44,12 +44,18 @@ export function create_auth_backend(): AuthBackend {
       fakeAuth.calls.push("createAccount");
       if (fakeAuth.accounts.has(email)) throw failure("auth/email-already-in-use");
       fakeAuth.accounts.set(email, password);
-      fakeAuth.setUser({ uid: "new-" + email, email, displayName: null, isNewAccount: true });
+      fakeAuth.setUser({
+        uid: "new-" + email,
+        email,
+        displayName: null,
+        isNewAccount: true,
+        passwordSignIn: true,
+      });
     },
     async signIn(email, password) {
       fakeAuth.calls.push("signIn");
       if (fakeAuth.accounts.get(email) !== password) throw failure("auth/invalid-credential");
-      fakeAuth.setUser({ uid: "user-" + email, email, displayName: null });
+      fakeAuth.setUser({ uid: "user-" + email, email, displayName: null, passwordSignIn: true });
     },
     async sendPasswordReset() {
       fakeAuth.calls.push("sendPasswordReset");

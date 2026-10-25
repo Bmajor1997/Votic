@@ -185,8 +185,11 @@ export const EmailInput = forwardRef<TextInput, TextInputProps & { invalid?: boo
       ref={ref}
       autoCapitalize="none"
       autoCorrect={false}
+      // The email is the account name: these let Android's and iOS's password managers offer, fill and save
+      // the email and password together.
       autoComplete="email"
-      textContentType="emailAddress"
+      textContentType="username"
+      importantForAutofill="yes"
       keyboardType="email-address"
       accessibilityLabel="Email"
       placeholder="you@example.com"
@@ -226,6 +229,7 @@ export const PasswordInput = forwardRef<
         autoCorrect={false}
         autoComplete={kind === "new" ? "new-password" : "current-password"}
         textContentType={kind === "new" ? "newPassword" : "password"}
+        importantForAutofill="yes"
         accessibilityLabel="Password"
         style={[s.passwordInput, { color: theme.text }]}
         {...props}

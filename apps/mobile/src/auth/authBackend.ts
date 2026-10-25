@@ -27,6 +27,8 @@ export type VoticUser = {
   displayName: string | null;
   /** True when this account was created by the sign-in that produced it (not an existing account signing in). */
   isNewAccount?: boolean;
+  /** True when the account can sign in with an email and password (not only Google or Apple). */
+  passwordSignIn?: boolean;
 };
 
 /** Everything the app needs from an identity provider. Tests replace this module with an in-memory fake. */
@@ -72,6 +74,7 @@ function to_votic_user(user: User | null): VoticUser | null {
     email: user.email,
     displayName: user.displayName,
     isNewAccount: Boolean(creationTime) && creationTime === lastSignInTime,
+    passwordSignIn: user.providerData.some((provider) => provider.providerId === "password"),
   };
 }
 
