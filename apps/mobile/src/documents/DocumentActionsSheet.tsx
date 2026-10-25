@@ -65,8 +65,7 @@ export function DocumentActionsSheet({
   function create_and_move() {
     const clean = newCollection.trim();
     if (!clean || !document) return;
-    addCollection(clean);
-    move(clean);
+    move(addCollection(clean));
   }
 
   const heading =

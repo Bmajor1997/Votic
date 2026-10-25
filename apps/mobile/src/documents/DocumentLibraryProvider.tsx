@@ -55,7 +55,8 @@ type Library = {
     options?: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string },
   ) => Promise<VoticDocument>;
   openDocument: (id: string, sentenceIndex?: number) => void;
-  addCollection: (name: string) => void;
+  /** Adds a collection and returns its saved name: an existing one that differs only in capitals is reused. */
+  addCollection: (name: string) => string;
   setDocumentCollection: (id: string, collection?: string) => void;
   removeDocument: (id: string) => void;
   addQuickNote: (passage: SavedPassage) => void;
@@ -279,12 +280,12 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function add_collection(name: string) {
     const clean = name.trim();
-    if (!clean) return;
-    setCollections((current) =>
-      current.some((value) => value.toLocaleLowerCase() === clean.toLocaleLowerCase())
-        ? current
-        : [...current, clean],
-    );
+    if (!clean) return "";
+    const same = (value: string) => value.toLocaleLowerCase() === clean.toLocaleLowerCase();
+    const existing = collections.find(same);
+    if (existing) return existing;
+    setCollections((current) => (current.some(same) ? current : [...current, clean]));
+    return clean;
   }
 
   function set_document_collection(id: string, collection?: string) {

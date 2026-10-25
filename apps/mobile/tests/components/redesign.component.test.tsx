@@ -184,6 +184,25 @@ describe("Documents", () => {
     expect(screen.queryByRole("button", { name: "Open q3 board report FINAL" })).toBeNull();
   });
 
+  it("reuses a collection whose name differs only in capitals instead of filing under a name that isn't saved", async () => {
+    await render_with_providers(<Documents />, { documents: [report, guide] });
+    await fireEvent.press(screen.getByRole("button", { name: "More options for Field Guide" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Move to collection, currently Unfiled" }));
+    await fireEvent.changeText(screen.getByLabelText("New collection name"), "Reference");
+    await fireEvent.press(screen.getByRole("button", { name: "Create collection and move document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "More options for q3 board report FINAL" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Move to collection, currently Unfiled" }));
+    await fireEvent.changeText(screen.getByLabelText("New collection name"), "reference ");
+    await fireEvent.press(screen.getByRole("button", { name: "Create collection and move document" }));
+    await fireEvent.press(screen.getByRole("button", { name: "New collection" }));
+    await fireEvent.changeText(screen.getByLabelText("Collection name"), "REFERENCE");
+    await fireEvent.press(screen.getByRole("button", { name: "Save collection" }));
+    expect(screen.getByText("2 documents in Reference · Recently opened")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: /^Sort and filter/ }));
+    expect(screen.getAllByRole("radio", { name: /reference/i })).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: "Reference", checked: true })).toBeTruthy();
+  });
+
   it("shows only finished documents on the Finished shelf", async () => {
     const finished = { ...guide, progress: 1, completedAt: 5 };
     await render_with_providers(<Documents />, { documents: [report, finished] });

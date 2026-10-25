@@ -117,8 +117,8 @@ export default function Documents() {
   function create_collection() {
     const clean = collectionName.trim();
     if (!clean) return;
-    addCollection(clean);
-    setCollection(clean);
+    // Reuse an existing collection whose name differs only in capitals, rather than filtering on a name that isn't saved.
+    setCollection(addCollection(clean));
     setCollectionName("");
     setCreateOpen(false);
   }
