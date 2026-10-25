@@ -171,7 +171,7 @@ struct VoticWeek {
 
   /// "2 h 5 min", "45 min", "under 1 min", or "0 min", as the app writes durations.
   static func duration(_ seconds: Int) -> String {
-    let minutes = Int((Double(seconds) / 60).rounded())
+    let minutes = Int((Double(seconds) / 60).rounded(.down))
     if seconds > 0 && minutes == 0 { return "under 1 min" }
     if minutes < 60 { return "\(minutes) min" }
     let hours = minutes / 60
@@ -181,7 +181,7 @@ struct VoticWeek {
 
   /// The same duration for VoiceOver, in words.
   static func spokenDuration(_ seconds: Int) -> String {
-    let minutes = Int((Double(seconds) / 60).rounded())
+    let minutes = Int((Double(seconds) / 60).rounded(.down))
     if seconds > 0 && minutes == 0 { return "less than a minute" }
     let hours = minutes / 60
     let rest = minutes % 60

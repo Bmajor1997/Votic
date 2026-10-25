@@ -161,7 +161,7 @@ class VoticWeek(days: Map<String, Pair<Int, Int>>, now: Date = Date()) {
 
     /** "2 h 5 min", "45 min", "under 1 min", or "0 min", as the app writes durations. */
     fun duration(seconds: Int): String {
-      val minutes = Math.round(seconds / 60.0).toInt()
+      val minutes = (seconds / 60.0).toInt()
       if (seconds > 0 && minutes == 0) return "under 1 min"
       if (minutes < 60) return "$minutes min"
       val hours = minutes / 60
@@ -171,7 +171,7 @@ class VoticWeek(days: Map<String, Pair<Int, Int>>, now: Date = Date()) {
 
     /** The same duration for TalkBack, in words. */
     fun spokenDuration(seconds: Int): String {
-      val minutes = Math.round(seconds / 60.0).toInt()
+      val minutes = (seconds / 60.0).toInt()
       if (seconds > 0 && minutes == 0) return "less than a minute"
       val hours = minutes / 60
       val rest = minutes % 60

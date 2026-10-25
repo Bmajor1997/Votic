@@ -19,7 +19,7 @@ import {
   summarize,
 } from "./activityModel";
 import { categorize_question } from "./askCategories";
-import { READING_IDLE_MS, create_session_tracker } from "./sessionTracker";
+import { READING_IDLE_MS, TICK_MS, create_session_tracker } from "./sessionTracker";
 
 const at = (text: string) => new Date(text).getTime();
 const MIN = 60_000;
@@ -313,5 +313,104 @@ describe("storage and formatting", () => {
 
   it("builds an empty log stamped with when tracking began", () => {
     expect(empty_log(42)).toEqual({ version: 1, trackingStartedAt: 42, buckets: {}, ask: [] });
+  });
+});
+
+describe("reading statistics count real time, not visits", () => {
+  const MIN_MS = 60_000;
+  function measure(
+    steps: (tracker: ReturnType<typeof create_session_tracker>, advance: (ms: number) => void) => void,
+  ) {
+    let clock = 1_000_000;
+    const intervals: { kind: string; ms: number }[] = [];
+    const tracker = create_session_tracker(
+      (_id, kind, start, end) => intervals.push({ kind, ms: end - start }),
+      () => clock,
+    );
+    const advance = (ms: number) => {
+      // The Reader checks in every 10 seconds while open.
+      for (let left = ms; left > 0; left -= TICK_MS) {
+        clock += Math.min(TICK_MS, left);
+        tracker.tick();
+      }
+    };
+    steps(tracker, advance);
+    tracker.stop();
+    const total = (kind: string) =>
+      intervals.filter((i) => i.kind === kind).reduce((sum, i) => sum + i.ms, 0);
+    return { reading: total("reading"), listening: total("listening") };
+  }
+  const open_doc = (tracker: ReturnType<typeof create_session_tracker>) =>
+    tracker.update({ documentId: "doc", appActive: true, playing: false });
+
+  it("opening and immediately closing a document adds no minute", () => {
+    const { reading } = measure((tracker) => {
+      open_doc(tracker);
+      tracker.stop();
+    });
+    expect(reading).toBe(0);
+    expect(format_duration(24 * MIN_MS + reading)).toBe("24 min");
+  });
+  it("records the real elapsed time for 10, 30, 60 seconds and 5 minutes, showing only completed minutes", () => {
+    for (const [seconds, shown] of [
+      [10, "under 1 min"],
+      [30, "under 1 min"],
+      [60, "1 min"],
+      [300, "5 min"],
+    ] as const) {
+      const { reading } = measure((tracker, advance) => {
+        open_doc(tracker);
+        for (let at = 0; at < seconds * 1000; at += 20_000) {
+          advance(Math.min(20_000, seconds * 1000 - at));
+          tracker.engaged();
+        }
+      });
+      expect(reading).toBe(seconds * 1000);
+      expect(format_duration(reading)).toBe(shown);
+    }
+  });
+  it("a total just past a half minute does not round up after a brief visit", () => {
+    // 24 min 25 s, then a 10-second visit: 24 min 35 s is still 24 completed minutes.
+    const { reading } = measure((tracker, advance) => {
+      open_doc(tracker);
+      advance(10_000);
+    });
+    expect(format_duration(24 * MIN_MS + 25_000 + reading)).toBe("24 min");
+  });
+  it("opening and closing ten times rapidly counts only the seconds actually open", () => {
+    const { reading } = measure((tracker, advance) => {
+      for (let visit = 0; visit < 10; visit++) {
+        open_doc(tracker);
+        advance(500);
+        tracker.stop();
+        advance(500);
+      }
+    });
+    expect(reading).toBe(5_000);
+    expect(format_duration(reading)).toBe("under 1 min");
+  });
+  it("stops counting in the background and after two idle minutes", () => {
+    const { reading } = measure((tracker, advance) => {
+      open_doc(tracker);
+      advance(30_000);
+      tracker.update({ appActive: false });
+      advance(10 * MIN_MS);
+      tracker.update({ appActive: true });
+      tracker.engaged();
+      // No interaction for ten minutes: only the first two count.
+      advance(10 * MIN_MS);
+    });
+    expect(reading).toBe(30_000 + READING_IDLE_MS);
+  });
+  it("counts listening only while narration plays, and never as reading at the same time", () => {
+    const { reading, listening } = measure((tracker, advance) => {
+      open_doc(tracker);
+      tracker.update({ playing: true });
+      advance(90_000);
+      tracker.update({ playing: false });
+      advance(0);
+    });
+    expect(listening).toBe(90_000);
+    expect(reading).toBe(0);
   });
 });

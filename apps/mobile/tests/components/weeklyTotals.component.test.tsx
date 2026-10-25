@@ -34,13 +34,15 @@ async function statistics_total() {
 
 describe("weekly time totals", () => {
   it.each([
-    // Separately rounded parts would give 3 + 2 = 5 here; the full-precision total is 4.2 minutes.
+    // Totals are added at full precision, then show whole minutes completed: 4.2 minutes is "4 min".
     [2.6, 1.6, "4 min"],
-    // Each part rounds down, but together they cross the half minute: 2.4 + 2.4 = 4.8 minutes.
-    [2.4, 2.4, "5 min"],
-    [0.3, 0.3, "1 min"],
+    // 4.8 minutes is still 4 completed minutes; it is never rounded up.
+    [2.4, 2.4, "4 min"],
+    // 36 seconds is not a minute.
+    [0.3, 0.3, "under 1 min"],
     [0.2, 0.1, "under 1 min"],
-    [59.6, 0.3, "1 h"],
+    [59.6, 0.3, "59 min"],
+    [59.6, 0.4, "1 h"],
   ])("Home and Statistics agree for %s min reading + %s min listening", async (reading, listening, shown) => {
     await seed_week(reading, listening);
     expect(await home_total()).toBe(shown);
