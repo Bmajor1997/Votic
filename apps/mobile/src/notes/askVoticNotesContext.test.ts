@@ -160,3 +160,30 @@ describe("selected note ids", () => {
     expect(context?.sections[0].text).toContain("ATP stores usable energy.");
   });
 });
+
+describe("Ask Votic notes details", () => {
+  it("tells Ask Votic a note's title, type, pin and tags, so questions about them can be answered", () => {
+    const pinned: VoticDocument = {
+      ...documents[0],
+      savedPassages: [
+        {
+          id: "q1",
+          sentenceIndex: 0,
+          text: "",
+          note: "Checking Recent notes.",
+          createdAt: 1,
+          updatedAt: 2,
+          title: "Test quick note",
+          noteType: "key-point",
+          pinned: true,
+          tags: ["test", "#home"],
+        },
+      ],
+    };
+    const context = build_notes_ask_document([pinned], { documentId: "doc-1" });
+    expect(context?.sections[0].text.split("\n")[0]).toBe(
+      "Title: Test quick note · Type: Key Point · Pinned · Tags: #test #home",
+    );
+    expect(context?.sections[0].text).toContain("My note: Checking Recent notes.");
+  });
+});

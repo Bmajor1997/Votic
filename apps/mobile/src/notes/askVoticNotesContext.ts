@@ -1,4 +1,5 @@
 import { SavedPassage, VoticDocument } from "../documents/types";
+import { note_type_label } from "./noteMetadata";
 
 export type NotesAskScope = { documentId?: string; passageId?: string; passageIds?: string[] };
 export type NotesAskItem = { document: VoticDocument; passage: SavedPassage };
@@ -31,6 +32,17 @@ function location_label({ document, passage }: NotesAskItem) {
     : `Notebook: ${document.title}`;
 }
 
+/** What the person set on the note besides its text (title, type, pin, tags), so questions about them can be answered. */
+function details_line(passage: SavedPassage) {
+  const parts = [
+    passage.title?.trim() ? `Title: ${passage.title.trim()}` : "",
+    passage.noteType ? `Type: ${note_type_label(passage.noteType)}` : "",
+    passage.pinned ? "Pinned" : "",
+    passage.tags?.length ? `Tags: ${passage.tags.map((tag) => `#${tag.replace(/^#+/, "")}`).join(" ")}` : "",
+  ].filter(Boolean);
+  return parts.length ? `${parts.join(" · ")}\n` : "";
+}
+
 /** Notes as Ask Votic sections, each linked to the Reader location it came from. */
 export function build_notes_ask_sections(documents: VoticDocument[], scope: NotesAskScope) {
   const notes = notes_for_ask_votic(documents, scope);
@@ -44,11 +56,11 @@ export function build_notes_ask_sections(documents: VoticDocument[], scope: Note
       const section = note
         ? {
             heading: `Note ${index + 1} — ${document.title}`,
-            text: `My note: ${note}\nSource passage: ${passage.text}\n${location_label(item)}`,
+            text: `${details_line(passage)}My note: ${note}\nSource passage: ${passage.text}\n${location_label(item)}`,
           }
         : {
             heading: `Saved passage ${index + 1} — ${document.title}`,
-            text: `Saved passage: ${passage.text.trim()}\n${location_label(item)}`,
+            text: `${details_line(passage)}Saved passage: ${passage.text.trim()}\n${location_label(item)}`,
           };
       return { section, link: { documentId: document.id, sentenceIndex: passage.sentenceIndex } };
     }),
