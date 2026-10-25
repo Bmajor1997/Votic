@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it } from "@jest/globals";
-import { act, render } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
 import RootLayout from "../../app/_layout";
 import { ONBOARDING_KEY } from "../../src/onboarding/OnboardingProvider";
 import { load_account_setup } from "../../src/onboarding/onboardingStorage";
@@ -94,9 +94,9 @@ describe("root navigation", () => {
     expect(setup?.personalizationCompletedAt).toBeNull();
   });
 
-  it("keeps a personalized account on the paywall until the store confirms a subscription", async () => {
+  it("keeps completed setup on the final paywall until the store confirms a subscription", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
-    await seed_storage({ accountSetup: { completedAt: null } });
+    await seed_storage({});
     expect(await render_layout()).toEqual([
       "paywall",
       "subscription",
@@ -108,20 +108,14 @@ describe("root navigation", () => {
       "feedback/feature",
       "feedback/bug",
     ]);
-    // A trial starting (or a restore) is reported by the store, and only then does setup move on.
+    // Restarting while unpaid stays on the final paywall rather than repeating the recap.
+    await screen.unmount();
+    stackScreens.length = 0;
+    expect((await render_layout())[0]).toBe("paywall");
+    // A trial or restore goes directly to Home, with no remaining onboarding screens.
     expect(
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
-    ).toEqual([
-      "widgets-intro",
-      "subscription",
-      "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
-      "feedback/index",
-      "feedback/feature",
-      "feedback/bug",
-    ]);
+    ).toEqual(APP);
   });
 
   it("returns to the paywall when a subscription ends while Votic is open", async () => {
@@ -158,7 +152,8 @@ describe("root navigation", () => {
     ]);
   });
 
-  it("introduces the Home Screen widgets, then shows the handoff once, after a subscription starts", async () => {
+  it("introduces widgets before requesting a subscription", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await seed_storage({ accountSetup: { completedAt: null } });
     expect(await render_layout()).toEqual([
       "widgets-intro",
@@ -174,6 +169,7 @@ describe("root navigation", () => {
   });
 
   it("goes on to the handoff once the widgets have been introduced", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await seed_storage({ accountSetup: { completedAt: null, widgetsIntroducedAt: 1 } });
     expect(await render_layout()).toEqual([
       "ready",

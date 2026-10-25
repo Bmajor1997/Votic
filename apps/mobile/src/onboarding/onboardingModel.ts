@@ -54,7 +54,7 @@ export type OnboardingState = {
   personalizationSkipped: boolean;
   /** Set when the person has seen the Home Screen widgets screen during setup. */
   widgetsIntroducedAt: number | null;
-  /** Set when the person first enters Votic after setup. */
+  /** Set when the person finishes the ready recap; subscription access is checked separately. */
   completedAt: number | null;
 };
 

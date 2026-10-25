@@ -406,7 +406,23 @@ function HandoffProbe() {
 }
 
 describe("Votic is ready for you", () => {
-  it("has one way forward, into Home", async () => {
+  it("makes the next paid step clear and saves completion without granting access", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+    await render_with_providers(
+      <>
+        <Ready />
+        <HandoffProbe />
+        <AccessProbe />
+      </>,
+      NOT_HANDED_OFF,
+    );
+    expect(screen.queryByRole("button", { name: "Start using Votic" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "See Votic Premium plans" }));
+    expect(screen.getByTestId("handoff").props.children).toBe("true");
+    expect(screen.getByTestId("access").props.children).toBe("false:none");
+    await waitFor(async () => expect((await load_account_setup("test-user"))?.completedAt).toBeTruthy());
+  });
+  it("has one way forward, into Home for a subscriber", async () => {
     await render_with_providers(
       <>
         <Ready />

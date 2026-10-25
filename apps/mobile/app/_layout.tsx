@@ -97,13 +97,13 @@ function ThemedStack() {
                   <Stack.Protected guard={signedIn && !personalized}>
                     <Stack.Screen name="personalize" options={fade} />
                   </Stack.Protected>
-                  <Stack.Protected guard={personalized && !subscribed}>
+                  <Stack.Protected guard={personalized && setup.handedOff && !subscribed}>
                     <Stack.Screen name="paywall" options={fade} />
                   </Stack.Protected>
-                  <Stack.Protected guard={subscribed && !setup.handedOff && !setup.widgetsIntroduced}>
+                  <Stack.Protected guard={personalized && !setup.handedOff && !setup.widgetsIntroduced}>
                     <Stack.Screen name="widgets-intro" options={fade} />
                   </Stack.Protected>
-                  <Stack.Protected guard={subscribed && !setup.handedOff && setup.widgetsIntroduced}>
+                  <Stack.Protected guard={personalized && !setup.handedOff && setup.widgetsIntroduced}>
                     <Stack.Screen name="ready" options={fade} />
                   </Stack.Protected>
                   <Stack.Protected guard={subscribed && setup.handedOff}>

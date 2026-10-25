@@ -29,7 +29,7 @@ type AccountSetupValue = {
   loading: boolean;
   /** The five questions have been answered or skipped. */
   personalized: boolean;
-  /** "Votic is ready for you" has been seen, so the app opens to Home. */
+  /** "Votic is ready for you" has been seen; the paywall is next unless access is confirmed. */
   handedOff: boolean;
   /**
    * The Home Screen widgets screen has been seen (or doesn't apply: on the web, which has no widgets, and
@@ -43,7 +43,7 @@ type AccountSetupValue = {
   finishPersonalization: (options: { skipped: boolean }) => void;
   /** Saves answers edited later from Settings and applies them. */
   savePersonalization: (answers: PersonalizationAnswers) => void;
-  /** After "Start using Votic" on "Votic is ready for you": the app opens to Home from now on. */
+  /** After the ready recap: setup is complete; Home still requires confirmed subscription access. */
   completeHandoff: () => void;
   /** After the Home Screen widgets screen: setup moves on to "Votic is ready for you". */
   completeWidgetsIntro: () => void;

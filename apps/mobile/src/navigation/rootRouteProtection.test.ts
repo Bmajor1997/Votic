@@ -50,12 +50,18 @@ const algorithm = router.slice(
   router.indexOf("function getSortedChildren("),
   router.indexOf("function fromImport("),
 );
-function eligible(signedIn: boolean, personalized: boolean, subscribed: boolean) {
+function eligible(
+  signedIn: boolean,
+  personalized: boolean,
+  subscribed: boolean,
+  handedOff = subscribed,
+  widgetsIntroduced = handedOff,
+) {
   const state = {
     signedIn,
     personalized,
     subscribed,
-    setup: { handedOff: subscribed, widgetsIntroduced: subscribed },
+    setup: { handedOff, widgetsIntroduced },
   };
   const active = screens.filter((s) => vm.runInNewContext(s.guard, state));
   const protectedNames = new Set(screens.filter((s) => !active.includes(s)).map((s) => s.name));
@@ -90,6 +96,23 @@ describe("filesystem route access using Expo Router", () => {
         expect(actual).not.toContain(route);
       expect(actual.includes("library-backup")).toBe(state[0]);
     });
+  it("places widgets and the ready recap before the paywall without granting paid access", () => {
+    for (const subscribed of [false, true]) {
+      const widgets = eligible(true, true, subscribed, false, false);
+      expect(widgets).toContain("widgets-intro");
+      expect(widgets).not.toContain("paywall");
+      expect(widgets).not.toContain("(tabs)");
+      const ready = eligible(true, true, subscribed, false, true);
+      expect(ready).toContain("ready");
+      expect(ready).not.toContain("paywall");
+      expect(ready).not.toContain("(tabs)");
+      const completed = eligible(true, true, subscribed, true, true);
+      expect(completed.includes("paywall")).toBe(!subscribed);
+      expect(completed.includes("(tabs)")).toBe(subscribed);
+      expect(completed).not.toContain("ready");
+      expect(completed).not.toContain("widgets-intro");
+    }
+  });
   it("allows paid routes only after setup and entitlement confirmation", () => {
     expect(eligible(true, true, true)).toEqual(
       expect.arrayContaining(["scan", "import-web", "pronunciations", "voices", "reader"]),

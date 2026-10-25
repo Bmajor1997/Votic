@@ -6,6 +6,7 @@ import { VoticLogo } from "../src/components/VoticLogo";
 import { radii, spacing, typography } from "../src/design/tokens";
 import { useAccountSetup } from "../src/onboarding/AccountSetupProvider";
 import { PrimaryButton } from "../src/onboarding/components";
+import { useSubscription } from "../src/subscription/SubscriptionProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 const STEPS: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: string; detail: string }[] = [
@@ -14,10 +15,11 @@ const STEPS: { icon: React.ComponentProps<typeof Ionicons>["name"]; title: strin
   { icon: "chatbubble-ellipses-outline", title: "Ask Votic", detail: "Ask about anything in it." },
 ];
 
-/** The calm end of setup: one clear next step, and a way to look around first. */
+/** Final value recap before the paywall; subscribers continue directly to Home. */
 export default function Ready() {
   const { theme } = useVoticTheme();
   const { completeHandoff } = useAccountSetup();
+  const { access } = useSubscription();
   useEffect(() => {
     AccessibilityInfo.announceForAccessibility?.("Votic is ready for you.");
   }, []);
@@ -32,7 +34,9 @@ export default function Ready() {
             Votic is ready for you
           </Text>
           <Text style={[s.subtitle, { color: theme.mutedText }]}>
-            Start with a document you want to get through.
+            {access
+              ? "Start with a document you want to get through."
+              : "Your preferences are saved. Next, choose your Votic Premium plan."}
           </Text>
         </View>
         <View style={[s.steps, { borderColor: theme.border, backgroundColor: theme.surface }]}>
@@ -55,7 +59,10 @@ export default function Ready() {
         </View>
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton label="Start using Votic" onPress={completeHandoff} />
+        <PrimaryButton
+          label={access ? "Start using Votic" : "See Votic Premium plans"}
+          onPress={completeHandoff}
+        />
       </View>
     </SafeAreaView>
   );
