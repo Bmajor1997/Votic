@@ -10,8 +10,8 @@ import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 /**
- * The first screen. Apple and Google create the account or sign in; "Continue with email" creates a new
- * account; "Sign in" (top right) is for existing email accounts. The screen stands still until someone
+ * The first screen. Apple and Google create the account or sign in; "Create account with email" creates a new
+ * account; the full-width "Sign in" below it is for existing email accounts. The screen stands still until someone
  * taps Sign in, when the V's wings fly off to the right one by one and its stroke flies up and away.
  */
 export default function Welcome() {
@@ -24,19 +24,6 @@ export default function Welcome() {
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         <View style={s.topBar}>
           <VoticLogo />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-            disabled={socialBusy}
-            accessibilityState={{ disabled: socialBusy }}
-            onPress={() => mark.fly(() => router.push("/sign-in"))}
-            style={({ pressed }) => [
-              s.login,
-              { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
-            ]}
-          >
-            <Text style={[s.loginText, { color: theme.accentText }]}>Sign in</Text>
-          </Pressable>
         </View>
         {/* Drawn after the top bar so the V's pieces pass over it as they leave. */}
         <View style={s.art}>
@@ -61,7 +48,7 @@ export default function Welcome() {
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Continue with email"
+            accessibilityLabel="Create account with email"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
             onPress={() => {
@@ -71,7 +58,24 @@ export default function Welcome() {
             style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
           >
             <Ionicons name="mail-outline" size={20} color={theme.onAccent} />
-            <Text style={[s.emailText, { color: theme.onAccent }]}>Continue with email</Text>
+            <Text style={[s.emailText, { color: theme.onAccent }]}>Create account with email</Text>
+          </Pressable>
+          {/* Existing accounts get a full-size choice of their own, so Sign in is never mistaken for sign-up. */}
+          <Text style={[s.returning, { color: theme.mutedText }]}>Already have an account?</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Sign in"
+            accessibilityHint="For an existing Votic account"
+            disabled={socialBusy}
+            accessibilityState={{ disabled: socialBusy }}
+            onPress={() => mark.fly(() => router.push("/sign-in"))}
+            style={({ pressed }) => [
+              s.signIn,
+              { borderColor: theme.accent, backgroundColor: pressed ? theme.surfaceMuted : theme.background },
+            ]}
+          >
+            <Ionicons name="log-in-outline" size={20} color={theme.accentText} />
+            <Text style={[s.signInText, { color: theme.accentText }]}>Sign in</Text>
           </Pressable>
           {error ? (
             <Text accessibilityRole="alert" style={[s.message, { color: theme.text }]}>
@@ -97,8 +101,6 @@ const s = StyleSheet.create({
     alignSelf: "center",
   },
   topBar: { minHeight: 60, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  login: { minHeight: 48, borderRadius: 24, paddingHorizontal: 18, justifyContent: "center" },
-  loginText: { fontSize: 15, fontWeight: "700" },
   art: { flexGrow: 1, alignItems: "center", justifyContent: "center", minHeight: 210, paddingVertical: 10 },
   bottom: { gap: 12 },
   copy: { alignItems: "center", gap: 10, marginBottom: 12 },
@@ -114,5 +116,17 @@ const s = StyleSheet.create({
     gap: 10,
   },
   emailText: { fontSize: 16, fontWeight: "700" },
+  returning: { fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
+  signIn: {
+    minHeight: 54,
+    paddingVertical: 12,
+    borderRadius: 27,
+    borderWidth: 2,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 10,
+  },
+  signInText: { fontSize: 16, fontWeight: "700" },
   message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
 });

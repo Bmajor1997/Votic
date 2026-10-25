@@ -64,3 +64,9 @@ it("is the finished, accessible logo when there is no entrance", async () => {
   expect(screen.getByRole("image", { name: "Votic logo" })).toBeTruthy();
   for (const id of PIECES) expect(opacity(id)).toBe(1);
 });
+it("brings in each wing and letter on its own: every piece finishes before the next one starts", () => {
+  const t = WORDMARK_TIMELINE;
+  const sequence = [t.stroke, ...t.wings, t.vSettle, ...t.letters, t.finish];
+  for (let index = 1; index < sequence.length; index++)
+    expect(sequence[index][0]).toBeGreaterThanOrEqual(sequence[index - 1][1]);
+});

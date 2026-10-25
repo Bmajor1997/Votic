@@ -14,24 +14,24 @@ const LETTERS = ["o", "t", "i", "c"] as const;
 
 /**
  * Where each piece enters on the 0–1 entrance timeline: the V's left stroke, its top, middle and bottom wings, the
- * V settling, then o, t, i and c from left to right, then the whole wordmark settling. Pieces overlap slightly so
- * the sequence reads as one motion. Exported so tests and the Remotion study use the same choreography.
+ * V settling, then o, t, i and c from left to right, then the whole wordmark settling. Each piece finishes before the
+ * next begins, so every wing and letter is seen arriving on its own. Exported so tests and the Remotion study use the same choreography.
  */
 export const WORDMARK_TIMELINE = {
-  stroke: [0, 0.16],
+  stroke: [0, 0.12],
   wings: [
-    [0.12, 0.3],
-    [0.22, 0.4],
-    [0.32, 0.5],
+    [0.12, 0.24],
+    [0.24, 0.36],
+    [0.36, 0.48],
   ],
-  vSettle: [0.48, 0.58],
+  vSettle: [0.48, 0.54],
   letters: [
-    [0.56, 0.68],
-    [0.62, 0.74],
-    [0.68, 0.8],
-    [0.74, 0.86],
+    [0.54, 0.63],
+    [0.63, 0.72],
+    [0.72, 0.81],
+    [0.81, 0.9],
   ],
-  finish: [0.88, 1],
+  finish: [0.9, 1],
 } as const;
 
 type Range = readonly [number, number];

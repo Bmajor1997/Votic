@@ -36,12 +36,12 @@ const NOT_SET_UP = { accountSetup: { personalizationCompletedAt: null, completed
 const NOT_HANDED_OFF = { accountSetup: { completedAt: null } };
 
 describe("Welcome", () => {
-  it("welcomes people and offers Continue with email and Sign in", async () => {
+  it("welcomes people and offers Create account with email and Sign in", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);
     expect(screen.getByRole("header", { name: "Make room for\nwhat matters." })).toBeTruthy();
     expect(screen.getByText("A place to read, listen, and keep your ideas.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
     expect(router.push).toHaveBeenCalledWith("/create-account");
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     // The V flies away first, then Sign in opens.

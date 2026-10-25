@@ -11,7 +11,7 @@ describe("Welcome motion", () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
     await act(async () => jest.advanceTimersByTime(1500));
     expect(router.push.mock.calls).toEqual([["/create-account"]]);
   });
@@ -37,12 +37,12 @@ describe("Welcome motion", () => {
     expect(router.push).toHaveBeenCalledWith("/sign-in");
   });
 
-  it("opens Sign in straight away with Less motion, and Continue with email never waits", async () => {
+  it("opens Sign in straight away with Less motion, and Create account with email never waits", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />, { reduceMotion: true });
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     expect(router.push).toHaveBeenCalledWith("/sign-in");
-    await fireEvent.press(screen.getByRole("button", { name: "Continue with email" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
     expect(router.push).toHaveBeenLastCalledWith("/create-account");
   });
 
