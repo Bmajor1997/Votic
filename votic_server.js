@@ -205,11 +205,11 @@ export function create_votic_handler(options = {}) {
     if (request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
     if (!credit_wallet || !authorized_revenuecat_webhook(request.headers.authorization, env.REVENUECAT_WEBHOOK_SECRET))
       throw new HttpError(401, "Unauthorized.");
-    const payload = await read_json_body(request, 16_384, config.body_timeout_ms);
+    // Events carry customer attributes and can be tens of kilobytes; a refused event would never be credited.
+    const payload = await read_json_body(request, REVENUECAT_WEBHOOK_BODY_LIMIT, config.body_timeout_ms);
     const event = payload?.event;
     if (!event || typeof event !== "object" || Array.isArray(event)) throw new HttpError(400, "Invalid webhook event.");
-    if (event.type === "REFUND" && typeof event.transaction_id === "string") credit_wallet.revoke(event.transaction_id);
-    else credit_wallet.grant(event);
+    apply_revenuecat_event(credit_wallet, event, env.VOTIC_CREDIT_ALLOW_SANDBOX === "true");
     send_json(response, 200, { received: true });
  };
  const handler = async (request, response) => {
@@ -225,11 +225,13 @@ export function create_votic_handler(options = {}) {
     send_json(response, ready ? 200 : 503, { status: ready ? "ok" : "unavailable" }, { "Cache-Control": "no-store" });
     return;
    }
-   if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
+   // RevenueCat's servers authenticate with the webhook secret and never send Votic's app key, so the webhook is
+   // handled before the app-key check.
    if (path === "/api/revenuecat-webhook") {
     await handle_revenuecat_webhook(request, response);
     return;
    }
+   if (path.startsWith("/api/") && config.client_keys.length && !valid_client_key(request, config.client_keys)) throw new HttpError(401, "This app isn't allowed to use this Votic server. Update Votic and try again.");
    const identity = await authorize(request, path);
    if (!identity) throw auth_error(request);
    // A signed-in account gets its own AI allowance; otherwise it is shared by network address.
@@ -526,6 +528,17 @@ async function read_body(request, limit, timeout_ms) {
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new HttpError(408, "The request body took too long to upload.")), timeout_ms); });
   const reading = (async () => { for await (const chunk of request) { size += chunk.length; if (size > limit) throw new HttpError(413, "The request body is too large."); chunks.push(chunk); } return Buffer.concat(chunks); })();
   try { return await Promise.race([reading, timeout]); } finally { clearTimeout(timer); }
+}
+const REVENUECAT_WEBHOOK_BODY_LIMIT = 256 * 1024;
+/**
+ * Applies one RevenueCat event to the credit wallet. A refund arrives as CANCELLATION (for a one-time purchase
+ * this only happens when it was refunded); REFUND_REVERSED gives the credits back. Purchases are granted once.
+ */
+function apply_revenuecat_event(wallet, event, allowSandbox) {
+  const transaction = typeof event.transaction_id === "string" && event.transaction_id ? event.transaction_id : null;
+  if (event.type === "CANCELLATION" && transaction) wallet.revoke(transaction);
+  else if (event.type === "REFUND_REVERSED" && transaction) wallet.restore(transaction);
+  else wallet.grant(event, { allowSandbox });
 }
 async function read_json_body(request, limit, timeout_ms) {
   require_content_type(request, "application/json");

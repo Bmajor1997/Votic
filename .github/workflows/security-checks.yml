@@ -56,7 +56,11 @@ jobs:
       - name: Check Votic CSS with Stylelint
         run: npm run lint:css
       - name: Run Votic automated tests
-        run: npm run test:coverage | tee backend-coverage.txt
+        # pipefail: a failing test must fail this step even though its output is also saved through tee.
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run test:coverage | tee backend-coverage.txt
       - name: Check dependencies for vulnerabilities
         if: always()
         run: |

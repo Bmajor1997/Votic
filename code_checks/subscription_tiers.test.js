@@ -51,7 +51,7 @@ test("subscription endpoint uses authenticated RevenueCat product, excludes budg
     const response = await fetch(url + "/api/subscription-options", { method: "POST", body: JSON.stringify({ uid: "someone-else", productId: plus.productId }) });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
-    assert.deepEqual(await response.json(), { current: { name: "Basic", productId: base.productId, store: "play_store" }, upgrades: [{ productId: plus.productId, name: "Plus", capacityMultiplier: 2 }] });
+    assert.deepEqual(await response.json(), { current: { name: "Basic", productId: base.productId, store: "play_store", monthlyCredits: null }, upgrades: [{ productId: plus.productId, name: "Plus", capacityMultiplier: 2 }] });
     assert.match(requested[0], /subscribers\/verified$/);
   });
 });
@@ -85,6 +85,6 @@ test("Google Play base plans under one SKU keep distinct verified identities", a
   const payload = customer("votic");
   payload.subscriber.subscriptions.votic.product_plan_identifier = "basic-monthly";
   const authorize = create_premium_authorizer(env, { fetchImpl: async () => ({ ok: true, json: async () => payload }) });
-  assert.deepEqual(await authorize.subscription("verified"), { allowed: true, productId: "votic:basic-monthly", store: "play_store" });
+  assert.deepEqual(await authorize.subscription("verified"), { allowed: true, productId: "votic:basic-monthly", store: "play_store", periodStart: "2026-01-01T00:00:00Z", periodEnd: null });
   assert.equal(verified_tier([base, plus], await authorize.subscription("verified")), null);
 });

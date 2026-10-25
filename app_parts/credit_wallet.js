@@ -29,8 +29,12 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
   };
   return {
     balance,
-    grant(event) {
-      if (!event || !["NON_RENEWING_PURCHASE", "ONE_TIME_PURCHASE"].includes(event.type)) return { processed: false };
+    grant(event, { allowSandbox = false } = {}) {
+      // RevenueCat reports one-time purchases only as NON_RENEWING_PURCHASE.
+      if (!event || event.type !== "NON_RENEWING_PURCHASE") return { processed: false };
+      // Store test purchases are free (TestFlight, Play testers), so they never grant real credits unless a test
+      // server explicitly allows them.
+      if (event.environment !== "PRODUCTION" && !allowSandbox) return { processed: false };
       const uid = event.app_user_id, transaction = event.transaction_id, eventId = event.id;
       const product = event.product_id, credits = Object.hasOwn(products, product) ? products[product] : null;
       if (!credits) return { processed: false };
@@ -54,6 +58,10 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
     },
     revoke(transactionId) {
       db.prepare("UPDATE credit_grants SET revoked=1 WHERE transaction_id=?").run(transactionId);
+    },
+    /** A refund the store reversed (REFUND_REVERSED, App Store only) restores that purchase's credits. */
+    restore(transactionId) {
+      db.prepare("UPDATE credit_grants SET revoked=0 WHERE transaction_id=?").run(transactionId);
     },
     deleteAccount(uid) {
       db.prepare("DELETE FROM credit_spends WHERE uid=?").run(uid);
