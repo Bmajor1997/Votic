@@ -2,6 +2,7 @@ import { useFocusEffect } from "expo-router";
 import * as Speech from "expo-speech";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppState } from "react-native";
+import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { notification_player } from "../playback/notificationPlayback";
 import { unique_english_voices, votic_voice_names, type DeviceVoice } from "../reader/voices";
@@ -17,7 +18,8 @@ export function usePaywallPreview(disabled: boolean, text: string) {
   const initialVoice = useRef(voiceIdentifier);
   const [voices, setVoices] = useState<DeviceVoice[]>([]);
   const [voice, setVoice] = useState<string | null>(voiceIdentifier);
-  const [rate, setRate] = useState(1);
+  const { defaultPlaybackRate, setDefaultPlaybackRate } = useVoticPurpose();
+  const rate = defaultPlaybackRate;
   const [playing, setPlaying] = useState(false);
   const [word, setWord] = useState(-1);
   const [error, setError] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export function usePaywallPreview(disabled: boolean, text: string) {
   }
   function chooseRate(value: number) {
     stop();
-    setRate(value);
+    setDefaultPlaybackRate(value);
   }
   // Editing or switching the text ends the old reading; its word positions no longer match.
   useEffect(() => stop, [text, stop]);

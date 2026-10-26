@@ -6,6 +6,8 @@ import { HighlightMode, useAccessibilityPreferences } from "../accessibility/Acc
 import { radii, spacing } from "../design/tokens";
 import { useAccountSetup } from "./AccountSetupProvider";
 import { OptionRow, PrimaryButton, StepScaffold } from "./components";
+import { SampleDocumentHeading } from "./SampleDocumentHeading";
+import { PREVIEW_SAMPLES, sample_explanation } from "./sampleDocument";
 import { EMPTY_ANSWERS, ListeningPreference, PersonalizationAnswers } from "./onboardingModel";
 import {
   EXPLANATION_STYLES,
@@ -163,7 +165,7 @@ function GoalStep({ step, onBack, onNext, personalization }: StepProps) {
   );
 }
 
-function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
+function ComfortStep({ step, onBack, onNext, access: a, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Each choice applies straight away, so the preview shows exactly what the Reader will look like.
   const choices = [
@@ -199,8 +201,8 @@ function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
       total={STEPS}
       onBack={onBack}
       onSkip={onNext}
-      title="What makes reading easier for you?"
-      subtitle="Pick any. The preview updates as you go."
+      title="Make the page your own."
+      subtitle="Try a reading style. Your documents will use these settings."
       footer={<PrimaryButton label="Continue" onPress={onNext} />}
     >
       <View
@@ -208,14 +210,14 @@ function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
         accessibilityLabel="Reading preview"
         style={[s.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}
       >
-        <Text style={[s.previewLabel, { color: theme.mutedText }]}>PREVIEW</Text>
+        <SampleDocumentHeading title={PREVIEW_SAMPLES[personalization.purpose ?? "default"].title} />
         <Text
           style={[
             reader_type(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing),
             { color: theme.text },
           ]}
         >
-          A clear page helps ideas stick. Votic remembers how you like to read.
+          {PREVIEW_SAMPLES[personalization.purpose ?? "default"].text}
         </Text>
       </View>
       <View style={s.options}>
@@ -233,20 +235,12 @@ function ComfortStep({ step, onBack, onNext, access: a }: StepProps) {
   );
 }
 
-const SAMPLE_QUESTION = "What does “net revenue” mean?";
-const SAMPLE_ANSWERS: Record<ExplanationStyle, string> = {
-  quick: "The money a company keeps from sales after returns and discounts.",
-  simple:
-    "It's the money a business really gets from selling things, after refunds and discounts are taken away.",
-  detailed:
-    "Net revenue is total sales minus returns, allowances, and discounts. It shows what a company actually earned from selling, before costs like wages or rent. That makes it a fairer number than gross sales when comparing one period with another.",
-  adaptive: "Votic keeps quick questions short and goes deeper when a question needs it.",
-};
-
 function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Shows this account's current style ("Adapt to the question" until something else is chosen).
-  const { explanationStyle, setExplanationStyle } = personalization;
+  const { explanationStyle, setExplanationStyle, purpose } = personalization;
+  const sample = PREVIEW_SAMPLES[purpose ?? "default"];
+  const answer = sample_explanation(purpose, explanationStyle);
   function choose(value: ExplanationStyle) {
     setExplanationStyle(value);
     setAnswers({ ...answers, explanationStyle: value });
@@ -257,8 +251,8 @@ function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personaliz
       total={STEPS}
       onBack={onBack}
       onSkip={onNext}
-      title="How should Votic explain things?"
-      subtitle="This shapes Ask Votic's answers. Change it anytime."
+      title="A clearer way to understand."
+      subtitle="Try an explanation style on the same sample page."
       footer={<PrimaryButton label="Continue" onPress={onNext} />}
     >
       <View accessibilityRole="radiogroup" style={s.options}>
@@ -274,15 +268,14 @@ function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personaliz
       </View>
       <View
         accessible
-        accessibilityLabel={`Example. Question: ${SAMPLE_QUESTION} Answer: ${SAMPLE_ANSWERS[explanationStyle]}`}
+        accessibilityLabel={`Example. Question: ${sample.question} Answer: ${answer}`}
         accessibilityLiveRegion="polite"
         style={[s.preview, { backgroundColor: theme.surface, borderColor: theme.border }]}
       >
-        <Text style={[s.previewLabel, { color: theme.mutedText }]}>EXAMPLE</Text>
-        <Text style={[s.question, { color: theme.text }]}>{SAMPLE_QUESTION}</Text>
-        <Text style={[s.answer, { color: theme.text, backgroundColor: theme.surfaceMuted }]}>
-          {SAMPLE_ANSWERS[explanationStyle]}
-        </Text>
+        <SampleDocumentHeading title={sample.title} />
+        <Text style={[s.previewLabel, { color: theme.mutedText }]}>PREPARED EXAMPLE</Text>
+        <Text style={[s.question, { color: theme.text }]}>{sample.question}</Text>
+        <Text style={[s.answer, { color: theme.text, backgroundColor: theme.surfaceMuted }]}>{answer}</Text>
       </View>
     </StepScaffold>
   );
@@ -301,8 +294,6 @@ const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
   sentence: ["highlight-sentence"],
   off: [],
 };
-const LISTEN_SAMPLE = "This is how Votic sounds when it reads to you.";
-const LISTEN_WORDS = LISTEN_SAMPLE.split(" ");
 
 function ListeningStep({
   step,
@@ -316,6 +307,8 @@ function ListeningStep({
 }: StepProps) {
   const { theme } = useVoticTheme();
   const { defaultPlaybackRate, setDefaultPlaybackRate } = personalization;
+  const sample = PREVIEW_SAMPLES[personalization.purpose ?? "default"];
+  const listenWords = sample.text.split(" ");
   const [playing, setPlaying] = useState(false);
   const [word, setWord] = useState(-1);
   const session = useRef(0);
@@ -345,14 +338,14 @@ function ListeningStep({
     void Speech.stop()
       .then(() => {
         if (session.current !== current) return;
-        Speech.speak(LISTEN_SAMPLE, {
+        Speech.speak(sample.text, {
           rate,
           voice: voice || undefined,
           onBoundary: (event: { charIndex?: number }) => {
             if (session.current !== current) return;
             const offset = Number(event?.charIndex);
             if (!Number.isFinite(offset)) return;
-            setWord(LISTEN_SAMPLE.slice(0, offset).split(" ").length - 1);
+            setWord(sample.text.slice(0, offset).split(" ").length - 1);
           },
           onDone: done,
           onStopped: done,
@@ -396,8 +389,8 @@ function ListeningStep({
         stop();
         onNext();
       }}
-      title="How do you like to listen?"
-      subtitle="Tap play to hear a sample."
+      title="Find your listening rhythm."
+      subtitle="Hear the same page in your choice of voice and speed."
       footer={
         <PrimaryButton
           label={finishLabel}
@@ -408,6 +401,7 @@ function ListeningStep({
         />
       }
     >
+      <SampleDocumentHeading title={sample.title} />
       <View style={[s.preview, s.listenCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <Pressable
           accessibilityRole="button"
@@ -427,7 +421,7 @@ function ListeningStep({
             playing && highlightMode !== "off" && { backgroundColor: theme.sentenceHighlight },
           ]}
         >
-          {LISTEN_WORDS.map((value, index) => (
+          {listenWords.map((value, index) => (
             <Text
               key={index}
               style={
@@ -437,7 +431,7 @@ function ListeningStep({
               }
             >
               {value}
-              {index < LISTEN_WORDS.length - 1 ? " " : ""}
+              {index < listenWords.length - 1 ? " " : ""}
             </Text>
           ))}
         </Text>

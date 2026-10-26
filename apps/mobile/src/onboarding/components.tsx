@@ -346,6 +346,9 @@ const s = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.xxl,
     gap: spacing.sm,
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
   },
   title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34 },
   subtitle: { fontSize: 16, lineHeight: 23 },
@@ -355,5 +358,8 @@ const s = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing.md,
     borderTopWidth: 1,
+    width: "100%",
+    maxWidth: 640,
+    alignSelf: "center",
   },
 });

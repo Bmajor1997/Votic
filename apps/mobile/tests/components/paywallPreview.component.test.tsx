@@ -1,6 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
+import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
+import { load_account_preferences } from "../../src/onboarding/accountPreferences";
 import { AppState, StyleSheet } from "react-native";
 import { PaywallPreview } from "../../src/subscription/PaywallPreview";
 import { MAX_TRY_TEXT, PREVIEW_SAMPLES } from "../../src/subscription/paywallPresentation";
@@ -215,4 +218,58 @@ it("shows the sample page that matches what the visitor said Votic should help w
   expect(screen.getByText(PREVIEW_SAMPLES.work.question)).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Show example answer" }));
   expect(screen.getByText(PREVIEW_SAMPLES.work.answer)).toBeTruthy();
+});
+
+it("carries the chosen speed into the preview and saves speed changes for documents", async () => {
+  let preferences!: ReturnType<typeof useVoticPurpose>;
+  function Probe() {
+    preferences = useVoticPurpose();
+    return null;
+  }
+  await render_with_providers(
+    <>
+      <Probe />
+      <PaywallPreview />
+    </>,
+  );
+  await act(async () => preferences.setDefaultPlaybackRate(1.2));
+  expect(screen.getByRole("radio", { name: "Preview speed 1.2x", checked: true })).toBeTruthy();
+  await play_and_get_options();
+  expect(jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]?.rate).toBe(1.2);
+  await fireEvent.press(screen.getByRole("radio", { name: "Preview speed 1.5x" }));
+  expect((await load_account_preferences("test-user"))?.defaultPlaybackRate).toBe(1.5);
+});
+
+it("demonstrates a note without uploading or writing anything to the library", async () => {
+  await render_with_providers(<PaywallPreview />);
+  const fetchSpy = jest.spyOn(globalThis, "fetch");
+  const writes = jest.spyOn(AsyncStorage, "setItem");
+  await fireEvent.press(screen.getByRole("tab", { name: "Read" }));
+  writes.mockClear();
+  await fireEvent.press(screen.getByRole("button", { name: "Save a sample note" }));
+  expect(screen.getByText("SAMPLE NOTE")).toBeTruthy();
+  expect(screen.getByText("Preview only · Nothing added to your library")).toBeTruthy();
+  expect(writes).not.toHaveBeenCalled();
+  expect(fetchSpy).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole("tab", { name: "Listen" }));
+  await fireEvent.press(screen.getByRole("tab", { name: "Read" }));
+  expect(screen.getByRole("button", { name: "Sample note saved", disabled: true })).toBeTruthy();
+});
+
+it("honors no-highlighting preferences during speech", async () => {
+  let access!: ReturnType<typeof useAccessibilityPreferences>;
+  function Probe() {
+    access = useAccessibilityPreferences();
+    return null;
+  }
+  await render_with_providers(
+    <>
+      <Probe />
+      <PaywallPreview />
+    </>,
+  );
+  await act(async () => access.setHighlightMode("off"));
+  const options = await play_and_get_options();
+  await act(async () => word_boundary(options));
+  expect(highlighted_words()).toEqual([]);
 });

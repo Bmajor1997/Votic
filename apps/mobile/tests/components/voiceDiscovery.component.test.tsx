@@ -63,12 +63,12 @@ describe("finding voices", () => {
     await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("How do you like to listen?")).toBeTruthy();
+    expect(screen.getByText("Find your listening rhythm.")).toBeTruthy();
     jest.mocked(Speech.speak).mockClear();
     await fireEvent.press(await screen.findByRole("radio", { name: `${gb} voice, British English` }));
     await waitFor(() =>
       expect(jest.mocked(Speech.speak)).toHaveBeenLastCalledWith(
-        "This is how Votic sounds when it reads to you.",
+        "People who slept after learning new words remembered more of them the next day than people who stayed awake.",
         expect.objectContaining({ voice: "voice-gb" }),
       ),
     );

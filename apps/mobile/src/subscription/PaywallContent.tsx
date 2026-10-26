@@ -26,6 +26,18 @@ export function PaywallIntro() {
         {goal.title}
       </Text>
       <Text style={[s.subtitle, { color: theme.heroMuted }]}>{goal.detail}</Text>
+      <View style={s.benefits}>
+        {[
+          { icon: "headset-outline" as const, label: "Read & listen" },
+          { icon: "sparkles-outline" as const, label: "Ask your documents" },
+          { icon: "bookmark-outline" as const, label: "Keep your ideas" },
+        ].map((benefit) => (
+          <View key={benefit.label} style={s.benefit}>
+            <Ionicons name={benefit.icon} size={17} color={theme.accentText} />
+            <Text style={[s.benefitLabel, { color: theme.heroText }]}>{benefit.label}</Text>
+          </View>
+        ))}
+      </View>
       <Text style={[s.accessNote, { color: theme.heroText }]}>
         A subscription is required for your documents. Try the sample preview for free.
       </Text>
@@ -76,6 +88,9 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
 
 const s = StyleSheet.create({
   hero: { borderRadius: 28, padding: 20, gap: 12 },
+  benefits: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginVertical: 4 },
+  benefit: { flexDirection: "row", alignItems: "center", gap: 6 },
+  benefitLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600", flexShrink: 1 },
   brand: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
   title: { fontSize: 36, lineHeight: 42, fontWeight: "800", letterSpacing: -1.2 },
   accessNote: { fontSize: 14, lineHeight: 21 },

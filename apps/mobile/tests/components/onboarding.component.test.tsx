@@ -12,6 +12,8 @@ import SignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
 import { EXPLORE_SESSION_KEY, useAuth } from "../../src/auth/AuthProvider";
 import { walkthrough_key } from "../../src/walkthrough/walkthroughState";
+import { useVoticPurpose } from "../../src/personalization/PurposeProvider";
+import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { useAccountSetup } from "../../src/onboarding/AccountSetupProvider";
 import { ONBOARDING_KEY, next_tip, parse_onboarding_state } from "../../src/onboarding/OnboardingProvider";
 import { load_account_setup } from "../../src/onboarding/onboardingStorage";
@@ -203,17 +205,19 @@ describe("Personalization", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     // The reading preview changes as soon as a choice is made.
-    expect(screen.getByRole("header", { name: "What makes reading easier for you?" })).toBeTruthy();
-    const before = JSON.stringify(screen.getByText(/A clear page helps ideas stick/).props.style);
+    expect(screen.getByRole("header", { name: "Make the page your own." })).toBeTruthy();
+    const before = JSON.stringify(screen.getByText(/People who slept after learning new words/).props.style);
     await fireEvent.press(screen.getByRole("checkbox", { name: "Larger text" }));
-    expect(JSON.stringify(screen.getByText(/A clear page helps ideas stick/).props.style)).not.toBe(before);
+    expect(
+      JSON.stringify(screen.getByText(/People who slept after learning new words/).props.style),
+    ).not.toBe(before);
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     // "Adapt to the question" is chosen until something else is, and its example shows.
     expect(screen.getByRole("radio", { name: /^Adapt to the question/, checked: true })).toBeTruthy();
-    expect(screen.getByText(/Votic keeps quick questions short/)).toBeTruthy();
+    expect(screen.getByText(/Sleeping after learning helped people remember/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "Simple. Plain words, no jargon" }));
-    expect(screen.getByText(/It's the money a business really gets/)).toBeTruthy();
+    expect(screen.getByText(/The people who slept after learning remembered/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     expect(screen.getByRole("progressbar", { name: "Step 4 of 4" })).toBeTruthy();
@@ -510,4 +514,34 @@ it("does not start a delayed listening sample after leaving its step", async () 
   await fireEvent.press(screen.getByRole("button", { name: "Back" }));
   await act(async () => release());
   expect(Speech.speak).not.toHaveBeenCalled();
+});
+
+it("recaps actual reading and listening preferences before the final paywall", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  let purpose!: ReturnType<typeof useVoticPurpose>;
+  let access!: ReturnType<typeof useAccessibilityPreferences>;
+  function Probe() {
+    purpose = useVoticPurpose();
+    access = useAccessibilityPreferences();
+    return null;
+  }
+  await render_with_providers(
+    <>
+      <Probe />
+      <Ready />
+    </>,
+    NOT_HANDED_OFF,
+  );
+  await act(async () => {
+    purpose.setPurpose("work");
+    purpose.setExplanationStyle("simple");
+    purpose.setDefaultPlaybackRate(1.5);
+    access.setTextSize("large");
+    access.setHighlightMode("off");
+  });
+  expect(screen.getByText("Work")).toBeTruthy();
+  expect(screen.getByLabelText("Your reading. Large text · system font")).toBeTruthy();
+  expect(screen.getByLabelText("Your listening. Device voice · 1.5× · no highlighting")).toBeTruthy();
+  expect(screen.getByLabelText("Your explanations. Simple")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "See Votic Premium plans" })).toBeTruthy();
 });
