@@ -35,3 +35,16 @@ describe("document titles", () => {
     expect(file_type_label("first 25 days CWAT Schedule.PDF")).toBe("PDF");
   });
 });
+
+describe("document_type_label", () => {
+  it("names webpages and scans for what they are, and files by their format", async () => {
+    const { document_type_label } = await import("./documentDisplay");
+    expect(document_type_label({ sourceName: "Octopus - Wikipedia.txt", origin: "webpage" })).toBe("Webpage");
+    expect(document_type_label({ sourceName: "MDN.txt", sourceUrl: "https://developer.mozilla.org/" })).toBe(
+      "Webpage",
+    );
+    expect(document_type_label({ sourceName: "Scanned document.txt", origin: "scan" })).toBe("Scan");
+    expect(document_type_label({ sourceName: "notes.txt", origin: "file" })).toBe("Text");
+    expect(document_type_label({ sourceName: "report.pdf" })).toBe("PDF");
+  });
+});

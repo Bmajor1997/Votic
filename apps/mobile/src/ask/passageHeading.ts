@@ -12,7 +12,11 @@ function is_heading(passage: string) {
     text.length > 0 &&
     text.length <= MAX_HEADING_CHARS &&
     text.split(/\s+/).length <= MAX_HEADING_WORDS &&
-    !/[.!?:;,]["')\]’”]*$/.test(text)
+    !/[.!?:;,]["')\]’”]*$/.test(text) &&
+    // Broken-off speech ("Off—", "And then…") and quoted lines are prose, not headings.
+    !/[—–…-]["')\]’”]*$/.test(text) &&
+    !/^["“‘'(]/.test(text) &&
+    !/^\p{Ll}/u.test(text)
   );
 }
 

@@ -208,7 +208,16 @@ function NoteEditorForm({
             disabled={saveDisabled}
             accessibilityState={{ disabled: saveDisabled }}
             onPress={() => void protection.save(() => onSave(item, { note, title, noteType, tags }))}
-            style={({ pressed }) => [s.save, { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 }]}
+            accessibilityHint={
+              save_unavailable(saveDisabled, protection.saving) ? "Write a note first" : undefined
+            }
+            style={({ pressed }) => [
+              s.save,
+              {
+                backgroundColor: theme.accent,
+                opacity: save_opacity(saveDisabled, protection.saving, pressed),
+              },
+            ]}
           >
             <Text style={s.saveText}>{protection.saving ? "Saving…" : "Save note"}</Text>
           </Pressable>
@@ -216,6 +225,15 @@ function NoteEditorForm({
       </SafeAreaView>
     </KeyboardAvoidingView>
   );
+}
+
+/** An empty note can't be saved, so the button looks unavailable rather than doing nothing. */
+function save_unavailable(disabled: boolean, saving: boolean) {
+  return disabled && !saving;
+}
+function save_opacity(disabled: boolean, saving: boolean, pressed: boolean) {
+  if (save_unavailable(disabled, saving)) return 0.45;
+  return pressed ? 0.78 : 1;
 }
 
 const s = StyleSheet.create({

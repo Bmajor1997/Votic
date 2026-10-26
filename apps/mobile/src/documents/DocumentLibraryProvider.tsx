@@ -19,6 +19,8 @@ import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
 import { strip_file_extension } from "./fileTypes";
+import { split_passages } from "./passages";
+import { progress_for_location } from "../reader/readerText";
 import { account_writable } from "../storage/accountDeletion";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
@@ -272,6 +274,12 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
               lastOpenedAt: Date.now(),
               sentenceIndex: sentenceIndex ?? document.sentenceIndex,
               wordIndex: sentenceIndex === undefined ? document.wordIndex : 0,
+              // Opening at a passage (an Ask Votic source, a note, Find) moves the place, so progress follows it;
+              // otherwise Home would say "Not started" while the Reader shows 23% read. Finished stays finished.
+              progress:
+                sentenceIndex === undefined || document.progress >= 1
+                  ? document.progress
+                  : progress_for_location(split_passages(document.plainText), sentenceIndex, 0),
             }
           : document,
       ),

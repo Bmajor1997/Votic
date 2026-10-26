@@ -17,7 +17,7 @@ import { DocumentCover } from "../components/DocumentCover";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { sheetStyles } from "../reader/components/sheetStyles";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { file_type_label, position_label, progress_label, readable_title } from "./documentDisplay";
+import { document_type_label, position_label, progress_label, readable_title } from "./documentDisplay";
 import { useDocumentLibrary } from "./DocumentLibraryProvider";
 import { VoticDocument } from "./types";
 
@@ -258,7 +258,7 @@ export function DocumentActionsSheet({
                   <View style={s.details}>
                     <Detail label="File name" value={document.sourceName} />
                     <OriginalSource url={document.sourceUrl} />
-                    <Detail label="Type" value={file_type_label(document.sourceName)} />
+                    <Detail label="Type" value={document_type_label(document)} />
                     <Detail label="Position" value={position_label(document)} />
                     <Detail label="Progress" value={progress_label(document)} />
                     <Detail label="Added" value={new Date(document.importedAt).toLocaleDateString()} />

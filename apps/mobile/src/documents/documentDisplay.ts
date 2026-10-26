@@ -24,6 +24,14 @@ export function file_type_label(sourceName: string) {
   return resolve_file_type({ filename: sourceName }).label;
 }
 
+/** What a document is, as people know it: imported webpages and camera scans are saved as text, but aren't "Text". */
+export function document_type_label(document: Pick<VoticDocument, "sourceName" | "origin" | "sourceUrl">) {
+  // Webpages imported before the origin was recorded still have the address they came from.
+  if (document.origin === "webpage" || (!document.origin && document.sourceUrl)) return "Webpage";
+  if (document.origin === "scan") return "Scan";
+  return file_type_label(document.sourceName);
+}
+
 /** "Passage 12 of 80" from the saved reading position. */
 export function position_label(document: VoticDocument) {
   const total = split_passages(document.plainText).length;

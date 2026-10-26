@@ -124,6 +124,20 @@ export function ask_suggestions(
   return [...new Set([...chosen, ...fill])].slice(0, ASK_SUGGESTION_COUNT);
 }
 
+/** The same suggestions worded for notes, used when Ask Votic is asked about notes rather than a document. */
+const NOTES_WORDING: Record<string, string> = {
+  "Summarize this document": "Summarize these notes",
+  "Explain this section": "Explain these notes",
+  "Explain this section simply": "Explain these notes simply",
+  "Help me understand this passage": "Help me understand these notes",
+  "Quiz me on this document": "Quiz me on these notes",
+  "Help with my notes": "What do these notes have in common?",
+  "Ask about my notes": "What do these notes have in common?",
+};
+export function notes_suggestions(suggestions: readonly string[]) {
+  return [...new Set(suggestions.map((item) => NOTES_WORDING[item] ?? item))];
+}
+
 export type NotebookStudyAction = {
   icon: "school-outline" | "checkbox-outline" | "flask-outline" | "key-outline";
   label: string;

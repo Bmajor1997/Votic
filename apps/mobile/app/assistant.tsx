@@ -54,7 +54,7 @@ import { useActivity } from "../src/activity/ActivityProvider";
 import { ask_event_for } from "../src/activity/askCategories";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
-import { ask_suggestions } from "../src/personalization/suggestions";
+import { ask_suggestions, notes_suggestions } from "../src/personalization/suggestions";
 import { usePersonalization } from "../src/personalization/usePersonalization";
 import { AskConversationMenu } from "../src/ask/AskConversationMenu";
 import { conversation_summary_request, CONVERSATION_SUMMARY_PROMPT } from "../src/ask/conversationSummary";
@@ -81,6 +81,16 @@ function answer_note_stamp() {
 /** How high a suggestion jumps on its way into the question box. */
 const JUMP_HEIGHT = 72;
 
+function suggestions_for(aboutNotes: boolean, documentPrompts: string[]) {
+  return aboutNotes ? notes_suggestions(documentPrompts) : documentPrompts;
+}
+function welcome_text(aboutNotes: boolean, hasDocument: boolean) {
+  if (aboutNotes) return "Ask about these notes, connect ideas across them, or turn them into a summary.";
+  return hasDocument
+    ? "Ask about this document, clarify a passage, or find an idea you heard."
+    : "Open a document or ask a question about reading with Votic.";
+}
+
 export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const quickNote = useQuickNoteEditor();
   const { theme } = useVoticTheme();
@@ -96,7 +106,12 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const notesScopeLabel = context.kind === "notes" || context.kind === "notes-missing" ? context.label : "";
   const { reduceMotion } = useAccessibilityPreferences();
   // Chosen from the person's personalization answers, or the purpose chosen in earlier versions.
-  const suggestedPrompts = ask_suggestions(personalization.answers, personalization.purpose);
+  // Asked about notes, the suggestions talk about notes instead of "this document".
+  const aboutNotes = context.kind === "notes";
+  const suggestedPrompts = suggestions_for(
+    aboutNotes,
+    ask_suggestions(personalization.answers, personalization.purpose),
+  );
   const [question, setQuestion] = useState(initialQuestion);
   const [voiceReveal, setVoiceReveal] = useState<TextRevealFrame | null>(null);
   const [voicePhase, setVoicePhase] = useState<VoiceInputPhase>("idle");
@@ -469,9 +484,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 <AskVoticEmptyAnimation />
                 <Text style={[s.welcomeTitle, { color: theme.text }]}>What can I help you with?</Text>
                 <Text style={[s.body, s.welcomeBody, { color: theme.mutedText }]}>
-                  {activeDocument
-                    ? "Ask about this document, clarify a passage, or find an idea you heard."
-                    : "Open a document or ask a question about reading with Votic."}
+                  {welcome_text(aboutNotes, Boolean(activeDocument))}
                 </Text>
                 <View style={s.prompts}>
                   {suggestedPrompts.map((label, i) => (

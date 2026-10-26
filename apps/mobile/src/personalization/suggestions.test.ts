@@ -131,3 +131,18 @@ describe("explanation style", () => {
     expect(explanation_style_args(null)).toEqual([]);
   });
 });
+
+describe("notes_suggestions", () => {
+  it("rewords document suggestions for notes and keeps the rest", async () => {
+    const { notes_suggestions, DEFAULT_ASK_SUGGESTIONS } = await import("./suggestions");
+    expect(notes_suggestions(DEFAULT_ASK_SUGGESTIONS)).toEqual([
+      "Summarize these notes",
+      "Explain these notes",
+      "Find key points",
+      "What do these notes have in common?",
+      "Compare key ideas",
+      "Find information",
+    ]);
+    expect(notes_suggestions(DEFAULT_ASK_SUGGESTIONS).join(" ")).not.toMatch(/document|section|passage/);
+  });
+});

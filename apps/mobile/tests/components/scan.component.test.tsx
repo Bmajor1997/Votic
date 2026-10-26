@@ -343,3 +343,31 @@ it("keeps the moved page selected after reopening a saved scan, so a second pres
     ids[1],
   ]);
 });
+
+it("keeps the selection where it was after removing a page, not back on page 1", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  const remove = async () => {
+    await fireEvent.press(screen.getByRole("button", { name: "Remove page" }));
+    await act(async () =>
+      alert.mock.calls
+        .at(-1)?.[2]
+        ?.find((button) => button.text === "Remove")
+        ?.onPress?.(),
+    );
+  };
+  const selected = (page: number) =>
+    screen.getByRole("button", { name: `Select page ${page}` }).props.accessibilityState.selected;
+  await render_with_providers(<ScanDocumentScreen />);
+  await take_page("file:///camera/a.jpg");
+  await add_page("file:///camera/b.jpg");
+  await add_page("file:///camera/c.jpg");
+  await fireEvent.press(screen.getByRole("button", { name: "Select page 2" }));
+  await remove();
+  // The page that was third now sits in second place, and stays selected.
+  await waitFor(() => expect(selected(2)).toBe(true));
+  expect(selected(1)).toBe(false);
+  await remove();
+  // Removing the last page selects the new last page.
+  await waitFor(() => expect(selected(1)).toBe(true));
+});

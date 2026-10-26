@@ -32,3 +32,17 @@ describe("passage_heading", () => {
     expect(passage_heading(text, 2)).toBeNull();
   });
 });
+
+describe("passage_heading prose fragments", () => {
+  it("does not treat broken-off or quoted speech as a heading", async () => {
+    const { passage_heading } = await import("./passageHeading");
+    const text = [
+      "The Queen's Croquet-Ground",
+      "The Queen turned crimson with fury.",
+      "“Off—",
+      "and then she screamed loudly at Alice.",
+    ].join("\n\n");
+    expect(passage_heading(text, 3)).toBe("The Queen's Croquet-Ground");
+    expect(passage_heading(["Off—", "Something happened next in the garden."].join("\n\n"), 1)).toBeNull();
+  });
+});

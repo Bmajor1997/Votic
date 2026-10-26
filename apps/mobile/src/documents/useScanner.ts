@@ -135,8 +135,10 @@ export function useScanner() {
         style: "destructive",
         onPress: () =>
           void run(async () => {
+            const at = pages.findIndex((page) => page.id === current.id);
             const next = await draft.remove(current.id);
-            if (next.pages.length) show_page(next.pages[0].id);
+            // Stay where the person was: the page that took the removed page's place, or the new last page.
+            if (next.pages.length) show_page(next.pages[Math.min(Math.max(0, at), next.pages.length - 1)].id);
             else add_page();
           }),
       },

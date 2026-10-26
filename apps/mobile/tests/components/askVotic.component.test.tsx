@@ -170,3 +170,26 @@ it("offers opt-in read aloud below an Ask answer", async () => {
   expect(Speech.speak).toHaveBeenCalledWith("ATP stores energy.", expect.anything());
   await fireEvent.press(screen.getByRole("button", { name: "Stop reading answer" }));
 });
+
+describe("Ask Votic about notes", () => {
+  it("words its suggestions and introduction for notes, not 'this document'", async () => {
+    const { searchParams } = jest.requireActual<typeof import("../mocks/expoRouter")>("../mocks/expoRouter");
+    const withNote = test_document("doc-notes", "Biology", {
+      savedPassages: [
+        {
+          id: "passage-0",
+          sentenceIndex: 0,
+          text: "Cells divide.",
+          note: "Mitosis",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+    });
+    searchParams.current = { notesDocumentId: "doc-notes" };
+    await render_with_providers(<AskVotic />, { documents: [withNote], reduceMotion: true });
+    expect(screen.getByText("Summarize these notes")).toBeTruthy();
+    expect(screen.queryByText("Summarize this document")).toBeNull();
+    expect(screen.getByText(/Ask about these notes/)).toBeTruthy();
+  });
+});
