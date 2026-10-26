@@ -371,7 +371,8 @@ export function create_votic_handler(options = {}) {
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
         const limit = take_ai_call(ai_client);
         if (limit) throw new HttpError(limit === AI_LIMIT_MESSAGE ? 503 : 429, limit);
-        try { result = await with_credits(plan, "pdf-ocr", credit_cost("pdf-ocr", body.length), (fetch_impl) => extract_scanned_pdf_text(body, { env, fetch_impl, timeout_ms: remaining(), signal })); }
+        // Text that came back empty is not a result, so it is not charged.
+        try { result = await with_credits(plan, "pdf-ocr", credit_cost("pdf-ocr", body.length), async (fetch_impl) => (await extract_scanned_pdf_text(body, { env, fetch_impl, timeout_ms: remaining(), signal })) || no_text(422, "No readable text was found in this scanned PDF.")); }
         catch (ocr_error) {
           if (ocr_error instanceof HttpError || ocr_error.status === 429) throw ocr_error;
           // The transcription reached its length limit; part of a document is not offered as the whole of it.
@@ -415,8 +416,7 @@ export function create_votic_handler(options = {}) {
       const limit_message = take_ai_call(ai_client);
       if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, limit_message);
       try {
-        const text = await with_credits(plan, "scan-ocr", credit_cost("scan-ocr"), (fetch_impl) => extract_scan_text(name, body, { env, fetch_impl, timeout_ms: Math.min(30_000, remaining()), signal }));
-        if (!text) throw new HttpError(400, "Votic could not find readable text in this scanned page. Try again with better lighting and keep the page flat.");
+        const text = await with_credits(plan, "scan-ocr", credit_cost("scan-ocr"), async (fetch_impl) => (await extract_scan_text(name, body, { env, fetch_impl, timeout_ms: Math.min(30_000, remaining()), signal })) || no_text(400, "Votic could not find readable text in this scanned page. Try again with better lighting and keep the page flat."));
         send_json(response, 200, { text });
       } catch (error) {
         if (error instanceof HttpError || error.status === 429) throw error;
@@ -607,6 +607,7 @@ function apply_revenuecat_event(wallet, event, allowSandbox) {
   else if (event.type === "REFUND_REVERSED" && transaction) wallet.restore(transaction);
   else wallet.grant(event, { allowSandbox });
 }
+async function no_text(status, message) { throw new HttpError(status, message); }
 async function read_json_body(request, limit, timeout_ms) {
   require_content_type(request, "application/json");
   const body = await read_body(request, limit, timeout_ms);

@@ -143,16 +143,19 @@ test("purchased credits are spent after the monthly allowance and refunds are ho
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test("camera scans are charged per result; a failed scan is not", async () => {
+test("camera scans are charged per result; a failed or unreadable scan is not", async () => {
   const photo = Buffer.alloc(2000); photo.set([255, 216, 255]);
-  let fail = false;
-  await with_server({ ai: async () => fail ? provider({}, 503) : provider(answer("Page text")) }, async ({ base, post }) => {
+  let fail = false, blank = false;
+  await with_server({ ai: async () => fail ? provider({}, 503) : provider(answer(blank ? "" : "Page text")) }, async ({ base, post }) => {
     const scan = () => fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
     assert.equal((await scan()).status, 200);
     assert.equal((await ai_usage(post)).body.monthly.used, 3);
     fail = true;
     assert.equal((await scan()).status, 503);
     assert.equal((await ai_usage(post)).body.monthly.used, 3);
+    fail = false; blank = true;
+    assert.equal((await scan()).status, 400, "no readable text");
+    assert.equal((await ai_usage(post)).body.monthly.used, 3, "a page with no readable text is not charged");
   });
 });
 
