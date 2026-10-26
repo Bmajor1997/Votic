@@ -23,6 +23,7 @@ import { auth_error_message } from "../auth/authErrors";
 import { Card } from "../components/Card";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { has_access } from "../subscription/entitlement";
+import { BillingSwitch } from "../subscription/BillingSwitch";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -361,6 +362,7 @@ function PremiumRows() {
           void Linking.openURL(subscription.entitlement.managementUrl || STORE_SUBSCRIPTIONS_URL)
         }
       />
+      <BillingSwitch />
       <AccountRow
         label="Restore purchases"
         detail="Already subscribed with this store account? Restore it here."

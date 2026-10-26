@@ -204,6 +204,35 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
+    async changePlan(planId, fromProductId) {
+      const token = generation;
+      const owner = identifiedUser;
+      const item = packages.get(planId);
+      if (!item || !owner)
+        return { kind: "failed", message: "This plan isn't available right now. Please try again." };
+      try {
+        await identityQueue;
+        const sdk = await load();
+        if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
+        // Google Play needs the plan being replaced. A longer billing period starts now with the unused time
+        // credited; a shorter one waits until the current period ends. The App Store handles both itself.
+        const longer = item.product.subscriptionPeriod === "P1Y";
+        const change =
+          Platform.OS === "android"
+            ? {
+                oldProductIdentifier: fromProductId.split(":")[0],
+                replacementMode: longer
+                  ? sdk.STORE_REPLACEMENT_MODE.WITH_TIME_PRORATION
+                  : sdk.STORE_REPLACEMENT_MODE.DEFERRED,
+              }
+            : null;
+        const { customerInfo } = await sdk.purchasePackage(item, null, change);
+        if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
+        return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
+      } catch (error) {
+        return purchase_outcome_from_error(error);
+      }
+    },
     async getCreditProducts(productIds) {
       const token = generation;
       const owner = intendedUser;

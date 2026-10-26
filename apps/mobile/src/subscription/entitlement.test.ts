@@ -150,3 +150,27 @@ it("never promises a charge was absent after an uncertain purchase error", () =>
     }
   }
 });
+
+describe("the product that grants access", () => {
+  const entitlement = {
+    isActive: true,
+    willRenew: true,
+    periodType: "NORMAL",
+    expirationDateMillis: 1,
+    billingIssueDetectedAt: null,
+  };
+  it("names Google Play's subscription and base plan together, like store packages do", () => {
+    const read = (extra: object) =>
+      entitlement_from_customer_info(
+        { entitlements: { active: { pro: { ...entitlement, ...extra } }, all: {} }, managementURL: null },
+        "pro",
+      ).productId;
+    expect(read({ productIdentifier: "votic_plus", productPlanIdentifier: "annual" })).toBe(
+      "votic_plus:annual",
+    );
+    expect(read({ productIdentifier: "votic_plus_monthly", productPlanIdentifier: null })).toBe(
+      "votic_plus_monthly",
+    );
+    expect(read({})).toBeNull();
+  });
+});

@@ -6,6 +6,7 @@ import { AccessibilityInfo, Text } from "react-native";
 import { router } from "expo-router";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as backend from "../mocks/authBackend";
+import { entitlement_of, fakeSubscriptions } from "../mocks/subscriptionService";
 import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
 import { create_document_store } from "../../src/documents/documentStorage";
 import { legacy_recovery_available } from "../../src/storage/accountStorage";
@@ -327,4 +328,59 @@ it("offers Delete account wherever Votic sign-in is configured", async () => {
   await render_with_providers(<Settings />);
   expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
   expect(screen.queryByText(/isn't connected to Votic accounts/)).toBeNull();
+});
+
+describe("switching Votic Plus billing", () => {
+  const month = {
+    id: "$rc_monthly",
+    productId: "plus:monthly",
+    priceString: "$9.99",
+    billingPeriod: { count: 1, unit: "month" as const },
+    trial: null,
+  };
+  const year = {
+    ...month,
+    id: "$rc_annual",
+    productId: "plus:annual",
+    priceString: "$79.99",
+    billingPeriod: { count: 1, unit: "year" as const },
+  };
+  it("offers the other billing period through the store's change flow, never a second purchase", async () => {
+    fakeSubscriptions.reset({
+      plans: [month, year],
+      defaultEntitlement: entitlement_of("active", { productId: "plus:monthly" }),
+    });
+    await render_with_providers(<SettingsDetailScreen category="account" />);
+    expect(await screen.findByText(/Annual billing is \$79\.99\/year/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Switch to annual billing" }));
+    expect(fakeSubscriptions.calls).toContain("changePlan:$rc_annual:from:plus:monthly");
+    expect(fakeSubscriptions.calls.some((call) => call.startsWith("purchase:"))).toBe(false);
+    expect(screen.getByText(/You're on annual billing\. Your monthly AI allowance continues/)).toBeTruthy();
+  });
+  it("offers monthly to an annual subscriber, starting at the end of the annual period", async () => {
+    fakeSubscriptions.reset({
+      plans: [month, year],
+      defaultEntitlement: entitlement_of("active", { productId: "plus:annual" }),
+    });
+    await render_with_providers(<SettingsDetailScreen category="account" />);
+    expect(
+      await screen.findByText(
+        /Monthly billing is \$9\.99\/month\. It starts when your current annual period ends/,
+      ),
+    ).toBeTruthy();
+    fakeSubscriptions.nextPurchase = { kind: "cancelled" };
+    await fireEvent.press(screen.getByRole("button", { name: "Switch to monthly billing" }));
+    expect(screen.queryByText(/Monthly billing starts when/)).toBeNull();
+  });
+  it("offers no switch without an active subscription or a known product", async () => {
+    for (const entitlement of [
+      entitlement_of("expired", { productId: "plus:monthly" }),
+      entitlement_of("active"),
+    ]) {
+      fakeSubscriptions.reset({ plans: [month, year], defaultEntitlement: entitlement });
+      const rendered = await render_with_providers(<SettingsDetailScreen category="account" />);
+      expect(screen.queryByRole("button", { name: /^Switch to / })).toBeNull();
+      await rendered.unmount();
+    }
+  });
 });

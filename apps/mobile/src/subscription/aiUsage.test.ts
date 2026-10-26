@@ -5,7 +5,7 @@ import {
   subscribe_ai_usage_changes,
   usage_reset_label,
 } from "./aiUsage";
-import { v1_plan } from "./paywallPresentation";
+import { default_plan, other_billing_plan, plus_plans } from "./paywallPresentation";
 import type { SubscriptionPlan } from "./subscriptionTypes";
 
 const active = {
@@ -104,16 +104,31 @@ describe("AI usage from the server", () => {
   });
 });
 
-describe("the V1 offer", () => {
-  const plan = (id: string, unit: "month" | "year" | "week"): SubscriptionPlan => ({
+describe("the Votic Plus offer", () => {
+  const plan = (id: string, unit: "month" | "year" | "week", productId = id): SubscriptionPlan => ({
     id,
+    productId,
     priceString: "$1",
     billingPeriod: { count: 1, unit },
     trial: null,
   });
-  it("shows the single monthly Votic Plus plan, whatever else the offering lists", () => {
-    expect(v1_plan([plan("year", "year"), plan("month", "month"), plan("week", "week")])?.id).toBe("month");
-    expect(v1_plan([plan("year", "year")])?.id).toBe("year");
-    expect(v1_plan([])).toBeNull();
+  const month = plan("$rc_monthly", "month", "votic_plus:monthly");
+  const year = plan("$rc_annual", "year", "votic_plus:annual");
+  it("offers monthly and annual, never other packages, and preselects monthly", () => {
+    expect(plus_plans([year, plan("week", "week"), month]).map((item) => item.id)).toEqual([
+      "$rc_monthly",
+      "$rc_annual",
+    ]);
+    expect(default_plan([year, month])?.id).toBe("$rc_monthly");
+    expect(default_plan([year])?.id).toBe("$rc_annual");
+    expect(plus_plans([plan("week", "week")]).map((item) => item.id)).toEqual(["week"]);
+    expect(default_plan([])).toBeNull();
+  });
+  it("finds the other billing period for a subscriber, and nothing for an unknown product", () => {
+    expect(other_billing_plan([month, year], "votic_plus:monthly")?.id).toBe("$rc_annual");
+    expect(other_billing_plan([month, year], "votic_plus:annual")?.id).toBe("$rc_monthly");
+    expect(other_billing_plan([month, year], "something_else")).toBeNull();
+    expect(other_billing_plan([month], "votic_plus:monthly")).toBeNull();
+    expect(other_billing_plan([month, year], null)).toBeNull();
   });
 });

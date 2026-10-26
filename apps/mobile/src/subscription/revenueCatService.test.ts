@@ -21,6 +21,7 @@ vi.mock("react-native-purchases", () => ({
     PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS", NON_SUBSCRIPTION: "NON_SUBSCRIPTION" },
     purchasePackage: vi.fn(),
     purchaseStoreProduct: vi.fn(),
+    STORE_REPLACEMENT_MODE: { WITH_TIME_PRORATION: "WITH_TIME_PRORATION", DEFERRED: "DEFERRED" },
     checkTrialOrIntroductoryPriceEligibility: vi.fn(),
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
   },
@@ -308,4 +309,45 @@ it("offers only server-credited additional-usage products for the identified acc
   sdk.getAppUserID.mockResolvedValue("other");
   expect(await service.getCreditProducts?.(["votic_ai_100"])).toEqual([]);
   expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
+});
+
+it("switches between monthly and annual through Google Play's replacement flow, never a second subscription", async () => {
+  const product = (identifier: string, subscriptionPeriod: string, priceString: string) => ({
+    identifier,
+    priceString,
+    price: 1,
+    currencyCode: "USD",
+    subscriptionPeriod,
+    introPrice: null,
+    defaultOption: { freePhase: null, pricingPhases: [] },
+  });
+  const monthly = { identifier: "$rc_monthly", product: product("votic_plus:monthly", "P1M", "$9.99") };
+  const annual = { identifier: "$rc_annual", product: product("votic_plus:annual", "P1Y", "$79.99") };
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
+  const service = create_revenue_cat_service("key", "pro");
+  await service.identify("a");
+  expect((await service.getPlans()).map((plan) => [plan.id, plan.priceString])).toEqual([
+    ["$rc_monthly", "$9.99"],
+    ["$rc_annual", "$79.99"],
+  ]);
+  expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toMatchObject({ kind: "purchased" });
+  expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, {
+    oldProductIdentifier: "votic_plus",
+    replacementMode: "WITH_TIME_PRORATION",
+  });
+  await service.changePlan?.("$rc_monthly", "votic_plus:annual");
+  expect(sdk.purchasePackage).toHaveBeenLastCalledWith(monthly, null, {
+    oldProductIdentifier: "votic_plus",
+    replacementMode: "DEFERRED",
+  });
+  sdk.purchasePackage.mockRejectedValue({ userCancelled: true });
+  expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toEqual({ kind: "cancelled" });
+  expect(await service.changePlan?.("missing", "votic_plus:monthly")).toMatchObject({ kind: "failed" });
+  Object.assign(Platform, { OS: "ios" });
+  sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
+  await service.changePlan?.("$rc_annual", "votic_plus_monthly");
+  expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, null);
 });

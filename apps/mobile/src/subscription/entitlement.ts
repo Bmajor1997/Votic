@@ -21,6 +21,8 @@ type EntitlementInfoLike = {
   periodType: string;
   expirationDateMillis: number | null;
   billingIssueDetectedAt: string | null;
+  productIdentifier?: string;
+  productPlanIdentifier?: string | null;
 };
 
 export function entitlement_from_customer_info(info: CustomerInfoLike, entitlementId: string): Entitlement {
@@ -33,7 +35,18 @@ export function entitlement_from_customer_info(info: CustomerInfoLike, entitleme
     else if (!active.willRenew) status = "cancelled-active";
     else status = "active";
   } else status = any ? "expired" : "none";
-  return { status, expiresAt: any?.expirationDateMillis ?? null, managementUrl: info.managementURL };
+  // Google Play reports the subscription and its base plan separately; store packages name them "sku:plan".
+  const productId = any?.productIdentifier
+    ? any.productPlanIdentifier
+      ? `${any.productIdentifier}:${any.productPlanIdentifier}`
+      : any.productIdentifier
+    : null;
+  return {
+    status,
+    expiresAt: any?.expirationDateMillis ?? null,
+    managementUrl: info.managementURL,
+    productId,
+  };
 }
 
 /** Only these states let someone into paid Votic. "unknown" never does. */

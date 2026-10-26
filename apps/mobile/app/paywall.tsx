@@ -16,10 +16,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
 import { PaywallBenefits, PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
-import { RiseTimeline } from "../src/motion/Rise";
+import { RiseTimeline, SettleOnChange } from "../src/motion/Rise";
 import { PaywallPreview } from "../src/subscription/PaywallPreview";
 import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
-import { v1_plan } from "../src/subscription/paywallPresentation";
+import { annual_value, default_plan, plus_plans } from "../src/subscription/paywallPresentation";
+import { BillingSelector } from "../src/subscription/BillingSelector";
 import { paywallStyles as p } from "../src/subscription/paywallStyles";
 import { controlSizes, radii, spacing } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
@@ -72,6 +73,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const { service, entitlement } = subscription;
   const unavailable = service.unavailableReason;
   const [plans, setPlans] = useState<SubscriptionPlan[] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [purchasing, setPurchasing] = useState(false);
@@ -85,7 +87,14 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     let current = true;
     store_deadline(service.getPlans()).then(
       (found) => {
-        if (current) setPlans(found);
+        if (!current) return;
+        setPlans(found);
+        // Keep the person's choice across a reload; otherwise start on monthly.
+        setSelectedId((previous) =>
+          plus_plans(found).some((plan) => plan.id === previous)
+            ? previous
+            : (default_plan(found)?.id ?? null),
+        );
       },
       () => {
         if (!current) return;
@@ -106,8 +115,8 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   }
 
   // Eligibility comes from the store; an expired paid subscription does not prove a trial was used.
-  const shown = plans || [];
-  const selected = v1_plan(shown);
+  const shown = plus_plans(plans || []);
+  const selected = shown.find((plan) => plan.id === selectedId) ?? default_plan(shown);
   const working = purchasing || restoring;
 
   async function purchase() {
@@ -255,7 +264,15 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             {subscription.recoveryError}
           </Text>
         ) : null}
-        {selected ? <OfferCard plan={selected} now={now()} /> : null}
+        {shown.length > 1 ? (
+          <BillingSelector
+            plans={shown}
+            selectedId={selected?.id ?? null}
+            onSelect={setSelectedId}
+            disabled={working}
+          />
+        ) : null}
+        {selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
         <Text style={[p.detail, { color: theme.text }]}>
           A subscription is required for your documents. Try the sample preview for free.
         </Text>
@@ -286,10 +303,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
 }
 
 /** The one Votic Plus offer: the store's localized price and billing period, any trial, and the full terms. */
-function OfferCard({ plan, now }: { plan: SubscriptionPlan; now: Date }) {
+function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: SubscriptionPlan[]; now: Date }) {
   const { theme } = useVoticTheme();
+  const value = annual_value(plan, plans);
   return (
-    <>
+    <SettleOnChange changeKey={plan.id}>
       <View
         accessible
         accessibilityLabel={`Votic Plus, ${billing_summary(plan)}`}
@@ -305,6 +323,12 @@ function OfferCard({ plan, now }: { plan: SubscriptionPlan; now: Date }) {
           {plan.billingPeriod ? "Billed every " + billing_period_label(plan.billingPeriod) + ". " : ""}
           Cancel anytime in {STORE}.
         </Text>
+        {value ? (
+          <Text style={[p.detail, { color: theme.mutedText }]}>
+            Equivalent to {value.equivalent}/month, billed yearly. {value.comparison}.
+          </Text>
+        ) : null}
+        <Text style={[p.detail, { color: theme.mutedText }]}>Same Votic Plus features on either plan.</Text>
         {plan_card_detail(plan) ? (
           <Text style={[p.detail, { color: theme.mutedText }]}>{plan_card_detail(plan)}</Text>
         ) : null}
@@ -330,7 +354,7 @@ function OfferCard({ plan, now }: { plan: SubscriptionPlan; now: Date }) {
       <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
         {billing_terms(plan, { now, store: STORE, formatDate: format_long_date })}
       </Text>
-    </>
+    </SettleOnChange>
   );
 }
 

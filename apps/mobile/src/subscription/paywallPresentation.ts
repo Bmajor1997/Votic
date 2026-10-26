@@ -86,14 +86,31 @@ export function annual_value(plan: SubscriptionPlan, plans: SubscriptionPlan[]) 
   }
 }
 
+const is_period = (plan: SubscriptionPlan, unit: "month" | "year") =>
+  plan.billingPeriod?.unit === unit && plan.billingPeriod.count === 1;
+
 /**
- * Votic V1 sells one subscription. When the store offering lists several packages, the paywall shows the single
- * monthly plan; any other package (for example a yearly plan configured for later) is not offered here.
+ * Votic Plus is one subscription billed monthly or yearly, with the same features either way. The paywall
+ * offers the store's monthly and annual packages; anything else in the offering (a weekly test package, a V2
+ * tier) is not shown. If the offering has neither, its first package is offered as it is.
  */
-export function v1_plan(plans: SubscriptionPlan[]) {
-  return (
-    plans.find((plan) => plan.billingPeriod?.unit === "month" && plan.billingPeriod.count === 1) ??
-    plans[0] ??
-    null
-  );
+export function plus_plans(plans: SubscriptionPlan[]) {
+  const monthly = plans.find((plan) => is_period(plan, "month"));
+  const annual = plans.find((plan) => is_period(plan, "year"));
+  const found = [monthly, annual].filter((plan): plan is SubscriptionPlan => Boolean(plan));
+  return found.length ? found : plans.slice(0, 1);
+}
+
+/** Monthly is preselected, so the larger annual charge is only ever chosen by the person. */
+export function default_plan(plans: SubscriptionPlan[]) {
+  const shown = plus_plans(plans);
+  return shown.find((plan) => is_period(plan, "month")) ?? shown[0] ?? null;
+}
+
+/** The other Votic Plus billing period, for a subscriber who wants to switch. */
+export function other_billing_plan(plans: SubscriptionPlan[], currentProductId: string | null | undefined) {
+  if (!currentProductId) return null;
+  const shown = plus_plans(plans);
+  const current = shown.find((plan) => plan.productId === currentProductId);
+  return current ? (shown.find((plan) => plan !== current && plan.billingPeriod) ?? null) : null;
 }

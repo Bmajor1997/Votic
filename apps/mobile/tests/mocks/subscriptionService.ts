@@ -117,6 +117,12 @@ export function create_subscription_service(): SubscriptionService {
       if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
       return outcome;
     },
+    async changePlan(planId, fromProductId) {
+      fakeSubscriptions.calls.push(`changePlan:${planId}:from:${fromProductId}`);
+      const outcome = fakeSubscriptions.nextPurchase ?? { kind: "purchased", entitlement: read() };
+      fakeSubscriptions.nextPurchase = null;
+      return outcome;
+    },
     async getCreditProducts(productIds) {
       fakeSubscriptions.calls.push("getCreditProducts:" + productIds.join(","));
       return fakeSubscriptions.creditProducts.filter((product) => productIds.includes(product.productId));

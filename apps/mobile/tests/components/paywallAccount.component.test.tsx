@@ -60,32 +60,99 @@ it("shows the store's localized price and billing period, never a hardcoded one"
   expect(screen.queryByText(/\$9\.99/)).toBeNull();
 });
 
-it("offers only the single monthly Votic Plus plan when the store offering lists others", async () => {
-  const month = { ...TWO_WEEK_TRIAL_PLAN, priceAmount: 9.99, currencyCode: "USD" };
-  const year = {
-    ...month,
-    id: "year",
-    priceString: "$79.99",
-    priceAmount: 79.99,
-    billingPeriod: { count: 1, unit: "year" as const },
-  };
+const MONTH = {
+  ...TWO_WEEK_TRIAL_PLAN,
+  trial: null,
+  productId: "plus:monthly",
+  priceAmount: 9.99,
+  currencyCode: "USD",
+};
+const YEAR = {
+  ...MONTH,
+  id: "$rc_annual",
+  productId: "plus:annual",
+  priceString: "$79.99",
+  priceAmount: 79.99,
+  billingPeriod: { count: 1, unit: "year" as const },
+};
+
+it("offers monthly and annual billing side by side, starting on monthly, and hides other packages", async () => {
   const week = {
-    ...month,
+    ...MONTH,
     id: "week",
     priceString: "$4.99",
-    priceAmount: 4.99,
-    trial: null,
     billingPeriod: { count: 1, unit: "week" as const },
   };
-  fakeSubscriptions.reset({ plans: [month, year, week], defaultEntitlement: entitlement_of("none") });
+  fakeSubscriptions.reset({ plans: [YEAR, week, MONTH], defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  const monthly = screen.getByRole("radio", { name: /^Monthly, \$9\.99 per month$/ });
+  const annual = screen.getByRole("radio", {
+    name: "Yearly, $79.99 per year, equivalent to $6.67 a month. Save 33% compared with 12 monthly payments at regular prices",
+  });
+  expect(monthly.props.accessibilityState.checked).toBe(true);
+  expect(annual.props.accessibilityState.checked).toBe(false);
+  expect(screen.queryByText(/\$4\.99/)).toBeNull();
+  // The annual card shows the full yearly charge, its savings and the monthly equivalent from store prices.
+  expect(within(annual).getByText("Save 33%")).toBeTruthy();
+  expect(within(annual).getByText("About $6.67/month")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
+});
+
+it("shows the full annual charge once annual is chosen, and buys exactly that plan", async () => {
+  fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall now={() => new Date(2026, 9, 19, 12)} />);
-  expect(screen.queryByRole("radio", { name: /^(Monthly|Yearly|Weekly),/ })).toBeNull();
-  expect(screen.queryByText(/\$79\.99|\$4\.99|Save \d+%/)).toBeNull();
-  expect(screen.getByText(/Billing begins at \$9.99\/month/)).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
-  expect(fakeSubscriptions.calls).toContain("purchase:$rc_monthly");
-  expect(fakeSubscriptions.calls).not.toContain("purchase:year");
-  expect(fakeSubscriptions.calls).not.toContain("purchase:week");
+  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
+  expect(screen.getByRole("radio", { name: /^Yearly,/ }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getByLabelText(/^Votic Plus, \$79\.99\/year\. Auto-renews\./)).toBeTruthy();
+  expect(screen.getByText(/^Equivalent to \$6\.67\/month, billed yearly\. Save 33% compared/)).toBeTruthy();
+  expect(screen.getByText(/renews automatically at \$79\.99 per year/)).toBeTruthy();
+  expect(screen.getByText("Same Votic Plus features on either plan.")).toBeTruthy();
+  for (const title of ["Ask AI about your documents", "Generous monthly AI usage"])
+    expect(screen.getByText(title)).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $79.99/year" }));
+  expect(fakeSubscriptions.calls).toContain("purchase:$rc_annual");
+  expect(fakeSubscriptions.calls).not.toContain("purchase:$rc_monthly");
+});
+
+it("calculates savings from the store's actual prices, and shows none it can't verify", async () => {
+  fakeSubscriptions.reset({
+    plans: [MONTH, { ...YEAR, priceString: "$89.99", priceAmount: 89.99 }],
+    defaultEntitlement: entitlement_of("none"),
+  });
+  const rendered = await render_with_providers(<Paywall />);
+  expect(screen.getByText("Save 24%")).toBeTruthy();
+  expect(screen.getByText("About $7.50/month")).toBeTruthy();
+  await rendered.unmount();
+  fakeSubscriptions.reset({
+    plans: [MONTH, { ...YEAR, priceString: "€79,99", currencyCode: "EUR" }],
+    defaultEntitlement: entitlement_of("none"),
+  });
+  await render_with_providers(<Paywall />);
+  expect(screen.getAllByText(/€79,99/).length).toBeGreaterThan(0);
+  expect(screen.queryByText(/Save \d+%/)).toBeNull();
+  expect(screen.queryByText(/About .*\/month/)).toBeNull();
+});
+
+it("switches billing options instantly with Reduce Motion, and restores purchases from either option", async () => {
+  fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />, { reduceMotion: true });
+  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$79\.99\/year/) as never)).toBe(1);
+  fakeSubscriptions.restoreResult = entitlement_of("active");
+  await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
+  expect(screen.getByText("Your Votic Plus subscription is restored.")).toBeTruthy();
+});
+
+it("settles the offer briefly when switching billing options without Reduce Motion", async () => {
+  fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
+  const offer = () => screen.getByLabelText(/^Votic Plus, \$79\.99\/year/) as never;
+  expect(visible_opacity(offer())).toBeLessThan(1);
+  await act(async () => {
+    jest.advanceTimersByTime(400);
+  });
+  expect(visible_opacity(offer())).toBe(1);
 });
 
 it("says plainly when the store fails unexpectedly, without showing the technical error", async () => {

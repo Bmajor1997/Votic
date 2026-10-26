@@ -17,6 +17,8 @@ export type Entitlement = {
   expiresAt: number | null;
   /** Where the store lets the person manage or cancel, if the store provides it. */
   managementUrl: string | null;
+  /** The store product that grants access (Google Play "subscription:base-plan"), used to switch billing. */
+  productId?: string | null;
 };
 
 export type PeriodUnit = "day" | "week" | "month" | "year";
@@ -66,6 +68,11 @@ export interface SubscriptionService {
   /** Read upgrade products independently of the onboarding offering. Never starts a purchase. */
   getUpgradePlans?(productIds: string[]): Promise<SubscriptionPlan[]>;
   purchase(planId: string): Promise<PurchaseOutcome>;
+  /**
+   * Replaces the current subscription with another Votic Plus billing period through the store's own change
+   * flow (never a second subscription). The store shows the final price, proration and timing first.
+   */
+  changePlan?(planId: string, fromProductId: string): Promise<PurchaseOutcome>;
   /** Store products for additional AI usage, limited to the IDs Votic's server is configured to credit. */
   getCreditProducts?(productIds: string[]): Promise<CreditProduct[]>;
   purchaseCredits?(productId: string): Promise<CreditPurchaseOutcome>;

@@ -76,3 +76,43 @@ export function Rise({
     </Animated.View>
   );
 }
+
+/**
+ * A short settle (about 240 ms) each time `key` changes, such as switching billing periods. Nothing moves on
+ * first render or with Reduce Motion.
+ */
+export function SettleOnChange({ changeKey, children }: PropsWithChildren<{ changeKey: string }>) {
+  const { reduceMotion } = useAccessibilityPreferences();
+  const [progress] = useState(() => new Animated.Value(1));
+  const [shownKey, setShownKey] = useState(changeKey);
+  if (shownKey !== changeKey) {
+    setShownKey(changeKey);
+    if (!reduceMotion) progress.setValue(0);
+  }
+  useEffect(() => {
+    if (reduceMotion) {
+      progress.setValue(1);
+      return;
+    }
+    const animation = Animated.timing(progress, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+      isInteraction: false,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [shownKey, reduceMotion, progress]);
+  return (
+    <Animated.View
+      style={{
+        gap: 16,
+        opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] }),
+        transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
