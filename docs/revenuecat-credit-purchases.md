@@ -1,4 +1,4 @@
-# RevenueCat extra-credit purchase integration (in progress)
+# RevenueCat extra-credit purchase integration
 
 This branch adds a backend-only, persistent credit wallet and authenticated webhook handler.
 
@@ -15,4 +15,4 @@ The endpoint grants recognized `NON_RENEWING_PURCHASE` transactions (RevenueCat'
 
 The webhook authenticates with `REVENUECAT_WEBHOOK_SECRET` and is handled before the `VOTIC_CLIENT_KEYS` app-key check, because RevenueCat never sends Votic's app key. Event bodies up to 256 KB are accepted, so events carrying customer attributes are not refused.
 
-**Not yet production-ready:** The new wallet is not yet wired into AI-request deductions, the mobile balance display, account deletion, or subscription billing-period resets. Store products must be created in Google Play and RevenueCat before customers can buy them. Do not advertise extra-credit purchases until these integrations and end-to-end tests are complete.
+**Status (2026-10-26):** Purchased credits are now spent by AI requests after the monthly Votic Plus allowance (see `ai-credit-policy.md`). They are shown as "Additional AI usage" on Settings → AI Usage, removed on account deletion, and kept across subscription renewals. A purchase reported for a deleted account is not credited. The app offers only products listed in `VOTIC_CREDIT_PRODUCTS_JSON` that the store also returns. **Store products must still be created in Google Play and RevenueCat before customers can buy them, and the flow needs an end-to-end test on an Android development build.** Until then the app shows no purchase button.

@@ -86,9 +86,9 @@ export function primary_action_label(plan: SubscriptionPlan | null) {
   return plan.trial ? "Start free trial" : `Subscribe for ${firstPrice}`;
 }
 
-/** The paywall's heading, worded from the store's trial length: "Try Votic Premium free for 2 weeks". */
+/** The paywall's heading, worded from the store's trial length: "Try Votic Plus free for 2 weeks". */
 export function offer_title(plan: SubscriptionPlan | null) {
-  return plan?.trial ? `Try Votic Premium free for ${period_length(plan.trial)}` : "Get Votic Premium";
+  return plan?.trial ? `Try Votic Plus free for ${period_length(plan.trial)}` : "Get Votic Plus";
 }
 
 /** "Today" and the day billing starts, for the trial timeline. Only shown when the plan has a trial. */
@@ -98,7 +98,7 @@ export function trial_timeline(
 ) {
   if (!plan.trial) return [];
   return [
-    { when: "Today", what: "Your free trial starts. Get everything in Votic Premium." },
+    { when: "Today", what: "Your free trial starts. Get everything in Votic Plus." },
     {
       when: `Around ${formatDate(trial_end_date(plan.trial, now))}`,
       what: `Billing begins at ${price_sequence(plan)}. The store confirms the exact date before you subscribe.`,

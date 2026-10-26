@@ -38,6 +38,7 @@ Responses Write is needed for text/image calls. The initial model is `gpt-6-luna
 | Backend variable | Default | Meaning |
 |---|---:|---|
 | `VOTIC_AI_USAGE_DB` | in-memory in development | Persistent private SQLite path; required for production AI |
+| `VOTIC_MONTHLY_CREDITS` | 1,000 | Votic Plus AI credits per verified billing period (see `ai-credit-policy.md`); a tier's `monthlyCredits` overrides it |
 | `VOTIC_AI_MONTHLY_TOKENS` | 2,000,000 | Input plus output allowance per verified account per UTC calendar month |
 | `VOTIC_AI_USER_MONTHLY_BUDGET_USD` | 5 | Estimated cost cap per account per UTC month |
 | `VOTIC_AI_MONTHLY_BUDGET_USD` | 100 | Estimated cost cap across all users per UTC month |

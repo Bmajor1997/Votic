@@ -294,14 +294,14 @@ async function render_paywall() {
   await act(async () => {});
 }
 
-describe("Votic Premium", () => {
+describe("Votic Plus", () => {
   it("shows the store's trial and price and what's included", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await render_paywall();
-    expect(screen.getByRole("header", { name: "Make more of\nwhat you read." })).toBeTruthy();
-    expect(screen.getByText("Try Votic Premium free for 2 weeks")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "Read. Listen. Understand." })).toBeTruthy();
-    expect(screen.getByLabelText(/^Ask Votic\. .* Included\.$/)).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Make more of every document." })).toBeTruthy();
+    expect(screen.getByText("Try Votic Plus free for 2 weeks")).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Included with Votic Plus" })).toBeTruthy();
+    expect(screen.getByLabelText(/^Ask AI about your documents\. /)).toBeTruthy();
     expect(
       screen.getByText(
         /2 weeks free, then \$9.99\/month. Auto-renews. Cancel anytime in (App Store|Google Play)/,
@@ -352,7 +352,7 @@ describe("Votic Premium", () => {
     await render_paywall();
     expect(screen.queryByText(/free for 2 weeks/)).toBeNull();
     expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
-    expect(screen.getByText(/Your Votic Premium subscription has ended/)).toBeTruthy();
+    expect(screen.getByText(/Your Votic Plus subscription has ended/)).toBeTruthy();
   });
 
   it("shows regular pricing when the store offers no trial", async () => {
@@ -368,7 +368,7 @@ describe("Votic Premium", () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await render_paywall();
     await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
-    expect(screen.getByText(/No active Votic Premium subscription was found/)).toBeTruthy();
+    expect(screen.getByText(/No active Votic Plus subscription was found/)).toBeTruthy();
     fakeSubscriptions.restoreResult = entitlement_of("active");
     await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
     expect(screen.getByRole("header", { name: "Welcome back." })).toBeTruthy();
@@ -380,7 +380,7 @@ describe("Votic Premium", () => {
   it("offers Try again when the offer can't load", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none"), plans: new Error("offline") });
     await render_paywall();
-    expect(screen.getByText(/couldn't load Votic Premium/)).toBeTruthy();
+    expect(screen.getByText(/couldn't load Votic Plus/)).toBeTruthy();
     fakeSubscriptions.plans = [TWO_WEEK_TRIAL_PLAN];
     await fireEvent.press(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Start free trial" })).toBeTruthy();
@@ -422,7 +422,7 @@ describe("Votic is ready for you", () => {
       NOT_HANDED_OFF,
     );
     expect(screen.queryByRole("button", { name: "Start using Votic" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "See Votic Premium plans" }));
+    await fireEvent.press(screen.getByRole("button", { name: "See Votic Plus" }));
     expect(screen.getByTestId("handoff").props.children).toBe("true");
     expect(screen.getByTestId("access").props.children).toBe("false:none");
     await waitFor(async () => expect((await load_account_setup("test-user"))?.completedAt).toBeTruthy());
@@ -479,11 +479,11 @@ describe("Settings personalization and account", () => {
     await render_with_providers(<SettingsDetailScreen category="account" />);
     expect(screen.getByText(/^Free trial · ends October 15, 2026$/)).toBeTruthy();
     const openURL = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
-    await fireEvent.press(screen.getByRole("button", { name: "Votic Premium" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Votic Plus" }));
     expect(openURL).toHaveBeenCalled();
     await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
     expect(fakeSubscriptions.calls).toContain("restore");
-    expect(await screen.findByText("Your Votic Premium subscription is active.")).toBeTruthy();
+    expect(await screen.findByText("Your Votic Plus subscription is active.")).toBeTruthy();
   });
 
   it("forgets this account's setup and walkthrough progress when the account is deleted", async () => {
@@ -548,5 +548,5 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByLabelText("Your reading. Large text · system font")).toBeTruthy();
   expect(screen.getByLabelText("Your listening. Device voice · 1.5× · no highlighting")).toBeTruthy();
   expect(screen.getByLabelText("Your explanations. Simple")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "See Votic Premium plans" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "See Votic Plus" })).toBeTruthy();
 });

@@ -333,7 +333,7 @@ export function AccountSettings() {
     </>
   );
 }
-/** Votic Premium as the store reports it: manage it in the store, or restore a purchase. */
+/** Votic Plus as the store reports it: manage it in the store, or restore a purchase. */
 function PremiumRows() {
   const subscription = useSubscription();
   const { theme } = useVoticTheme();
@@ -345,15 +345,15 @@ function PremiumRows() {
     const restored = await subscription.service.restore();
     if (has_access(restored.status)) {
       subscription.setEntitlement(restored);
-      setRestoreMessage("Your Votic Premium subscription is active.");
+      setRestoreMessage("Your Votic Plus subscription is active.");
     } else if (restored.status === "unknown")
       setRestoreMessage("Votic couldn't reach the store. Check your connection and try again.");
-    else setRestoreMessage("No active Votic Premium subscription was found for this store account.");
+    else setRestoreMessage("No active Votic Plus subscription was found for this store account.");
   }
   return (
     <>
       <AccountRow
-        label="Votic Premium"
+        label="Votic Plus"
         detail={subscription_status(subscription.entitlement)}
         hint="Opens your store account to manage the subscription"
         icon="sparkles-outline"
@@ -361,19 +361,10 @@ function PremiumRows() {
           void Linking.openURL(subscription.entitlement.managementUrl || STORE_SUBSCRIPTIONS_URL)
         }
       />
-      {has_access(subscription.entitlement.status) ? (
-        <AccountRow
-          label="View plans"
-          detail="Review your plan and available monthly options."
-          hint="Opens subscription options without changing your plan"
-          icon="arrow-up-circle-outline"
-          onPress={() => router.push("/subscription")}
-        />
-      ) : null}
       <AccountRow
         label="Restore purchases"
         detail="Already subscribed with this store account? Restore it here."
-        hint="Checks the store for an existing Votic Premium subscription"
+        hint="Checks the store for an existing Votic Plus subscription"
         icon="refresh-outline"
         onPress={() => void restore()}
       />

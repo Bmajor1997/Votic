@@ -117,8 +117,8 @@ describe("Settings account management", () => {
     expect(screen.getByRole("button", { name: "Delete account" }).props.accessibilityHint).toMatch(
       /Destructive/,
     );
-    // Votic Premium is managed in the store account; the status comes from the store.
-    expect(screen.getByRole("button", { name: "Votic Premium" })).toBeTruthy();
+    // Votic Plus is managed in the store account; the status comes from the store.
+    expect(screen.getByRole("button", { name: "Votic Plus" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Restore purchases" })).toBeTruthy();
     await rendered.rerender(
       <AppProviders>
@@ -247,7 +247,7 @@ describe("Settings account management", () => {
     expect(screen.queryByRole("button", { name: "Sign out" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Delete account" })).toBeNull();
     // With no account, there's no subscription to manage or restore.
-    expect(screen.queryByRole("button", { name: "Votic Premium" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Votic Plus" })).toBeNull();
   });
 });
 

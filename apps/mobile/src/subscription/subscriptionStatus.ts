@@ -22,7 +22,7 @@ export function subscription_status(entitlement: Entitlement) {
     case "cancelled-active":
       return until ? `Cancelled · access until ${until}` : "Cancelled · access until the end of this period";
     case "billing-issue":
-      return "There's a problem with your payment. Update it in your store account to keep Votic Premium.";
+      return "There's a problem with your payment. Update it in your store account to keep Votic Plus.";
     case "expired":
       return "Ended";
     case "none":

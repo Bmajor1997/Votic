@@ -497,7 +497,7 @@ export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
         <Text style={s.modeCaption}>
           {mode === "read"
             ? "Bring PDFs, books, articles, and scans into one reading space."
-            : "A prepared answer from this sample. No AI credits used."}
+            : "A prepared answer from this sample. It doesn't use your AI allowance."}
         </Text>
       )}
     </View>

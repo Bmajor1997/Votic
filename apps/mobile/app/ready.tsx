@@ -31,16 +31,13 @@ export default function Ready() {
           <Text style={[s.subtitle, { color: theme.mutedText }]}>
             {access
               ? "Start with a document you want to get through."
-              : "Your preferences are saved. Next, choose your Votic Premium plan."}
+              : "Your preferences are saved. Next, see Votic Plus."}
           </Text>
         </View>
         <PersonalizationRecap />
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton
-          label={access ? "Start using Votic" : "See Votic Premium plans"}
-          onPress={completeHandoff}
-        />
+        <PrimaryButton label={access ? "Start using Votic" : "See Votic Plus"} onPress={completeHandoff} />
       </View>
     </SafeAreaView>
   );
