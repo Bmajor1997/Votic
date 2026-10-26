@@ -68,12 +68,12 @@ export function mix(a: string, b: string, amount: number) {
 const SEPIA_ACCENT_SHADE = 0.12;
 const palettes = {
   light: {
-    background: "#FFFFFF",
+    background: "#FFFCF7",
     surface: "#FFFFFF",
     surfaceMuted: "#F5F5F4",
-    text: "#292D32",
-    mutedText: "#626262",
-    border: "#E5E7EB",
+    text: "#26344B",
+    mutedText: "#626B78",
+    border: "#E5DFD5",
   },
   dark: {
     background: "#292D32",
@@ -125,12 +125,12 @@ const highContrastPalettes = {
 // Navigation has its own atmosphere; Reader keeps the paper palettes above.
 const navigationPalettes = {
   light: {
-    background: "#F3F6FC",
+    background: "#F8F5F0",
     surface: "#FFFFFF",
-    surfaceMuted: "#EAF0FA",
-    text: "#17253D",
-    mutedText: "#53637B",
-    border: "#D6E0EF",
+    surfaceMuted: "#F0ECE6",
+    text: "#17243D",
+    mutedText: "#5D6574",
+    border: "#E3DED6",
   },
   dark: {
     background: "#0B1220",
@@ -176,16 +176,19 @@ export function make_theme(
     // Soft backgrounds behind icons and highlighted cards, made from the chosen accent so they change with it
     // (with blue they match Votic's original light blues and navies).
     brandTint: resolvedMode === "dark" ? mix("#152238", accent, 0.25) : mix("#FFFFFF", accent, 0.12),
-    hero: resolvedMode === "dark" ? mix("#0B1220", accent, 0.3) : mix("#FFFFFF", accent, 0.16),
+    hero: resolvedMode === "dark" ? mix("#0B1220", accent, 0.24) : mix("#F8F5F0", accent, 0.045),
+    spotlight: mix("#11213D", accent, 0.12),
+    spotlightText: "#FFFFFF",
+    spotlightMuted: "#CBD7EA",
     heroText: resolvedMode === "dark" ? "#F2F6FF" : shade(accent, 0.55),
     heroMuted: resolvedMode === "dark" ? tint(accent, 0.7) : mix("#53637B", accent, 0.3),
     elevation: reader
       ? {}
       : {
           shadowColor: "#071A38",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: resolvedMode === "dark" ? 0.2 : 0.06,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: resolvedMode === "dark" ? 0.22 : 0.055,
+          shadowRadius: 16,
           elevation: 2,
         },
     accent,

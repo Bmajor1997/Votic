@@ -1,3 +1,4 @@
+import { editorial } from "../src/design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -24,13 +25,13 @@ import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
 import { has_access } from "../src/subscription/entitlement";
 import {
+  billing_period_label,
   billing_summary,
   billing_terms,
   offer_title,
   trial_timeline,
   plan_card_detail,
   plan_name,
-  price_label,
   primary_action_label,
 } from "../src/subscription/offerText";
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
@@ -100,7 +101,7 @@ type Message = { icon?: IconName; text: string };
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
-  const { height, fontScale } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   // Let all content scroll together when a fixed checkout would crowd out the page.
   const inlineCheckout = height < 600 || fontScale >= 1.5;
   const [expandedBenefits, setExpandedBenefits] = useState(false);
@@ -307,6 +308,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                   onPress={() => setSelectedId(plan.id)}
                   style={[
                     s.plan,
+                    { flexBasis: width >= 390 && fontScale < 1.3 ? "44%" : "100%" },
                     {
                       backgroundColor: active ? theme.sentenceHighlight : theme.surface,
                       borderColor: active ? theme.accent : theme.border,
@@ -326,7 +328,12 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
                       color={active ? theme.accentText : theme.mutedText}
                     />
                   </View>
-                  <Text style={[s.price, { color: theme.text }]}>{price_label(plan)}</Text>
+                  <Text style={[s.price, { color: theme.text }]}>
+                    {plan.priceString}
+                    <Text style={s.pricePeriod}>
+                      {plan.billingPeriod ? `/${billing_period_label(plan.billingPeriod)}` : ""}
+                    </Text>
+                  </Text>
                   {plan_card_detail(plan) ? (
                     <Text style={[p.detail, { color: theme.mutedText }]}>{plan_card_detail(plan)}</Text>
                   ) : null}
@@ -549,8 +556,16 @@ const s = StyleSheet.create({
   included: { fontSize: 12, fontWeight: "700" },
   row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingVertical: spacing.md },
   benefitCopy: { flex: 1, gap: spacing.xs },
-  plans: { gap: spacing.sm },
-  plan: { borderWidth: 2, borderRadius: radii.lg, padding: spacing.md, gap: spacing.xs },
+  plans: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md },
+  plan: {
+    borderWidth: 2,
+    borderRadius: 22,
+    padding: spacing.lg,
+    gap: spacing.sm,
+    flexGrow: 1,
+    flexBasis: 240,
+    minWidth: 0,
+  },
   planTop: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -558,7 +573,8 @@ const s = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-  price: { fontSize: 28, fontWeight: "800" },
+  price: { ...editorial, fontSize: 30, lineHeight: 38 },
+  pricePeriod: { fontSize: 14, lineHeight: 22, letterSpacing: 0 },
   terms: { fontSize: 12, lineHeight: 18 },
   signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
   signOutText: { fontSize: 14, textAlign: "center" },

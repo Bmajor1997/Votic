@@ -8,8 +8,8 @@ function luminance(hex: string) {
 }
 
 it.each([
-  ["light", "#FFFFFF"],
-  ["light", "#F3F6FC"],
+  ["light", "#FFFCF7"],
+  ["light", "#F8F5F0"],
   ["dark", "#0B1220"],
   ["dark", "#292D32"],
   ["sepia", "#F4ECD8"],

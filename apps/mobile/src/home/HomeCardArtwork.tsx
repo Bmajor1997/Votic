@@ -19,7 +19,8 @@ export function HomeDocumentArtwork({
       pointerEvents="none"
       style={[s.artwork, featured && s.featured]}
     >
-      <FileTypeIcon filename={document.sourceName} size={featured ? 64 : 60} decorative />
+      <View style={[s.backSheet, { borderColor: "#BAC7DA", backgroundColor: "#EEF0F5" }]} />
+      <FileTypeIcon filename={document.sourceName} size={featured ? 84 : 72} decorative />
     </View>
   );
 }
@@ -38,6 +39,17 @@ export function WidgetHalo({ color }: { color: string }) {
   );
 }
 const s = StyleSheet.create({
+  backSheet: {
+    position: "absolute",
+    width: 58,
+    height: 76,
+    borderWidth: 1,
+    borderRadius: 12,
+    transform: [{ rotate: "-12deg" }],
+    left: 13,
+    top: 18,
+    opacity: 0.6,
+  },
   artwork: { width: 104, height: 122, flexShrink: 0, alignItems: "center", justifyContent: "center" },
   featured: { width: 94, height: 124 },
   halo: {

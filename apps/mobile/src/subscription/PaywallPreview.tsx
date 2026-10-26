@@ -17,7 +17,7 @@ const MODES = [
 type Mode = (typeof MODES)[number]["id"];
 const INK = "#11213D",
   MUTED = "#BACBE6",
-  LIME = "#D9F985";
+  LIME = "#DDE7FF";
 
 /** A finite card entrance, and audio activity only while the visitor plays the sample. */
 export function PaywallPreview({ disabled = false }: { disabled?: boolean }) {
@@ -455,7 +455,7 @@ const s = StyleSheet.create({
     backgroundColor: "#7495EB",
     transform: [{ rotate: "-4deg" }],
   },
-  paper: { backgroundColor: "#F7F9FF", borderRadius: 18, padding: 18, gap: 20, minHeight: 252 },
+  paper: { backgroundColor: "#FFFCF7", borderRadius: 18, padding: 18, gap: 20, minHeight: 252 },
   paperHeader: { flexDirection: "row", alignItems: "center", gap: 9 },
   fileIcon: { backgroundColor: "#E2EAFF", padding: 8, borderRadius: 10 },
   fileTitle: { flex: 1, gap: 3 },

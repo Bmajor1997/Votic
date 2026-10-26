@@ -19,7 +19,7 @@ jest.mock("expo-speech", () => ({
   ]),
 }));
 
-const HIGHLIGHT = "#D9F985";
+const HIGHLIGHT = "#DDE7FF";
 type Node = { type: unknown; props: { style?: unknown }; children: (Node | string)[] };
 function text_of(node: Node | string): string {
   return typeof node === "string" ? node : node.children.map(text_of).join("");

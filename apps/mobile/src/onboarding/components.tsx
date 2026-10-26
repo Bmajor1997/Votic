@@ -1,3 +1,4 @@
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { ReactNode, useEffect } from "react";
 import {
@@ -350,7 +351,7 @@ const s = StyleSheet.create({
     maxWidth: 640,
     alignSelf: "center",
   },
-  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34 },
+  title: { ...editorial, fontSize: 34, lineHeight: 42 },
   subtitle: { fontSize: 16, lineHeight: 23 },
   stepBody: { marginTop: spacing.xl, gap: spacing.md },
   footer: {

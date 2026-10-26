@@ -1,3 +1,4 @@
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ComponentProps, PropsWithChildren, useEffect, useRef } from "react";
@@ -74,7 +75,9 @@ export function SettingsGroup({ children, title }: PropsWithChildren<{ title?: s
           {title}
         </Text>
       ) : null}
-      <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>{children}</View>
+      <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -151,5 +154,5 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { ...typography.screenTitle, fontSize: 26, flex: 1 },
+  title: { ...editorial, fontSize: 30, lineHeight: 38, flex: 1 },
 });

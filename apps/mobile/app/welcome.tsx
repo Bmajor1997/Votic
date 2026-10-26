@@ -1,3 +1,4 @@
+import { editorial } from "../src/design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
@@ -104,7 +105,7 @@ const s = StyleSheet.create({
   art: { flexGrow: 1, alignItems: "center", justifyContent: "center", minHeight: 210, paddingVertical: 10 },
   bottom: { gap: 12 },
   copy: { alignItems: "center", gap: 10, marginBottom: 12 },
-  title: { fontSize: 36, lineHeight: 42, fontWeight: "900", letterSpacing: -1.1, textAlign: "center" },
+  title: { ...editorial, fontSize: 38, lineHeight: 44, textAlign: "center" },
   subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 300 },
   email: {
     minHeight: 54,

@@ -182,9 +182,9 @@ export function NoteGroupCard({
 }
 
 const s = StyleSheet.create({
-  group: { borderWidth: 1, borderRadius: radii.lg, overflow: "hidden" },
+  group: { borderWidth: 1, borderRadius: radii.sheet, overflow: "hidden" },
   header: {
-    minHeight: 66,
+    minHeight: 82,
     paddingHorizontal: spacing.md,
     flexDirection: "row",
     alignItems: "center",
@@ -207,7 +207,7 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     flexDirection: "row",
     alignItems: "stretch",
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
     paddingLeft: spacing.md,
   },
   accent: { width: 3, borderRadius: 2, marginVertical: 3, marginRight: spacing.sm },

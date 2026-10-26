@@ -26,7 +26,7 @@ describe("Backgrounds behind icons", () => {
     const blue = await tints_for("blue");
     const pink = await tints_for("pink");
     expect(pink).not.toEqual(blue);
-    expect(blue).toBe("#e5ecfd #dce6fc");
+    expect(blue).toBe("#e5ecfd #efeef0");
     expect(await tints_for("pink", "dark")).not.toEqual(await tints_for("blue", "dark"));
   });
 });

@@ -283,6 +283,7 @@ export default function Documents() {
               {visible.map((document, index) => {
                 const title = readable_title(document.title);
                 const percent = Math.round(document.progress * 100);
+                const excerpt = document.plainText.slice(0, 160).replace(/\s+/g, " ").trim();
                 return (
                   <View key={document.id}>
                     <View
@@ -304,7 +305,7 @@ export default function Documents() {
                         onPress={() => setOpeningDocument(document)}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
-                        <DocumentCover document={document} size="md" />
+                        <DocumentCover document={document} size="lg" />
                         <View style={s.rowCopy}>
                           {sort === "recent" && index === 0 && document.lastOpenedAt ? (
                             <Text style={[s.recentLabel, { color: theme.accentText }]}>RECENTLY OPENED</Text>
@@ -322,6 +323,11 @@ export default function Documents() {
                             {file_type_label(document.sourceName)}
                             {document.collection ? ` · ${document.collection}` : ""}
                           </Text>
+                          {excerpt ? (
+                            <Text numberOfLines={1} style={[s.rowExcerpt, { color: theme.mutedText }]}>
+                              {excerpt}
+                            </Text>
+                          ) : null}
                           {document.progress >= 1 ? (
                             <View style={s.finished}>
                               <Ionicons name="checkmark-circle" size={15} color={theme.accentText} />
@@ -781,21 +787,22 @@ const s = StyleSheet.create({
   row: {
     borderWidth: 1,
     borderRadius: radii.lg,
-    paddingLeft: spacing.md,
+    paddingLeft: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
   },
   rowMain: {
     flex: 1,
-    minHeight: 88,
+    minHeight: 124,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.lg,
   },
   rowCopy: { flex: 1, minWidth: 0, gap: 3 },
   rowTitle: { fontSize: 17, lineHeight: 23, fontWeight: "700", letterSpacing: -0.2 },
-  rowMeta: { fontSize: 13 },
+  rowMeta: { fontSize: 13, lineHeight: 19 },
+  rowExcerpt: { fontSize: 14, lineHeight: 21, marginVertical: 3 },
   finished: { flexDirection: "row", alignItems: "center", gap: 4 },
   progressRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: 2 },
   track: { flex: 1, maxWidth: 140, height: 6, borderRadius: 3, overflow: "hidden" },

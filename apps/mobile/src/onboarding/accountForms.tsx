@@ -1,3 +1,4 @@
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
@@ -17,7 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../auth/AuthProvider";
 import { SignInCancelled, auth_error_message } from "../auth/authErrors";
-import { controlSizes, radii, spacing, typography } from "../design/tokens";
+import { controlSizes, radii, spacing } from "../design/tokens";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { SecondaryButton } from "./components";
@@ -365,7 +366,7 @@ const s = StyleSheet.create({
   heading: { gap: spacing.sm, marginBottom: spacing.xs, alignItems: "center" },
   // The V's glow is wider than the tile, so it tucks into the space around the title.
   mark: { alignItems: "center", marginTop: -spacing.lg, marginBottom: -spacing.xl - 6 },
-  title: { ...typography.screenTitle, fontSize: 28, lineHeight: 34, textAlign: "center" },
+  title: { ...editorial, fontSize: 34, lineHeight: 42, textAlign: "center" },
   subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center" },
   social: { gap: spacing.md },
   appleButton: { height: 54, width: "100%" },

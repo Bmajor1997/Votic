@@ -1,6 +1,8 @@
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { PaperArtwork } from "../components/PaperArtwork";
 import { VoticLogo } from "../components/VoticLogo";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -14,18 +16,19 @@ export function PaywallIntro() {
   const { width } = useWindowDimensions();
   const goal = PAYWALL_GOALS[purpose ?? "default"];
   return (
-    <View style={[s.hero, { backgroundColor: theme.hero }]}>
+    <View style={[s.hero, { backgroundColor: theme.background }]}>
       <View style={s.brand}>
         <VoticLogo />
         <Text style={[p.eyebrow, { color: theme.accentText }]}>VOTIC PREMIUM</Text>
       </View>
       <Text
         accessibilityRole="header"
-        style={[s.title, { color: theme.heroText }, width < 360 && { fontSize: 30, lineHeight: 36 }]}
+        style={[s.title, { color: theme.text }, width < 360 && { fontSize: 30, lineHeight: 36 }]}
       >
         {goal.title}
       </Text>
-      <Text style={[s.subtitle, { color: theme.heroMuted }]}>{goal.detail}</Text>
+      <PaperArtwork compact />
+      <Text style={[s.subtitle, { color: theme.mutedText }]}>{goal.detail}</Text>
       <View style={s.benefits}>
         {[
           { icon: "headset-outline" as const, label: "Read & listen" },
@@ -34,11 +37,11 @@ export function PaywallIntro() {
         ].map((benefit) => (
           <View key={benefit.label} style={s.benefit}>
             <Ionicons name={benefit.icon} size={17} color={theme.accentText} />
-            <Text style={[s.benefitLabel, { color: theme.heroText }]}>{benefit.label}</Text>
+            <Text style={[s.benefitLabel, { color: theme.text }]}>{benefit.label}</Text>
           </View>
         ))}
       </View>
-      <Text style={[s.accessNote, { color: theme.heroText }]}>
+      <Text style={[s.accessNote, { color: theme.text }]}>
         A subscription is required for your documents. Try the sample preview for free.
       </Text>
     </View>
@@ -87,12 +90,12 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
 }
 
 const s = StyleSheet.create({
-  hero: { borderRadius: 28, padding: 20, gap: 12 },
+  hero: { borderRadius: 28, padding: 8, gap: 14 },
   benefits: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginVertical: 4 },
   benefit: { flexDirection: "row", alignItems: "center", gap: 6 },
   benefitLabel: { fontSize: 14, lineHeight: 20, fontWeight: "600", flexShrink: 1 },
   brand: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
-  title: { fontSize: 36, lineHeight: 42, fontWeight: "800", letterSpacing: -1.2 },
+  title: { ...editorial, fontSize: 38, lineHeight: 44 },
   accessNote: { fontSize: 14, lineHeight: 21 },
   subtitle: { fontSize: 16, lineHeight: 24 },
   helpCard: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 16 },

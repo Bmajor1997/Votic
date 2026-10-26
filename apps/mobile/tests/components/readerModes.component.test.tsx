@@ -339,7 +339,7 @@ describe("Appearance", () => {
   });
 
   it.each([
-    ["light", "#FFFFFF", "#292D32"],
+    ["light", "#FFFCF7", "#26344B"],
     ["dark", "#292D32", "#FAFAF9"],
     ["sepia", "#F4ECD8", "#5B4636"],
   ])("renders the %s Reader palette independently of the app", async (mode, background, text) => {
@@ -353,7 +353,7 @@ describe("Appearance", () => {
     expect(theme.accent.toUpperCase()).toBe(mode === "sepia" ? "#2157CF" : "#2563EB");
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "light",
-      background: "#F3F6FC",
+      background: "#F8F5F0",
     });
   });
 
@@ -376,7 +376,7 @@ describe("Appearance", () => {
       }),
     );
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
-      background: "#F3F6FC",
+      background: "#F8F5F0",
       highContrast: false,
     });
   });

@@ -152,10 +152,10 @@ describe("Settings", () => {
     await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("How do you like to listen?")).toBeTruthy();
+    expect(screen.getByText("Find your listening rhythm.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
-    expect(screen.queryByText("How do you like to listen?")).toBeNull();
+    expect(screen.queryByText("Find your listening rhythm.")).toBeNull();
     expect((await load_account_preferences("test-user"))?.purpose).toBe("research");
   });
 

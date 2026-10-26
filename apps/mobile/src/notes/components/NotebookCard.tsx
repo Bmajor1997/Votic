@@ -1,3 +1,4 @@
+import { editorial } from "../../design/editorial";
 import { FileTypeIcon } from "../../components/FileTypeIcon";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -85,15 +86,15 @@ export function NotebookCard({
   );
 }
 const s = StyleSheet.create({
-  card: { borderWidth: 1, borderRadius: 20, overflow: "hidden" },
+  card: { borderWidth: 1, borderRadius: 24, overflow: "hidden" },
   filename: { fontSize: 13, lineHeight: 18, marginTop: 2 },
-  cover: { minHeight: 150, padding: 20, gap: 10 },
+  cover: { minHeight: 142, padding: 20, gap: 10 },
   spine: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5 },
   icon: { width: 48, height: 48, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   label: { fontSize: 10, letterSpacing: 1.5, fontWeight: "800" },
   rule: { height: 2, width: "65%", borderRadius: 2 },
-  copy: { padding: 14, gap: 8, flex: 1 },
-  title: { fontSize: 17, lineHeight: 23, fontWeight: "800" },
+  copy: { padding: 18, gap: 8, flex: 1 },
+  title: { ...editorial, fontSize: 21, lineHeight: 28 },
   counts: { fontSize: 12, lineHeight: 18 },
   footer: {
     flexDirection: "row",

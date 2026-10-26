@@ -1,3 +1,5 @@
+import { DocumentCover } from "../components/DocumentCover";
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -5,7 +7,7 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { radii, spacing } from "../design/tokens";
 import { sheetStyles } from "../reader/components/sheetStyles";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { readable_title } from "./documentDisplay";
+import { file_type_label, progress_label, readable_title } from "./documentDisplay";
 import { VoticDocument } from "./types";
 
 /** Choose the controls before opening a document, without starting narration unexpectedly. */
@@ -45,9 +47,17 @@ export function DocumentOpenSheet({
           <View style={[sheetStyles.handle, { backgroundColor: theme.border }]} />
           {document ? (
             <ScrollView contentContainerStyle={s.content}>
-              <Text accessibilityRole="header" style={[sheetStyles.sheetTitle, { color: theme.text }]}>
-                {readable_title(document.title)}
-              </Text>
+              <View style={s.identity}>
+                <DocumentCover document={document} size="lg" />
+                <View style={s.copyColumn}>
+                  <Text accessibilityRole="header" style={[s.documentTitle, { color: theme.text }]}>
+                    {readable_title(document.title)}
+                  </Text>
+                  <Text style={[s.copy, { color: theme.mutedText }]}>
+                    {file_type_label(document.sourceName)} · {progress_label(document)}
+                  </Text>
+                </View>
+              </View>
               <Text style={[s.copy, { color: theme.mutedText }]}>
                 How would you like to open this document?
               </Text>
@@ -66,7 +76,7 @@ export function DocumentOpenSheet({
                     s.choice,
                     {
                       borderColor: theme.border,
-                      backgroundColor: theme.surfaceMuted,
+                      backgroundColor: pressed ? theme.brandTint : theme.surface,
                       opacity: pressed ? 0.7 : 1,
                     },
                   ]}
@@ -97,12 +107,14 @@ export function DocumentOpenSheet({
   );
 }
 const s = StyleSheet.create({
-  content: { gap: spacing.md },
+  content: { gap: spacing.lg },
+  identity: { flexDirection: "row", alignItems: "center", gap: spacing.lg, paddingVertical: spacing.sm },
+  documentTitle: { ...editorial, fontSize: 26, lineHeight: 34 },
   choice: {
     minHeight: 80,
     borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,

@@ -1,3 +1,4 @@
+import { editorial } from "../src/design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { ComponentProps, ReactNode, useState } from "react";
@@ -201,25 +202,31 @@ function Overview({ period }: { period: Period }) {
   const ask = ask_summary(log, period.start, period.end);
   return (
     <>
-      <View style={[s.heroCard, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
+      <View
+        style={[
+          s.heroCard,
+          theme.elevation,
+          { backgroundColor: theme.spotlight, borderColor: theme.spotlight },
+        ]}
+      >
         <View style={s.heroHeading}>
-          <Text style={[s.eyebrow, { color: theme.heroMuted }]}>TIME WITH YOUR DOCUMENTS</Text>
-          <Ionicons accessible={false} name="book-outline" size={26} color={theme.heroText} />
+          <Text style={[s.eyebrow, { color: theme.spotlightMuted }]}>TIME WITH YOUR DOCUMENTS</Text>
+          <Ionicons accessible={false} name="book-outline" size={26} color={theme.spotlightText} />
         </View>
         <View accessible accessibilityLabel={`Total time, ${spoken_duration(shown_total(summary))}`}>
-          <Text testID="statistics-total" style={[s.hero, { color: theme.heroText }]}>
+          <Text testID="statistics-total" style={[s.hero, { color: theme.spotlightText }]}>
             {format_duration(shown_total(summary))}
           </Text>
-          <Text style={[s.sub, { color: theme.heroMuted }]}>Reading and listening in this period</Text>
+          <Text style={[s.sub, { color: theme.spotlightMuted }]}>Reading and listening in this period</Text>
         </View>
         <View style={[s.heroNote, { borderTopColor: theme.border }]}>
           <Ionicons
             accessible={false}
             name={comparison ? "analytics-outline" : "leaf-outline"}
             size={18}
-            color={theme.heroText}
+            color={theme.spotlightText}
           />
-          <Text style={[s.heroNoteText, { color: theme.heroMuted }]}>
+          <Text style={[s.heroNoteText, { color: theme.spotlightMuted }]}>
             {comparison
               ? `${Math.abs(Math.round(comparison.change * 100))}% ${comparison.change >= 0 ? "more" : "less"} time than ${comparison.previousLabel}`
               : summary.total
@@ -242,9 +249,10 @@ function Overview({ period }: { period: Period }) {
           icon="headset-outline"
           tinted
         />
-        <MetricTile label="Active days" value={String(summary.activeDays)} icon="calendar-outline" tinted />
+        <MetricTile label="Active days" value={String(summary.activeDays)} icon="calendar-outline" compact />
         <MetricTile
           label="Questions asked"
+          compact
           value={String(ask.questions)}
           icon="chatbubble-ellipses-outline"
         />
@@ -258,12 +266,14 @@ function MetricTile({
   spoken,
   icon,
   tinted = false,
+  compact = false,
 }: {
   label: string;
   value: string;
   spoken?: string;
   icon: IconName;
   tinted?: boolean;
+  compact?: boolean;
 }) {
   const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -274,6 +284,8 @@ function MetricTile({
       accessibilityLabel={`${label}, ${spoken ?? value}`}
       style={[
         s.metricTile,
+        !compact && theme.elevation,
+        compact && s.metricCompact,
         {
           flexBasis: stacked ? "100%" : "46%",
           backgroundColor: tinted ? theme.brandTint : theme.surfaceMuted,
@@ -287,8 +299,8 @@ function MetricTile({
         size={24}
         color={label === "Questions asked" ? theme.aiStatusText : theme.accentText}
       />
-      <Text style={[s.metricValue, { color: theme.text }]}>{value}</Text>
-      <Text style={[s.metricLabel, { color: theme.mutedText }]}>{label}</Text>
+      <Text style={[s.metricValue, compact && s.metricCompactValue, { color: theme.text }]}>{value}</Text>
+      <Text style={[s.metricLabel, compact && { flexShrink: 1 }, { color: theme.mutedText }]}>{label}</Text>
     </View>
   );
 }
@@ -863,7 +875,7 @@ const s = StyleSheet.create({
   intro: { ...typography.body, marginBottom: spacing.sm },
   sectionTitle: { ...typography.sectionTitle, marginTop: spacing.sm },
   eyebrow: { ...typography.eyebrow, flexShrink: 1 },
-  heroCard: { borderWidth: 1, borderRadius: radii.sheet, padding: spacing.xl, gap: spacing.lg },
+  heroCard: { borderWidth: 1, borderRadius: radii.sheet, padding: spacing.xxl, gap: spacing.lg },
   heroHeading: {
     flexDirection: "row",
     alignItems: "center",
@@ -887,7 +899,9 @@ const s = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  metricValue: { fontSize: 26, fontWeight: "800", letterSpacing: -0.4 },
+  metricCompact: { flexDirection: "row", alignItems: "center", padding: spacing.md, gap: spacing.sm },
+  metricCompactValue: { fontSize: 22, lineHeight: 28 },
+  metricValue: { ...editorial, fontSize: 30, lineHeight: 38 },
   metricLabel: { fontSize: 15, lineHeight: 22, fontWeight: "600" },
   insightCard: {
     minHeight: controlSizes.minimumTouch,
@@ -923,14 +937,21 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     gap: spacing.xs,
   },
-  title: { ...typography.screenTitle, fontSize: 26, flex: 1 },
+  title: { ...editorial, fontSize: 28, lineHeight: 36, flex: 1 },
   iconButton: {
     width: controlSizes.minimumTouch,
     height: controlSizes.minimumTouch,
     alignItems: "center",
     justifyContent: "center",
   },
-  content: { paddingHorizontal: spacing.xl, paddingBottom: spacing.section, gap: spacing.md },
+  content: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.section,
+    gap: spacing.lg,
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+  },
   segmented: { flexDirection: "row", flexWrap: "wrap", padding: 3, borderRadius: 12, gap: 2 },
   segment: {
     flexGrow: 1,
@@ -958,7 +979,7 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 17, fontWeight: "800" },
   details: { fontSize: 14, fontWeight: "800" },
   label: { fontSize: 14 },
-  hero: { fontSize: 44, lineHeight: 54, fontWeight: "800", letterSpacing: -0.8, marginTop: 2 },
+  hero: { ...editorial, fontSize: 54, lineHeight: 64, marginTop: 2 },
   sub: { fontSize: 14, lineHeight: 20 },
   stats: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg },
   stat: { minWidth: 92, flexGrow: 1, gap: 2 },

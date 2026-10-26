@@ -1,3 +1,4 @@
+import { DocumentCover } from "../src/components/DocumentCover";
 import { UsageLimitNoticeCard, useUsageLimitNotice } from "../src/subscription/UsageLimitNotice";
 import { useReaderMotion } from "../src/motion/useReaderMotion";
 import { useReaderDuration } from "../src/reader/useReaderDuration";
@@ -1388,22 +1389,29 @@ function ReaderContent() {
                   voiceName={current_voice_name(voiceNames, accessibility.voiceIdentifier)}
                   onVoice={() => setSheet("voice")}
                 />
-                <View ref={progressTarget} collapsable={false} style={s.documentHeader}>
-                  <Animated.Text
-                    ref={titleNode}
-                    numberOfLines={1}
-                    maxFontSizeMultiplier={1.2}
-                    style={[
-                      s.title,
-                      s.compactTitle,
-                      {
-                        color: theme.text,
-                        opacity: titleOpacity,
-                      },
-                    ]}
-                  >
-                    {document_heading(activeDocument, "Document reader")}
-                  </Animated.Text>
+                <View
+                  ref={progressTarget}
+                  collapsable={false}
+                  style={[s.documentHeader, { borderBottomColor: theme.border }]}
+                >
+                  <View style={s.documentIdentity}>
+                    {activeDocument ? <DocumentCover document={activeDocument} size="sm" /> : null}
+                    <Animated.Text
+                      ref={titleNode}
+                      numberOfLines={1}
+                      maxFontSizeMultiplier={1.2}
+                      style={[
+                        s.title,
+                        s.compactTitle,
+                        {
+                          color: theme.text,
+                          opacity: titleOpacity,
+                        },
+                      ]}
+                    >
+                      {document_heading(activeDocument, "Document reader")}
+                    </Animated.Text>
+                  </View>
                   <View style={s.progressCopy}>
                     <Text maxFontSizeMultiplier={1.2} style={[s.progressText, { color: theme.mutedText }]}>
                       {Math.round(progress * 100)}% read
@@ -1985,12 +1993,18 @@ function ReaderContent() {
 
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  content: { flex: 1, paddingHorizontal: spacing.lg },
+  content: { flex: 1, paddingHorizontal: spacing.lg, width: "100%", maxWidth: 840, alignSelf: "center" },
   topBar: { minHeight: 54, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   headerActions: { flexDirection: "row" },
-  documentHeader: { gap: spacing.xs, paddingTop: spacing.xs, paddingBottom: spacing.sm },
+  documentHeader: {
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  documentIdentity: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   title: { ...typography.screenTitle, fontSize: 25 },
-  compactTitle: { fontSize: 19, lineHeight: 24 },
+  compactTitle: { fontSize: 19, lineHeight: 26, flex: 1 },
   progressCopy: { flexDirection: "row", justifyContent: "space-between" },
   progressText: { fontSize: 12, fontWeight: "600" },
   textArea: { flex: 1 },
@@ -2092,7 +2106,7 @@ const s = StyleSheet.create({
   askSend: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   dock: {
     borderWidth: 1,
-    borderRadius: radii.lg,
+    borderRadius: radii.sheet,
     overflow: "hidden",
     marginBottom: spacing.sm,
     paddingTop: spacing.xs,

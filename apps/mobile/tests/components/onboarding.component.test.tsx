@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
@@ -521,8 +522,12 @@ it("recaps actual reading and listening preferences before the final paywall", a
   let purpose!: ReturnType<typeof useVoticPurpose>;
   let access!: ReturnType<typeof useAccessibilityPreferences>;
   function Probe() {
-    purpose = useVoticPurpose();
-    access = useAccessibilityPreferences();
+    const currentPurpose = useVoticPurpose();
+    const currentAccess = useAccessibilityPreferences();
+    useEffect(() => {
+      purpose = currentPurpose;
+      access = currentAccess;
+    }, [currentPurpose, currentAccess]);
     return null;
   }
   await render_with_providers(

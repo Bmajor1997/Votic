@@ -1,3 +1,4 @@
+import { editorial } from "../design/editorial";
 import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { MotionFeedbackNotice } from "../motion/MotionFeedback";
 import { PropsWithChildren, ReactNode } from "react";
@@ -66,9 +67,16 @@ export function Screen({
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 36, gap: 20 },
+  content: {
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    gap: 24,
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+  },
   brandBar: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 0,
     paddingBottom: 4,
     minHeight: 64,
     flexDirection: "row",
@@ -77,7 +85,7 @@ const s = StyleSheet.create({
   },
   headerIcon: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
-  title: { fontSize: 26, fontWeight: "800", letterSpacing: -0.5, flexShrink: 1 },
+  title: { ...editorial, fontSize: 34, lineHeight: 42, flexShrink: 1 },
   warning: {
     borderWidth: 1,
     borderRadius: 12,

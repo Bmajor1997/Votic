@@ -1,3 +1,4 @@
+import { editorial } from "../../src/design/editorial";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -232,7 +233,7 @@ function ContinueCard({
 const s = StyleSheet.create({
   loading: { paddingVertical: spacing.xxl, alignItems: "center" },
   headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md },
-  pageTitle: { ...typography.screenTitle, fontSize: 26, flexShrink: 1 },
+  pageTitle: { ...editorial, fontSize: 32, lineHeight: 40, flexShrink: 1 },
   addButton: {
     minHeight: 48,
     borderWidth: 1,
@@ -247,7 +248,7 @@ const s = StyleSheet.create({
   featured: { overflow: "hidden", borderWidth: 1, borderRadius: 24, padding: spacing.xl, gap: spacing.lg },
   featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "flex-start" },
   featuredCopy: { flex: 1, minWidth: 140, gap: spacing.xs },
-  featuredTitle: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.2 },
+  featuredTitle: { ...editorial, fontSize: 25, lineHeight: 32 },
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },
   fill: { height: "100%", borderRadius: 3 },
