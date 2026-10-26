@@ -40,6 +40,32 @@ export function percent_remaining(allowance, used) {
 }
 
 const iso = (time) => new Date(time).toISOString();
+/** Store periods longer than this (annual plans) are split into monthly allowance cycles. */
+const MONTHLY_PERIOD_MAX_MS = 45 * 86400_000;
+
+/**
+ * The same day-of-month and time `months` later, clamped to the month's last day (Jan 31 -> Feb 28 or 29 ->
+ * Mar 31). Always counted from the anchor, never chained, so a short month doesn't shift later cycles.
+ */
+export function add_months(anchor, months) {
+  const date = new Date(anchor);
+  const target = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1);
+  const year = new Date(target).getUTCFullYear(), month = new Date(target).getUTCMonth();
+  const last_day = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  return Date.UTC(year, month, Math.min(date.getUTCDate(), last_day), date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds(), date.getUTCMilliseconds());
+}
+
+/**
+ * The monthly allowance cycle containing `now` inside a verified store period. A monthly plan's period is one
+ * cycle. An annual plan gets twelve, each starting on the subscription's monthly anniversary; the last one ends
+ * with the store period. After the period ends (billing grace) the last cycle continues; no new allowance.
+ */
+export function allowance_cycle(start, end, now) {
+  if (end - start <= MONTHLY_PERIOD_MAX_MS) return { start, end };
+  let index = 0;
+  while (add_months(start, index + 1) <= now && add_months(start, index + 1) < end) index += 1;
+  return { start: add_months(start, index), end: Math.min(add_months(start, index + 1), end) };
+}
 function calendar_month(now) {
   const date = new Date(now);
   return { start: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1), end: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) };
@@ -81,8 +107,9 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
   };
   return {
     /**
-     * The verified billing period this request belongs to, recorded once. Renewal starts a new period (and a
-     * fresh allowance); repeated verification, delayed or stale data, and early-reported renewals never do.
+     * The verified allowance cycle this request belongs to, recorded once: the billing period itself for a monthly
+     * plan, the current monthly cycle of an annual one. Renewal (or the next monthly cycle) starts a fresh allowance;
+     * repeated verification, delayed or stale data, early-reported renewals and mid-cycle plan switches never do.
      */
     period(uid, profile, allowance) {
       if (!Number.isSafeInteger(allowance) || allowance <= 0) throw new Error("Invalid monthly credit allowance.");
@@ -90,6 +117,7 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
       const verified = Number.isFinite(start) && Number.isFinite(end) && end > start;
       // A plan without a billing end (or malformed dates) resets on the UTC calendar month instead.
       if (!verified) ({ start, end } = calendar_month(now().getTime()));
+      else ({ start, end } = allowance_cycle(start, end, now().getTime()));
       return transaction(() => {
         const latest = db.prepare("SELECT * FROM credit_periods WHERE uid=? ORDER BY period_start DESC LIMIT 1").get(uid);
         if (latest && latest.period_start !== iso(start)) {

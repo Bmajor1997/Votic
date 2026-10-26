@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { create_usage_store } from "../app_parts/ai_usage.js";
+import { add_months } from "../app_parts/ai_credits.js";
 import { create_votic_server } from "../votic_server.js";
 
 // The production route end to end: Firebase identity, RevenueCat-verified billing period, credit ledger and AI routes.
@@ -13,7 +14,10 @@ const answer = (text) => ({ id: "resp", status: "completed", usage, output: [{ t
 const provider = (data, status = 200) => ({ ok: status < 400, status, headers: new Headers(), json: async () => data });
 const document = { title: "Report", sections: [{ heading: "Results", text: "Scores improved." }] };
 const document_answer = answer(JSON.stringify({ answer: "They improved.", sectionIndex: 0, sectionTitle: "Results", quote: null }));
-const period = { purchase_date: "2026-10-03T10:00:00Z", expires_date: "2099-12-03T10:00:00Z" };
+// A real one-month billing period that contains today, so the tests don't depend on the calendar date.
+const period_start = new Date(Date.now() - 2 * 86400_000);
+period_start.setUTCHours(10, 0, 0, 0);
+const period = { purchase_date: period_start.toISOString(), expires_date: new Date(add_months(period_start.getTime(), 1)).toISOString() };
 const customer = (entitlement = period) => ({ subscriber: { entitlements: entitlement ? { pro: { product_identifier: "votic_plus", ...entitlement } } : {}, subscriptions: { votic_plus: { store: "play_store" } } } });
 const base_env = { REVENUECAT_SECRET_API_KEY: "rc-secret", OPENAI_API_KEY: "test-key", VOTIC_MONTHLY_CREDITS: "10" };
 
@@ -37,7 +41,7 @@ test("AI Usage reports the verified period with a full allowance and never trust
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.deepEqual(await response.json(), {
       status: "active", plan: { name: "Votic Plus" },
-      monthly: { percentRemaining: 100, allowance: 10, used: 0, remaining: 10, periodStart: "2026-10-03T10:00:00.000Z", periodEnd: "2099-12-03T10:00:00.000Z", resetsAt: "2099-12-03T10:00:00.000Z", billingPeriodVerified: true },
+      monthly: { percentRemaining: 100, allowance: 10, used: 0, remaining: 10, periodStart: period.purchase_date, periodEnd: period.expires_date, resetsAt: period.expires_date, billingPeriodVerified: true },
       purchased: { remaining: 0 }, purchaseProducts: [],
     });
     assert.match(requested[0], /subscribers\/plus-user$/);
@@ -90,7 +94,7 @@ test("exhausted monthly usage is refused before any AI call, with the renewal da
     assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
     const refused = await post("/api/help", { question: "Two?", document });
     assert.equal(refused.status, 429);
-    assert.deepEqual(await refused.json(), { error: "You've used this month's AI allowance.", code: "AI_CREDITS_EXHAUSTED", resetsAt: "2099-12-03T10:00:00.000Z" });
+    assert.deepEqual(await refused.json(), { error: "You've used this month's AI allowance.", code: "AI_CREDITS_EXHAUSTED", resetsAt: period.expires_date });
     assert.equal(calls, 1);
     const usage_now = (await ai_usage(post)).body.monthly;
     assert.deepEqual([usage_now.used, usage_now.percentRemaining], [2, 33]);
@@ -170,4 +174,32 @@ test("account deletion leaves no credit balance for the account", async () => {
     assert.deepEqual(store.credits.records("plus-user"), []);
     await with_server({ store }, async ({ post }) => assert.equal((await post("/api/ai-usage")).status, 403));
   } finally { store.close(); }
+});
+
+test("annual subscribers see this month's allowance and its monthly reset, not the yearly renewal", async () => {
+  const annual = { purchase_date: "2026-01-31T10:00:00Z", expires_date: "2027-01-31T10:00:00Z" };
+  const now = Date.now();
+  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(annual) }), ai: async () => provider(document_answer) }, async ({ post }) => {
+    assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
+    const { monthly } = (await ai_usage(post)).body;
+    assert.deepEqual([monthly.allowance, monthly.used], [10, 2]);
+    const start = Date.parse(monthly.periodStart), end = Date.parse(monthly.periodEnd);
+    assert.ok(start <= now && now < end, "the current monthly cycle");
+    assert.ok(end - start <= 31 * 86400_000, "one month, not the whole year");
+    assert.notEqual(monthly.resetsAt, "2027-01-31T10:00:00.000Z");
+    assert.equal(new Date(start).getUTCHours(), 10, "anchored on the subscription start");
+  });
+});
+
+test("an expired or refunded annual subscription stops AI and its allowance", async () => {
+  // RevenueCat removes the entitlement on refund; expiry passes the end date. Each state is a fresh server so
+  // the one-minute confirmed-subscriber cache can't carry the earlier answer over.
+  for (const entitlement of [null, { purchase_date: "2025-01-31T10:00:00Z", expires_date: "2026-01-31T10:00:00Z" }]) {
+    let calls = 0;
+    await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
+      assert.deepEqual((await ai_usage(post)).body, { status: "not-subscribed", plan: null, monthly: null, purchased: { remaining: 0 }, purchaseProducts: [] });
+      assert.equal((await post("/api/help", { question: "Q?", document })).status, 403);
+    });
+    assert.equal(calls, 0);
+  }
 });

@@ -179,3 +179,74 @@ test("account deletion removes the account's credit history and later purchases 
     assert.equal(wallet.balance("gone"), 0);
   } finally { wallet.close(); store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("monthly cycles count from the anchor and clamp to the month's last day, including leap years", async () => {
+  const { add_months } = await import("../app_parts/ai_credits.js");
+  const at = (value, months) => new Date(add_months(Date.parse(value), months)).toISOString();
+  assert.equal(at("2026-01-31T10:00:00Z", 1), "2026-02-28T10:00:00.000Z");
+  assert.equal(at("2026-01-31T10:00:00Z", 2), "2026-03-31T10:00:00.000Z", "a short month doesn't shift later cycles");
+  assert.equal(at("2028-01-31T10:00:00Z", 1), "2028-02-29T10:00:00.000Z");
+  assert.equal(at("2028-02-29T00:00:00Z", 12), "2029-02-28T00:00:00.000Z");
+  assert.equal(at("2026-12-15T00:00:00Z", 1), "2027-01-15T00:00:00.000Z");
+});
+
+test("an annual subscriber gets 1,000 credits each month, never 12,000 at once, and unused credits don't roll over", () => {
+  const now = clock("2026-01-31T12:00:00Z"), credits = ledger(now);
+  const annual = subscriber("2026-01-31T10:00:00Z", "2027-01-31T10:00:00Z");
+  const january = credits.period("u", annual, 1000);
+  assert.deepEqual(january, { start: "2026-01-31T10:00:00.000Z", end: "2026-02-28T10:00:00.000Z", allowance: 1000, verified: true });
+  assert.throws(() => credits.reserve({ uid: "u", request_id: "too-much", feature: "help", credits: 1001, period: january }), exhausted);
+  credits.reserve({ uid: "u", request_id: "jan", feature: "help", credits: 100, period: january }); credits.charge("jan");
+  // February's cycle starts on the 28th (no February 31st) and is a fresh 1,000, not 1,900.
+  now.set("2026-02-28T10:00:00Z");
+  const february = credits.period("u", annual, 1000);
+  assert.deepEqual([february.start, february.end], ["2026-02-28T10:00:00.000Z", "2026-03-31T10:00:00.000Z"]);
+  assert.deepEqual(credits.summary("u", february), { allowance: 1000, used: 0, remaining: 1000, purchased: 0 });
+  // Repeated checks within the cycle never grant it twice.
+  now.set("2026-03-30T23:00:00Z");
+  assert.equal(credits.period("u", annual, 1000).start, february.start);
+  // The last monthly cycle ends with the annual term; billing grace keeps it, with no extra allowance.
+  now.set("2027-01-05T00:00:00Z");
+  assert.deepEqual(credits.period("u", annual, 1000).end, "2027-01-31T10:00:00.000Z");
+  now.set("2027-02-03T00:00:00Z");
+  assert.equal(credits.period("u", annual, 1000).start, "2026-12-31T10:00:00.000Z");
+  assert.equal(credits.records("u").length, 1);
+});
+
+test("a leap-day annual subscription renews monthly on the 29th, or the month's last day", () => {
+  const now = clock("2028-02-29T09:00:00Z"), credits = ledger(now);
+  const annual = subscriber("2028-02-29T08:00:00Z", "2029-02-28T08:00:00Z");
+  assert.equal(credits.period("u", annual, 1000).end, "2028-03-29T08:00:00.000Z");
+  now.set("2029-02-01T00:00:00Z");
+  assert.deepEqual(Object.values(credits.period("u", annual, 1000)).slice(0, 2), ["2029-01-29T08:00:00.000Z", "2029-02-28T08:00:00.000Z"]);
+});
+
+test("purchased credits survive an annual plan's monthly resets", () => {
+  const now = clock("2026-03-10T00:00:00Z"), db = new DatabaseSync(":memory:"), credits = create_credit_ledger(db, { now });
+  const annual = subscriber("2026-03-01T00:00:00Z", "2027-03-01T00:00:00Z");
+  purchase(db, "u", "tx-1", 50);
+  const march = credits.period("u", annual, 10);
+  credits.reserve({ uid: "u", request_id: "a", feature: "help", credits: 15, period: march }); credits.charge("a");
+  now.set("2026-04-01T00:00:00Z");
+  assert.deepEqual(credits.summary("u", credits.period("u", annual, 10)), { allowance: 10, used: 0, remaining: 10, purchased: 45 });
+});
+
+test("switching billing periods mid-cycle never grants a second allowance", () => {
+  const now = clock("2026-05-10T00:00:00Z"), credits = ledger(now);
+  // Monthly subscriber uses 700 of May's credits, then switches to annual on May 20.
+  const may = credits.period("u", subscriber("2026-05-01T00:00:00Z", "2026-06-01T00:00:00Z"), 1000);
+  credits.reserve({ uid: "u", request_id: "may", feature: "help", credits: 700, period: may }); credits.charge("may");
+  now.set("2026-05-20T00:00:00Z");
+  const annual = subscriber("2026-05-20T00:00:00Z", "2027-05-20T00:00:00Z");
+  const switched = credits.period("u", annual, 1000);
+  assert.equal(switched.start, may.start, "the switch stays in the cycle already granted");
+  assert.equal(switched.end, "2026-06-20T00:00:00.000Z", "and runs until the annual plan's first monthly anniversary");
+  assert.equal(credits.summary("u", switched).remaining, 300);
+  now.set("2026-06-20T00:00:00Z");
+  assert.equal(credits.summary("u", credits.period("u", annual, 1000)).remaining, 1000);
+  // Annual -> monthly switch that takes effect when the annual term ends starts one new monthly period.
+  now.set("2027-05-20T00:05:00Z");
+  const monthly = subscriber("2027-05-20T00:00:00Z", "2027-06-20T00:00:00Z");
+  assert.equal(credits.period("u", monthly, 1000).start, "2027-05-20T00:00:00.000Z");
+  assert.equal(credits.period("u", monthly, 1000).start, "2027-05-20T00:00:00.000Z");
+});
