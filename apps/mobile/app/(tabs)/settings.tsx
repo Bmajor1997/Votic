@@ -49,9 +49,17 @@ export default function Settings() {
           "account",
           auth.user?.email ??
             auth.user?.displayName ??
-            (auth.user ? "Your session and Votic Premium" : "Votic Premium and account access"),
+            (auth.user ? "Your session and Votic Plus" : "Votic Plus and account access"),
           "person-outline",
         )}
+        <SettingsRow
+          label="AI Usage"
+          detail="Your monthly AI allowance"
+          icon="sparkles-outline"
+          separated
+          hint="Opens AI Usage"
+          onPress={() => router.push("/ai-usage")}
+        />
       </SettingsGroup>
       <SettingsGroup title="YOUR PREFERENCES">
         {category(

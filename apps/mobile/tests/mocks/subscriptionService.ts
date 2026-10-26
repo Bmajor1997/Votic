@@ -1,5 +1,7 @@
 import type { LegalLinks } from "../../src/config/appConfig";
 import {
+  CreditProduct,
+  CreditPurchaseOutcome,
   Entitlement,
   PurchaseOutcome,
   SubscriptionPlan,
@@ -46,6 +48,9 @@ export const fakeSubscriptions = {
   /** Makes the next purchase or restore throw, like the store SDK failing unexpectedly. */
   throwNext: null as "purchase" | "restore" | null,
   legal: { termsUrl: null, privacyUrl: null } as LegalLinks,
+  /** Additional-usage products the store returns; only IDs the server lists are requested. */
+  creditProducts: [] as CreditProduct[],
+  nextCreditPurchase: { kind: "purchased" } as CreditPurchaseOutcome,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
     server.clear();
@@ -59,6 +64,8 @@ export const fakeSubscriptions = {
     fakeSubscriptions.nextPurchase = null;
     fakeSubscriptions.restoreResult = null;
     fakeSubscriptions.throwNext = null;
+    fakeSubscriptions.creditProducts = [];
+    fakeSubscriptions.nextCreditPurchase = { kind: "purchased" };
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
   setEntitlement(userId: string, entitlement: Entitlement) {
@@ -109,6 +116,14 @@ export function create_subscription_service(): SubscriptionService {
       fakeSubscriptions.nextPurchase = null;
       if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
       return outcome;
+    },
+    async getCreditProducts(productIds) {
+      fakeSubscriptions.calls.push("getCreditProducts:" + productIds.join(","));
+      return fakeSubscriptions.creditProducts.filter((product) => productIds.includes(product.productId));
+    },
+    async purchaseCredits(productId) {
+      fakeSubscriptions.calls.push("purchaseCredits:" + productId);
+      return fakeSubscriptions.nextCreditPurchase;
     },
     async restore() {
       fakeSubscriptions.calls.push("restore");

@@ -20,6 +20,7 @@ describe("Settings categories", () => {
     const rows = screen.getAllByRole("button");
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
       "Account & Membership",
+      "AI Usage",
       "Appearance",
       "Reading & Listening",
       "Accessibility",
@@ -52,6 +53,15 @@ describe("Settings categories", () => {
     },
   );
 
+  it("opens AI Usage as its own page, separate from Reading Statistics", async () => {
+    await render_with_providers(<Settings />);
+    const row = screen.getByRole("button", { name: "AI Usage" });
+    expect(row.props.accessibilityValue.text).toBe("Your monthly AI allowance");
+    await fireEvent.press(row);
+    expect(router.push).toHaveBeenCalledWith("/ai-usage");
+    expect(router.push).not.toHaveBeenCalledWith("/statistics");
+  });
+
   it("returns a directly opened detail screen to Settings without navigation history", async () => {
     router.canGoBack.mockReturnValue(false);
     await render_with_providers(<SettingsDetailScreen category="appearance" />);
@@ -78,7 +88,7 @@ describe("Settings categories", () => {
       </AppProviders>,
     );
     expect(screen.getByText("Not signed in")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Votic Premium" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Votic Plus" })).toBeNull();
   });
 });
 

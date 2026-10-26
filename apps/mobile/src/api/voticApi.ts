@@ -1,4 +1,5 @@
 import { allowance_notifier } from "../subscription/allowanceNotice";
+import { AI_USAGE_PATHS, AiUsage, notify_ai_usage_changed, parse_ai_usage } from "../subscription/aiUsage";
 import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
@@ -72,6 +73,7 @@ async function api_fetch(
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
     if (response.status === 403 && result.code === "ACCOUNT_DELETED") notify_remote_account_deletion();
     if (!response.ok) notify_allowance(result);
+    if (AI_USAGE_PATHS.includes(path)) notify_ai_usage_changed();
     return { ok: response.ok, result };
   };
   try {
@@ -352,4 +354,18 @@ export async function subscription_options(): Promise<SubscriptionOptions> {
   if (!Array.isArray(result.upgrades))
     throw new Error("Subscription options are unavailable. Please try again.");
   return result as SubscriptionOptions;
+}
+
+/** The signed-in account's AI usage, read from Votic's server. Never computed on the phone. */
+export async function ai_usage(): Promise<AiUsage> {
+  const response = await api_fetch(
+    "/api/ai-usage",
+    { method: "POST" },
+    API_TIMEOUT_MS,
+    undefined,
+    "Sign in to see your AI usage.",
+  );
+  if (!response.ok)
+    throw new Error(server_error(response.result, "Votic couldn't load your AI usage. Please try again."));
+  return parse_ai_usage(response.result);
 }

@@ -45,6 +45,13 @@ export type PurchaseOutcome =
   | { kind: "pending" }
   | { kind: "failed"; message: string };
 
+/** A one-time purchase of additional AI usage, described entirely by the store's product data. */
+export type CreditProduct = { productId: string; title: string; priceString: string };
+
+/** Credits are granted by Votic's server after the store confirms the purchase, never by this outcome. */
+export type CreditPurchaseOutcome =
+  { kind: "purchased" } | { kind: "cancelled" } | { kind: "pending" } | { kind: "failed"; message: string };
+
 /** Why subscriptions can't be offered in this build; shown instead of a fake purchase button. */
 export type SubscriptionUnavailableReason = "not-configured" | "expo-go" | "unsupported-platform";
 
@@ -59,6 +66,9 @@ export interface SubscriptionService {
   /** Read upgrade products independently of the onboarding offering. Never starts a purchase. */
   getUpgradePlans?(productIds: string[]): Promise<SubscriptionPlan[]>;
   purchase(planId: string): Promise<PurchaseOutcome>;
+  /** Store products for additional AI usage, limited to the IDs Votic's server is configured to credit. */
+  getCreditProducts?(productIds: string[]): Promise<CreditProduct[]>;
+  purchaseCredits?(productId: string): Promise<CreditPurchaseOutcome>;
   restore(): Promise<Entitlement>;
   /** Called whenever the store reports a change (renewal, expiry, refund). Returns an unsubscribe function. */
   onChange(listener: (entitlement: Entitlement, userId: string) => void): () => void;

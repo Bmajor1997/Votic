@@ -18,8 +18,9 @@ vi.mock("react-native-purchases", () => ({
     restorePurchases: vi.fn(),
     getOfferings: vi.fn(),
     getProducts: vi.fn(),
-    PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS" },
+    PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS", NON_SUBSCRIPTION: "NON_SUBSCRIPTION" },
     purchasePackage: vi.fn(),
+    purchaseStoreProduct: vi.fn(),
     checkTrialOrIntroductoryPriceEligibility: vi.fn(),
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
   },
@@ -280,4 +281,31 @@ it("reads upgrade prices without altering onboarding packages or trusting anothe
   expect(sdk.getProducts).toHaveBeenCalledWith(["plus"], "SUBS");
   sdk.getAppUserID.mockResolvedValue("other");
   expect(await service.getUpgradePlans?.(["plus"])).toEqual([]);
+});
+
+it("offers only server-credited additional-usage products for the identified account, and buys the exact one", async () => {
+  const service = create_revenue_cat_service("key", "pro");
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  await service.identify("a");
+  const product = { identifier: "votic_ai_100", title: "More AI usage", priceString: "$2.99" };
+  sdk.getProducts.mockResolvedValue([product, { ...product, identifier: "unlisted" }] as never);
+  expect(await service.getCreditProducts?.(["votic_ai_100"])).toEqual([
+    { productId: "votic_ai_100", title: "More AI usage", priceString: "$2.99" },
+  ]);
+  expect(sdk.getProducts).toHaveBeenCalledWith(["votic_ai_100"], "NON_SUBSCRIPTION");
+  sdk.purchaseStoreProduct.mockResolvedValue({} as never);
+  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "purchased" });
+  expect(sdk.purchaseStoreProduct).toHaveBeenCalledWith(product);
+  expect(await service.purchaseCredits?.("unlisted")).toMatchObject({ kind: "failed" });
+  sdk.purchaseStoreProduct.mockRejectedValue({ userCancelled: true });
+  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
+  sdk.purchaseStoreProduct.mockRejectedValue({ code: "20" });
+  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "pending" });
+  sdk.purchaseStoreProduct.mockRejectedValue({ code: "10" });
+  expect(await service.purchaseCredits?.("votic_ai_100")).toMatchObject({ kind: "failed" });
+  // Another account in the SDK never sees or buys this account's products.
+  sdk.getAppUserID.mockResolvedValue("other");
+  expect(await service.getCreditProducts?.(["votic_ai_100"])).toEqual([]);
+  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
 });

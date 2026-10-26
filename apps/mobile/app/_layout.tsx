@@ -141,6 +141,7 @@ function ThemedStack() {
                     <Stack.Screen name="voices" options={slide} />
                     <Stack.Screen name="handle-share" options={fade} />
                     <Stack.Screen name="statistics" options={slide} />
+                    <Stack.Screen name="ai-usage" options={slide} />
                     <Stack.Screen name="home-screen-widgets" options={slide} />
                     {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                     <Stack.Screen name="widget" options={{ animation: "none" }} />

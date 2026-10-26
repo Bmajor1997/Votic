@@ -203,8 +203,9 @@ describe("Reader", () => {
     await fireEvent.press(screen.getByText("More"));
     await fireEvent.press(screen.getByRole("button", { name: "Catch up" }));
     expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View plans" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "AI Usage" })).toBeTruthy();
     expect(router.push).not.toHaveBeenCalledWith("/subscription");
+    expect(router.push).not.toHaveBeenCalledWith("/ai-usage");
     await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
   });
 

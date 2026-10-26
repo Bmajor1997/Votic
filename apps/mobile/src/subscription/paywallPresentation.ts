@@ -85,3 +85,15 @@ export function annual_value(plan: SubscriptionPlan, plans: SubscriptionPlan[]) 
     return null;
   }
 }
+
+/**
+ * Votic V1 sells one subscription. When the store offering lists several packages, the paywall shows the single
+ * monthly plan; any other package (for example a yearly plan configured for later) is not offered here.
+ */
+export function v1_plan(plans: SubscriptionPlan[]) {
+  return (
+    plans.find((plan) => plan.billingPeriod?.unit === "month" && plan.billingPeriod.count === 1) ??
+    plans[0] ??
+    null
+  );
+}

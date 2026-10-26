@@ -38,6 +38,7 @@ const APP = [
   "voices",
   "handle-share",
   "statistics",
+  "ai-usage",
   "home-screen-widgets",
   "widget",
   "subscription",

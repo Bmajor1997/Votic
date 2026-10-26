@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import type { CustomerInfo, PurchasesPackage } from "react-native-purchases";
+import type { CustomerInfo, PurchasesPackage, PurchasesStoreProduct } from "react-native-purchases";
 import {
   entitlement_from_customer_info,
   plan_from_store_product,
@@ -17,6 +17,7 @@ type Sdk = typeof import("react-native-purchases").default;
 export function create_revenue_cat_service(apiKey: string, entitlementId: string): SubscriptionService {
   let sdkPromise: Promise<Sdk> | null = null;
   const packages = new Map<string, PurchasesPackage>();
+  const creditProducts = new Map<string, PurchasesStoreProduct>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
   let generation = 0;
   let intendedUser: string | null = null;
@@ -201,6 +202,45 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
       } catch (error) {
         return purchase_outcome_from_error(error);
+      }
+    },
+    async getCreditProducts(productIds) {
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser || !productIds.length) return [];
+      const sdk = await load();
+      if ((await sdk.getAppUserID()) !== owner) return [];
+      const products = await sdk.getProducts(productIds, sdk.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+      if (token !== generation || owner !== identifiedUser) return [];
+      creditProducts.clear();
+      // Only products the server credits; a store listing alone never makes something purchasable here.
+      return products
+        .filter((product) => productIds.includes(product.identifier) && Boolean(product.priceString))
+        .map((product) => {
+          creditProducts.set(product.identifier, product);
+          return { productId: product.identifier, title: product.title, priceString: product.priceString };
+        });
+    },
+    async purchaseCredits(productId) {
+      const token = generation;
+      const owner = identifiedUser;
+      const product = creditProducts.get(productId);
+      if (!product || !owner)
+        return { kind: "failed", message: "This purchase isn't available right now. Please try again." };
+      try {
+        await identityQueue;
+        const sdk = await load();
+        if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
+        await sdk.purchaseStoreProduct(product);
+        return token === generation && owner === identifiedUser
+          ? { kind: "purchased" }
+          : { kind: "cancelled" };
+      } catch (error) {
+        const outcome = purchase_outcome_from_error(error);
+        return outcome.kind === "purchased"
+          ? { kind: "failed", message: "Your purchase couldn't be confirmed. Please try again." }
+          : outcome;
       }
     },
     async restore() {

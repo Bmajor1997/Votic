@@ -22,7 +22,7 @@ jest.mock("expo-router", () => {
   };
 });
 const { TestFocusContext } = jest.requireMock<{ TestFocusContext: Context<boolean> }>("expo-router");
-const limit = { code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-01T00:00:00Z" };
+const limit = { code: "AI_CREDITS_EXHAUSTED", resetsAt: "2026-11-01T00:00:00Z" };
 const reading = jest.fn();
 function Feature() {
   const [focused, setFocused] = useState(true);
@@ -48,23 +48,43 @@ function setup() {
   jest.setSystemTime(new Date("2026-10-24T12:00:00Z"));
   return jest.spyOn(api, "subscription_options").mockResolvedValue({ current: null, upgrades: [] });
 }
-it("keeps reading usable and opens comparison only after an explicit View plans tap", async () => {
+it("explains calmly, keeps reading usable, and opens AI Usage only after an explicit tap", async () => {
   const plans = setup();
   const store = jest.spyOn(Linking, "openURL").mockResolvedValue(true);
   reading.mockClear();
   await render_with_providers(<Feature />);
   await act(async () => allowance_notifier()(limit));
-  expect(screen.getByText(/Your monthly AI allowance resets/)).toBeTruthy();
-  expect(screen.getByText(/You can wait for this reset/)).toBeTruthy();
+  expect(
+    screen.getByText(/You've used this month's AI usage\. It renews (October 31|November 1), 2026\./),
+  ).toBeTruthy();
+  expect(screen.getByText("Reading, listening, and your notes keep working as usual.")).toBeTruthy();
+  // No upgrade to another plan, and no raw credit counts.
+  expect(screen.queryByText(/plan|Pro\b|credit/i)).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Keep reading" }));
   expect(reading).toHaveBeenCalledTimes(1);
   expect(plans).not.toHaveBeenCalled();
   expect(store).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
   expect(screen.queryByText("Your subscription")).toBeNull();
-  await fireEvent.press(screen.getByRole("button", { name: "View plans" }));
-  expect(router.push).toHaveBeenCalledWith("/subscription");
+  await fireEvent.press(screen.getByRole("button", { name: "AI Usage" }));
+  expect(router.push).toHaveBeenCalledWith("/ai-usage");
+  expect(router.push).not.toHaveBeenCalledWith("/subscription");
   expect(store).not.toHaveBeenCalled();
+});
+it("can be dismissed, and the server's provider safeguard uses the same notice", async () => {
+  setup();
+  await render_with_providers(<Feature />);
+  await act(async () =>
+    allowance_notifier()({ code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-02T00:00:00Z" }),
+  );
+  expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Dismiss AI usage notice" }));
+  expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
+  // The same reset is not announced again in this session.
+  await act(async () =>
+    allowance_notifier()({ code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-02T00:00:00Z" }),
+  );
+  expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
 });
 it("clears on leaving the feature and does not repeat the upsell on return", async () => {
   setup();
