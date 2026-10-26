@@ -1,12 +1,10 @@
 import { DatabaseSync } from "node:sqlite";
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
-/** Server-owned, durable, idempotent RevenueCat purchase wallet. */
-export function create_credit_wallet(env, { now = Date.now } = {}) {
-  const path = env.VOTIC_AI_USAGE_DB;
-  if (!path || path === ":memory:") throw new Error("Credit purchases require a persistent VOTIC_AI_USAGE_DB.");
-  const db = new DatabaseSync(path);
-  db.exec(`PRAGMA busy_timeout=5000;
+/** The account-deletion marker, shared with the AI usage ledger in the same database. */
+export const account_deletion_key = (uid) => createHash("sha256").update(uid).digest("hex");
+/** Purchased credits. The AI credit ledger spends from these same tables inside its own transactions. */
+export const CREDIT_WALLET_SCHEMA = `
     CREATE TABLE IF NOT EXISTS credit_grants (
       event_id TEXT PRIMARY KEY, uid TEXT NOT NULL, transaction_id TEXT NOT NULL UNIQUE,
       product_id TEXT NOT NULL, credits INTEGER NOT NULL, created_at TEXT NOT NULL,
@@ -16,8 +14,18 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
       request_id TEXT PRIMARY KEY, uid TEXT NOT NULL, credits INTEGER NOT NULL,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS account_deletions (
+      uid_hash TEXT PRIMARY KEY, anonymous_id TEXT NOT NULL, requested_at TEXT NOT NULL, completed_at TEXT
+    );
     CREATE INDEX IF NOT EXISTS credit_grants_uid ON credit_grants(uid);
-    CREATE INDEX IF NOT EXISTS credit_spends_uid ON credit_spends(uid);`);
+    CREATE INDEX IF NOT EXISTS credit_spends_uid ON credit_spends(uid);`;
+
+/** Server-owned, durable, idempotent RevenueCat purchase wallet. */
+export function create_credit_wallet(env, { now = Date.now } = {}) {
+  const path = env.VOTIC_AI_USAGE_DB;
+  if (!path || path === ":memory:") throw new Error("Credit purchases require a persistent VOTIC_AI_USAGE_DB.");
+  const db = new DatabaseSync(path);
+  db.exec(`PRAGMA busy_timeout=5000;${CREDIT_WALLET_SCHEMA}`);
   const products = JSON.parse(env.VOTIC_CREDIT_PRODUCTS_JSON || "{}");
   if (!products || Array.isArray(products) || typeof products !== "object" ||
       Object.values(products).some(v => !Number.isSafeInteger(v) || v <= 0 || v > 100000))
@@ -40,6 +48,8 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
       if (!credits) return { processed: false };
       if (![uid, transaction, eventId].every(v => typeof v === "string" && v.length > 0 && v.length < 512) ||
           uid.startsWith("$RCAnonymousID:")) throw new Error("Purchase has no verified Votic account.");
+      // A purchase reported after its account was deleted has no account to credit.
+      if (db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(account_deletion_key(uid))) return { processed: false };
       db.prepare("INSERT OR IGNORE INTO credit_grants(event_id,uid,transaction_id,product_id,credits,created_at) VALUES(?,?,?,?,?,?)")
         .run(eventId, uid, transaction, product, credits, new Date(now()).toISOString());
       return { processed: true };

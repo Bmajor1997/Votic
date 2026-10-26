@@ -2,18 +2,16 @@ import { create_feedback_store } from "./feedback.js";
 import { DatabaseSync } from "node:sqlite";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { setInterval, clearInterval } from "node:timers";
+import { AiLimitError } from "./ai_errors.js";
+import { create_credit_ledger } from "./ai_credits.js";
+import { account_deletion_key } from "./credit_wallet.js";
 export const AI_EXECUTION_TIMEOUT_MS = 60_000;
 export const AI_EXECUTION_LEASE_MS = 90_000;
-const deletion_key = (uid) => createHash("sha256").update(uid).digest("hex");
+const deletion_key = account_deletion_key;
 
-export class AiLimitError extends Error {
-  constructor(message, code, resetsAt) {
-    super(message); this.status = 429; this.headers = { "Retry-After": "60" };
-    this.code = code; this.resetsAt = resetsAt;
-  }
-}
+export { AiLimitError };
 
 // USD per million tokens, Standard processing, verified 2026-10-05.
 const PRICES = {
@@ -79,6 +77,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
     CREATE TABLE IF NOT EXISTS client_events (
       day TEXT NOT NULL, code TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(day,code)
     );`);
+  const credits = create_credit_ledger(db, { now });
   const feedback = create_feedback_store(db, { now, accountDeleted: uid => Boolean(db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid))) });
   // Keep only the bounded financial-control window for anonymized deleted-account rows.
   const prune = () => {
@@ -104,6 +103,9 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
   };
   return {
     feedback,
+    credits,
+    /** Floor for provider safeguards when credits are the person's allowance. */
+    defaultLimits: { monthlyTokens: limits.user_tokens, monthlyBudgetUsd: limits.user_cost },
     reserve({ user_id, feature, model, input_bound, output_bound, rates, allowance }) {
       const started_at = now().toISOString(), month = started_at.slice(0, 7) + "-01T00:00:00.000Z", day = started_at.slice(0, 10) + "T00:00:00.000Z";
       const minute = new Date(Date.parse(started_at) - 60000).toISOString();
@@ -197,6 +199,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
         const row = db.prepare("SELECT anonymous_id FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid));
         db.prepare("DELETE FROM ai_reports WHERE user_id=?").run(uid);
         feedback.remove_user(uid);
+        credits.remove_user(uid);
         // Preserve global spending limits, without the original account identifier or provider linkage.
         db.prepare("UPDATE ai_usage SET user_id=?,provider_request_id=NULL,response_id=NULL WHERE user_id IN (?,?)")
           .run(row.anonymous_id, uid, "user:" + uid);

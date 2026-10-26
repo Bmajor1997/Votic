@@ -1,7 +1,7 @@
 /** Server-owned Premium verification. Never trust an entitlement sent by the phone. */
 export class PremiumVerificationError extends Error {
   constructor() {
-    super("Votic could not verify Premium right now. Please try again shortly.");
+    super("Votic could not verify your Votic Plus subscription right now. Please try again shortly.");
     this.status = 503;
   }
 }
@@ -49,6 +49,8 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
   };
   const authorize = async (uid) => (await subscription(uid)).allowed;
   authorize.subscription = subscription;
+  // A RevenueCat event (renewal, expiration, refund) means the remembered profile may be out of date.
+  authorize.forget = (uid) => { confirmed.delete(uid); };
   return authorize;
   async function verify(uid) {
     const controller = new AbortController();

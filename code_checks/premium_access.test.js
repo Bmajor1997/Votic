@@ -18,8 +18,8 @@ test("Premium accepts active/trial/paid-through/lifetime/grace and denies expire
   assert.equal(has_premium_entitlement(customer({ purchase_date: future }), "pro", now), false);
   assert.equal(has_premium_entitlement(customer({}), "other-entitlement", now), false);
   for (const entry of [{ expires_date: undefined }, { expires_date: "invalid" }, { purchase_date: null }, { grace_period_expires_date: "invalid" }])
-    assert.throws(() => has_premium_entitlement(customer(entry), "pro", now), /could not verify Premium/);
-  assert.throws(() => has_premium_entitlement({}, "pro", now), /could not verify Premium/);
+    assert.throws(() => has_premium_entitlement(customer(entry), "pro", now), /could not verify your Votic Plus/);
+  assert.throws(() => has_premium_entitlement({}, "pro", now), /could not verify your Votic Plus/);
 });
 
 test("RevenueCat checks use only the authenticated UID, encoded safely, and a backend key", async () => {
@@ -47,7 +47,7 @@ test("RevenueCat outages, missing keys and malformed bodies fail closed without 
     await assert.rejects(create_premium_authorizer(settings, { fetchImpl })("user"), (error) =>
       error.status === 503 && !/secret|detail|parse|key/.test(error.message));
   }
-  await assert.rejects(create_premium_authorizer({})("user"), /could not verify Premium/);
+  await assert.rejects(create_premium_authorizer({})("user"), /could not verify your Votic Plus/);
 });
 
 test("Premium verification deadlines cover a stalled response body, even if abort is ignored", async () => {
@@ -77,7 +77,7 @@ test("every Premium endpoint denies an authenticated unpaid account before proce
     for (const path of ["extract", "import-url", "scan", "voice-question-status", "transcribe-question", "help", "review"]) {
       const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "Help", uid: "paid-account", premium: true }) });
       assert.equal(response.status, 403, path);
-      assert.match((await response.json()).error, /Premium subscription is required/);
+      assert.match((await response.json()).error, /Votic Plus subscription is required/);
     }
     assert.equal(work, 0);
   });

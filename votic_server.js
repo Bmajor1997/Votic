@@ -2,7 +2,7 @@ import { create_credit_wallet, authorized_revenuecat_webhook } from "./app_parts
 import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -14,6 +14,7 @@ import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
+import { credit_cost, percent_remaining } from "./app_parts/ai_credits.js";
 import { AccountDeletionError, delete_account_data } from "./app_parts/account_deletion.js";
 import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -67,6 +68,7 @@ export function load_server_config(env = process.env) {
     max_json_bytes: positive_integer("VOTIC_MAX_JSON_BYTES", 500_000, 1, env),
     ai_daily_limit: positive_integer("VOTIC_AI_DAILY_LIMIT", 1_000, 1, env),
     ai_client_daily_limit: positive_integer("VOTIC_AI_CLIENT_DAILY_LIMIT", 100, 1, env),
+    monthly_credits: positive_integer("VOTIC_MONTHLY_CREDITS", 1_000, 1, env),
     trust_proxy: trusted_proxy_hops(env),
     client_keys: client_keys(env),
   };
@@ -195,10 +197,45 @@ export function create_votic_handler(options = {}) {
  };
  const premium_allowance = async (path, identity) => {
     if (!premium_required || !["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) return null;
-    if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Premium.");
-    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Premium subscription is required.");
-    if (!tiers.length || !authorize_premium.subscription) return null;
-    return verified_tier(tiers, await authorize_premium.subscription(identity.uid));
+    if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Plus.");
+    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Plus subscription is required.");
+    if (!authorize_premium.subscription) return null;
+    return credit_plan(identity.uid, await authorize_premium.subscription(identity.uid));
+ };
+ // The verified subscription's monthly AI credits, in its verified billing period. Null means credits are not
+ // enforced (no verifier that reports subscriptions, e.g. local development), and the token limits still apply.
+ const credit_plan = (uid, profile) => {
+    if (!profile?.allowed) return null;
+    const tier = verified_tier(tiers, profile);
+    const allowance = tier ? tier.monthlyCredits ?? null : config.monthly_credits;
+    return { uid, tier, profile, period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
+ };
+ const handle_ai_usage = async (request, response, identity, ai_client) => {
+    if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to see your AI usage.");
+    rate_limit(`${ai_client}:ai-usage`, 30);
+    await read_body(request, 1024, config.body_timeout_ms);
+    const purchase_products = credit_wallet ? Object.keys(JSON.parse(env.VOTIC_CREDIT_PRODUCTS_JSON)) : [];
+    if (!premium_required || !authorize_premium.subscription) {
+      send_json(response, 200, { status: "not-configured", plan: null, monthly: null, purchased: null, purchaseProducts: [] });
+      return;
+    }
+    // Throws PremiumVerificationError (503) when RevenueCat can't be reached: never a guessed percentage.
+    const plan = credit_plan(identity.uid, await authorize_premium.subscription(identity.uid));
+    const summary = usage_store.credits.summary(identity.uid, plan?.period ?? null);
+    const monthly = plan?.period ? {
+      percentRemaining: percent_remaining(summary.allowance, summary.used),
+      allowance: summary.allowance, used: summary.used, remaining: summary.remaining,
+      periodStart: plan.period.start, periodEnd: plan.period.end, resetsAt: plan.period.end,
+      // Calendar-month fallback when the store reported no billing end (for example a lifetime grant).
+      billingPeriodVerified: plan.period.verified,
+    } : null;
+    send_json(response, 200, {
+      status: plan ? (plan.period ? "active" : "unmetered") : "not-subscribed",
+      plan: plan ? { name: plan.tier?.name ?? "Votic Plus" } : null,
+      monthly,
+      purchased: { remaining: summary.purchased },
+      purchaseProducts: plan ? purchase_products : [],
+    });
  };
  // RevenueCat webhooks use a separate server secret and never trust app-originated grants.
  const handle_revenuecat_webhook = async (request, response) => {
@@ -210,6 +247,9 @@ export function create_votic_handler(options = {}) {
     const event = payload?.event;
     if (!event || typeof event !== "object" || Array.isArray(event)) throw new HttpError(400, "Invalid webhook event.");
     apply_revenuecat_event(credit_wallet, event, env.VOTIC_CREDIT_ALLOW_SANDBOX === "true");
+    // Subscription allowances are read from RevenueCat's REST profile, not from webhook order, so a late or
+    // repeated event can't grant a second allowance; it only makes the next request re-read the profile.
+    if (typeof event.app_user_id === "string") authorize_premium.forget?.(event.app_user_id);
     send_json(response, 200, { received: true });
  };
  const handler = async (request, response) => {
@@ -236,8 +276,24 @@ export function create_votic_handler(options = {}) {
    if (!identity) throw auth_error(request);
    // A signed-in account gets its own AI allowance; otherwise it is shared by network address.
    const ai_client = identity && typeof identity === "object" && identity.uid ? `user:${identity.uid}` : client;
-   let allowance = null;
-   const paid_fetch = (feature) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature, allowance });
+   let plan = null;
+   const paid_fetch = (feature, allowance) => accounted_fetch({ fetch_impl, store: usage_store, env, user_id: ai_client, feature, allowance });
+   /**
+    * One AI operation, paid for in credits: held before any provider call, charged only when the result reaches the
+    * person, and given back otherwise. Provider token and dollar safeguards still apply underneath.
+    */
+   const with_credits = async (plan, feature, price, operation) => {
+    if (!plan?.period) return operation(paid_fetch(feature, plan?.tier ?? null));
+    const request_id = randomUUID(), credits = usage_store.credits;
+    credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period });
+    try {
+      // An explicitly configured plan keeps its own safeguards; otherwise they follow the credits spent.
+      const safeguards = plan.tier ?? credits.safeguards(plan.uid, usage_store.defaultLimits);
+      const result = await operation(paid_fetch(feature, safeguards));
+      credits.charge(request_id);
+      return result;
+    } catch (error) { credits.release(request_id); throw error; }
+   };
    if (path.startsWith("/api/") && request.method !== "POST") throw new HttpError(405, "Method not allowed.", { Allow: "POST" });
    if (request.method === "POST" && path === "/api/delete-account") {
     if (!identity?.uid) throw new HttpError(401, "Sign in before deleting your account.");
@@ -292,7 +348,11 @@ export function create_votic_handler(options = {}) {
     await handle_subscription_options(request, response, identity, ai_client);
     return;
    }
-   allowance = await premium_allowance(path, identity);
+   if (request.method === "POST" && path === "/api/ai-usage") {
+    await handle_ai_usage(request, response, identity, ai_client);
+    return;
+   }
+   plan = await premium_allowance(path, identity);
    if (request.method === "POST" && path === "/api/extract") {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
     require_content_type(request, "application/octet-stream");
@@ -311,7 +371,7 @@ export function create_votic_handler(options = {}) {
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
         const limit = take_ai_call(ai_client);
         if (limit) throw new HttpError(limit === AI_LIMIT_MESSAGE ? 503 : 429, limit);
-        try { result = await extract_scanned_pdf_text(body, { env, fetch_impl: paid_fetch("pdf-ocr"), timeout_ms: remaining(), signal }); }
+        try { result = await with_credits(plan, "pdf-ocr", credit_cost("pdf-ocr", body.length), (fetch_impl) => extract_scanned_pdf_text(body, { env, fetch_impl, timeout_ms: remaining(), signal })); }
         catch (ocr_error) {
           if (ocr_error instanceof HttpError || ocr_error.status === 429) throw ocr_error;
           // The transcription reached its length limit; part of a document is not offered as the whole of it.
@@ -355,7 +415,7 @@ export function create_votic_handler(options = {}) {
       const limit_message = take_ai_call(ai_client);
       if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, limit_message);
       try {
-        const text = await extract_scan_text(name, body, { env, fetch_impl: paid_fetch("scan-ocr"), timeout_ms: Math.min(30_000, remaining()), signal });
+        const text = await with_credits(plan, "scan-ocr", credit_cost("scan-ocr"), (fetch_impl) => extract_scan_text(name, body, { env, fetch_impl, timeout_ms: Math.min(30_000, remaining()), signal }));
         if (!text) throw new HttpError(400, "Votic could not find readable text in this scanned page. Try again with better lighting and keep the page flat.");
         send_json(response, 200, { text });
       } catch (error) {
@@ -383,7 +443,7 @@ export function create_votic_handler(options = {}) {
     const limit_message = take_ai_call(ai_client);
     if (limit_message) throw new HttpError(429, limit_message);
     try {
-      const text = await transcribe_voice(body, { env, fetch_impl: paid_fetch("ask-votic-transcription"), timeout_ms: Math.max(config.ai_timeout_ms, 30000) });
+      const text = await with_credits(plan, "ask-votic-transcription", credit_cost("ask-votic-transcription"), (fetch_impl) => transcribe_voice(body, { env, fetch_impl, timeout_ms: Math.max(config.ai_timeout_ms, 30000) }));
       send_json(response, 200, { text });
     } catch (error) {
       if (error.status === 429) throw error;
@@ -408,9 +468,16 @@ export function create_votic_handler(options = {}) {
         const limit_message = env.OPENAI_API_KEY ? take_ai_call(ai_client) : null;
         if (!env.OPENAI_API_KEY) answer = "Answers about this document are temporarily unavailable. I can still help you use Votic without sending the document.";
         else if (limit_message) answer = `${limit_message} Your document remains open, and I can still help with Votic’s controls.`;
-        else try { ({ answer, sectionIndex, sectionTitle, quote } = await answer_document_question(question, safe_document, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style })); mode = "document-ai"; }
+        else try { ({ answer, sectionIndex, sectionTitle, quote } = await with_credits(plan, feature_name, credit_cost(feature_name, Buffer.byteLength(JSON.stringify({ question, document: safe_document, history: safe_history }), "utf8")), (fetch_impl) => answer_document_question(question, safe_document, safe_history, { env, fetch_impl, timeout_ms: config.ai_timeout_ms, style }))); mode = "document-ai"; }
         catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic document help unavailable; using built-in guidance", ai_failure_reason(error)); answer = "I could not answer from this document right now. Your document remains open, and I can still help with Votic’s controls."; }
-      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) { try { answer = await answer_with_ai(question, safe_history, { env, fetch_impl: paid_fetch(feature_name), timeout_ms: config.ai_timeout_ms, style, client: help_client }); mode = "ai"; } catch (error) { if (error.status === 429) throw error; logger.warn?.("Votic AI help unavailable; using built-in guidance", ai_failure_reason(error)); } }
+      } else if (env.OPENAI_API_KEY && !take_ai_call(ai_client)) {
+        try { answer = await with_credits(plan, feature_name, credit_cost("help"), (fetch_impl) => answer_with_ai(question, safe_history, { env, fetch_impl, timeout_ms: config.ai_timeout_ms, style, client: help_client })); mode = "ai"; }
+        catch (error) {
+          // Built-in help is free, so a used-up AI allowance still gets the built-in answer about using Votic.
+          if (error.status === 429 && error.code !== "AI_CREDITS_EXHAUSTED") throw error;
+          if (error.status !== 429) logger.warn?.("Votic AI help unavailable; using built-in guidance", ai_failure_reason(error));
+        }
+      }
       send_json(response, 200, { answer, mode, sectionIndex, sectionTitle, quote });
     return;
   }
@@ -422,7 +489,7 @@ export function create_votic_handler(options = {}) {
       const limit_message = take_ai_call(ai_client);
       if (limit_message) throw new HttpError(limit_message === AI_LIMIT_MESSAGE ? 503 : 429, `${limit_message} The local review is still available.`);
       try {
-        const review = await generate_review_with_ai(document, { env, fetch_impl: paid_fetch("document-review"), timeout_ms: config.ai_timeout_ms });
+        const review = await with_credits(plan, "document-review", credit_cost("document-review", Buffer.byteLength(JSON.stringify(document), "utf8")), (fetch_impl) => generate_review_with_ai(document, { env, fetch_impl, timeout_ms: config.ai_timeout_ms }));
         send_json(response, 200, { ...review, mode: "ai" });
       } catch (error) {
         if (error.status === 429) throw error;
@@ -487,7 +554,7 @@ export function validate_production_security(env = process.env) {
    throw new Error("VOTIC_AI_USAGE_DB must name a persistent private ledger when production AI is enabled.");
  if (Object.keys(env).some((name) => /^EXPO_PUBLIC_.*OPENAI/i.test(name))) throw new Error("OpenAI configuration must remain in backend environment variables.");
  if (env.NODE_ENV === "production" && !String(env.REVENUECAT_SECRET_API_KEY || "").trim())
-   throw new Error("REVENUECAT_SECRET_API_KEY is required when NODE_ENV=production to verify Votic Premium.");
+   throw new Error("REVENUECAT_SECRET_API_KEY is required when NODE_ENV=production to verify Votic Plus.");
  if (Object.keys(env).some((name) => /^EXPO_PUBLIC_.*REVENUECAT.*SECRET/i.test(name)))
    throw new Error("RevenueCat secret configuration must remain in backend environment variables.");
 }
@@ -549,7 +616,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(error instanceof AiLimitError && error.code === "AI_MONTHLY_ALLOWANCE" ? { code: error.code, resetsAt: error.resetsAt } : {}), ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(error instanceof AiLimitError && ["AI_MONTHLY_ALLOWANCE", "AI_CREDITS_EXHAUSTED"].includes(error.code) ? { code: error.code, resetsAt: error.resetsAt } : {}), ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {
