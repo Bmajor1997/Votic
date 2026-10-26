@@ -131,7 +131,7 @@ describe("Notes", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
     await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Biology" })[0]);
     expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(1);
-    expect(screen.getByText("1 selected")).toBeTruthy();
+    expect(screen.getByText("1 note selected")).toBeTruthy();
   });
 });
 
@@ -199,11 +199,50 @@ describe("Notes search, filters, and notebooks", () => {
     expect(screen.getByText(/· Pinned$/)).toBeTruthy();
   });
 
+  it("selects every note with Select all, and clears them with Deselect all", async () => {
+    await render_with_providers(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
+    expect(screen.getByText("Choose notes to ask about, share, or delete")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Delete selected notes" }).props.accessibilityState.disabled,
+    ).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: "Select all 3 notes" }));
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(3);
+    expect(screen.getByText("3 notes selected")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Deselect all notes" }));
+    expect(screen.queryAllByRole("checkbox", { checked: true })).toHaveLength(0);
+  });
+
+  it("deletes only the chosen notes, after asking, and moves them to Recently Deleted", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await render_with_providers(<Notes />, { documents });
+    await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
+    await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Biology" })[0]);
+    await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Psychology" })[0]);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete 2 notes" }));
+    expect(alert).toHaveBeenCalledWith(
+      "Remove 2 notes?",
+      expect.stringContaining("Recently Deleted"),
+      expect.any(Array),
+    );
+    // Cancel changes nothing.
+    const first = alert.mock.calls[0][2] as AlertButton[];
+    await act(async () => first.find((button) => button.text === "Cancel")?.onPress?.());
+    expect(screen.getByText("2 notes selected")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Delete 2 notes" }));
+    const buttons = alert.mock.calls[1][2] as AlertButton[];
+    await act(async () => buttons.find((button) => button.text === "Remove")?.onPress?.());
+    expect(screen.queryByText("Mitosis has phases.")).toBeNull();
+    expect(screen.queryByText("Chunking helps memory.")).toBeNull();
+    expect(await screen.findByText("1 saved passage in 1 notebook")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Select notes" })).toBeTruthy();
+  });
+
   it("asks Votic about selected notes by document and passage", async () => {
     await render_with_providers(<Notes />, { documents });
     await fireEvent.press(screen.getByRole("button", { name: "Select notes" }));
     await fireEvent.press(screen.getAllByRole("checkbox", { name: "Select note from Biology" })[0]);
-    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about 1 selected notes" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Ask Votic about 1 note" }));
     expect(router.push).toHaveBeenLastCalledWith({
       pathname: "/assistant",
       params: {
@@ -223,19 +262,20 @@ describe("Notes search, filters, and notebooks", () => {
 });
 
 describe("Quick Notes", () => {
-  it.each([{ emptyDocuments: [] }, { emptyDocuments: [test_document("empty-doc", "My Document")] }])(
-    "hides Quick Note when no notes exist and directs readers to a document",
-    async ({ emptyDocuments }) => {
-      await render_with_providers(<Notes />, { documents: emptyDocuments });
-      expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
-      if (emptyDocuments.length)
-        await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
-      expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
-      expect(screen.getByText("Save a passage while reading. Your notes will appear here.")).toBeTruthy();
-      await fireEvent.press(screen.getByRole("button", { name: "Open a document" }));
-      expect(router.push).toHaveBeenCalledWith("/documents");
-    },
-  );
+  it("hides Quick Note until a document has been added and directs readers to a document", async () => {
+    await render_with_providers(<Notes />, { documents: [] });
+    expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
+    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+    expect(screen.getByText("Save a passage while reading. Your notes will appear here.")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Open a document" }));
+    expect(router.push).toHaveBeenCalledWith("/documents");
+  });
+  it("offers Quick Note as soon as a document exists, even before any notes", async () => {
+    await render_with_providers(<Notes />, { documents: [test_document("empty-doc", "My Document")] });
+    expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
+    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+  });
   it("creates standalone Quick Notes once notes exist and keeps them in one notebook", async () => {
     await render_with_providers(<Notes />, { documents: [documents[0]] });
     await fireEvent.press(screen.getByRole("button", { name: "Quick Note" }));

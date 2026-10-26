@@ -17,6 +17,8 @@ import { useAccessibilityPreferences } from "../../src/accessibility/Accessibili
 import { DocumentCover } from "../../src/components/DocumentCover";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
+import { DocumentSelectButton, DocumentSelectionBar } from "../../src/documents/DocumentSelectionControls";
+import { useDocumentSelection } from "../../src/documents/useDocumentSelection";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { DocumentOpenSheet } from "../../src/documents/DocumentOpenSheet";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
@@ -24,7 +26,7 @@ import {
   SORTS,
   collection_summary,
   Sort,
-  file_type_label,
+  document_type_label,
   progress_label,
   readable_title,
   sort_documents,
@@ -99,6 +101,8 @@ export default function Documents() {
       : shelf;
     return sort_documents(matching, sort);
   }, [documents, collection, finishedOnly, query, sort]);
+  const visibleIds = useMemo(() => visible.map((document) => document.id), [visible]);
+  const selection = useDocumentSelection(visibleIds, library.removeDocument);
   const { filterCount, collectionLabel } = collection_summary(collection, sort, finishedOnly);
 
   function open(document: VoticDocument, mode: "read" | "listen") {
@@ -109,7 +113,8 @@ export default function Documents() {
     open_from(
       { current: source },
       transition,
-      { mode },
+      // "Listen" promises to read the document aloud, so it starts playing, as Continue Listening does.
+      mode === "listen" ? { mode, autoplay: "1" } : { mode },
       { text: readable_title(document.title), node: titleRefs.current[document.id] },
     );
   }
@@ -277,7 +282,9 @@ export default function Documents() {
                 <Text style={[s.textButtonLabel, { color: theme.accentText }]}>Reset</Text>
               </Pressable>
             ) : null}
+            <DocumentSelectButton selection={selection} count={visible.length} />
           </View>
+          <DocumentSelectionBar selection={selection} total={visibleIds.length} />
           {visible.length ? (
             <View style={s.libraryCards}>
               {visible.map((document, index) => {
@@ -299,12 +306,34 @@ export default function Documents() {
                       ]}
                     >
                       <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Open ${title}`}
-                        accessibilityHint={`${file_type_label(document.sourceName)}. ${progress_label(document)}. Choose Read or Listen.`}
-                        onPress={() => setOpeningDocument(document)}
+                        {...(selection.selecting
+                          ? {
+                              accessibilityRole: "checkbox" as const,
+                              accessibilityLabel: `Select ${title}`,
+                              accessibilityState: { checked: selection.selectedIds.includes(document.id) },
+                              onPress: () => selection.toggle(document.id),
+                            }
+                          : {
+                              accessibilityRole: "button" as const,
+                              accessibilityLabel: `Open ${title}`,
+                              accessibilityHint: `${document_type_label(document)}. ${progress_label(document)}. Choose Read or Listen.`,
+                              onPress: () => setOpeningDocument(document),
+                            })}
                         style={({ pressed }) => [s.rowMain, { opacity: pressed ? 0.7 : 1 }]}
                       >
+                        {selection.selecting ? (
+                          <Ionicons
+                            name={
+                              selection.selectedIds.includes(document.id)
+                                ? "checkmark-circle"
+                                : "ellipse-outline"
+                            }
+                            size={26}
+                            color={
+                              selection.selectedIds.includes(document.id) ? theme.accentText : theme.mutedText
+                            }
+                          />
+                        ) : null}
                         <DocumentCover document={document} size="lg" />
                         <View style={s.rowCopy}>
                           {sort === "recent" && index === 0 && document.lastOpenedAt ? (
@@ -320,7 +349,7 @@ export default function Documents() {
                             {title}
                           </Text>
                           <Text numberOfLines={1} style={[s.rowMeta, { color: theme.mutedText }]}>
-                            {file_type_label(document.sourceName)}
+                            {document_type_label(document)}
                             {document.collection ? ` · ${document.collection}` : ""}
                           </Text>
                           {excerpt ? (
@@ -359,15 +388,17 @@ export default function Documents() {
                           )}
                         </View>
                       </Pressable>
-                      <Pressable
-                        ref={index === 0 ? optionsTarget : undefined}
-                        accessibilityRole="button"
-                        accessibilityLabel={`More options for ${title}`}
-                        onPress={() => setMenuDocument(document)}
-                        style={s.more}
-                      >
-                        <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
-                      </Pressable>
+                      {selection.selecting ? null : (
+                        <Pressable
+                          ref={index === 0 ? optionsTarget : undefined}
+                          accessibilityRole="button"
+                          accessibilityLabel={`More options for ${title}`}
+                          onPress={() => setMenuDocument(document)}
+                          style={s.more}
+                        >
+                          <Ionicons name="ellipsis-horizontal" size={21} color={theme.mutedText} />
+                        </Pressable>
+                      )}
                     </View>
                   </View>
                 );

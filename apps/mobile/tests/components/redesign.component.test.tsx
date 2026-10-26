@@ -134,7 +134,11 @@ describe("Documents", () => {
       expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
       await fireEvent.press(screen.getByRole("button", { name: mode === "read" ? "Read" : "Listen" }));
       expect(router.push).toHaveBeenCalledTimes(1);
-      expect(router.push).toHaveBeenLastCalledWith({ pathname: "/reader", params: { mode } });
+      // Listen starts reading aloud straight away, like Continue Listening on Home.
+      expect(router.push).toHaveBeenLastCalledWith({
+        pathname: "/reader",
+        params: mode === "listen" ? { mode, autoplay: "1" } : { mode },
+      });
       expect(screen.queryByRole("button", { name: "Listen" })).toBeNull();
       await waitFor(async () => {
         const saved = JSON.parse(
@@ -227,6 +231,55 @@ describe("Documents", () => {
     expect(screen.queryByRole("button", { name: "Open Field Guide" })).toBeNull();
   });
 
+  it("selects one, several, or all documents and deletes only the chosen ones after asking", async () => {
+    const notes = test_document("doc-notes", "Lecture notes");
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await render_with_providers(<Documents />, { documents: [report, guide, notes] });
+    await fireEvent.press(screen.getByRole("button", { name: "Select documents" }));
+    expect(screen.getByText("Choose documents to delete")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "More options for Field Guide" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Delete selected documents" }).props.accessibilityState.disabled,
+    ).toBe(true);
+    await fireEvent.press(screen.getByRole("button", { name: "Select all 3 documents" }));
+    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(3);
+    await fireEvent.press(screen.getByRole("button", { name: "Deselect all documents" }));
+    expect(screen.queryAllByRole("checkbox", { checked: true })).toHaveLength(0);
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Select Field Guide" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Select Lecture notes" }));
+    expect(screen.getByText("2 documents selected")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Delete 2 documents" }));
+    expect(alert).toHaveBeenCalledWith(
+      "Delete 2 documents?",
+      expect.stringContaining("Recently Deleted"),
+      expect.any(Array),
+    );
+    const buttons = alert.mock.calls[0][2] as { text?: string; onPress?: () => void }[];
+    await act(async () => buttons.find((button) => button.text === "Delete")?.onPress?.());
+    expect(screen.queryByRole("button", { name: "Open Field Guide" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Open Lecture notes" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Select documents" })).toBeTruthy();
+  });
+
+  it("limits Select all and Delete to the documents a search is showing", async () => {
+    const alert = jest.spyOn(Alert, "alert").mockImplementation((_t, _m, buttons) => {
+      buttons?.find((button) => button.text === "Delete")?.onPress?.();
+    });
+    await render_with_providers(<Documents />, { documents: [report, guide] });
+    await fireEvent.press(screen.getByRole("button", { name: "Select documents" }));
+    await fireEvent.press(screen.getByRole("checkbox", { name: "Select q3 board report FINAL" }));
+    await fireEvent.changeText(screen.getByLabelText("Search documents"), "field");
+    // The report is hidden by the search, so it is no longer counted as chosen.
+    expect(screen.getByText("Choose documents to delete")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Select all 1 document" }));
+    await act(async () => fireEvent.press(screen.getByRole("button", { name: "Delete 1 document" })));
+    expect(alert).toHaveBeenCalledWith("Delete document?", expect.any(String), expect.any(Array));
+    await fireEvent.changeText(screen.getByLabelText("Search documents"), "");
+    expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Field Guide" })).toBeNull();
+  });
+
   it("explains when a search has no results", async () => {
     await render_with_providers(<Documents />, { documents: [report] });
     await fireEvent.changeText(screen.getByLabelText("Search documents"), "zebra");
@@ -243,7 +296,8 @@ describe("Notes", () => {
     expect(screen.queryByRole("button", { name: "Select notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL notebook" }));
     expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
+    // A document exists, so Quick Note is offered even before the first note.
+    expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
   });
 
   it("opens each document’s notebook and keeps Notes or Saved passages in the filter panel", async () => {

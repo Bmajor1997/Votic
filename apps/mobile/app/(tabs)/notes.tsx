@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
+  AccessibilityInfo,
   Alert,
   Pressable,
   Share,
@@ -13,6 +14,7 @@ import {
 } from "react-native";
 import { NotesEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
+import { SelectionBar, count_label } from "../../src/components/SelectionBar";
 import { controlSizes, radii, spacing, typography } from "../../src/design/tokens";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { NoteType } from "../../src/documents/types";
@@ -47,6 +49,8 @@ import {
   useWalkthroughTrigger,
 } from "../../src/walkthrough/WalkthroughProvider";
 
+const NOTE_NOUN = { one: "note", many: "notes" };
+
 export default function Notes() {
   const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
@@ -70,6 +74,8 @@ export default function Notes() {
     [documents, query, filter, notebookId, dateFilter, tagFilter],
   );
   const hasNotes = documents.some((document) => (document.savedPassages || []).length > 0);
+  // Quick Note waits only until something has been added to the library, not until a note exists.
+  const canQuickNote = hasNotes || documents.some((document) => !document.notebookKind);
   // Home opens a single note here by its stable IDs, so a Quick Note shows that note, not the whole notebook.
   const requested = useRequestedNote(documents, loaded, setViewing);
   const walkthrough = useWalkthrough();
@@ -175,6 +181,37 @@ export default function Notes() {
     // Shown after the options menu has closed, the first time something is pinned.
     if (!passage.pinned) setTimeout(() => walkthrough.request("notes.pinned"), 400);
   }
+  /** Every note the list is showing, so Select all matches what the person can see. */
+  const selectableIds = groups.flatMap((group) =>
+    group.passages.map((passage) => note_selection_id(group.document.id, passage.id)),
+  );
+  function toggle_all_notes() {
+    setSelectedIds((current) => (current.length >= selectableIds.length ? [] : selectableIds));
+  }
+  function confirm_remove_selected() {
+    const items = selected_items();
+    if (!items.length) return;
+    const many = items.length > 1;
+    Alert.alert(
+      many ? `Remove ${items.length} notes?` : "Remove from Notes?",
+      `${many ? "These notes and their saved passages move" : "This note and its saved passage move"} to Recently Deleted for 30 days. Restore them from Settings → Help.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: () => {
+            items.forEach(({ document, passage }) => removePassage(document.id, passage.id));
+            setSelectedIds([]);
+            setSelecting(false);
+            AccessibilityInfo.announceForAccessibility(
+              `${count_label(items.length, NOTE_NOUN)} moved to Recently Deleted.`,
+            );
+          },
+        },
+      ],
+    );
+  }
   function confirm_remove({ document, passage }: NoteItem) {
     Alert.alert(
       "Remove from Notes?",
@@ -192,7 +229,7 @@ export default function Notes() {
   }
 
   return (
-    <Screen title="Notes" titleAction={<QuickNoteAction visible={hasNotes} onPress={start_quick_note} />}>
+    <Screen title="Notes" titleAction={<QuickNoteAction visible={canQuickNote} onPress={start_quick_note} />}>
       <MissingNoteNotice visible={requested.missing} />
       {!notebook ? (
         <View style={{ gap: 6 }}>
@@ -288,51 +325,38 @@ export default function Notes() {
             </View>
           ) : null}
           {selecting ? (
-            <View
-              ref={selectTarget}
-              collapsable={false}
-              style={[s.selectionBar, { borderColor: theme.border, backgroundColor: theme.surface }]}
-            >
-              <Text accessibilityLiveRegion="polite" style={[s.selectedCount, { color: theme.text }]}>
-                {selectedIds.length ? `${selectedIds.length} selected` : "Choose notes to ask about or share"}
-              </Text>
-              <View style={s.selectionActions}>
-                {selectedIds.length ? (
-                  <>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Share ${selectedIds.length} selected notes`}
-                      onPress={() =>
-                        share_items(selected_items(), `${selectedIds.length} selected Votic notes`)
-                      }
-                      style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                    >
-                      <Ionicons name="share-outline" size={17} color={theme.text} />
-                      <Text style={[s.pillButtonText, { color: theme.text }]}>Share</Text>
-                    </Pressable>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Ask Votic about ${selectedIds.length} selected notes`}
-                      onPress={ask_selected}
-                      style={[s.askSelected, { backgroundColor: theme.accent }]}
-                    >
-                      <Ionicons name="sparkles-outline" size={16} color="#FFF" />
-                      <Text style={s.askSelectedText}>Ask Votic</Text>
-                    </Pressable>
-                  </>
-                ) : null}
+            <View ref={selectTarget} collapsable={false}>
+              <SelectionBar
+                count={selectedIds.length}
+                total={selectableIds.length}
+                noun={NOTE_NOUN}
+                prompt="Choose notes to ask about, share, or delete"
+                onToggleAll={toggle_all_notes}
+                onDelete={confirm_remove_selected}
+                onCancel={() => {
+                  setSelecting(false);
+                  setSelectedIds([]);
+                }}
+              >
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel="Cancel note selection"
-                  onPress={() => {
-                    setSelecting(false);
-                    setSelectedIds([]);
-                  }}
+                  accessibilityLabel={`Share ${count_label(selectedIds.length, NOTE_NOUN)}`}
+                  onPress={() => share_items(selected_items(), `${selectedIds.length} selected Votic notes`)}
                   style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >
-                  <Text style={[s.pillButtonText, { color: theme.mutedText }]}>Cancel</Text>
+                  <Ionicons name="share-outline" size={17} color={theme.text} />
+                  <Text style={[s.pillButtonText, { color: theme.text }]}>Share</Text>
                 </Pressable>
-              </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ask Votic about ${count_label(selectedIds.length, NOTE_NOUN)}`}
+                  onPress={ask_selected}
+                  style={[s.askSelected, { backgroundColor: theme.accent }]}
+                >
+                  <Ionicons name="sparkles-outline" size={16} color="#FFF" />
+                  <Text style={s.askSelectedText}>Ask Votic</Text>
+                </Pressable>
+              </SelectionBar>
             </View>
           ) : groups.length || !browsing ? (
             <View style={s.summaryRow}>
@@ -516,13 +540,6 @@ function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }
 const s = StyleSheet.create({
   summaryRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.xs },
   summary: { flex: 1, fontSize: 14 },
-  selectionBar: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.sm,
-    gap: spacing.sm,
-  },
-  selectionActions: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
   emptyAction: {
     minHeight: 52,
     alignSelf: "stretch",
@@ -544,7 +561,6 @@ const s = StyleSheet.create({
     gap: 5,
   },
   pillButtonText: { fontSize: 13, fontWeight: "800" },
-  selectedCount: { fontSize: 14, fontWeight: "700" },
   askSelected: {
     minHeight: 44,
     borderRadius: radii.pill,
