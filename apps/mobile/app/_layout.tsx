@@ -33,6 +33,25 @@ export function ErrorBoundary({ retry }: { retry: () => Promise<void> }) {
 // Keep the launch screen up until Votic knows whether to show Welcome, setup, or Home.
 Promise.resolve(SplashScreen.preventAutoHideAsync?.()).catch(() => {});
 
+type StageInputs = {
+  setup: { personalized: boolean; loading: boolean };
+  subscription: { access: boolean; checking: boolean };
+};
+
+/** Where this person is: signed in, set up, subscribed, or still waiting to find out. */
+function app_stage(
+  signedIn: boolean,
+  { personalized: setupDone, loading }: StageInputs["setup"],
+  subscription: StageInputs["subscription"],
+) {
+  const personalized = signedIn && setupDone;
+  // Signing in, finishing setup, and subscribing are separate facts. Only the store grants access.
+  const subscribed = personalized && subscription.access;
+  // Wait for this account's setup, and for a returning subscriber's status, rather than flash the wrong screen.
+  const waiting = (signedIn && loading) || (personalized && !subscription.access && subscription.checking);
+  return { signedIn, personalized, subscribed, waiting };
+}
+
 function ThemedStack() {
   const { theme } = useVoticTheme();
   const { user, hydrated } = useAuth();
@@ -51,12 +70,8 @@ function ThemedStack() {
     return () => cancelAnimationFrame(frame);
   }, [user, hydrated, setup.loading, subscription.checking]);
   if (!hydrated) return null;
-  const signedIn = Boolean(user);
-  const personalized = signedIn && setup.personalized;
-  // Signing in, finishing setup, and subscribing are separate facts. Only the store grants access.
-  const subscribed = personalized && subscription.access;
-  // Wait for this account's setup, and for a returning subscriber's status, rather than flash the wrong screen.
-  if ((signedIn && setup.loading) || (personalized && !subscription.access && subscription.checking))
+  const { signedIn, personalized, subscribed, waiting } = app_stage(Boolean(user), setup, subscription);
+  if (waiting)
     return (
       <View
         accessible
