@@ -43,6 +43,11 @@ it("shows all six Votic Plus benefits and markets AI usage without credit counts
     "Generous monthly AI usage",
   ])
     expect(screen.getByText(title)).toBeTruthy();
+  // Each benefit starts with a check mark, and screen readers hear that it's included.
+  const benefits = screen.getByLabelText("Included with Votic Plus");
+  expect(within(benefits).getAllByTestId("benefit-check", { includeHiddenElements: true })).toHaveLength(6);
+  for (const benefit of PLUS_BENEFITS)
+    expect(screen.getByLabelText(`${benefit.title}. ${benefit.detail} Included.`)).toBeTruthy();
   expect(screen.queryByText(/credit/i)).toBeNull();
   expect(screen.queryByText(/1,000|1000/)).toBeNull();
   expect(screen.queryByText(/Pro\b/)).toBeNull();

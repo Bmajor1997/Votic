@@ -10,40 +10,32 @@ import { Rise } from "../motion/Rise";
 import { PAYWALL_GOALS } from "./paywallPresentation";
 import { paywallStyles as p } from "./paywallStyles";
 
-type IconName = React.ComponentProps<typeof Ionicons>["name"];
-
 /**
  * The six Votic Plus benefits. Each one describes something Votic does today; the AI allowance is described as
  * generous monthly usage rather than a number of credits.
  */
-export const PLUS_BENEFITS: { icon: IconName; title: string; detail: string }[] = [
+export const PLUS_BENEFITS: { title: string; detail: string }[] = [
   {
-    icon: "headset-outline",
     title: "Read and listen to your documents",
     detail: "Natural voices at your pace, with each word highlighted as it's read.",
   },
   {
-    icon: "chatbubble-ellipses-outline",
     title: "Ask AI about your documents",
     detail: "Get answers grounded in what you're reading, typed or spoken.",
   },
   {
-    icon: "sparkles-outline",
     title: "AI-powered summaries",
     detail: "Catch up on what you've read, or summarize a conversation.",
   },
   {
-    icon: "bookmark-outline",
     title: "Save notes and bookmarks",
     detail: "Bookmark passages and add your own notes as you read.",
   },
   {
-    icon: "document-text-outline",
     title: "Import almost anything",
     detail: "PDFs, ebooks, Word files, webpages, and scanned documents.",
   },
   {
-    icon: "infinite-outline",
     title: "Generous monthly AI usage",
     detail: "Renews with your subscription every month.",
   },
@@ -106,10 +98,18 @@ export function PaywallBenefits() {
             },
           ]}
         >
-          <View accessible accessibilityLabel={`${benefit.title}. ${benefit.detail}`} style={s.benefitRow}>
-            <View style={[s.featureIcon, { backgroundColor: theme.brandTint }]}>
-              <Ionicons name={benefit.icon} size={21} color={theme.accentText} />
-            </View>
+          <View
+            accessible
+            accessibilityLabel={`${benefit.title}. ${benefit.detail} Included.`}
+            style={s.benefitRow}
+          >
+            <Ionicons
+              testID="benefit-check"
+              name="checkmark-circle"
+              size={24}
+              color={theme.accentText}
+              style={s.check}
+            />
             <View style={s.benefitCopy}>
               <Text style={[p.benefitTitle, { color: theme.text }]}>{benefit.title}</Text>
               <Text style={[p.detail, { color: theme.mutedText }]}>{benefit.detail}</Text>
@@ -179,8 +179,9 @@ const s = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   cardTitle: { paddingTop: 16, paddingBottom: 4 },
   row: { paddingVertical: 12 },
-  benefitRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  featureIcon: { width: 40, height: 40, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  // The check sits beside the benefit's title, even when its description wraps.
+  benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
+  check: { marginTop: -1 },
   benefitCopy: { flex: 1, gap: 4 },
   helpCard: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 16 },
   help: { gap: 10, paddingBottom: 16 },
