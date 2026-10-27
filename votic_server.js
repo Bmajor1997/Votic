@@ -547,12 +547,15 @@ async function serve_public_file(request,response,path,env,options) {
    response.writeHead(200).end(request.method === "HEAD" ? undefined : body);
 }
 export function create_votic_server(options = {}) { const handler = create_votic_handler(options); const server = createServer(handler); server.on("close", handler.close); return server; }
-export function validate_production_security(env = process.env) {
+function validate_credit_purchase_security(env) {
  if (env.NODE_ENV === "production" && env.VOTIC_CREDIT_ALLOW_SANDBOX === "true")
    throw new Error("VOTIC_CREDIT_ALLOW_SANDBOX must be disabled in production.");
  if (env.NODE_ENV === "production" && env.VOTIC_CREDIT_PRODUCTS_JSON &&
      (typeof env.REVENUECAT_WEBHOOK_SECRET !== "string" || env.REVENUECAT_WEBHOOK_SECRET.length < 24))
    throw new Error("REVENUECAT_WEBHOOK_SECRET must contain at least 24 characters before production credit purchases are enabled.");
+}
+export function validate_production_security(env = process.env) {
+ validate_credit_purchase_security(env);
  if (env.NODE_ENV === "production" && !String(env.FIREBASE_PROJECT_ID || "").trim())
    throw new Error("FIREBASE_PROJECT_ID is required when NODE_ENV=production so Votic API routes cannot start without authentication.");
  if (env.NODE_ENV === "production" && env.OPENAI_API_KEY && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
