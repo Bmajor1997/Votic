@@ -187,12 +187,12 @@ function contrast(a: string, b: string) {
   return (bright + 0.05) / (dim + 0.05);
 }
 describe("Home palette contrast", () => {
-  it("keeps card colors distinct with solid forest green activity and soft lavender notes", () => {
+  it("keeps card colors distinct with deep jade activity and soft lavender notes", () => {
     const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
     for (const dark of [false, true]) {
       const surfaces = tones.map((tone) => widget_palette(dark, tone).surface);
       expect(new Set(surfaces).size).toBe(tones.length);
-      expect(widget_palette(dark, "activity").surface).toBe("#163B35");
+      expect(widget_palette(dark, "activity").surface).toBe("#205B53");
       expect(widget_palette(dark, "notes").surface).toBe("#C9BEDC");
       for (const hex of surfaces) expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
     }
