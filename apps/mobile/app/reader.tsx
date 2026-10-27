@@ -196,7 +196,15 @@ function ReaderContent() {
     completeDocument,
     updatePlaybackRate,
   } = useDocumentLibrary();
-  const { showSaved, titleNode, rootNode: readerRoot, titleOpacity, bookmarkTrigger } = useReaderMotion();
+  const {
+    showSaved,
+    titleNode,
+    rootNode: readerRoot,
+    titleOpacity,
+    bookmarkTrigger,
+    closing,
+    startReaderTransition: start_reader_transition,
+  } = useReaderMotion();
   const activeId = activeDocument?.id;
   const nextUp = useMemo(() => next_up(documents, activeId), [documents, activeId]);
   const passages = useMemo(
@@ -268,9 +276,7 @@ function ReaderContent() {
   const scrollOffset = useRef(0);
   const viewportHeight = useRef(0);
   const manuallyScrolling = useRef(false);
-  const closing = useRef(false);
   const readerPrepared = useRef(false);
-  const transitionStarted = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
@@ -867,11 +873,6 @@ function ReaderContent() {
     }
     // Cleanup starts immediately; a slow native speech promise must not hold navigation hostage.
     transition.closeReader(() => router.back());
-  }
-  function start_reader_transition() {
-    if (transitionStarted.current || closing.current) return;
-    transitionStarted.current = true;
-    transition.beginReader();
   }
   function prepare_reader() {
     if (readerPrepared.current || !viewportHeight.current) return;
