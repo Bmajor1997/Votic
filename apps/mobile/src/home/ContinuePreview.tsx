@@ -1,3 +1,4 @@
+import { useVoticTheme } from "../theme/ThemeProvider";
 import { useMemo } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { split_passages } from "../documents/passages";
@@ -8,6 +9,7 @@ import { saved_excerpt } from "./savedExcerpt";
 
 /** Text already stored on device, using the same passage boundaries as Reader and speech. */
 export function ContinuePreview({ document }: { document: VoticDocument }) {
+  const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
   const passages = useMemo(() => split_passages(document.plainText), [document.plainText]);
   const excerpt = useMemo(
@@ -18,9 +20,16 @@ export function ContinuePreview({ document }: { document: VoticDocument }) {
     <View testID="home-position-preview" style={[s.preview, { width: width <= 350 ? 104 : 132 }]}>
       <Text style={s.label}>{excerpt ? "AT YOUR SAVED POSITION" : "DOCUMENT PREVIEW"}</Text>
       <View style={s.sheets}>
-        <View accessible={false} pointerEvents="none" style={s.backSheet} />
-        <View testID="home-preview-paper" style={s.page}>
-          <Text numberOfLines={fontScale > 1.3 ? 5 : 7} style={s.excerpt}>
+        <View
+          accessible={false}
+          pointerEvents="none"
+          style={[s.backSheet, { backgroundColor: theme.surfaceMuted }]}
+        />
+        <View
+          testID="home-preview-paper"
+          style={[s.page, { backgroundColor: theme.background, borderColor: theme.border }]}
+        >
+          <Text numberOfLines={fontScale > 1.3 ? 5 : 7} style={[s.excerpt, { color: theme.text }]}>
             {excerpt || "Open this document to pick up where you left off."}
           </Text>
         </View>
@@ -39,13 +48,10 @@ const s = StyleSheet.create({
     bottom: 0,
     left: 5,
     borderRadius: 3,
-    backgroundColor: "#E3D5B6A6",
     transform: [{ rotate: "3deg" }],
   },
   page: {
     minHeight: 184,
-    backgroundColor: "#F4ECD8EB",
-    borderColor: "#FFF9E8B3",
     borderWidth: 1,
     borderRadius: 3,
     paddingHorizontal: 12,
@@ -57,5 +63,5 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 2,
   },
-  excerpt: { ...editorial, color: "#40382C", fontSize: 12, lineHeight: 18, letterSpacing: 0 },
+  excerpt: { ...editorial, fontSize: 12, lineHeight: 18, letterSpacing: 0 },
 });

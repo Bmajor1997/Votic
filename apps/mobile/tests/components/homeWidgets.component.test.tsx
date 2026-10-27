@@ -100,6 +100,9 @@ describe("Colorful Home cards", () => {
       expect(StyleSheet.flatten(screen.getByTestId("note-preview-type").props.style).backgroundColor).toBe(
         note_palette(featured).surface,
       );
+      expect(StyleSheet.flatten(screen.getByTestId("home-preview-paper").props.style).backgroundColor).toBe(
+        mode === "dark" ? "#000000" : "#FFFFFF",
+      );
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");
       expect(StyleSheet.flatten(read.props.style).minHeight).toBeGreaterThanOrEqual(48);

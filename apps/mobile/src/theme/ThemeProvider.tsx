@@ -68,20 +68,20 @@ export function mix(a: string, b: string, amount: number) {
 const SEPIA_ACCENT_SHADE = 0.12;
 const palettes = {
   light: {
-    background: "#FFFCF7",
+    background: "#FFFFFF",
     surface: "#FFFFFF",
     surfaceMuted: "#F5F5F4",
     text: "#26344B",
     mutedText: "#626B78",
-    border: "#E5DFD5",
+    border: "#E5E7EB",
   },
   dark: {
-    background: "#292D32",
-    surface: "#32373D",
-    surfaceMuted: "#24282D",
+    background: "#000000",
+    surface: "#121212",
+    surfaceMuted: "#1C1C1C",
     text: "#FAFAF9",
     mutedText: "#D1D5DB",
-    border: "#4B5158",
+    border: "#424242",
   },
   sepia: {
     background: "#F4ECD8",
