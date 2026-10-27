@@ -1,3 +1,4 @@
+import { verify } from "node:crypto";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
@@ -65,4 +66,24 @@ it("Expo dev-tool schemas keep validating configuration and CLI output with patc
   expect(command.safeParse({ command: "inspect", limit: "3" }).success).toBe(false);
   expect(command.safeParse({ command: "inspect", extra: true }).success).toBe(false);
   expect(command.safeParse({ command: "not-a-command" }).success).toBe(false);
+});
+
+it("Expo's installed code-signing consumer works with patched node-forge and rejects altered data", () => {
+  const signing = read("@expo/code-signing-certificates") as typeof import("@expo/code-signing-certificates");
+  const keyPair = signing.generateKeyPair();
+  const certificate = signing.generateSelfSignedCodeSigningCertificate({
+    keyPair,
+    validityNotBefore: new Date(Date.now() - 60_000),
+    validityNotAfter: new Date(Date.now() + 60_000),
+    commonName: "Votic compatibility test",
+  });
+  expect(() => signing.validateSelfSignedCertificate(certificate, keyPair)).not.toThrow();
+  const payload = Buffer.from("Votic test manifest");
+  const signature = Buffer.from(
+    signing.signBufferRSASHA256AndVerify(keyPair.privateKey, certificate, payload),
+    "base64",
+  );
+  const { publicKeyPEM } = signing.convertKeyPairToPEM(keyPair);
+  expect(verify("sha256", payload, publicKeyPEM, signature)).toBe(true);
+  expect(verify("sha256", Buffer.from("Altered manifest"), publicKeyPEM, signature)).toBe(false);
 });
