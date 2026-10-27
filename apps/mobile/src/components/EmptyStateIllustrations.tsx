@@ -57,6 +57,6 @@ const s = StyleSheet.create({
   search: { width: 150, height: 126, marginBottom: 8 },
   // An explicit size: a bundled image otherwise takes its own pixel size (480×480) and ignores the box.
   layer: { position: "absolute", top: 0, left: 0, width: "100%", height: "100%" },
-  notes: { width: 132, height: 120 },
+  notes: { width: 132, height: 120, backgroundColor: "transparent" },
   documents: { width: 140, height: 128 },
 });

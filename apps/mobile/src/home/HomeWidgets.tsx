@@ -53,7 +53,13 @@ export function SectionHeader({
 // ---------- This week ----------
 
 /** Home points to Documents when there is no unfinished document to continue. */
-export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => void; targetRef?: Target }) {
+export function EmptyContinueWidget({
+  hasDocuments,
+  targetRef,
+}: {
+  hasDocuments: boolean;
+  targetRef?: Target;
+}) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "chapter");
   return (
@@ -76,20 +82,12 @@ export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => v
             Your next read starts here
           </Text>
           <Text style={[s.emptyMessage, { color: colors.detail }]}>
-            Find your next document to read or listen to.
+            {hasDocuments
+              ? "Go to Documents to choose your next read."
+              : "Go to Documents to upload your first file."}
           </Text>
         </View>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Browse documents"
-        accessibilityHint="Opens Documents, where you can choose a file or add one"
-        onPress={onBrowse}
-        style={({ pressed }) => [s.emptyAdd, { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 }]}
-      >
-        <Ionicons name="folder-open-outline" size={20} color={colors.onStrong} />
-        <Text style={[s.emptyAddText, { color: colors.onStrong }]}>Browse documents</Text>
-      </Pressable>
     </View>
   );
 }
@@ -577,16 +575,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyAdd: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  emptyAddText: { fontSize: 16, fontWeight: "800" },
+
   emptyPanel: {
     flexDirection: "row",
     alignItems: "flex-start",

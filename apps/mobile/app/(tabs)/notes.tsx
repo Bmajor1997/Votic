@@ -436,20 +436,10 @@ export default function Notes() {
             Your notes will appear here
           </Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>
-            Save a passage while reading. Your notes will appear here.
+            {documents.some((document) => !document.notebookKind)
+              ? "Open a document from Documents, then save a passage or add a note while reading."
+              : "Go to Documents to upload your first file, then save a passage or add a note while reading."}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Open a document"
-            onPress={() => router.push("/documents")}
-            style={({ pressed }) => [
-              s.emptyAction,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
-            ]}
-          >
-            <Ionicons name="book-outline" size={19} color="#FFF" />
-            <Text style={s.emptyActionText}>Open a document</Text>
-          </Pressable>
         </View>
       )}
       <NoteViewer
@@ -540,17 +530,6 @@ function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }
 const s = StyleSheet.create({
   summaryRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: spacing.xs },
   summary: { flex: 1, fontSize: 14 },
-  emptyAction: {
-    minHeight: 52,
-    alignSelf: "stretch",
-    borderRadius: radii.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  emptyActionText: { color: "#FFF", fontSize: 16, fontWeight: "800" },
   pillButton: {
     minHeight: 44,
     borderWidth: 1,
@@ -627,7 +606,12 @@ const s = StyleSheet.create({
   },
   clearFiltersText: { fontSize: 12, fontWeight: "800" },
   list: { gap: spacing.md },
-  empty: { alignItems: "center", paddingVertical: spacing.lg, gap: spacing.sm },
+  empty: {
+    backgroundColor: "transparent",
+    alignItems: "center",
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+  },
   emptyTitle: { ...typography.sectionTitle },
   emptyCopy: { ...typography.body, textAlign: "center" },
 });

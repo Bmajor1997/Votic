@@ -1,7 +1,8 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Alert, AlertButton } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, AlertButton, StyleSheet } from "react-native";
 import { create_document_store } from "../../src/documents/documentStorage";
 import Notes from "../../app/(tabs)/notes";
 import { router } from "../mocks/expoRouter";
@@ -262,19 +263,34 @@ describe("Notes search, filters, and notebooks", () => {
 });
 
 describe("Quick Notes", () => {
-  it("hides Quick Note until a document has been added and directs readers to a document", async () => {
-    await render_with_providers(<Notes />, { documents: [] });
-    expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
-    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
-    expect(screen.getByText("Save a passage while reading. Your notes will appear here.")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Open a document" }));
-    expect(router.push).toHaveBeenCalledWith("/documents");
-  });
+  it.each(["light", "dark"])(
+    "keeps the empty Notes illustration transparent with guidance in %s",
+    async (appearanceMode) => {
+      await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
+      await render_with_providers(<Notes />, { documents: [] });
+      expect(
+        StyleSheet.flatten(screen.getByLabelText("Illustrated notebook and pencil").props.style)
+          .backgroundColor,
+      ).toBe("transparent");
+      expect(screen.queryByRole("button", { name: "Quick Note" })).toBeNull();
+      expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Go to Documents to upload your first file, then save a passage or add a note while reading.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Open a document" })).toBeNull();
+    },
+  );
   it("offers Quick Note as soon as a document exists, even before any notes", async () => {
     await render_with_providers(<Notes />, { documents: [test_document("empty-doc", "My Document")] });
     expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
     expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+    expect(
+      screen.getByText("Open a document from Documents, then save a passage or add a note while reading."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open a document" })).toBeNull();
   });
   it("creates standalone Quick Notes once notes exist and keeps them in one notebook", async () => {
     await render_with_providers(<Notes />, { documents: [documents[0]] });

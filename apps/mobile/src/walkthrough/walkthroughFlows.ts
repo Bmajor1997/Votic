@@ -138,7 +138,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         when: (c) => !c.hasContinue && Boolean(c.hasStart),
         title: "Welcome to Home",
         message:
-          "Browse documents to choose your next read or add a file. Continue reading and listening here afterward.",
+          "Go to Documents to choose a read or upload a file. Continue reading and listening here afterward.",
       },
       {
         target: "home.week",

@@ -66,7 +66,7 @@ export default function Home() {
         </View>
       ) : null}
       {loaded && !featured ? (
-        <EmptyContinueWidget onBrowse={() => router.push("/documents")} targetRef={startTarget} />
+        <EmptyContinueWidget hasDocuments={documents.length > 0} targetRef={startTarget} />
       ) : null}
       {featured ? (
         <ContinueCard

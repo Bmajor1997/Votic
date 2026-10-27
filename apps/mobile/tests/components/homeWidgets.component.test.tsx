@@ -224,7 +224,8 @@ describe("Home palette contrast", () => {
 });
 
 describe("Home with an empty library", () => {
-  it("keeps Home's sections, each saying what will show up there", async () => {
+  it.each(["light", "dark"])("keeps empty Home sections with guidance in %s mode", async (appearanceMode) => {
+    await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
     await render_with_providers(<Home />, { onboarding: { checklistDismissed: false } });
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
     expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
@@ -232,8 +233,8 @@ describe("Home with an empty library", () => {
     expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Upload a document" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Browse documents" }));
-    expect(router.push).toHaveBeenCalledWith("/documents");
+    expect(screen.queryByRole("button", { name: "Browse documents" })).toBeNull();
+    expect(screen.getByText("Go to Documents to upload your first file.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
     expect(screen.getByText("No activity")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
@@ -245,13 +246,14 @@ describe("Home with an empty library", () => {
   });
 });
 
-it("offers browsing when every document is finished, while keeping recent documents", async () => {
+it("offers guidance when every document is finished, while keeping recent documents", async () => {
   await render_with_providers(<Home />, {
     documents: [test_document("finished", "Finished book", { progress: 1, completedAt: 5 })],
     onboarding: { checklistDismissed: false },
   });
   expect(screen.getByRole("header", { name: "Your next read starts here" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Finished book" })).toBeTruthy();
+  expect(screen.getByText("Go to Documents to choose your next read.")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
 });

@@ -204,7 +204,7 @@ describe("Home walkthrough", () => {
     expect(screen.getByText("Welcome to Home")).toBeTruthy();
     expect(
       screen.getByText(
-        "Browse documents to choose your next read or add a file. Continue reading and listening here afterward.",
+        "Go to Documents to choose a read or upload a file. Continue reading and listening here afterward.",
       ),
     ).toBeTruthy();
     expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
