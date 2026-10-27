@@ -1,8 +1,9 @@
+import { editorial } from "../../design/editorial";
+import { widget_palette } from "../../home/widgetDesign";
 import { FeedbackPop } from "../../motion/FeedbackPop";
 import { saved_motion_trigger, useMotionFeedback } from "../../motion/MotionFeedback";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { DocumentCover } from "../../components/DocumentCover";
 import { document_type_color } from "../../components/DocumentTypeIcon";
 import { readable_title } from "../../documents/documentDisplay";
 import { controlSizes, radii, spacing } from "../../design/tokens";
@@ -39,6 +40,7 @@ export function NoteGroupCard({
   previewLimit?: number;
 }) {
   const { theme } = useVoticTheme();
+  const colors = widget_palette(theme.isDark, "notes");
   const { event } = useMotionFeedback();
   const color = document_type_color(document.sourceName);
   const noteCount = passages.filter((passage) => passage.note.trim()).length;
@@ -47,24 +49,21 @@ export function NoteGroupCard({
   const shown = previewLimit ? passages.slice(0, previewLimit) : passages;
   const hidden = passages.length - shown.length;
   return (
-    <View style={[s.group, theme.elevation, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+    <View style={[s.group, { borderColor: colors.border, backgroundColor: theme.background }]}>
       {!inNotebook ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open ${title} notebook`}
           accessibilityHint={`${noteCount} ${noteCount === 1 ? "note" : "notes"}, ${savedCount} saved ${savedCount === 1 ? "passage" : "passages"}`}
           onPress={onOpenNotebook}
-          style={({ pressed }) => [
-            s.header,
-            { backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
-          ]}
+          style={({ pressed }) => [s.header, { backgroundColor: pressed ? colors.art : colors.surface }]}
         >
-          <DocumentCover document={document} size="sm" />
+          <Ionicons name="create-outline" size={22} color={colors.ink} />
           <View style={s.headerCopy}>
-            <Text numberOfLines={2} style={[s.documentTitle, { color: theme.text }]}>
+            <Text numberOfLines={2} style={[s.documentTitle, { color: colors.ink }]}>
               {title} Notebook
             </Text>
-            <Text style={[s.counts, { color: theme.mutedText }]}>
+            <Text style={[s.counts, { color: colors.detail }]}>
               {noteCount} {noteCount === 1 ? "note" : "notes"} · {savedCount}{" "}
               {savedCount === 1 ? "passage" : "passages"}
             </Text>
@@ -72,7 +71,7 @@ export function NoteGroupCard({
           {inNotebook ? (
             <Ionicons name="book-outline" size={20} color={theme.accent} />
           ) : (
-            <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />
+            <Ionicons name="chevron-forward" size={20} color={colors.detail} />
           )}
         </Pressable>
       ) : null}
@@ -86,8 +85,8 @@ export function NoteGroupCard({
               style={[
                 s.row,
                 {
-                  borderTopColor: theme.border,
-                  backgroundColor: passage.tags?.includes("votic") ? theme.brandTint : theme.surface,
+                  borderTopColor: colors.border,
+                  backgroundColor: "#F8F4FC",
                 },
               ]}
             >
@@ -114,7 +113,7 @@ export function NoteGroupCard({
                   <Ionicons
                     name={selected ? "checkmark-circle" : "ellipse-outline"}
                     size={23}
-                    color={selected ? theme.accentText : theme.mutedText}
+                    color={selected ? colors.strong : colors.detail}
                   />
                 </Pressable>
               ) : null}
@@ -124,29 +123,29 @@ export function NoteGroupCard({
                 onPress={() => (selecting ? onToggleSelected(selectionId) : onView({ document, passage }))}
                 style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
               >
-                <Text style={[s.meta, { color: theme.mutedText }]}>
+                <Text style={[s.meta, { color: colors.detail }]}>
                   {hasNote ? note_type_label(passage.noteType) : "Saved passage"} ·{" "}
                   {date_label(passage.updatedAt)}
                   {passage.pinned ? " · Pinned" : ""}
                 </Text>
                 {hasNote ? (
                   <View style={s.titleRow}>
-                    <Text numberOfLines={1} style={[s.title, { color: theme.text }]}>
+                    <Text numberOfLines={1} style={[s.title, { color: colors.ink }]}>
                       {automatic_note_title(passage)}
                     </Text>
                     {passage.tags?.includes("votic") ? (
-                      <View style={[s.voticBadge, { backgroundColor: theme.sentenceHighlight }]}>
-                        <Ionicons name="sparkles" size={12} color={theme.accentText} />
-                        <Text style={[s.voticBadgeText, { color: theme.accentText }]}>Votic</Text>
+                      <View style={[s.voticBadge, { backgroundColor: colors.art }]}>
+                        <Ionicons name="sparkles" size={12} color={colors.strong} />
+                        <Text style={[s.voticBadgeText, { color: colors.strong }]}>Votic</Text>
                       </View>
                     ) : null}
                   </View>
                 ) : null}
-                <Text numberOfLines={3} style={[s.text, { color: theme.text }]}>
+                <Text numberOfLines={3} style={[s.text, { color: colors.detail }]}>
                   {passage.note.trim() || passage.text}
                 </Text>
                 {passage.tags?.length ? (
-                  <Text numberOfLines={1} style={[s.tags, { color: theme.accentText }]}>
+                  <Text numberOfLines={1} style={[s.tags, { color: colors.strong }]}>
                     {passage.tags.map((tag) => `#${tag}`).join("  ")}
                   </Text>
                 ) : null}
@@ -157,7 +156,7 @@ export function NoteGroupCard({
                 onPress={() => onMore({ document, passage })}
                 style={s.more}
               >
-                <Ionicons name="ellipsis-horizontal" size={20} color={theme.mutedText} />
+                <Ionicons name="ellipsis-horizontal" size={20} color={colors.detail} />
               </Pressable>
             </View>
           </FeedbackPop>
@@ -170,10 +169,10 @@ export function NoteGroupCard({
           onPress={onOpenNotebook}
           style={({ pressed }) => [
             s.showAll,
-            { borderTopColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.brandTint },
+            { borderTopColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
           ]}
         >
-          <Text style={[s.showAllText, { color: theme.accentText }]}>Show all {passages.length}</Text>
+          <Text style={[s.showAllText, { color: colors.ink }]}>Show all {passages.length}</Text>
           <Ionicons name="chevron-forward" size={16} color={theme.accent} />
         </Pressable>
       ) : null}
@@ -182,9 +181,9 @@ export function NoteGroupCard({
 }
 
 const s = StyleSheet.create({
-  group: { borderWidth: 1, borderRadius: radii.sheet, overflow: "hidden" },
+  group: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   header: {
-    minHeight: 82,
+    minHeight: 66,
     paddingHorizontal: spacing.md,
     flexDirection: "row",
     alignItems: "center",
@@ -215,7 +214,7 @@ const s = StyleSheet.create({
   main: { flex: 1, justifyContent: "center", gap: 5 },
   meta: { fontSize: 13, fontWeight: "600" },
   titleRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  title: { fontSize: 16, fontWeight: "800", flexShrink: 1 },
+  title: { ...editorial, fontSize: 16, fontWeight: "800", flexShrink: 1 },
   voticBadge: {
     borderRadius: radii.pill,
     paddingHorizontal: 6,
@@ -225,7 +224,7 @@ const s = StyleSheet.create({
     gap: 3,
   },
   voticBadgeText: { fontSize: 10, fontWeight: "800" },
-  text: { fontSize: 15, lineHeight: 22 },
+  text: { fontSize: 16, lineHeight: 24 },
   tags: { fontSize: 12, fontWeight: "700" },
   more: {
     width: controlSizes.minimumTouch,

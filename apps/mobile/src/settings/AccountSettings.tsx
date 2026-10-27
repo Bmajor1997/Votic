@@ -340,7 +340,27 @@ function PremiumRows() {
   const { theme } = useVoticTheme();
   const [restoreMessage, setRestoreMessage] = useState("");
   // Builds that can't reach the store (Expo Go, missing keys) have nothing to manage or restore.
-  if (subscription.service.unavailableReason) return null;
+  if (subscription.service.unavailableReason)
+    return subscription.canBypass ? (
+      <>
+        <AccountRow
+          label="Review paywall"
+          detail="Testing build only. Keeps your account and library."
+          hint="Clears this account's testing access and reopens the paywall"
+          icon="refresh-outline"
+          onPress={() =>
+            void subscription
+              .resetBypass()
+              .catch(() => setRestoreMessage("Could not reopen the paywall. Please try again."))
+          }
+        />
+        {restoreMessage ? (
+          <Text accessibilityRole="alert" style={{ color: theme.text }}>
+            {restoreMessage}
+          </Text>
+        ) : null}
+      </>
+    ) : null;
   async function restore() {
     setRestoreMessage("");
     const restored = await subscription.service.restore();

@@ -2,7 +2,7 @@ import { editorial } from "../../src/design/editorial";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { HomeDocumentArtwork, WidgetHalo } from "../../src/home/HomeCardArtwork";
+import { ContinuePreview } from "../../src/home/ContinuePreview";
 import { widget_palette } from "../../src/home/widgetDesign";
 import { EmptyContinueWidget, NotesShelf, RecentShelf, WeekWidget } from "../../src/home/HomeWidgets";
 import { home_notes } from "../../src/home/homeModel";
@@ -164,10 +164,8 @@ function ContinueCard({
       testID="home-continue-card"
       style={[s.featured, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
-      <WidgetHalo color={colors.art} />
       <Text style={[s.heroEyebrow, { color: colors.detail }]}>YOUR NEXT CHAPTER</Text>
       <View style={s.featuredTop}>
-        <HomeDocumentArtwork document={document} featured />
         <View style={s.featuredCopy}>
           <Text ref={titleRef} style={[s.featuredTitle, { color: colors.ink }]}>
             {title}
@@ -183,12 +181,13 @@ function ContinueCard({
             <View
               style={[
                 s.fill,
-                { backgroundColor: theme.accent, width: `${Math.max(0, Math.min(100, percent))}%` },
+                { backgroundColor: colors.strong, width: `${Math.max(0, Math.min(100, percent))}%` },
               ]}
             />
           </View>
           <Text style={[s.featuredMeta, { color: colors.detail }]}>{progress_label(document)}</Text>
         </View>
+        <ContinuePreview document={document} />
       </View>
       <View testID="home-continue-actions" style={s.featuredActions}>
         <View ref={listenRef} collapsable={false} style={s.listenAction}>
@@ -200,10 +199,14 @@ function ContinueCard({
             style={({ pressed }) => [
               s.primary,
               s.featuredButton,
-              { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 },
+              { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 },
             ]}
           >
-            <Text style={[s.primaryText, s.continueLabel, compact && s.compactLabel]}>{listenLabel}</Text>
+            <Text
+              style={[s.primaryText, s.continueLabel, compact && s.compactLabel, { color: colors.onStrong }]}
+            >
+              {listenLabel}
+            </Text>
           </Pressable>
         </View>
         <View ref={readRef} collapsable={false} style={s.readAction}>
@@ -246,8 +249,8 @@ const s = StyleSheet.create({
   addText: { fontSize: 15, fontWeight: "700" },
   heroEyebrow: { ...typography.eyebrow },
   featured: { overflow: "hidden", borderWidth: 1, borderRadius: 24, padding: spacing.xl, gap: spacing.lg },
-  featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.lg, alignItems: "flex-start" },
-  featuredCopy: { flex: 1, minWidth: 140, gap: spacing.xs },
+  featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, alignItems: "flex-start" },
+  featuredCopy: { flex: 1, minWidth: 120, gap: spacing.xs },
   featuredTitle: { ...editorial, fontSize: 25, lineHeight: 32 },
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },

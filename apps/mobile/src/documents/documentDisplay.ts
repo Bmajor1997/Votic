@@ -46,8 +46,9 @@ export function progress_label(document: VoticDocument) {
   return `${Math.round(document.progress * 100)}% · about ${minutes} min left`;
 }
 
-export type Sort = "recent" | "added" | "title" | "progress";
+export type Sort = "type" | "recent" | "added" | "title" | "progress";
 export const SORTS: { value: Sort; label: string }[] = [
+  { value: "type", label: "File type · A–Z" },
   { value: "recent", label: "Recently opened" },
   { value: "added", label: "Recently added" },
   { value: "title", label: "Title" },
@@ -56,6 +57,18 @@ export const SORTS: { value: Sort; label: string }[] = [
 
 export function sort_documents(documents: VoticDocument[], sort: Sort) {
   const sorted = [...documents];
+  if (sort === "type")
+    return sorted.sort((a, b) => {
+      const aType = document_type_label(a);
+      const bType = document_type_label(b);
+      const rank = (type: string) => (type === "PDF" ? 0 : type === "HTML" ? 1 : 2);
+      return (
+        rank(aType) - rank(bType) ||
+        aType.localeCompare(bType) ||
+        a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: "base", numeric: true }) ||
+        a.id.localeCompare(b.id)
+      );
+    });
   if (sort === "added") return sorted.sort((a, b) => b.importedAt - a.importedAt);
   if (sort === "title")
     return sorted.sort((a, b) => readable_title(a.title).localeCompare(readable_title(b.title)));
@@ -66,7 +79,7 @@ export function sort_documents(documents: VoticDocument[], sort: Sort) {
 /** The label and active-filter count shared by the library heading and its filter controls. */
 export function collection_summary(collection: string, sort: Sort, finishedOnly: boolean) {
   return {
-    filterCount: (collection !== "all" ? 1 : 0) + (sort !== "recent" ? 1 : 0) + (finishedOnly ? 1 : 0),
+    filterCount: (collection !== "all" ? 1 : 0) + (sort !== "type" ? 1 : 0) + (finishedOnly ? 1 : 0),
     collectionLabel:
       collection === "all" ? "All documents" : collection === "unfiled" ? "Unfiled" : collection,
   };

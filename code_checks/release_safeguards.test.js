@@ -1,4 +1,5 @@
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 /* global Response */
 import assert from "node:assert/strict";
 import { mkdtempSync,rmSync,statSync,readFileSync } from "node:fs";
@@ -36,7 +37,11 @@ test("online SQLite snapshot preserves data, is private, and refuses overwrite",
   try{
     store.recordReport({user_id:"audit",reason:"other",answer:"Private fixture"});
     await snapshot_ledger(source,snapshot);assert.equal(verify_ledger(snapshot),true);
-    assert.equal(statSync(snapshot).mode&0o777,0o600);
+    if(process.platform === "win32") {
+      const path64=Buffer.from(snapshot).toString("base64");
+      const script=`$path=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('${path64}')); $acl=[IO.File]::GetAccessControl($path); $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User; if (-not $acl.AreAccessRulesProtected) {exit 1}; foreach($rule in $acl.Access) {if($rule.AccessControlType -eq "Allow" -and $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value -ne $sid.Value) {exit 2}}`;
+      execFileSync("powershell.exe",["-NoProfile","-NonInteractive","-EncodedCommand",Buffer.from(script,"utf16le").toString("base64")],{windowsHide:true});
+    } else assert.equal(statSync(snapshot).mode&0o777,0o600);
     const restored=create_usage_store({VOTIC_AI_USAGE_DB:snapshot});assert.equal(restored.reports().length,1);restored.close();
     await assert.rejects(snapshot_ledger(source,snapshot),/new snapshot/);
   }finally{store.close();rmSync(directory,{recursive:true,force:true});}

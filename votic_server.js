@@ -503,7 +503,7 @@ export function create_votic_handler(options = {}) {
 
   } catch (error) { send_error(response, error, logger); }
  };
- handler.close = () => { if (!options.usageStore) usage_store.close(); };
+ handler.close = () => { if (!options.usageStore) usage_store.close(); if (!options.creditWallet) credit_wallet?.close(); };
  return handler;
 }
 /** 401 that says whether signing in (again) will help: no credential at all, or one that is expired or invalid. */

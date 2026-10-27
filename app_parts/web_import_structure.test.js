@@ -91,3 +91,9 @@ test("every word of a source-wrapped page is kept, in order", () => {
   const { text } = clean_webpage_html(WRAPPED);
   assert.deepEqual(text.split(/\s+/), words(WRAPPED.replace(/<title>.*?<\/title>/, "")));
 });
+
+test("webpage breadcrumbs are excluded without removing article paragraphs", () => {
+  const { text } = clean_webpage_html('<body><ul class="breadcrumbs"><li>Instructions and Guides</li></ul><main><h1>Example Domains</h1><p>These domains are maintained for documentation purposes and illustrative examples.</p></main></body>');
+  assert.doesNotMatch(text, /Instructions and Guides/);
+  assert.match(text, /maintained for documentation/);
+});

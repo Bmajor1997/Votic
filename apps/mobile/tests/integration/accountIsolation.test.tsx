@@ -281,3 +281,40 @@ it("does not show the previous library while the new account's storage read is d
     loaded: true,
   });
 });
+it("keeps testing bypasses with their account and ignores the unowned legacy device flag", async () => {
+  subscriptions.fakeSubscriptions.reset({ unavailableReason: "expo-go" });
+  await AsyncStorage.setItem("votic.mobile.development-paywall-bypass.v1", "yes");
+  let subscription: ReturnType<typeof useSubscription>;
+  function Probe() {
+    subscription = useSubscription();
+    return (
+      <Text testID="bypass">
+        {JSON.stringify({ access: subscription.access, checking: subscription.checking })}
+      </Text>
+    );
+  }
+  const read = () => JSON.parse(screen.getByTestId("bypass").props.children);
+  await render_with_providers(<Probe />);
+  expect(read()).toEqual({ access: false, checking: false });
+  await act(async () => subscription!.bypass());
+  expect(read().access).toBe(true);
+  expect(
+    await AsyncStorage.getItem(
+      account_storage_key("votic.mobile.development-paywall-bypass.v1", "test-user"),
+    ),
+  ).toBe("yes");
+  const staleBypass = subscription!.bypass;
+  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  expect(read()).toEqual({ access: false, checking: false });
+  await act(async () => staleBypass());
+  expect(read().access).toBe(false);
+  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  expect(read()).toEqual({ access: true, checking: false });
+  await act(async () => subscription!.resetBypass());
+  expect(read()).toEqual({ access: false, checking: false });
+  expect(
+    await AsyncStorage.getItem(
+      account_storage_key("votic.mobile.development-paywall-bypass.v1", "test-user"),
+    ),
+  ).toBeNull();
+});

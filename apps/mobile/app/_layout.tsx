@@ -6,7 +6,7 @@ import { take_feedback_destination } from "../src/feedback/feedbackNavigation";
 import { router, Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StatusBar, StyleSheet, View } from "react-native";
 import { SetupAccent, ThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 import {
   AccessibilityProvider,
@@ -85,6 +85,7 @@ function ThemedStack() {
   const fade = { animation: reduceMotion ? ("none" as const) : ("fade" as const) };
   return (
     <DocumentLibraryProvider>
+      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} />
       <MotionFeedbackProvider>
         <OcrReviewProvider>
           {/* Keeps the iPhone and Android home-screen widgets up to date. */}

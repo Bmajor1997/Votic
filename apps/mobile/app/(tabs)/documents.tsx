@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -10,11 +10,12 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FileTypeIcon } from "../../src/components/FileTypeIcon";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
-import { DocumentCover } from "../../src/components/DocumentCover";
+import { HomeDocumentArtwork } from "../../src/home/HomeCardArtwork";
 import { DocumentsEmptyAnimation } from "../../src/components/EmptyStateIllustrations";
 import { Screen } from "../../src/components/Screen";
 import { DocumentSelectButton, DocumentSelectionBar } from "../../src/documents/DocumentSelectionControls";
@@ -47,6 +48,7 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 export default function Documents() {
   const { theme } = useVoticTheme();
   const insets = useSafeAreaInsets();
+  const { width, fontScale } = useWindowDimensions();
   const { reduceMotion } = useAccessibilityPreferences();
   const transition = useDocumentTransition();
   const cardRefs = useRef<Record<string, View | null>>({});
@@ -65,7 +67,7 @@ export default function Documents() {
   const [query, setQuery] = useState("");
   const [collection, setCollection] = useState("all");
   const [finishedOnly, setFinishedOnly] = useState(false);
-  const [sort, setSort] = useState<Sort>("recent");
+  const [sort, setSort] = useState<Sort>("type");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [addDocumentOpen, setAddDocumentOpen] = useState(false);
@@ -274,7 +276,7 @@ export default function Documents() {
                 accessibilityLabel="Reset sort and filter"
                 onPress={() => {
                   setCollection("all");
-                  setSort("recent");
+                  setSort("type");
                   setFinishedOnly(false);
                 }}
                 style={s.textButton}
@@ -290,20 +292,20 @@ export default function Documents() {
               {visible.map((document, index) => {
                 const title = readable_title(document.title);
                 const percent = Math.round(document.progress * 100);
-                const excerpt = document.plainText.slice(0, 160).replace(/\s+/g, " ").trim();
                 return (
-                  <View key={document.id}>
+                  <Fragment key={document.id}>
+                    <FileGroupHeading
+                      enabled={sort === "type"}
+                      document={document}
+                      previous={visible[index - 1]}
+                    />
                     <View
                       ref={(node) => {
                         cardRefs.current[document.id] = node;
                         if (index === 0) documentTarget(node);
                       }}
                       collapsable={false}
-                      style={[
-                        s.row,
-                        theme.elevation,
-                        { borderColor: theme.border, backgroundColor: theme.surface },
-                      ]}
+                      style={[s.row, { width: width < 360 || fontScale > 1.3 ? "100%" : "48%" }]}
                     >
                       <Pressable
                         {...(selection.selecting
@@ -334,7 +336,9 @@ export default function Documents() {
                             }
                           />
                         ) : null}
-                        <DocumentCover document={document} size="lg" />
+                        <View style={s.documentPreview}>
+                          <HomeDocumentArtwork document={document} />
+                        </View>
                         <View style={s.rowCopy}>
                           {sort === "recent" && index === 0 && document.lastOpenedAt ? (
                             <Text style={[s.recentLabel, { color: theme.accentText }]}>RECENTLY OPENED</Text>
@@ -352,11 +356,6 @@ export default function Documents() {
                             {document_type_label(document)}
                             {document.collection ? ` · ${document.collection}` : ""}
                           </Text>
-                          {excerpt ? (
-                            <Text numberOfLines={1} style={[s.rowExcerpt, { color: theme.mutedText }]}>
-                              {excerpt}
-                            </Text>
-                          ) : null}
                           {document.progress >= 1 ? (
                             <View style={s.finished}>
                               <Ionicons name="checkmark-circle" size={15} color={theme.accentText} />
@@ -400,7 +399,7 @@ export default function Documents() {
                         </Pressable>
                       )}
                     </View>
-                  </View>
+                  </Fragment>
                 );
               })}
             </View>
@@ -756,7 +755,33 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
   );
 }
 
+function FileGroupHeading({
+  enabled,
+  document,
+  previous,
+}: {
+  enabled: boolean;
+  document: VoticDocument;
+  previous?: VoticDocument;
+}) {
+  const { theme } = useVoticTheme();
+  const label = document_type_label(document);
+  if (!enabled || (previous && document_type_label(previous) === label)) return null;
+  return (
+    <Text accessibilityRole="header" style={[s.groupTitle, { color: theme.text }]}>
+      {label}
+    </Text>
+  );
+}
+
 const s = StyleSheet.create({
+  groupTitle: {
+    width: "100%",
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
   titleActions: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   iconButton: {
     width: controlSizes.minimumTouch,
@@ -813,25 +838,13 @@ const s = StyleSheet.create({
     gap: spacing.sm,
   },
   summary: { fontSize: 14, flexShrink: 1 },
-  libraryCards: { gap: spacing.md },
+  libraryCards: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-start", gap: spacing.md },
   recentLabel: { ...typography.eyebrow, fontSize: 10 },
-  row: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    paddingLeft: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  rowMain: {
-    flex: 1,
-    minHeight: 124,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
-  },
-  rowCopy: { flex: 1, minWidth: 0, gap: 3 },
-  rowTitle: { fontSize: 17, lineHeight: 23, fontWeight: "700", letterSpacing: -0.2 },
+  row: { position: "relative" },
+  rowMain: { gap: spacing.sm },
+  documentPreview: { height: 218, width: "100%" },
+  rowCopy: { minWidth: 0, gap: 4, paddingRight: 34 },
+  rowTitle: { fontSize: 15, lineHeight: 21, fontWeight: "700", letterSpacing: -0.2 },
   rowMeta: { fontSize: 13, lineHeight: 19 },
   rowExcerpt: { fontSize: 14, lineHeight: 21, marginVertical: 3 },
   finished: { flexDirection: "row", alignItems: "center", gap: 4 },
@@ -840,6 +853,9 @@ const s = StyleSheet.create({
   fill: { height: "100%" },
   percent: { fontSize: 12, fontWeight: "600" },
   more: {
+    position: "absolute",
+    top: 222,
+    right: -8,
     width: controlSizes.minimumTouch,
     height: controlSizes.minimumTouch,
     alignItems: "center",

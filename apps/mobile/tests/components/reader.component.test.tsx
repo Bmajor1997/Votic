@@ -1,4 +1,3 @@
-import { allowance_notifier } from "../../src/subscription/allowanceNotice";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
@@ -162,51 +161,14 @@ describe("Reader", () => {
     }
   });
 
-  it("shows Catch me up as a Where you left off reminder, not as another summary", async () => {
-    searchParams.current = {};
-    askVoticMock.mockResolvedValueOnce({
-      answer: "You were reading about the second passage.",
-      mode: "document-ai",
-      sectionIndex: null,
-      sectionTitle: null,
-    });
-    const halfway = test_document("doc-half", "Field Guide", {
-      plainText: "First passage here. Second passage there. Third passage ends.",
-      progress: 0.4,
-      sentenceIndex: 1,
-    });
+  it("keeps reading tools without the retired Catch up action", async () => {
+    const halfway = test_document("halfway", "Field Guide", { ...book, id: "halfway", progress: 0.4 });
     await render_with_providers(<OpenedReader />, { documents: [halfway], reduceMotion: true });
     await fireEvent.press(screen.getByText("More"));
-    await fireEvent.press(screen.getByRole("button", { name: "Catch up" }));
-    expect(askVoticMock.mock.calls[0][0]).toMatch(/no bullet points/);
-    expect(await screen.findByRole("header", { name: "Where you left off" })).toBeTruthy();
-    expect(screen.getByText("40% through Field Guide")).toBeTruthy();
-    expect(screen.getByText("You were reading about the second passage.")).toBeTruthy();
-    expect(screen.queryByText("Conversation summary")).toBeNull();
-  });
-
-  it("keeps the first Catch up limit notice inline without opening subscription options", async () => {
-    askVoticMock.mockImplementationOnce(async () => {
-      allowance_notifier()({
-        code: "AI_MONTHLY_ALLOWANCE",
-        resetsAt: new Date(Date.now() + 86400000).toISOString(),
-      });
-      throw new Error("You've reached your monthly AI allowance.");
-    });
-    const halfway = test_document("halfway", "Field Guide", {
-      ...book,
-      id: "halfway",
-      progress: 0.4,
-      sentenceIndex: 1,
-    });
-    await render_with_providers(<OpenedReader />, { documents: [halfway], reduceMotion: true });
-    await fireEvent.press(screen.getByText("More"));
-    await fireEvent.press(screen.getByRole("button", { name: "Catch up" }));
-    expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "AI Usage" })).toBeTruthy();
-    expect(router.push).not.toHaveBeenCalledWith("/subscription");
-    expect(router.push).not.toHaveBeenCalledWith("/ai-usage");
-    await fireEvent.press(screen.getByRole("button", { name: "Close Ask Votic" }));
+    expect(screen.queryByRole("button", { name: "Catch up" })).toBeNull();
+    for (const name of ["Text", "Color", "Bookmark"])
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ask Votic about this page" })).toBeTruthy();
   });
 
   it("shows the document's passages and reading progress", async () => {

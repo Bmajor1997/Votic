@@ -2,7 +2,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { AppState } from "react-native";
 import { store_deadline } from "./storeDeadline";
-import { account_writable } from "../storage/accountDeletion";
+import { account_storage_key } from "../storage/accountStorage";
+import { account_writable, write_account_data } from "../storage/accountDeletion";
 import {
   PropsWithChildren,
   createContext,
@@ -35,6 +36,7 @@ type SubscriptionValue = {
   /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
   canBypass: boolean;
   bypass: () => void;
+  resetBypass: () => Promise<void>;
   setEntitlement: (entitlement: Entitlement) => void;
   /** Asks the store again, e.g. after a network failure. */
   refresh: () => Promise<Entitlement>;
@@ -55,14 +57,15 @@ export function SubscriptionProvider({
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [bypassState, setBypassState] = useState<{ uid: string; bypassed: boolean } | null>(null);
   const [observedUid, setObservedUid] = useState(uid);
   // Discard the previous session's result before children render, including signing back into the same account.
   if (observedUid !== uid) {
     setObservedUid(uid);
     setChecked(null);
     setRecoveryError(null);
+    setBypassState(null);
   }
-  const [bypassed, setBypassed] = useState(false);
   const identified = useRef<string | null>(null);
   const uidRef = useRef(uid);
   useLayoutEffect(() => {
@@ -72,14 +75,20 @@ export function SubscriptionProvider({
   const canBypass = isDevelopment && Boolean(service.unavailableReason);
 
   // Until the saved development bypass is read, access isn't known yet (see `checking`).
-  const [bypassLoaded, setBypassLoaded] = useState(false);
+  const bypassLoaded = !uid || bypassState?.uid === uid;
   useEffect(() => {
-    if (!canBypass) return;
-    void AsyncStorage.getItem(DEVELOPMENT_BYPASS_KEY)
-      .then((value) => setBypassed(value === "yes"))
-      .catch(() => {})
-      .finally(() => setBypassLoaded(true));
-  }, [canBypass]);
+    if (!canBypass || !uid) return;
+    let current = true;
+    // The legacy device-wide flag has no known owner and must never grant a new account access.
+    void AsyncStorage.getItem(account_storage_key(DEVELOPMENT_BYPASS_KEY, uid))
+      .catch(() => null)
+      .then((value) => {
+        if (current && uidRef.current === uid) setBypassState({ uid, bypassed: value === "yes" });
+      });
+    return () => {
+      current = false;
+    };
+  }, [canBypass, uid]);
 
   // Link purchases to the Votic account, so they follow the person to other devices and reinstalls.
   useEffect(() => {
@@ -148,12 +157,23 @@ export function SubscriptionProvider({
     entitlement,
     checking,
     recoveryError,
-    access: has_access(entitlement.status) || (canBypass && bypassed),
+    access:
+      has_access(entitlement.status) ||
+      (canBypass && Boolean(uid && bypassState?.uid === uid && bypassState.bypassed)),
     canBypass,
     bypass() {
-      if (!canBypass) return;
-      setBypassed(true);
-      void AsyncStorage.setItem(DEVELOPMENT_BYPASS_KEY, "yes").catch(() => {});
+      if (!canBypass || !uid || uidRef.current !== uid || !account_writable(uid)) return;
+      setBypassState({ uid, bypassed: true });
+      void write_account_data(uid, () =>
+        AsyncStorage.setItem(account_storage_key(DEVELOPMENT_BYPASS_KEY, uid), "yes"),
+      ).catch(() => {});
+    },
+    async resetBypass() {
+      if (!canBypass || !uid || uidRef.current !== uid || !account_writable(uid)) return;
+      await write_account_data(uid, () =>
+        AsyncStorage.removeItem(account_storage_key(DEVELOPMENT_BYPASS_KEY, uid)),
+      );
+      if (uidRef.current === uid) setBypassState({ uid, bypassed: false });
     },
     setEntitlement: set_entitlement,
     async refresh() {

@@ -292,7 +292,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message: (c) =>
           c.listening
             ? "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting."
-            : "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes. Once you've read some, Catch up recaps it.",
+            : "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes.",
       },
       {
         target: "reader.close",

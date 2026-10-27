@@ -126,8 +126,8 @@ const highContrastPalettes = {
 const navigationPalettes = {
   light: {
     background: "#F8F5F0",
-    surface: "#FFFFFF",
-    surfaceMuted: "#F0ECE6",
+    surface: "#FBF5E6",
+    surfaceMuted: "#F1E6D2",
     text: "#17243D",
     mutedText: "#5D6574",
     border: "#E3DED6",

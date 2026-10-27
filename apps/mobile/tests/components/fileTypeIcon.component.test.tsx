@@ -24,7 +24,7 @@ describe("FileTypeIcon", () => {
     const tile = StyleSheet.flatten(screen.getByRole("image", { name: "PDF file" }).props.style);
     expect(tile).toMatchObject({ width: 44, height: 44, borderRadius: 11 });
     const dark = appearanceMode === "dark";
-    const surface = dark ? "#152238" : "#FFFFFF";
+    const surface = dark ? "#152238" : "#FBF5E6";
     expect(tile.backgroundColor).toBe(mix(surface, FILE_TYPE_PALETTE.pdf.accent, 0.1));
     expect(StyleSheet.flatten(screen.getByText("PDF").props.style).color).toBe(
       file_type_colors(resolve_file_type({ extension: "pdf" }), dark).foreground,

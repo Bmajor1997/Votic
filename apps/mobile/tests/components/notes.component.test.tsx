@@ -420,3 +420,10 @@ describe("Note Workspace", () => {
     expect(screen.getByRole("button", { name: "Listen" })).toBeTruthy();
   });
 });
+
+it("previews real notebook contents and identifies their note type", async () => {
+  await render_with_providers(<Notes />, { documents });
+  expect(screen.getAllByTestId("note-content-preview", { includeHiddenElements: true })).toHaveLength(2);
+  expect(screen.getByText("Mitosis has phases.", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText("KEY POINT", { includeHiddenElements: true })).toBeTruthy();
+});

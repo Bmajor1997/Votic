@@ -88,7 +88,7 @@ describe("Native feedback", () => {
     expect(submit).not.toHaveBeenCalled();
   });
   it.each([
-    ["light", "#FFFFFF", "#17243D"],
+    ["light", "#FBF5E6", "#17243D"],
     ["dark", "#152238", "#F2F6FF"],
   ])("uses the %s theme with accessible input labels", async (appearanceMode, backgroundColor, color) => {
     await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));

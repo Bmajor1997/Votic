@@ -184,7 +184,7 @@ describe("Documents", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sort and filter" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Reference" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show 1 document" }));
-    expect(screen.getByText("1 document in Reference · Recently opened")).toBeTruthy();
+    expect(screen.getByText("1 document in Reference · File type · A–Z")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open q3 board report FINAL" })).toBeNull();
   });
 
@@ -201,7 +201,7 @@ describe("Documents", () => {
     await fireEvent.press(screen.getByRole("button", { name: "New collection" }));
     await fireEvent.changeText(screen.getByLabelText("Collection name"), "REFERENCE");
     await fireEvent.press(screen.getByRole("button", { name: "Save collection" }));
-    expect(screen.getByText("2 documents in Reference · Recently opened")).toBeTruthy();
+    expect(screen.getByText("2 documents in Reference · File type · A–Z")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: /^Sort and filter/ }));
     expect(screen.getAllByRole("radio", { name: /reference/i })).toHaveLength(1);
     expect(screen.getByRole("radio", { name: "Reference", checked: true })).toBeTruthy();
@@ -213,7 +213,7 @@ describe("Documents", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sort and filter" }));
     await fireEvent.press(screen.getByRole("radio", { name: "Finished" }));
     await fireEvent.press(screen.getByRole("button", { name: "Show 1 document" }));
-    expect(screen.getByText("1 finished document · Recently opened")).toBeTruthy();
+    expect(screen.getByText("1 finished document · File type · A–Z")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open q3 board report FINAL" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Reset sort and filter" }));
@@ -448,4 +448,12 @@ describe("Statistics", () => {
       screen.getByLabelText(`${today.toLocaleString("en-US", { month: "long" })} ${today.getDate()}, active`),
     ).toBeTruthy();
   });
+});
+
+it("shows shared format previews in Documents while preserving grouped sorting", async () => {
+  await render_with_providers(<Documents />, { documents: [report, { ...guide, sourceName: "guide.epub" }] });
+  expect(screen.getByTestId("home-preview-pdf", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByTestId("home-preview-book", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
+  expect(screen.getByText(/File type · A–Z/)).toBeTruthy();
 });

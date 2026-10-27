@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { backup, DatabaseSync } from "node:sqlite";
 import { chmodSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -12,6 +13,12 @@ export function verify_ledger(path) {
     return true;
   } finally {db.close();}
 }
+function protect_snapshot(path) {
+  if (process.platform !== "win32") { chmodSync(path,0o600); return; }
+  const sid=execFileSync("powershell.exe",["-NoProfile","-NonInteractive","-Command","[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value"],{encoding:"utf8",windowsHide:true}).trim();
+  if (!/^S-1-[0-9-]+$/.test(sid)) throw new Error("Could not identify the snapshot owner.");
+  execFileSync("icacls.exe",[path,"/inheritance:r","/grant:r",`*${sid}:(F)`],{windowsHide:true});
+}
 /** SQLite's online backup API takes a consistent snapshot, including pending WAL transactions. */
 export async function snapshot_ledger(source,destination) {
   const from=resolve(source),to=resolve(destination);
@@ -22,8 +29,8 @@ export async function snapshot_ledger(source,destination) {
   let created=false;
   try {
     // Reserve the destination privately before SQLite opens it; never expose a default-mode file.
-    const {openSync,closeSync}=await import("node:fs");const fd=openSync(to,"wx",0o600);created=true;closeSync(fd);
-    await backup(db,to);chmodSync(to,0o600);verify_ledger(to);
+    const {openSync,closeSync}=await import("node:fs");const fd=openSync(to,"wx",0o600);created=true;closeSync(fd);protect_snapshot(to);
+    await backup(db,to);protect_snapshot(to);verify_ledger(to);
   } catch(error){if(created && existsSync(to))unlinkSync(to);throw error;}
   finally {db.close();}
 }

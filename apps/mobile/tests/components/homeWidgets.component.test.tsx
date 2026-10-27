@@ -94,9 +94,9 @@ describe("Colorful Home cards", () => {
         widget_palette(mode === "dark", "activity").surface,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-recent-card").props.style).backgroundColor).toBe(
-        widget_palette(mode === "dark", "book").surface,
+        "transparent",
       );
-      expect(StyleSheet.flatten(screen.getByTestId("home-note-card").props.style).backgroundColor).toBe(
+      expect(StyleSheet.flatten(screen.getByTestId("note-preview-type").props.style).backgroundColor).toBe(
         widget_palette(mode === "dark", "notes").surface,
       );
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
@@ -187,6 +187,17 @@ function contrast(a: string, b: string) {
   return (bright + 0.05) / (dim + 0.05);
 }
 describe("Home palette contrast", () => {
+  it("keeps card colors distinct with solid forest green activity and soft lavender notes", () => {
+    const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
+    for (const dark of [false, true]) {
+      const surfaces = tones.map((tone) => widget_palette(dark, tone).surface);
+      expect(new Set(surfaces).size).toBe(tones.length);
+      expect(widget_palette(dark, "activity").surface).toBe("#163B35");
+      expect(widget_palette(dark, "notes").surface).toBe("#C9BEDC");
+      for (const hex of surfaces) expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
   it("keeps normal-size text readable on resting and pressed surfaces in both themes", () => {
     const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
     for (const dark of [false, true])
@@ -257,4 +268,54 @@ describe("Quick Notes on Home", () => {
     expect(screen.getAllByRole("button", { name: /^Continue Reading: Field Guide/ }).length).toBe(1);
     expect(screen.getAllByText("Call the library").length).toBeGreaterThan(0);
   });
+});
+
+it("previews the saved reading and speech passage without a file icon in Continue", async () => {
+  await render_with_providers(<Home />, {
+    documents: [
+      {
+        ...featured,
+        plainText: "First passage. Saved passage here. Following passage.",
+        sentenceIndex: 1,
+        wordIndex: 1,
+      },
+    ],
+    reduceMotion: true,
+  });
+  expect(screen.getByText("AT YOUR SAVED POSITION")).toBeTruthy();
+  expect(screen.getByText("Saved passage here. Following passage.")).toBeTruthy();
+  expect(screen.queryByTestId("home-document-artwork", { includeHiddenElements: true })).toBeNull();
+});
+it("shows an honest fallback when the saved location is unavailable", async () => {
+  await render_with_providers(<Home />, {
+    documents: [{ ...featured, sentenceIndex: 999 }],
+    reduceMotion: true,
+  });
+  expect(screen.getByText("DOCUMENT PREVIEW")).toBeTruthy();
+  expect(screen.queryByText("AT YOUR SAVED POSITION")).toBeNull();
+  expect(screen.getByRole("button", { name: "Continue Listening: The next chapter" })).toBeTruthy();
+});
+
+it("shows retained content as decorative recent-file pages with secondary format labels", async () => {
+  const documents = [
+    { ...recent, id: "html", sourceName: "Field Guide.html", plainText: "A real webpage excerpt." },
+    { ...recent, id: "pdf", sourceName: "Field Guide.pdf", plainText: "A real PDF excerpt." },
+    { ...recent, id: "book", sourceName: "Field Guide.epub", plainText: "A real book excerpt." },
+  ];
+  await render_with_providers(<RecentShelf documents={documents} onOpen={() => {}} onMore={() => {}} />);
+  expect(screen.getAllByTestId("home-page-preview", { includeHiddenElements: true })).toHaveLength(3);
+  for (const kind of ["browser", "pdf", "book"])
+    expect(screen.getByTestId(`home-preview-${kind}`, { includeHiddenElements: true })).toBeTruthy();
+  for (const document of documents)
+    expect(screen.getByText(document.plainText, { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText("HTML", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText("PDF", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText("EPUB", { includeHiddenElements: true })).toBeTruthy();
+});
+it("keeps recent files usable when retained preview text is empty", async () => {
+  await render_with_providers(
+    <RecentShelf documents={[{ ...recent, plainText: "" }]} onOpen={() => {}} onMore={() => {}} />,
+  );
+  expect(screen.getByText("Your next read starts here.", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
 });

@@ -2,12 +2,9 @@ import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { PaperArtwork } from "../components/PaperArtwork";
 import { VoticLogo } from "../components/VoticLogo";
-import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { Rise } from "../motion/Rise";
-import { PAYWALL_GOALS } from "./paywallPresentation";
 import { paywallStyles as p } from "./paywallStyles";
 
 /**
@@ -25,7 +22,7 @@ export const PLUS_BENEFITS: { title: string; detail: string }[] = [
   },
   {
     title: "AI-powered summaries",
-    detail: "Catch up on what you've read, or summarize a conversation.",
+    detail: "Summarize your documents or an Ask Votic conversation.",
   },
   {
     title: "Save notes and bookmarks",
@@ -44,27 +41,21 @@ export const PLUS_BENEFITS: { title: string; detail: string }[] = [
 /** The hero settles in first; the headline and supporting copy follow it. */
 export function PaywallIntro() {
   const { theme } = useVoticTheme();
-  const { purpose } = useVoticPurpose();
   const { width } = useWindowDimensions();
-  const goal = PAYWALL_GOALS[purpose ?? "default"];
   return (
     <View style={[s.hero, { backgroundColor: theme.background }]}>
       <Rise style={s.brand}>
         <VoticLogo />
         <Text style={[p.eyebrow, { color: theme.accentText }]}>VOTIC PLUS</Text>
       </Rise>
-      <Rise scaleFrom={0.96} distance={10}>
-        <PaperArtwork compact />
-      </Rise>
       <Rise from={120} to={720} style={s.copy}>
         <Text
           accessibilityRole="header"
-          style={[s.title, { color: theme.text }, width < 360 && { fontSize: 30, lineHeight: 36 }]}
+          style={[s.title, { color: theme.text }, width < 360 && { fontSize: 22, lineHeight: 28 }]}
         >
           Make more of every document.
         </Text>
         <Text style={[s.supporting, { color: theme.text }]}>Your AI-powered reading companion.</Text>
-        <Text style={[s.subtitle, { color: theme.mutedText }]}>{goal.detail}</Text>
       </Rise>
     </View>
   );
@@ -77,10 +68,7 @@ const BENEFITS_START = 260,
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
   return (
-    <View
-      accessibilityLabel="Included with Votic Plus"
-      style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
-    >
+    <View accessibilityLabel="Included with Votic Plus" style={s.card}>
       <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
         Included with Votic Plus
       </Text>
@@ -90,13 +78,7 @@ export function PaywallBenefits() {
           from={BENEFITS_START + index * BENEFIT_STAGGER}
           to={BENEFITS_START + index * BENEFIT_STAGGER + 360}
           distance={8}
-          style={[
-            s.row,
-            index < PLUS_BENEFITS.length - 1 && {
-              borderBottomWidth: StyleSheet.hairlineWidth,
-              borderBottomColor: theme.border,
-            },
-          ]}
+          style={s.row}
         >
           <View
             accessible
@@ -156,12 +138,9 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
             Reading, listening, and notes don&apos;t use it. See what&apos;s left anytime in Settings, AI
             Usage.
           </Text>
-          <Text style={[p.benefitTitle, { color: theme.text }]}>
-            Is this what my documents will sound like?
-          </Text>
+          <Text style={[p.benefitTitle, { color: theme.text }]}>Which voices can I use?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
-            The preview uses a voice available on this device. Voice availability and sound can vary by
-            device.
+            Choose from the voices available on your device. Voice availability and sound can vary by device.
           </Text>
         </View>
       ) : null}
@@ -173,12 +152,12 @@ const s = StyleSheet.create({
   hero: { borderRadius: 28, padding: 8, gap: 14 },
   brand: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
   copy: { gap: 10 },
-  title: { ...editorial, fontSize: 38, lineHeight: 44 },
-  supporting: { fontSize: 19, lineHeight: 27, fontWeight: "700" },
+  title: { ...editorial, fontSize: 24, lineHeight: 30 },
+  supporting: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
   subtitle: { fontSize: 16, lineHeight: 24 },
-  card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
-  cardTitle: { paddingTop: 16, paddingBottom: 4 },
-  row: { paddingVertical: 12 },
+  card: { width: "100%", maxWidth: 420, alignSelf: "center" },
+  cardTitle: { paddingTop: 12, paddingBottom: 8, textAlign: "center" },
+  row: { paddingVertical: 8 },
   // The check sits beside the benefit's title, even when its description wraps.
   benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   check: { marginTop: -1 },

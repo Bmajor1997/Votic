@@ -453,13 +453,11 @@ export function whole_minutes(ms: number) {
   return Math.floor(Math.max(0, ms) / 60_000);
 }
 /**
- * The total to show beside separate reading and listening figures. Each figure is shown in completed minutes, so
- * the total is their sum (24:40 reading + 1:40 listening shows 24 + 1 = 25, not 26), and the three always add up.
+ * Combine the measured durations before rounding, so switching modes never loses partial minutes.
+ * Separately rounded reading and listening labels can differ from the total by one minute.
  */
 export function shown_total(split: TimeSplit) {
-  const minutes = whole_minutes(split.reading) + whole_minutes(split.listening);
-  if (minutes) return minutes * 60_000;
-  return Math.min(split.reading + split.listening, 59_999);
+  return split.reading + split.listening;
 }
 export function format_duration(ms: number) {
   const minutes = whole_minutes(ms);

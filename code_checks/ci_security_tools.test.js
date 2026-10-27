@@ -17,7 +17,7 @@ test("secret scan verifier accepts real colored output and rejects empty or brok
 });
 
 for (const scenario of ["retry", "failed", "incomplete", "installed", "sdkpath"]) {
-  test(`Android NDK installation validates the toolchain and handles ${scenario}`, () => {
+  test(`Android NDK installation validates the toolchain and handles ${scenario}`, { skip: process.platform === "win32" ? "POSIX shell fixtures run in Linux CI" : false }, () => {
     const root = mkdtempSync(join(tmpdir(), "votic-ci-"));
     const sdk = join(root, "Android SDK");
     const bin = join(root, "bin");

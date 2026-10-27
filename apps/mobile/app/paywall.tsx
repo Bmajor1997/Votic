@@ -11,18 +11,16 @@ import {
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
 import { PaywallBenefits, PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
 import { RiseTimeline, SettleOnChange } from "../src/motion/Rise";
-import { PaywallPreview } from "../src/subscription/PaywallPreview";
 import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
 import { annual_value, default_plan, plus_plans } from "../src/subscription/paywallPresentation";
 import { BillingSelector } from "../src/subscription/BillingSelector";
 import { paywallStyles as p } from "../src/subscription/paywallStyles";
-import { controlSizes, radii, spacing } from "../src/design/tokens";
+import { controlSizes, spacing } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
 import { PrimaryButton, SecondaryButton } from "../src/onboarding/components";
 import { has_access } from "../src/subscription/entitlement";
@@ -65,9 +63,7 @@ type Message = { icon?: IconName; text: string };
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
-  const { height, fontScale } = useWindowDimensions();
-  // Let all content scroll together when a fixed checkout would crowd out the page.
-  const inlineCheckout = height < 600 || fontScale >= 1.5;
+  const inlineCheckout = true;
   const celebration = usePurchaseCelebration();
   const subscription = useSubscription();
   const { service, entitlement } = subscription;
@@ -236,7 +232,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           />
         </>
       )}
-      <CheckoutLinks working={working} restoring={restoring} restore={restore} onMessage={setMessage} />
     </SafeAreaView>
   );
 
@@ -250,7 +245,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       >
         <RiseTimeline>
           <PaywallIntro />
-          <PaywallBenefits />
         </RiseTimeline>
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Votic Plus
@@ -272,15 +266,19 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             disabled={working}
           />
         ) : null}
-        {selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
+        {shown.length === 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
         <Text style={[p.detail, { color: theme.text }]}>
-          A subscription is required for your documents. Try the sample preview for free.
+          A subscription is required to read, listen to, and ask questions about your documents.
         </Text>
         {inlineCheckout ? checkout : null}
 
-        <PaywallPreview disabled={working} />
+        <RiseTimeline>
+          <PaywallBenefits />
+        </RiseTimeline>
+        {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
 
         <PaywallQuestions store={STORE} />
+        <CheckoutLinks working={working} restoring={restoring} restore={restore} onMessage={setMessage} />
 
         <Pressable
           accessibilityRole="button"
@@ -296,7 +294,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         </Pressable>
       </ScrollView>
 
-      {!inlineCheckout ? checkout : null}
       {celebration.overlay}
     </SafeAreaView>
   );
@@ -458,7 +455,7 @@ const s = StyleSheet.create({
   terms: { fontSize: 12, lineHeight: 18 },
   signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
   signOutText: { fontSize: 14, textAlign: "center" },
-  inlineFooter: { borderWidth: 1, borderRadius: radii.lg },
+  inlineFooter: { borderTopWidth: 0, width: "100%", maxWidth: 360, alignSelf: "center" },
   footer: { padding: spacing.md, gap: spacing.sm, borderTopWidth: 1 },
   loading: { minHeight: 54, alignItems: "center", justifyContent: "center" },
   summary: { fontSize: 13, lineHeight: 19, textAlign: "center" },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { file_type_label, readable_title } from "./documentDisplay";
+import { file_type_label, readable_title, sort_documents } from "./documentDisplay";
 import { strip_file_extension } from "./fileTypes";
 
 describe("document titles", () => {
@@ -47,4 +47,34 @@ describe("document_type_label", () => {
     expect(document_type_label({ sourceName: "notes.txt", origin: "file" })).toBe("Text");
     expect(document_type_label({ sourceName: "report.pdf" })).toBe("PDF");
   });
+});
+
+describe("file type order", () => {
+  it("groups PDF then HTML then remaining types and sorts filenames without case", () => {
+    const names = ["z.txt", "b.PDF", "c.html", "a.pdf", "A.html", "B.txt"];
+    const documents = names.map((sourceName, index) => ({
+      id: String(index),
+      sourceName,
+      title: "Renamed title",
+    })) as import("./types").VoticDocument[];
+    expect(sort_documents(documents, "type").map((d) => d.sourceName)).toEqual([
+      "a.pdf",
+      "b.PDF",
+      "A.html",
+      "c.html",
+      "B.txt",
+      "z.txt",
+    ]);
+    expect(documents.map((d) => d.sourceName)).toEqual(names);
+    expect(sort_documents([], "type")).toEqual([]);
+  });
+});
+
+it("groups converted webpages and scans by their displayed identity instead of their text storage", () => {
+  const documents = [
+    { id: "w", title: "Web", sourceName: "A.txt", origin: "webpage" },
+    { id: "t", title: "Text", sourceName: "Z.txt", origin: "file" },
+    { id: "s", title: "Scan", sourceName: "B.txt", origin: "scan" },
+  ] as import("./types").VoticDocument[];
+  expect(sort_documents(documents, "type").map((d) => d.id)).toEqual(["s", "t", "w"]);
 });

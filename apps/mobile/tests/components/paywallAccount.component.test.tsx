@@ -48,6 +48,7 @@ it("shows all six Votic Plus benefits and markets AI usage without credit counts
   expect(within(benefits).getAllByTestId("benefit-check", { includeHiddenElements: true })).toHaveLength(6);
   for (const benefit of PLUS_BENEFITS)
     expect(screen.getByLabelText(`${benefit.title}. ${benefit.detail} Included.`)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Play voice preview" })).toBeNull();
   expect(screen.queryByText(/credit/i)).toBeNull();
   expect(screen.queryByText(/1,000|1000/)).toBeNull();
   expect(screen.queryByText(/Pro\b/)).toBeNull();
@@ -149,6 +150,7 @@ it("switches billing options instantly with Reduce Motion, and restores purchase
 });
 
 it("settles the offer briefly when switching billing options without Reduce Motion", async () => {
+  const errors = jest.spyOn(console, "error").mockImplementation(() => {});
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
@@ -158,6 +160,7 @@ it("settles the offer briefly when switching billing options without Reduce Moti
     jest.advanceTimersByTime(400);
   });
   expect(visible_opacity(offer())).toBe(1);
+  expect(errors).not.toHaveBeenCalled();
 });
 
 it("says plainly when the store fails unexpectedly, without showing the technical error", async () => {
@@ -175,21 +178,23 @@ it("says plainly when the store fails unexpectedly, without showing the technica
   expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
 });
 
-it("shows plans before the preview and keeps required subscription and renewal terms visible", async () => {
+it("shows billing before the checklist, without a preview, and keeps renewal terms visible", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   // No numbered sections, no jump button and no extra "make it yours" block.
   expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
   expect(
-    screen.getByText("A subscription is required for your documents. Try the sample preview for free."),
+    screen.getByText(
+      "A subscription is required to read, listen to, and ask questions about your documents.",
+    ),
   ).toBeTruthy();
   expect(screen.getByText("Get answers grounded in what you're reading, typed or spoken.")).toBeTruthy();
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
   const headers = screen.getAllByRole("header");
-  expect(headers.indexOf(screen.getByRole("header", { name: "Included with Votic Plus" }))).toBeLessThan(
-    headers.indexOf(screen.getByRole("header", { name: "Votic Plus" })),
+  expect(headers.indexOf(screen.getByRole("header", { name: "Votic Plus" }))).toBeLessThan(
+    headers.indexOf(screen.getByRole("header", { name: "Included with Votic Plus" })),
   );
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
   // The full "then $9.99/month" sentence appears once, above the button.

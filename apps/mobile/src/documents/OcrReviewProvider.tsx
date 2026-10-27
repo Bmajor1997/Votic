@@ -259,6 +259,12 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
                 Page {page + 1} of {record?.pages.length || 0}. Correct mistakes before saving. Editing does
                 not call text recognition again. Temporary scan images are removed when the scanner closes.
               </Text>
+              {record && record.pages[page]?.replace(/\s/g, "").length < 60 ? (
+                <Text accessibilityRole="alert" style={{ color: theme.text }}>
+                  Very little text was recognized on this page. Check the text carefully before saving; if
+                  content is missing, retake the page with the paper filling the camera view.
+                </Text>
+              ) : null}
               {error ? (
                 <Text accessibilityRole="alert" style={{ color: theme.text }}>
                   {error}

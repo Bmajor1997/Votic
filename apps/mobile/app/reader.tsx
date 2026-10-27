@@ -78,7 +78,6 @@ import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { document_time_spent } from "../src/documents/insights";
 import { document_heading, readable_title } from "../src/documents/documentDisplay";
 import { split_passages } from "../src/documents/passages";
-import { catch_up_context, catch_up_prompt } from "../src/documents/catchUp";
 import { create_throttled_saver } from "../src/documents/throttledSaver";
 import { useDocumentTransition } from "../src/navigation/DocumentTransitionProvider";
 import { useOnboarding } from "../src/onboarding/OnboardingProvider";
@@ -734,47 +733,6 @@ function ReaderContent() {
         </View>,
       );
     return views;
-  }
-
-  async function send_catch_up() {
-    if (!activeDocument || askSending || activeDocument.progress <= 0) return;
-    Keyboard.dismiss();
-    const question = catch_up_prompt(activeDocument);
-    const covered = catch_up_context(activeDocument);
-    open_ask_votic();
-    setAskError("");
-    setAskMessages((current) => [...current, { role: "user", text: "Catch me up" }]);
-    setAskSending(true);
-    try {
-      const answer = await ask_votic(
-        question,
-        {
-          title: activeDocument.title,
-          sections: [{ heading: "What you have covered so far", text: covered }],
-        },
-        [],
-        explanationStyle,
-        "catch-me-up",
-      );
-      // A notice (such as a daily limit) did not come from the document, so it isn't labeled as if it did.
-      setAskMessages((current) => [
-        ...current,
-        answer.mode === "document-ai"
-          ? {
-              role: "votic",
-              text: answer.answer,
-              catchUp: {
-                percent: Math.round((activeDocument.progress || 0) * 100),
-                title: activeDocument.title,
-              },
-            }
-          : { role: "votic", text: answer.answer, fallback: true },
-      ]);
-    } catch (error) {
-      setAskError(error instanceof Error ? error.message : "Votic could not catch you up right now.");
-    } finally {
-      setAskSending(false);
-    }
   }
 
   function save_ask_answer(messageIndex: number) {
@@ -1722,14 +1680,6 @@ function ReaderContent() {
                             label="Listen"
                             active={sheet === "listen" || playing}
                             onPress={() => setSheet("listen")}
-                          />
-                        ) : null}
-                        {activeDocument && activeDocument.progress > 0 ? (
-                          <ToolButton
-                            icon="sparkles-outline"
-                            label="Catch up"
-                            active={askOpen}
-                            onPress={() => void send_catch_up()}
                           />
                         ) : null}
                         <ToolButton

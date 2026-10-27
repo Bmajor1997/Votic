@@ -69,7 +69,7 @@ export function DocumentOpenSheet({
                   accessibilityHint={
                     mode === "read"
                       ? "Opens the document for reading at your saved position"
-                      : "Opens listening controls at your saved position. Press Play to start."
+                      : "Starts listening at your saved position."
                   }
                   onPress={() => onOpen(document, mode)}
                   style={({ pressed }) => [

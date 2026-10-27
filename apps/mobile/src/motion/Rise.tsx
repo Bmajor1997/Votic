@@ -1,4 +1,12 @@
-import { PropsWithChildren, createContext, useContext, useEffect, useState } from "react";
+import {
+  PropsWithChildren,
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { Animated, Easing, StyleProp, ViewStyle } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
@@ -84,16 +92,18 @@ export function Rise({
 export function SettleOnChange({ changeKey, children }: PropsWithChildren<{ changeKey: string }>) {
   const { reduceMotion } = useAccessibilityPreferences();
   const [progress] = useState(() => new Animated.Value(1));
-  const [shownKey, setShownKey] = useState(changeKey);
-  if (shownKey !== changeKey) {
-    setShownKey(changeKey);
-    if (!reduceMotion) progress.setValue(0);
-  }
-  useEffect(() => {
+  const previousKey = useRef(changeKey);
+  useLayoutEffect(() => {
+    const changed = previousKey.current !== changeKey;
+    previousKey.current = changeKey;
+    progress.stopAnimation();
     if (reduceMotion) {
       progress.setValue(1);
       return;
     }
+    if (!changed) return;
+    // Animated listeners update their own views; changing the value during render updates another component.
+    progress.setValue(0);
     const animation = Animated.timing(progress, {
       toValue: 1,
       duration: 240,
@@ -103,7 +113,7 @@ export function SettleOnChange({ changeKey, children }: PropsWithChildren<{ chan
     });
     animation.start();
     return () => animation.stop();
-  }, [shownKey, reduceMotion, progress]);
+  }, [changeKey, reduceMotion, progress]);
   return (
     <Animated.View
       style={{

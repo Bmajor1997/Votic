@@ -416,13 +416,15 @@ describe("reading statistics count real time, not visits", () => {
 });
 
 describe("shown_total", () => {
-  it("adds the completed minutes shown for reading and listening, so the three figures agree", async () => {
+  it("combines partial reading and listening minutes before rounding", async () => {
     const { shown_total, format_duration } = await import("./activityModel");
     const split = { reading: 24 * 60_000 + 40_000, listening: 60_000 + 40_000 };
     expect(format_duration(split.reading)).toBe("24 min");
     expect(format_duration(split.listening)).toBe("1 min");
-    expect(format_duration(shown_total(split))).toBe("25 min");
-    expect(format_duration(shown_total({ reading: 30_000, listening: 50_000 }))).toBe("under 1 min");
+    expect(format_duration(shown_total(split))).toBe("26 min");
+    expect(format_duration(shown_total({ reading: 30_000, listening: 50_000 }))).toBe("1 min");
+    expect(format_duration(shown_total({ reading: 50_000, listening: 50_000 }))).toBe("1 min");
+    expect(format_duration(shown_total({ reading: 119_000, listening: 119_000 }))).toBe("3 min");
     expect(shown_total({ reading: 0, listening: 0 })).toBe(0);
     expect(format_duration(shown_total({ reading: 59 * 60_000 + 59_000, listening: 60_000 }))).toBe("1 h");
   });

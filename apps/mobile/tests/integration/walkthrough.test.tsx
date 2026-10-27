@@ -555,7 +555,7 @@ describe("Reader walkthrough", () => {
     await wait_for_walkthrough();
     expect(
       screen.getByText(
-        "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes. Once you've read some, Catch up recaps it.",
+        "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes.",
       ),
     ).toBeTruthy();
   });

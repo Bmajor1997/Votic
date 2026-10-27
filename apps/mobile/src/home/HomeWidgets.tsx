@@ -1,3 +1,4 @@
+import { NotePreview } from "../notes/components/NotePreview";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
@@ -5,15 +6,15 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import { format_duration, shown_total, spoken_duration } from "../activity/activityModel";
 import { useActivity } from "../activity/ActivityProvider";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
-import { progress_label, readable_title } from "../documents/documentDisplay";
+import { document_type_label, progress_label, readable_title } from "../documents/documentDisplay";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { VoticDocument } from "../documents/types";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useWalkthroughTarget } from "../walkthrough/WalkthroughProvider";
 import { NoteItem, change_label, home_insight, relative_day, week_activity } from "./homeModel";
 
-import { HomeDocumentArtwork, WidgetHalo } from "./HomeCardArtwork";
-import { document_widget_tone, widget_palette } from "./widgetDesign";
+import { HomeDocumentArtwork } from "./HomeCardArtwork";
+import { widget_palette } from "./widgetDesign";
 
 type Target = (node: View | null) => void;
 
@@ -65,9 +66,8 @@ export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => v
         { backgroundColor: colors.surface, borderColor: colors.border },
       ]}
     >
-      <WidgetHalo color={colors.art} />
       <View style={s.emptyContinueTop}>
-        <View style={[s.emptyCover, { borderColor: colors.border, backgroundColor: theme.surface }]}>
+        <View style={[s.emptyCover, { borderColor: colors.border, backgroundColor: colors.art }]}>
           <Ionicons name="document-outline" size={30} color={colors.detail} />
         </View>
         <View style={s.grow}>
@@ -84,10 +84,10 @@ export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => v
         accessibilityLabel="Browse documents"
         accessibilityHint="Opens Documents, where you can choose a file or add one"
         onPress={onBrowse}
-        style={({ pressed }) => [s.emptyAdd, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
+        style={({ pressed }) => [s.emptyAdd, { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 }]}
       >
-        <Ionicons name="folder-open-outline" size={20} color={theme.onAccent} />
-        <Text style={[s.emptyAddText, { color: theme.onAccent }]}>Browse documents</Text>
+        <Ionicons name="folder-open-outline" size={20} color={colors.onStrong} />
+        <Text style={[s.emptyAddText, { color: colors.onStrong }]}>Browse documents</Text>
       </Pressable>
     </View>
   );
@@ -157,7 +157,6 @@ export function WeekWidget() {
         { borderColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },
       ]}
     >
-      <WidgetHalo color={colors.art} />
       {/* Says where the card leads, since Statistics no longer has its own row on Home. */}
       <View style={s.weekHeader}>
         <View style={s.weekIdentity}>
@@ -318,7 +317,6 @@ function RecentCard({
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widget_palette(theme.isDark, document_widget_tone(document.sourceName));
   const { fontScale } = useWindowDimensions();
   const ref = useRef<View>(null);
   const titleRef = useRef<Text>(null);
@@ -331,44 +329,45 @@ function RecentCard({
       testID="home-recent-card"
       style={[
         s.recent,
-        theme.elevation,
         {
-          width: Math.min(280, 156 * Math.max(1, fontScale)),
-          backgroundColor: colors.surface,
-          borderColor: colors.border,
+          width: Math.min(320, 200 * Math.max(1, fontScale)),
+          backgroundColor: "transparent",
         },
       ]}
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
-        accessibilityHint={progress_label(document)}
+        accessibilityHint={`${document_type_label(document)}. ${progress_label(document)}`}
         onPress={() => onOpen(ref, { text: title, node: titleRef.current })}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
-        <View style={[s.recentCover, { backgroundColor: colors.art }]}>
-          <WidgetHalo color={colors.strong} />
+        <View style={s.recentCover}>
           <HomeDocumentArtwork document={document} />
         </View>
-        <Text
-          ref={titleRef}
-          numberOfLines={fontScale > 1.2 ? undefined : 2}
-          style={[s.recentTitle, { color: colors.ink }]}
-        >
-          {title}
-        </Text>
-        {document.progress >= 1 ? (
-          <Text style={[s.meta, { color: colors.detail }]}>Finished</Text>
-        ) : document.progress > 0 ? (
-          <View style={s.recentProgress}>
-            <View style={[s.track, s.grow, { backgroundColor: colors.border }]}>
-              <View style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: colors.strong }]} />
+        <View style={s.recentCopy}>
+          <Text
+            ref={titleRef}
+            numberOfLines={fontScale > 1.2 ? undefined : 2}
+            style={[s.recentTitle, { color: theme.text }]}
+          >
+            {title}
+          </Text>
+          {document.progress >= 1 ? (
+            <Text style={[s.meta, { color: theme.mutedText }]}>Finished</Text>
+          ) : document.progress > 0 ? (
+            <View style={s.recentProgress}>
+              <View style={[s.track, s.grow, { backgroundColor: theme.border }]}>
+                <View
+                  style={[s.fill, { width: `${Math.max(3, percent)}%`, backgroundColor: theme.accent }]}
+                />
+              </View>
+              <Text style={[s.meta, { color: theme.mutedText }]}>{percent}%</Text>
             </View>
-            <Text style={[s.meta, { color: colors.detail }]}>{percent}%</Text>
-          </View>
-        ) : (
-          <Text style={[s.meta, { color: colors.detail }]}>Not started</Text>
-        )}
+          ) : (
+            <Text style={[s.meta, { color: theme.mutedText }]}>Not started</Text>
+          )}
+        </View>
       </Pressable>
       <Pressable
         ref={moreRef}
@@ -379,8 +378,8 @@ function RecentCard({
         hitSlop={4}
         style={s.recentMore}
       >
-        <View style={[s.moreBadge, { backgroundColor: colors.surface }]}>
-          <Ionicons name="ellipsis-horizontal" size={19} color={colors.ink} />
+        <View style={[s.moreBadge, { backgroundColor: theme.surface }]}>
+          <Ionicons name="ellipsis-horizontal" size={19} color={theme.text} />
         </View>
       </Pressable>
     </View>
@@ -417,7 +416,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
         {notes.map((item) => {
           const { passage, document } = item;
           // Lead with what the person wrote (a title, then the note); the saved passage fills in below it.
-          const [heading, body = ""] = [passage.title, passage.note, passage.text]
+          const [heading] = [passage.title, passage.note, passage.text]
             .map((part) => part?.trim())
             .filter((part): part is string => Boolean(part));
           const source = readable_title(document.title);
@@ -433,45 +432,16 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
               onPress={() => onOpen(item)}
               style={({ pressed }) => [
                 s.note,
-                theme.elevation,
                 {
                   width: Math.min(320, 232 * Math.max(1, fontScale)),
-                  borderColor: colors.border,
-                  backgroundColor: pressed ? colors.art : colors.surface,
+                  opacity: pressed ? 0.75 : 1,
                 },
               ]}
             >
-              <View
-                accessible={false}
-                accessibilityElementsHidden
-                importantForAccessibility="no-hide-descendants"
-                style={s.noteMark}
-              >
-                <View style={[s.widgetIcon, { backgroundColor: colors.art }]}>
-                  <Ionicons name="create-outline" size={18} color={colors.ink} />
-                </View>
-                <View style={[s.noteRule, { backgroundColor: colors.border }]} />
-              </View>
-              <View style={s.noteTop}>
-                {passage.pinned ? <Ionicons name="pin" size={14} color={colors.strong} /> : null}
-                <Text
-                  numberOfLines={fontScale > 1.2 ? undefined : 2}
-                  style={[s.noteHeading, { color: colors.ink }]}
-                >
-                  {heading}
-                </Text>
-              </View>
-              {body ? (
-                <Text
-                  numberOfLines={fontScale > 1.2 ? undefined : 3}
-                  style={[s.noteBody, { color: colors.detail }]}
-                >
-                  {body}
-                </Text>
-              ) : null}
+              <NotePreview passage={passage} />
               <Text
                 numberOfLines={fontScale > 1.2 ? undefined : 1}
-                style={[s.noteSource, { color: colors.detail }]}
+                style={[s.noteSource, { color: theme.mutedText }]}
               >
                 {source} · {relative_day(passage.updatedAt)}
               </Text>
@@ -548,36 +518,30 @@ const s = StyleSheet.create({
 
   shelf: { marginHorizontal: -SCREEN_GUTTER },
   shelfContent: { paddingHorizontal: SCREEN_GUTTER, paddingVertical: spacing.sm, gap: spacing.md },
-  recent: { width: 156, padding: spacing.sm, borderWidth: 1, borderRadius: radii.lg },
+  recent: { width: 200 },
   recentMain: { gap: spacing.xs },
   recentCover: {
-    height: 144,
+    height: 218,
     overflow: "hidden",
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 2,
   },
+  recentCopy: { paddingTop: 4, paddingRight: 36, gap: 4 },
   recentTitle: { fontSize: 14, lineHeight: 19, fontWeight: "700", minHeight: 38 },
   recentProgress: { flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: 18 },
   recentMore: {
     position: "absolute",
-    top: 2,
-    right: 2,
+    top: 218,
+    right: -8,
     width: 48,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  note: {
-    width: 232,
-    minHeight: 136,
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
+  note: { width: 232, gap: spacing.sm },
   noteTop: { flexDirection: "row", gap: 6, alignItems: "baseline" },
   noteHeading: { flex: 1, fontSize: 15, lineHeight: 20, fontWeight: "700" },
   noteBody: { fontSize: 14, lineHeight: 19 },

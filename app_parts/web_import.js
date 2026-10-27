@@ -102,7 +102,7 @@ function page_chrome(node) {
     /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`) ||
     // Things a reader skips: citation lists and [1] markers, review/status boxes, short descriptions, fact boxes,
     // "For other uses…" notes, sidebars, navigation boxes, category links, and anything marked not for print.
-    /(?:^|\s)(?:reflist|references|mw-cite-backlink|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|infobox[\w-]*|hatnote|sidebar[\w-]*|vertical-navbox|ambox[\w-]*|toc|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link|mw-empty-elt)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
+    /(?:^|\s)(?:breadcrumb|breadcrumbs|reflist|references|mw-cite-backlink|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|infobox[\w-]*|hatnote|sidebar[\w-]*|vertical-navbox|ambox[\w-]*|toc|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link|mw-empty-elt)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
 /** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
 const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited|further reading|external links)$/i;
