@@ -512,7 +512,13 @@ const s = StyleSheet.create({
   split: { gap: spacing.xs },
   splitTrack: { height: 6 },
   splitLabels: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.sm },
-  weekFooter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  weekFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
   weekFooterText: { fontSize: 13, lineHeight: 19, flex: 1 },
   insight: {
     fontSize: 14,
