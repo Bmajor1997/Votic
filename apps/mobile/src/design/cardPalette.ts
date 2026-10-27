@@ -10,12 +10,12 @@ export const darkCards = {
     onStrong: "#132C50",
   },
   activity: {
-    surface: "#163B35",
-    border: "#335E54",
-    ink: "#E1F7ED",
-    detail: "#B7D7CB",
-    art: "#285449",
-    strong: "#8BD8BC",
+    surface: "#205B53",
+    border: "#477D72",
+    ink: "#F2FCF9",
+    detail: "#C9EAE3",
+    art: "#306E63",
+    strong: "#9DDACB",
     onStrong: "#153E32",
   },
   notes: {
