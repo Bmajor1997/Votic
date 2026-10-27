@@ -270,6 +270,7 @@ function ReaderContent() {
   const manuallyScrolling = useRef(false);
   const closing = useRef(false);
   const readerPrepared = useRef(false);
+  const transitionStarted = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
@@ -853,15 +854,24 @@ function ReaderContent() {
     close_ask_votic();
   }
 
-  async function close_reader() {
+  function close_reader() {
     if (closing.current) return;
     closing.current = true;
     if (nativePlayer) {
       void progressSync.flush();
-      await answerListening.stop();
-      await Speech.stop();
-    } else await stop();
+      void answerListening.stop();
+      void Speech.stop().catch(() => {});
+    } else {
+      void answerListening.stop();
+      void stop().catch(() => {});
+    }
+    // Cleanup starts immediately; a slow native speech promise must not hold navigation hostage.
     transition.closeReader(() => router.back());
+  }
+  function start_reader_transition() {
+    if (transitionStarted.current || closing.current) return;
+    transitionStarted.current = true;
+    transition.beginReader();
   }
   function prepare_reader() {
     if (readerPrepared.current || !viewportHeight.current) return;
@@ -870,7 +880,7 @@ function ReaderContent() {
     follow_active_word(true, false);
     requestAnimationFrame(() => {
       setReaderReady(true);
-      transition.beginReader();
+      start_reader_transition();
     });
   }
   /** Keeps narration focused without changing the Reader's layout when its dock changes mode. */
@@ -1259,7 +1269,7 @@ function ReaderContent() {
   });
 
   return (
-    <View ref={readerRoot} style={s.safe}>
+    <View ref={readerRoot} testID="reader-surface" onLayout={start_reader_transition} style={s.safe}>
       <Animated.View
         style={[
           s.safe,
@@ -1396,7 +1406,7 @@ function ReaderContent() {
                         if (!readerPrepared.current) {
                           readerPrepared.current = true;
                           setReaderReady(true);
-                          transition.beginReader();
+                          start_reader_transition();
                         }
                       }}
                       onLocation={(at, word) => {

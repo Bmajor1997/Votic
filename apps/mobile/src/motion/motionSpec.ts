@@ -2,7 +2,7 @@
 export const MOTION = {
   // One linear timeline drives the wordmark assembly; each piece has its own curve and overshoot.
   homeLogo: { duration: 2000, settleDeadline: 2500, easing: [0, 0, 1, 1] },
-  document: { open: 420, close: 240, textFrom: 0.42 },
+  document: { open: 300, close: 180, textFrom: 0.2 },
   mode: { duration: 240, distance: 8, pillWidth: 88 },
   playback: { duration: 200, rows: 20 },
   saved: { duration: 340, hold: 2600 },
