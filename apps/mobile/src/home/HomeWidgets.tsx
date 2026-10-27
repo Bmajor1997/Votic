@@ -1,4 +1,5 @@
 import { NotePreview } from "../notes/components/NotePreview";
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
@@ -166,7 +167,7 @@ export function WeekWidget() {
             importantForAccessibility="no-hide-descendants"
             style={[s.widgetIcon, { backgroundColor: colors.art }]}
           >
-            <Ionicons name="stats-chart" size={18} color={colors.ink} />
+            <Ionicons name="stats-chart-outline" size={18} color={colors.ink} />
           </View>
           <Text style={[s.eyebrow, { color: colors.detail }]}>THIS WEEK</Text>
         </View>
@@ -243,9 +244,12 @@ export function WeekWidget() {
           </View>
         </View>
       ) : null}
-      {insight ? (
-        <Text style={[s.insight, { color: colors.ink, borderTopColor: colors.border }]}>{insight}</Text>
-      ) : null}
+      <View style={[s.weekFooter, { borderTopColor: colors.border }]}>
+        <Ionicons name="leaf-outline" size={17} color={colors.detail} />
+        <Text style={[s.weekFooterText, { color: colors.detail }]}>
+          {insight || "Small moments create lasting progress."}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -498,16 +502,18 @@ const s = StyleSheet.create({
   weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekLinkText: { fontSize: 14, fontWeight: "800" },
   weekTop: { flexWrap: "wrap", flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
-  weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
-  weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
+  weekTotal: { ...editorial, fontSize: 34, lineHeight: 41, marginTop: 2 },
+  weekEmpty: { ...editorial, fontSize: 23, lineHeight: 30, marginTop: spacing.xs },
   days: { flexDirection: "row", gap: 5 },
   day: { alignItems: "center", gap: 4 },
   dayBarArea: { height: 40, justifyContent: "flex-end" },
-  dayBar: { width: 8, borderRadius: 4 },
+  dayBar: { width: 8, borderRadius: 4, opacity: 0.92 },
   dayLabel: { fontSize: 11 },
   split: { gap: spacing.xs },
   splitTrack: { height: 6 },
   splitLabels: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.sm },
+  weekFooter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md, flexDirection: "row", alignItems: "flex-start", gap: spacing.sm },
+  weekFooterText: { fontSize: 13, lineHeight: 19, flex: 1 },
   insight: {
     fontSize: 14,
     lineHeight: 20,
