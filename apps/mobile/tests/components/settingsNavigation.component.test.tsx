@@ -20,11 +20,11 @@ describe("Settings categories", () => {
     const rows = screen.getAllByRole("button");
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
       "Account & Membership",
-      "AI Credits & Usage",
       "Appearance",
       "Reading & Listening",
       "Accessibility",
       "Personalization",
+      "AI Credits & Usage",
       "Help",
       "Feedback",
     ]);

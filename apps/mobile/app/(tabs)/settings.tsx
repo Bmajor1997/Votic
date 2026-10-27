@@ -53,15 +53,6 @@ export default function Settings() {
           "person-outline",
         )}
       </SettingsGroup>
-      <SettingsGroup title="AI CREDITS & USAGE">
-        <SettingsRow
-          label="AI Credits & Usage"
-          detail="Monthly allowance, additional credits, and renewal date"
-          icon="sparkles-outline"
-          hint="Opens your AI credit balance and usage"
-          onPress={() => router.push("/ai-usage")}
-        />
-      </SettingsGroup>
       <SettingsGroup title="YOUR PREFERENCES">
         {category(
           "appearance",
@@ -86,6 +77,15 @@ export default function Settings() {
           true,
         )}
         {category("personalization", `Your answers · ${explanation}`, "options-outline", true)}
+      </SettingsGroup>
+      <SettingsGroup title="AI CREDITS & USAGE">
+        <SettingsRow
+          label="AI Credits & Usage"
+          detail="Monthly allowance, additional credits, and renewal date"
+          icon="sparkles-outline"
+          hint="Opens your AI credit balance and usage"
+          onPress={() => router.push("/ai-usage")}
+        />
       </SettingsGroup>
       <SettingsGroup title="SUPPORT & ACTIVITY">
         {category("help", "Walkthroughs, getting started, and activity insights", "help-circle-outline")}
