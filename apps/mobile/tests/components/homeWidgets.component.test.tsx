@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
 import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
+import { note_palette } from "../../src/notes/notePalette";
 import { home_notes } from "../../src/home/homeModel";
 import { document_widget_tone, widget_palette, WidgetTone } from "../../src/home/widgetDesign";
 import { router } from "../mocks/expoRouter";
@@ -97,8 +98,14 @@ describe("Colorful Home cards", () => {
         "transparent",
       );
       expect(StyleSheet.flatten(screen.getByTestId("note-preview-type").props.style).backgroundColor).toBe(
-        widget_palette(mode === "dark", "notes").surface,
+        note_palette(featured).surface,
       );
+      expect(StyleSheet.flatten(screen.getByTestId("home-preview-paper").props.style).backgroundColor).toBe(
+        "#FFFFFF",
+      );
+      expect(
+        StyleSheet.flatten(within(screen.getByTestId("home-preview-paper")).getByText(/./).props.style).color,
+      ).toBe("#26344B");
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");
       expect(StyleSheet.flatten(read.props.style).minHeight).toBeGreaterThanOrEqual(48);
@@ -187,12 +194,12 @@ function contrast(a: string, b: string) {
   return (bright + 0.05) / (dim + 0.05);
 }
 describe("Home palette contrast", () => {
-  it("keeps card colors distinct with solid forest green activity and soft lavender notes", () => {
+  it("keeps card colors distinct with deep jade activity and soft lavender notes", () => {
     const tones: WidgetTone[] = ["chapter", "activity", "notes", "pdf", "slides", "book", "text"];
     for (const dark of [false, true]) {
       const surfaces = tones.map((tone) => widget_palette(dark, tone).surface);
       expect(new Set(surfaces).size).toBe(tones.length);
-      expect(widget_palette(dark, "activity").surface).toBe("#163B35");
+      expect(widget_palette(dark, "activity").surface).toBe("#205B53");
       expect(widget_palette(dark, "notes").surface).toBe("#C9BEDC");
       for (const hex of surfaces) expect(hex).toMatch(/^#[0-9a-f]{6}$/i);
     }
@@ -220,7 +227,8 @@ describe("Home palette contrast", () => {
 });
 
 describe("Home with an empty library", () => {
-  it("keeps Home's sections, each saying what will show up there", async () => {
+  it.each(["light", "dark"])("keeps empty Home sections with guidance in %s mode", async (appearanceMode) => {
+    await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
     await render_with_providers(<Home />, { onboarding: { checklistDismissed: false } });
     expect(screen.queryByRole("header", { name: "Your reading starts here" })).toBeNull();
     expect(screen.queryByRole("header", { name: "Continue" })).toBeNull();
@@ -228,8 +236,8 @@ describe("Home with an empty library", () => {
     expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Upload a document" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Browse documents" }));
-    expect(router.push).toHaveBeenCalledWith("/documents");
+    expect(screen.queryByRole("button", { name: "Browse documents" })).toBeNull();
+    expect(screen.getByText("Go to Documents to upload your first file.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /^This week: no reading or listening yet/ })).toBeTruthy();
     expect(screen.getByText("No activity")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Recent files" })).toBeTruthy();
@@ -241,13 +249,16 @@ describe("Home with an empty library", () => {
   });
 });
 
-it("offers browsing when every document is finished, while keeping recent documents", async () => {
+it("offers guidance when every document is finished, while keeping recent documents", async () => {
   await render_with_providers(<Home />, {
     documents: [test_document("finished", "Finished book", { progress: 1, completedAt: 5 })],
     onboarding: { checklistDismissed: false },
   });
   expect(screen.getByRole("header", { name: "Your next read starts here" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Finished book" })).toBeTruthy();
+  expect(screen.getByText("Go to Documents to choose your next read.")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Browse documents" }));
+  expect(router.push).toHaveBeenCalledWith("/documents");
   expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
 });

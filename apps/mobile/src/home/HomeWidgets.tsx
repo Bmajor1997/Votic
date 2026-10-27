@@ -1,4 +1,5 @@
 import { NotePreview } from "../notes/components/NotePreview";
+import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ReactNode, useRef } from "react";
@@ -52,7 +53,15 @@ export function SectionHeader({
 // ---------- This week ----------
 
 /** Home points to Documents when there is no unfinished document to continue. */
-export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => void; targetRef?: Target }) {
+export function EmptyContinueWidget({
+  hasDocuments,
+  onBrowse,
+  targetRef,
+}: {
+  hasDocuments: boolean;
+  onBrowse: () => void;
+  targetRef?: Target;
+}) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "chapter");
   return (
@@ -75,20 +84,27 @@ export function EmptyContinueWidget({ onBrowse, targetRef }: { onBrowse: () => v
             Your next read starts here
           </Text>
           <Text style={[s.emptyMessage, { color: colors.detail }]}>
-            Find your next document to read or listen to.
+            {hasDocuments
+              ? "Go to Documents to choose your next read."
+              : "Go to Documents to upload your first file."}
           </Text>
         </View>
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Browse documents"
-        accessibilityHint="Opens Documents, where you can choose a file or add one"
-        onPress={onBrowse}
-        style={({ pressed }) => [s.emptyAdd, { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 }]}
-      >
-        <Ionicons name="folder-open-outline" size={20} color={colors.onStrong} />
-        <Text style={[s.emptyAddText, { color: colors.onStrong }]}>Browse documents</Text>
-      </Pressable>
+      {hasDocuments ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Browse documents"
+          accessibilityHint="Opens Documents, where you can choose a file or add one"
+          onPress={onBrowse}
+          style={({ pressed }) => [
+            s.emptyAdd,
+            { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 },
+          ]}
+        >
+          <Ionicons name="folder-open-outline" size={20} color={colors.onStrong} />
+          <Text style={[s.emptyAddText, { color: colors.onStrong }]}>Browse documents</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -166,7 +182,7 @@ export function WeekWidget() {
             importantForAccessibility="no-hide-descendants"
             style={[s.widgetIcon, { backgroundColor: colors.art }]}
           >
-            <Ionicons name="stats-chart" size={18} color={colors.ink} />
+            <Ionicons name="stats-chart-outline" size={18} color={colors.ink} />
           </View>
           <Text style={[s.eyebrow, { color: colors.detail }]}>THIS WEEK</Text>
         </View>
@@ -243,9 +259,12 @@ export function WeekWidget() {
           </View>
         </View>
       ) : null}
-      {insight ? (
-        <Text style={[s.insight, { color: colors.ink, borderTopColor: colors.border }]}>{insight}</Text>
-      ) : null}
+      <View style={[s.weekFooter, { borderTopColor: colors.border }]}>
+        <Ionicons name="trending-up-outline" size={17} color={colors.detail} accessible={false} />
+        <Text style={[s.weekFooterText, { color: colors.detail }]}>
+          {insight || "Small moments create lasting progress."}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -438,7 +457,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
                 },
               ]}
             >
-              <NotePreview passage={passage} />
+              <NotePreview document={document} passage={passage} />
               <Text
                 numberOfLines={fontScale > 1.2 ? undefined : 1}
                 style={[s.noteSource, { color: theme.mutedText }]}
@@ -498,16 +517,24 @@ const s = StyleSheet.create({
   weekLink: { flexDirection: "row", alignItems: "center", gap: 4 },
   weekLinkText: { fontSize: 14, fontWeight: "800" },
   weekTop: { flexWrap: "wrap", flexDirection: "row", alignItems: "flex-end", gap: spacing.lg },
-  weekTotal: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.5, marginTop: 2 },
-  weekEmpty: { fontSize: 16, lineHeight: 22, fontWeight: "700", marginTop: spacing.xs },
+  weekTotal: { ...editorial, fontSize: 34, lineHeight: 41, marginTop: 2 },
+  weekEmpty: { ...editorial, fontSize: 23, lineHeight: 30, marginTop: spacing.xs },
   days: { flexDirection: "row", gap: 5 },
   day: { alignItems: "center", gap: 4 },
   dayBarArea: { height: 40, justifyContent: "flex-end" },
-  dayBar: { width: 8, borderRadius: 4 },
+  dayBar: { width: 8, borderRadius: 4, opacity: 0.92 },
   dayLabel: { fontSize: 11 },
   split: { gap: spacing.xs },
   splitTrack: { height: 6 },
   splitLabels: { flexDirection: "row", justifyContent: "space-between", flexWrap: "wrap", gap: spacing.sm },
+  weekFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  weekFooterText: { fontSize: 13, lineHeight: 19, flex: 1 },
   insight: {
     fontSize: 14,
     lineHeight: 20,
@@ -565,16 +592,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  emptyAdd: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  emptyAddText: { fontSize: 16, fontWeight: "800" },
+
   emptyPanel: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -585,5 +603,15 @@ const s = StyleSheet.create({
     padding: spacing.lg,
   },
   emptyPanelTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  emptyAdd: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  emptyAddText: { fontSize: 16, fontWeight: "800" },
   emptyMessage: { fontSize: 14, lineHeight: 20, marginTop: 2 },
 });

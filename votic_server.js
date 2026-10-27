@@ -547,7 +547,15 @@ async function serve_public_file(request,response,path,env,options) {
    response.writeHead(200).end(request.method === "HEAD" ? undefined : body);
 }
 export function create_votic_server(options = {}) { const handler = create_votic_handler(options); const server = createServer(handler); server.on("close", handler.close); return server; }
+function validate_credit_purchase_security(env) {
+ if (env.NODE_ENV === "production" && env.VOTIC_CREDIT_ALLOW_SANDBOX === "true")
+   throw new Error("VOTIC_CREDIT_ALLOW_SANDBOX must be disabled in production.");
+ if (env.NODE_ENV === "production" && env.VOTIC_CREDIT_PRODUCTS_JSON &&
+     (typeof env.REVENUECAT_WEBHOOK_SECRET !== "string" || env.REVENUECAT_WEBHOOK_SECRET.length < 24))
+   throw new Error("REVENUECAT_WEBHOOK_SECRET must contain at least 24 characters before production credit purchases are enabled.");
+}
 export function validate_production_security(env = process.env) {
+ validate_credit_purchase_security(env);
  if (env.NODE_ENV === "production" && !String(env.FIREBASE_PROJECT_ID || "").trim())
    throw new Error("FIREBASE_PROJECT_ID is required when NODE_ENV=production so Votic API routes cannot start without authentication.");
  if (env.NODE_ENV === "production" && env.OPENAI_API_KEY && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
@@ -602,9 +610,7 @@ const REVENUECAT_WEBHOOK_BODY_LIMIT = 256 * 1024;
  * this only happens when it was refunded); REFUND_REVERSED gives the credits back. Purchases are granted once.
  */
 function apply_revenuecat_event(wallet, event, allowSandbox) {
-  const transaction = typeof event.transaction_id === "string" && event.transaction_id ? event.transaction_id : null;
-  if (event.type === "CANCELLATION" && transaction) wallet.revoke(transaction);
-  else if (event.type === "REFUND_REVERSED" && transaction) wallet.restore(transaction);
+  if (["CANCELLATION", "REFUND_REVERSED"].includes(event.type)) wallet.refund(event, { allowSandbox });
   else wallet.grant(event, { allowSandbox });
 }
 async function no_text(status, message) { throw new HttpError(status, message); }

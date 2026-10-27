@@ -1,4 +1,5 @@
 import { editorial } from "../../src/design/editorial";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useRef, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
@@ -65,7 +66,11 @@ export default function Home() {
         </View>
       ) : null}
       {loaded && !featured ? (
-        <EmptyContinueWidget onBrowse={() => router.push("/documents")} targetRef={startTarget} />
+        <EmptyContinueWidget
+          hasDocuments={documents.length > 0}
+          onBrowse={() => router.push("/documents")}
+          targetRef={startTarget}
+        />
       ) : null}
       {featured ? (
         <ContinueCard
@@ -164,8 +169,15 @@ function ContinueCard({
       testID="home-continue-card"
       style={[s.featured, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
     >
-      <Text style={[s.heroEyebrow, { color: colors.detail }]}>YOUR NEXT CHAPTER</Text>
+      <View style={s.featuredHeading}>
+        <View style={s.featuredHeadingLabel}>
+          <Ionicons name="book-outline" size={17} color={colors.detail} />
+          <Text style={[s.heroEyebrow, { color: colors.detail }]}>YOUR NEXT CHAPTER</Text>
+        </View>
+        <Ionicons name="bookmark-outline" size={20} color={colors.detail} accessibilityElementsHidden />
+      </View>
       <View style={s.featuredTop}>
+        <ContinuePreview document={document} />
         <View style={s.featuredCopy}>
           <Text ref={titleRef} style={[s.featuredTitle, { color: colors.ink }]}>
             {title}
@@ -187,7 +199,10 @@ function ContinueCard({
           </View>
           <Text style={[s.featuredMeta, { color: colors.detail }]}>{progress_label(document)}</Text>
         </View>
-        <ContinuePreview document={document} />
+      </View>
+      <View style={[s.featuredFooter, { borderTopColor: colors.border }]}>
+        <Ionicons name="bookmark-outline" size={17} color={colors.detail} accessible={false} />
+        <Text style={[s.featuredFooterText, { color: colors.detail }]}>Your story continues here.</Text>
       </View>
       <View testID="home-continue-actions" style={s.featuredActions}>
         <View ref={listenRef} collapsable={false} style={s.listenAction}>
@@ -249,8 +264,23 @@ const s = StyleSheet.create({
   addText: { fontSize: 15, fontWeight: "700" },
   heroEyebrow: { ...typography.eyebrow },
   featured: { overflow: "hidden", borderWidth: 1, borderRadius: 24, padding: spacing.xl, gap: spacing.lg },
+  featuredHeading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  featuredHeadingLabel: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  featuredFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  featuredFooterText: { fontSize: 13, lineHeight: 19 },
   featuredTop: { flexDirection: "row", flexWrap: "wrap", gap: spacing.md, alignItems: "flex-start" },
-  featuredCopy: { flex: 1, minWidth: 120, gap: spacing.xs },
+  featuredCopy: { flex: 1, minWidth: 120, gap: spacing.sm },
   featuredTitle: { ...editorial, fontSize: 25, lineHeight: 32 },
   featuredMeta: { fontSize: 14, lineHeight: 19 },
   track: { height: 6, borderRadius: 3, overflow: "hidden", marginTop: spacing.xs },

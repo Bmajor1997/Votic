@@ -185,7 +185,7 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
     records(uid) { return db.prepare("SELECT * FROM credit_charges WHERE uid=? ORDER BY created_at, request_id").all(uid); },
     /** Account deletion: no credit history stays linked to the account. Called inside the deletion transaction. */
     remove_user(uid) {
-      for (const table of ["credit_charges", "credit_periods", "credit_spends", "credit_grants"]) db.prepare(`DELETE FROM ${table} WHERE uid=?`).run(uid);
+      for (const table of ["credit_charges", "credit_periods", "credit_spends", "credit_grants", "credit_refund_states"]) db.prepare(`DELETE FROM ${table} WHERE uid=?`).run(uid);
     },
   };
 }

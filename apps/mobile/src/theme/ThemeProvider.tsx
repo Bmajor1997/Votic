@@ -68,20 +68,20 @@ export function mix(a: string, b: string, amount: number) {
 const SEPIA_ACCENT_SHADE = 0.12;
 const palettes = {
   light: {
-    background: "#FFFCF7",
+    background: "#FFFFFF",
     surface: "#FFFFFF",
     surfaceMuted: "#F5F5F4",
     text: "#26344B",
     mutedText: "#626B78",
-    border: "#E5DFD5",
+    border: "#E5E7EB",
   },
   dark: {
-    background: "#292D32",
-    surface: "#32373D",
-    surfaceMuted: "#24282D",
+    background: "#000000",
+    surface: "#121212",
+    surfaceMuted: "#1C1C1C",
     text: "#FAFAF9",
     mutedText: "#D1D5DB",
-    border: "#4B5158",
+    border: "#424242",
   },
   sepia: {
     background: "#F4ECD8",
@@ -122,23 +122,23 @@ const highContrastPalettes = {
     border: "#7D6B4F",
   },
 } as const;
-// Navigation has its own atmosphere; Reader keeps the paper palettes above.
+// Neutral app chrome; source artwork and widgets keep their own palettes.
 const navigationPalettes = {
   light: {
-    background: "#F8F5F0",
-    surface: "#FBF5E6",
-    surfaceMuted: "#F1E6D2",
+    background: "#FFFFFF",
+    surface: "#FFFFFF",
+    surfaceMuted: "#F3F4F6",
     text: "#17243D",
     mutedText: "#5D6574",
-    border: "#E3DED6",
+    border: "#E5E7EB",
   },
   dark: {
-    background: "#0B1220",
-    surface: "#152238",
-    surfaceMuted: "#1C2D47",
+    background: "#000000",
+    surface: "#121212",
+    surfaceMuted: "#1C1C1C",
     text: "#F2F6FF",
     mutedText: "#B4C3DA",
-    border: "#314461",
+    border: "#424242",
   },
 };
 /** The page colors: High contrast for the Reader when asked, the paper palettes in the Reader and Sepia, else navigation. */

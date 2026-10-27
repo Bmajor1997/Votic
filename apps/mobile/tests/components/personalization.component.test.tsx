@@ -1,7 +1,4 @@
-import {
-  load_account_preferences,
-  remove_account_preferences,
-} from "../../src/onboarding/accountPreferences";
+import { load_account_preferences } from "../../src/onboarding/accountPreferences";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
@@ -122,25 +119,12 @@ describe("Notes notebook actions", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Notebook tools" }));
   }
 
-  it("follow the person's personalization answers", async () => {
+  it("keeps sharing without resurrecting Notes AI actions from personalization", async () => {
     await AsyncStorage.setItem(PURPOSE_KEY, "learning");
     await open_notebook(answered({ goals: ["explain-difficult"] }));
-    // The answers replace the School purpose's "Quiz me".
-    expect(screen.getByRole("button", { name: "Key points" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Explain key ideas" })).toBeTruthy();
-  });
-
-  it("keep a legacy purpose working, and work without one", async () => {
-    await AsyncStorage.setItem(PURPOSE_KEY, "research");
-    await open_notebook();
-    expect(screen.getByRole("button", { name: "Key findings" })).toBeTruthy();
-    screen.unmount();
-    // The purpose now belongs to the account, which took it over from the device on first load.
-    await AsyncStorage.removeItem(PURPOSE_KEY);
-    await remove_account_preferences("test-user");
-    await open_notebook();
-    expect(screen.getByRole("button", { name: "Key points" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Explain" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Share notebook" })).toBeTruthy();
+    for (const label of ["Ask Votic", "Key points", "Explain key ideas", "Summarize notes"])
+      expect(screen.queryByRole("button", { name: label })).toBeNull();
   });
 });
 

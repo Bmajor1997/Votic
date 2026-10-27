@@ -452,6 +452,40 @@ describe("Reader", () => {
     expect(Speech.stop).toHaveBeenCalled();
   });
 
+  it.each(["pending", "rejected"])("closes once even when speech cleanup is %s", async (cleanup) => {
+    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+    let release: (() => void) | undefined;
+    jest.mocked(Speech.stop).mockImplementationOnce(() =>
+      cleanup === "rejected"
+        ? Promise.reject(new Error("Native speech unavailable"))
+        : new Promise<void>((resolve) => {
+            release = resolve;
+          }),
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Close reader" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Close reader" }));
+    expect(router.back).toHaveBeenCalledTimes(1);
+    await act(async () => release?.());
+  });
+
+  it("starts the source transition on first layout before passage measurement", async () => {
+    await render_with_providers(<OpenedReader />, { documents: [book] });
+    const timing = jest.spyOn(Animated, "timing");
+    timing.mockClear();
+    await fireEvent(screen.getByTestId("reader-surface"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 844 } },
+    });
+    expect(timing).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ toValue: 1, duration: 300 }),
+    );
+    const calls = timing.mock.calls.length;
+    await fireEvent(screen.getByTestId("reader-surface"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 800 } },
+    });
+    expect(timing).toHaveBeenCalledTimes(calls);
+  });
+
   it("opens Ask Votic inside Reader and keeps the document as context", async () => {
     askVoticMock.mockResolvedValue({
       answer: "Focus improves when distractions are reduced.",

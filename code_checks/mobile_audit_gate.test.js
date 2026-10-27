@@ -18,7 +18,7 @@ test("mobile audit classifies leaf severity without expanding the existing excep
 test("mobile audit resolves indirect advisories, including cyclic dependencies", () => {
   const audit = { vulnerabilities: {
     parent: { severity: "high", via: ["child"] },
-    child: { severity: "high", via: ["parent", advisory("high", "GHSA-86w9-cpqp-85rv"), advisory("moderate", "GHSA-hp3w-g68c-fv3c")] },
+    child: { severity: "high", via: ["parent", advisory("high", "GHSA-vfj7-8cjw-p6xm"), advisory("moderate", "GHSA-hp3w-g68c-fv3c")] },
   } };
   assert.deepEqual(blocking_mobile_findings(audit), []);
   audit.vulnerabilities.child.via.push(advisory("high", "GHSA-new-high"));
@@ -29,4 +29,8 @@ test("mobile audit fails closed for missing reports or incomplete high severity 
     assert.throws(() => blocking_mobile_findings(audit), /valid vulnerability report/);
   for (const via of [[], [{ url: "https://github.com/advisories/GHSA-vfj7-8cjw-p6xm" }], [advisory("moderate", "GHSA-moderate")]])
     assert.equal(blocking_mobile_findings(report(via)).length, 1);
+});
+
+test("the patched node-forge advisory is no longer exempted", () => {
+  assert.equal(blocking_mobile_findings(report([advisory("high", "GHSA-86w9-cpqp-85rv")])).length, 1);
 });

@@ -326,6 +326,22 @@ function ThemeScopes() {
 }
 
 describe("Appearance", () => {
+  it.each(["light", "dark"])(
+    "defaults the Reader to app %s without saving an override",
+    async (appearanceMode) => {
+      await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
+      await render_with_providers(<ThemeScopes />);
+      expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({
+        mode: appearanceMode,
+        background: appearanceMode === "dark" ? "#000000" : "#FFFFFF",
+      });
+      await act(async () => {});
+      expect(JSON.parse((await AsyncStorage.getItem("votic.mobile.theme.v1"))!)).toMatchObject({
+        readerAppearanceMode: null,
+      });
+    },
+  );
+
   it("offers Light, Dark, and System for the app without Sepia", async () => {
     await render_with_providers(<SettingsDetailScreen category="appearance" />);
     for (const name of ["Light", "Dark", "System"]) expect(screen.getByRole("radio", { name })).toBeTruthy();
@@ -339,8 +355,8 @@ describe("Appearance", () => {
   });
 
   it.each([
-    ["light", "#FFFCF7", "#26344B"],
-    ["dark", "#292D32", "#FAFAF9"],
+    ["light", "#FFFFFF", "#26344B"],
+    ["dark", "#000000", "#FAFAF9"],
     ["sepia", "#F4ECD8", "#5B4636"],
   ])("renders the %s Reader palette independently of the app", async (mode, background, text) => {
     await AsyncStorage.setItem(
@@ -353,7 +369,7 @@ describe("Appearance", () => {
     expect(theme.accent.toUpperCase()).toBe(mode === "sepia" ? "#2157CF" : "#2563EB");
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "light",
-      background: "#F8F5F0",
+      background: "#FFFFFF",
     });
   });
 
@@ -376,7 +392,7 @@ describe("Appearance", () => {
       }),
     );
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
-      background: "#F8F5F0",
+      background: "#FFFFFF",
       highContrast: false,
     });
   });
@@ -387,8 +403,8 @@ describe("Appearance", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sepia reader-theme" }));
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "dark",
-      background: "#0B1220",
-      surface: "#152238",
+      background: "#000000",
+      surface: "#121212",
     });
     expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({ mode: "sepia" });
     await waitFor(async () =>

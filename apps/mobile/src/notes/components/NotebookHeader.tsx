@@ -5,31 +5,23 @@ import { DocumentTypeIcon } from "../../components/DocumentTypeIcon";
 import { radii, spacing } from "../../design/tokens";
 import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
-import { notebook_actions } from "../../personalization/suggestions";
-import { usePersonalization } from "../../personalization/usePersonalization";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 
-/** A notebook's summary and study actions, shown above its notes. */
+/** A notebook's summary and sharing controls, shown above its notes. */
 export function NotebookHeader({
   notebook,
   onBack,
-  onAsk,
   onShare,
 }: {
   notebook: VoticDocument;
   onBack: () => void;
-  /** Opens Ask Votic about this notebook, optionally with a question ready to send. */
-  onAsk: (initialQuestion?: string) => void;
   onShare: () => void;
 }) {
   const { theme } = useVoticTheme();
-  const personalization = usePersonalization();
   const [toolsOpen, setToolsOpen] = useState(false);
   const passages = notebook.savedPassages || [];
   const notes = passages.filter((passage) => passage.note.trim()).length;
   const saved = passages.length - notes;
-  // Chosen from the person's personalization answers, or their legacy purpose if they have none.
-  const { studyAction, explainLabel } = notebook_actions(personalization.answers, personalization.purpose);
   return (
     <View style={s.container}>
       <Pressable
@@ -56,15 +48,6 @@ export function NotebookHeader({
         <View style={s.toolbar}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Ask Votic about ${notebook.title} notebook`}
-            onPress={() => onAsk()}
-            style={[s.ask, { backgroundColor: theme.accent }]}
-          >
-            <Ionicons name="chatbubble-ellipses-outline" size={19} color="#FFF" />
-            <Text style={s.askText}>Ask Votic</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
             accessibilityLabel="Notebook tools"
             accessibilityState={{ expanded: toolsOpen }}
             onPress={() => setToolsOpen((open) => !open)}
@@ -81,21 +64,6 @@ export function NotebookHeader({
           <View style={[s.actions, { borderTopColor: theme.border }]}>
             <Text style={[s.toolsCopy, { color: theme.mutedText }]}>Work with this notebook</Text>
             <NotebookAction icon="share-outline" label="Share notebook" onPress={onShare} />
-            <NotebookAction
-              icon="sparkles-outline"
-              label="Summarize notes"
-              onPress={() => onAsk("Summarize my notes from this document")}
-            />
-            <NotebookAction
-              icon={studyAction.icon}
-              label={studyAction.label}
-              onPress={() => onAsk(studyAction.question)}
-            />
-            <NotebookAction
-              icon="bulb-outline"
-              label={explainLabel}
-              onPress={() => onAsk("Explain the key ideas in my notes")}
-            />
           </View>
         ) : null}
       </View>
@@ -135,17 +103,6 @@ const s = StyleSheet.create({
   copy: { flex: 1 },
   title: { fontSize: 21, lineHeight: 28, fontWeight: "800" },
   counts: { fontSize: 13, lineHeight: 20, marginTop: 4 },
-  ask: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.sm,
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-  },
-  askText: { color: "#FFF", fontSize: 14, fontWeight: "800", flexShrink: 1 },
   toolbar: { flexDirection: "row", gap: spacing.sm },
   tools: {
     minHeight: 48,

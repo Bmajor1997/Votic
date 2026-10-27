@@ -8,6 +8,8 @@ import { saved_motion_trigger, useMotionFeedback } from "./MotionFeedback";
 export function useReaderMotion() {
   const titleNode = useRef<Text>(null);
   const rootNode = useRef<View>(null);
+  const closing = useRef(false);
+  const transitionStarted = useRef(false);
   const { event, show } = useMotionFeedback();
   const transition = useDocumentTransition();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -15,7 +17,14 @@ export function useReaderMotion() {
     !reduceMotion && transition.transitioning && transition.sourceRect?.heading
       ? transition.progress.interpolate({ inputRange: [0, 0.75, 1], outputRange: [0, 0, 1] })
       : 1;
+  function start_reader_transition() {
+    if (transitionStarted.current || closing.current) return;
+    transitionStarted.current = true;
+    transition.beginReader();
+  }
   return {
+    closing,
+    startReaderTransition: start_reader_transition,
     titleNode,
     rootNode,
     titleOpacity,

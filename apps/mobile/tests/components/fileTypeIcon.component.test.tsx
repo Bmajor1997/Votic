@@ -24,7 +24,7 @@ describe("FileTypeIcon", () => {
     const tile = StyleSheet.flatten(screen.getByRole("image", { name: "PDF file" }).props.style);
     expect(tile).toMatchObject({ width: 44, height: 44, borderRadius: 11 });
     const dark = appearanceMode === "dark";
-    const surface = dark ? "#152238" : "#FBF5E6";
+    const surface = dark ? "#121212" : "#FFFFFF";
     expect(tile.backgroundColor).toBe(mix(surface, FILE_TYPE_PALETTE.pdf.accent, 0.1));
     expect(StyleSheet.flatten(screen.getByText("PDF").props.style).color).toBe(
       file_type_colors(resolve_file_type({ extension: "pdf" }), dark).foreground,
@@ -32,7 +32,7 @@ describe("FileTypeIcon", () => {
     for (const family of Object.keys(FILE_TYPE_PALETTE) as (keyof typeof FILE_TYPE_PALETTE)[]) {
       const palette = FILE_TYPE_PALETTE[family];
       // Include the neutral reader palettes and sepia, not only navigation surfaces.
-      for (const paper of dark ? [surface, "#32373D"] : [surface, "#FBF5E6"]) {
+      for (const paper of dark ? [surface, "#000000"] : [surface, "#FBF5E6"]) {
         const fg = luminance(
           file_type_colors({ extension: "", monogram: "", label: "", family }, dark).foreground,
         );
