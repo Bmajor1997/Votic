@@ -1,5 +1,8 @@
+import { verify_ledger } from "./ledger-snapshot.js";
 import { create_usage_store } from "../app_parts/ai_usage.js";
 if (!process.env.VOTIC_AI_USAGE_DB || process.env.VOTIC_AI_USAGE_DB===":memory:") throw new Error("Set the private persistent ledger path.");
+// A monitor must never initialize an empty database when a mount/path is wrong.
+verify_ledger(process.env.VOTIC_AI_USAGE_DB);
 const store=create_usage_store(process.env);
 try {
   const status=store.operationalStatus();
