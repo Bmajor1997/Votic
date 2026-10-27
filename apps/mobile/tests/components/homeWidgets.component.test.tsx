@@ -254,6 +254,8 @@ it("offers guidance when every document is finished, while keeping recent docume
   expect(screen.getByRole("header", { name: "Your next read starts here" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Finished book" })).toBeTruthy();
   expect(screen.getByText("Go to Documents to choose your next read.")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Browse documents" }));
+  expect(router.push).toHaveBeenCalledWith("/documents");
   expect(screen.queryByRole("button", { name: "Hide getting started" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Add document" })).toBeNull();
 });

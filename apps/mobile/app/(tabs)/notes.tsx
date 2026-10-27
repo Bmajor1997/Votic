@@ -82,7 +82,6 @@ export default function Notes() {
   const listTarget = useWalkthroughTarget("notes.list");
   const emptyTarget = useWalkthroughTarget("notes.empty");
   const searchTarget = useWalkthroughTarget("notes.search");
-  const askTarget = useWalkthroughTarget("notes.ask");
   const selectTarget = useWalkthroughTarget("notes.select");
   useWalkthroughTrigger([{ id: "notes" }], { hasNotes });
   /** The first time someone starts choosing notes, explains what they can do with them. */
@@ -134,32 +133,10 @@ export default function Notes() {
         .map((passage) => ({ document: group.document, passage })),
     );
   }
-  function ask_selected() {
-    if (!selectedIds.length) return;
-    router.push({
-      pathname: "/assistant",
-      params: {
-        notesPassageIds: selectedIds.join(","),
-        initialQuestion: "Help me understand these selected notes",
-      },
-    });
-  }
   function open_in_reader({ document, passage }: NoteItem) {
     setViewing(null);
     openDocument(document.id, passage.sentenceIndex);
     router.push("/reader");
-  }
-  function ask_about_notes(documentId: string, passageId?: string, initialQuestion?: string) {
-    setViewing(null);
-    setMenuItem(null);
-    router.push({
-      pathname: "/assistant",
-      params: {
-        notesDocumentId: documentId,
-        ...(passageId ? { notesPassageId: passageId } : {}),
-        ...(initialQuestion ? { initialQuestion } : {}),
-      },
-    });
   }
   function start_quick_note() {
     setEditing(new_quick_note_item(notebook));
@@ -245,7 +222,6 @@ export default function Notes() {
         <NotebookHeader
           notebook={notebook}
           onBack={() => setNotebookId(null)}
-          onAsk={(initialQuestion) => ask_about_notes(notebook.id, undefined, initialQuestion)}
           onShare={() =>
             share_items(
               (notebook.savedPassages || []).map((passage) => ({ document: notebook, passage })),
@@ -330,7 +306,7 @@ export default function Notes() {
                 count={selectedIds.length}
                 total={selectableIds.length}
                 noun={NOTE_NOUN}
-                prompt="Choose notes to ask about, share, or delete"
+                prompt="Choose notes to share or delete"
                 onToggleAll={toggle_all_notes}
                 onDelete={confirm_remove_selected}
                 onCancel={() => {
@@ -347,33 +323,11 @@ export default function Notes() {
                   <Ionicons name="share-outline" size={17} color={theme.text} />
                   <Text style={[s.pillButtonText, { color: theme.text }]}>Share</Text>
                 </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ask Votic about ${count_label(selectedIds.length, NOTE_NOUN)}`}
-                  onPress={ask_selected}
-                  style={[s.askSelected, { backgroundColor: theme.accent }]}
-                >
-                  <Ionicons name="sparkles-outline" size={16} color="#FFF" />
-                  <Text style={s.askSelectedText}>Ask Votic</Text>
-                </Pressable>
               </SelectionBar>
             </View>
           ) : groups.length || !browsing ? (
             <View style={s.summaryRow}>
               <Text style={[s.summary, { color: theme.mutedText }]}>{notes_summary(groups)}</Text>
-              {groups.length && !notebook ? (
-                <Pressable
-                  ref={askTarget}
-                  accessibilityRole="button"
-                  accessibilityLabel="Ask Votic about notes"
-                  accessibilityHint="Choose which notes to ask about"
-                  onPress={start_selecting}
-                  style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                >
-                  <Ionicons name="sparkles-outline" size={16} color={theme.accentText} />
-                  <Text style={[s.pillButtonText, { color: theme.accentText }]}>Ask</Text>
-                </Pressable>
-              ) : null}
               {groups.length ? (
                 <Pressable
                   accessibilityRole="button"
@@ -453,7 +407,6 @@ export default function Notes() {
             : null
         }
         onClose={requested.closeViewer}
-        onAsk={(item, question) => ask_about_notes(item.document.id, item.passage.id, question)}
         onEdit={setEditing}
         onMore={setMenuItem}
         onOpenInReader={(item) => {

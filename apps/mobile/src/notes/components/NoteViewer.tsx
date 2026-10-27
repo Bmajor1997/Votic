@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { ComponentProps, useState } from "react";
+import { ComponentProps } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { readable_title } from "../../documents/documentDisplay";
@@ -12,31 +12,9 @@ import { note_palette } from "../notePalette";
 import { NoteItem } from "../notesList";
 import { useNoteListening } from "../useNoteListening";
 
-const SMART_ACTIONS = [
-  ["Summarize", "Summarize this note concisely, using only this note and its saved source passage."],
-  [
-    "Key Points",
-    "What are the important points in this note? Use only this note and its saved source passage.",
-  ],
-  ["Explain Simply", "Explain this note more simply, using only this note and its saved source passage."],
-  [
-    "Check My Understanding",
-    "Help me check my understanding of this note. Ask one question at a time and wait for my answer before explaining.",
-  ],
-  [
-    "Create Questions",
-    "Create study questions based on this note. Keep the answers separate so I can test myself.",
-  ],
-  [
-    "Clean Up Note",
-    "Suggest a cleaned-up version of my note, improving clarity and formatting without adding facts or changing its meaning. Show the proposed text for me to review; do not overwrite my note.",
-  ],
-] as const;
-
 type Props = {
   item: NoteItem | null;
   onClose: () => void;
-  onAsk: (item: NoteItem, initialQuestion?: string) => void;
   onEdit: (item: NoteItem) => void;
   onMore: (item: NoteItem) => void;
   onOpenInReader: (item: NoteItem) => void;
@@ -62,11 +40,10 @@ export function NoteViewer(props: Props) {
   );
 }
 
-function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }: Props & { item: NoteItem }) {
+function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props & { item: NoteItem }) {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const colors = note_palette(item.document);
-  const [toolsOpen, setToolsOpen] = useState(false);
   const hasNote = Boolean(item.passage.note.trim());
   const content = hasNote ? item.passage.note : item.passage.text;
   const { playing, error, toggle } = useNoteListening(content, item.document.playbackRate);
@@ -128,12 +105,6 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
             primary
           />
           <WorkspaceAction
-            icon="sparkles-outline"
-            label="Ask Votic"
-            accessibilityLabel="Ask Votic about this note"
-            onPress={() => onAsk(item)}
-          />
-          <WorkspaceAction
             icon="create-outline"
             label="Edit"
             accessibilityLabel="Edit this note"
@@ -158,32 +129,6 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
             {content}
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Note smart actions"
-          accessibilityState={{ expanded: toolsOpen }}
-          onPress={() => setToolsOpen(!toolsOpen)}
-          style={[s.tools, { borderColor: theme.border }]}
-        >
-          <Ionicons name="sparkles-outline" size={20} color={theme.accentText} />
-          <Text style={[s.actionText, { color: theme.text }]}>Understand & refine</Text>
-          <Ionicons name={toolsOpen ? "chevron-up" : "chevron-down"} size={20} color={theme.mutedText} />
-        </Pressable>
-        {toolsOpen ? (
-          <View style={[s.smart, { backgroundColor: theme.brandTint }]}>
-            <Text style={[s.metadata, { color: theme.mutedText }]}>
-              Explore this note with Ask Votic. Suggestions leave your saved note intact.
-            </Text>
-            {SMART_ACTIONS.map(([label, prompt]) => (
-              <WorkspaceAction
-                key={label}
-                icon="chatbubble-ellipses-outline"
-                label={label}
-                onPress={() => onAsk(item, prompt)}
-              />
-            ))}
-          </View>
-        ) : null}
         {item.passage.text.trim() ? (
           <View style={[s.source, { borderColor: theme.border }]}>
             {hasNote ? (
@@ -282,14 +227,5 @@ const s = StyleSheet.create({
   },
   actionText: { ...typography.control, flexShrink: 1 },
   paper: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.xl, gap: spacing.lg },
-  tools: {
-    minHeight: controlSizes.minimumTouch,
-    paddingVertical: spacing.md,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    borderBottomWidth: 1,
-  },
-  smart: { borderRadius: radii.lg, padding: spacing.md, gap: spacing.sm },
   source: { borderTopWidth: 1, paddingTop: spacing.lg, gap: spacing.md },
 });

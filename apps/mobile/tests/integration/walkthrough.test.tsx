@@ -403,9 +403,9 @@ describe("Notes walkthrough", () => {
     expect(screen.getByText("Notes stay with their source")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Find a note")).toBeTruthy();
-    await press("Next");
-    expect(screen.getByText("Ask about your notes")).toBeTruthy();
-    expect(measured).toContain("Ask Votic about notes");
+    await press("Got it");
+    expect(card()).toBeNull();
+    expect(measured).not.toContain("Ask Votic about notes");
   });
 
   it("explains pinning the first time a note is pinned", async () => {
@@ -432,7 +432,7 @@ describe("Notes walkthrough", () => {
     ).toBeTruthy();
   });
 
-  it("offers the Ask Votic tip the first time notes are selected", async () => {
+  it("offers the selection tip the first time notes are selected", async () => {
     await AsyncStorage.setItem(
       ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { notes: { status: "completed", at: 1 } } }),
@@ -440,10 +440,10 @@ describe("Notes walkthrough", () => {
     await render_tab(<Notes />, { documents: WITH_NOTES });
     await press("Select notes");
     await wait_for_walkthrough();
-    expect(screen.getByText("Ask about your notes")).toBeTruthy();
+    expect(screen.getByText("Manage selected notes")).toBeTruthy();
     expect(
       screen.getByText(
-        "Choose notes, then tap Ask Votic to ask about just those notes, or Share to send them.",
+        "Choose notes to share or move to Recently Deleted. Cancel to return to your notebooks.",
       ),
     ).toBeTruthy();
     await press("Got it");

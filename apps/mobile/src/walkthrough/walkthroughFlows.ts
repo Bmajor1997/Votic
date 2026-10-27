@@ -39,7 +39,6 @@ export type TargetId =
   | "notes.list"
   | "notes.empty"
   | "notes.search"
-  | "notes.ask"
   | "notes.select"
   | "reader.document"
   | "reader.progress"
@@ -240,12 +239,6 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message:
           "Search by text, title, or tag. The filter button narrows to pinned notes, note types, or dates.",
       },
-      {
-        target: "notes.ask",
-        when: (c) => Boolean(c.hasNotes),
-        title: "Ask about your notes",
-        message: "Tap Ask, choose the notes you want, and Votic answers from just those notes.",
-      },
     ],
   },
   reader: {
@@ -347,6 +340,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       },
     ],
   },
+  // Keep the saved tip ID; selection now covers sharing and deletion.
   "notes.askSelected": {
     id: "notes.askSelected",
     kind: "tip",
@@ -354,8 +348,8 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     steps: [
       {
         target: "notes.select",
-        title: "Ask about your notes",
-        message: "Choose notes, then tap Ask Votic to ask about just those notes, or Share to send them.",
+        title: "Manage selected notes",
+        message: "Choose notes to share or move to Recently Deleted. Cancel to return to your notebooks.",
       },
     ],
   },

@@ -55,9 +55,11 @@ export function SectionHeader({
 /** Home points to Documents when there is no unfinished document to continue. */
 export function EmptyContinueWidget({
   hasDocuments,
+  onBrowse,
   targetRef,
 }: {
   hasDocuments: boolean;
+  onBrowse: () => void;
   targetRef?: Target;
 }) {
   const { theme } = useVoticTheme();
@@ -88,6 +90,21 @@ export function EmptyContinueWidget({
           </Text>
         </View>
       </View>
+      {hasDocuments ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Browse documents"
+          accessibilityHint="Opens Documents, where you can choose a file or add one"
+          onPress={onBrowse}
+          style={({ pressed }) => [
+            s.emptyAdd,
+            { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 },
+          ]}
+        >
+          <Ionicons name="folder-open-outline" size={20} color={colors.onStrong} />
+          <Text style={[s.emptyAddText, { color: colors.onStrong }]}>Browse documents</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -586,5 +603,15 @@ const s = StyleSheet.create({
     padding: spacing.lg,
   },
   emptyPanelTitle: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  emptyAdd: {
+    minHeight: 50,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  emptyAddText: { fontSize: 16, fontWeight: "800" },
   emptyMessage: { fontSize: 14, lineHeight: 20, marginTop: 2 },
 });
