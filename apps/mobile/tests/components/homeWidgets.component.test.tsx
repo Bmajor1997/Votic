@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
-import { act, fireEvent, screen } from "@testing-library/react-native";
+import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
 import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
@@ -101,8 +101,11 @@ describe("Colorful Home cards", () => {
         note_palette(featured).surface,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-preview-paper").props.style).backgroundColor).toBe(
-        mode === "dark" ? "#000000" : "#FFFFFF",
+        "#FFFFFF",
       );
+      expect(
+        StyleSheet.flatten(within(screen.getByTestId("home-preview-paper")).getByText(/./).props.style).color,
+      ).toBe("#26344B");
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");
       expect(StyleSheet.flatten(read.props.style).minHeight).toBeGreaterThanOrEqual(48);

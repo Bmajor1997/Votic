@@ -1,4 +1,4 @@
-import { useVoticTheme } from "../theme/ThemeProvider";
+import { DEFAULT_ACCENT, make_theme } from "../theme/ThemeProvider";
 import { useMemo } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { split_passages } from "../documents/passages";
@@ -7,9 +7,11 @@ import { darkCards } from "../design/cardPalette";
 import { editorial } from "../design/editorial";
 import { saved_excerpt } from "./savedExcerpt";
 
+// Preview paper stays light independently of the surrounding app or reader appearance.
+const paper = make_theme(DEFAULT_ACCENT, "light", true);
+
 /** Text already stored on device, using the same passage boundaries as Reader and speech. */
 export function ContinuePreview({ document }: { document: VoticDocument }) {
-  const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
   const passages = useMemo(() => split_passages(document.plainText), [document.plainText]);
   const excerpt = useMemo(
@@ -23,13 +25,13 @@ export function ContinuePreview({ document }: { document: VoticDocument }) {
         <View
           accessible={false}
           pointerEvents="none"
-          style={[s.backSheet, { backgroundColor: theme.surfaceMuted }]}
+          style={[s.backSheet, { backgroundColor: paper.surfaceMuted }]}
         />
         <View
           testID="home-preview-paper"
-          style={[s.page, { backgroundColor: theme.background, borderColor: theme.border }]}
+          style={[s.page, { backgroundColor: paper.background, borderColor: paper.border }]}
         >
-          <Text numberOfLines={fontScale > 1.3 ? 5 : 7} style={[s.excerpt, { color: theme.text }]}>
+          <Text numberOfLines={fontScale > 1.3 ? 5 : 7} style={[s.excerpt, { color: paper.text }]}>
             {excerpt || "Open this document to pick up where you left off."}
           </Text>
         </View>
