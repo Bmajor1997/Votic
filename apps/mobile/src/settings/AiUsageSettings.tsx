@@ -104,15 +104,18 @@ function AllowanceCard({ monthly }: { monthly: NonNullable<AiUsage["monthly"]> }
 }
 
 /** Additional usage that the server confirmed; it is used after the monthly allowance and survives renewal. */
-function PurchasedCard() {
+function PurchasedCard({ remaining }: { remaining: number }) {
   const { theme } = useVoticTheme();
   return (
     <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
-        Additional AI usage
+        Additional AI credits
+      </Text>
+      <Text style={[s.percent, { color: theme.text }]}>
+        {remaining.toLocaleString()} {remaining === 1 ? "credit" : "credits"} available
       </Text>
       <Text style={[s.detail, { color: theme.mutedText }]}>
-        Available. It&apos;s used after your monthly allowance and doesn&apos;t expire when your plan renews.
+        Used after your monthly allowance. These credits don&apos;t expire when your plan renews.
       </Text>
     </View>
   );
@@ -210,7 +213,7 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
     return (
       <>
         <AllowanceCard monthly={usage.monthly} />
-        {usage.purchased?.remaining ? <PurchasedCard /> : null}
+        {usage.purchased ? <PurchasedCard remaining={usage.purchased.remaining} /> : null}
         <BuyMore
           productIds={usage.purchaseProducts}
           exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}

@@ -52,12 +52,13 @@ export default function Settings() {
             (auth.user ? "Your session and Votic Plus" : "Votic Plus and account access"),
           "person-outline",
         )}
+      </SettingsGroup>
+      <SettingsGroup title="AI CREDITS & USAGE">
         <SettingsRow
-          label="AI Usage"
-          detail="Your monthly AI allowance"
+          label="AI Credits & Usage"
+          detail="Monthly allowance, additional credits, and renewal date"
           icon="sparkles-outline"
-          separated
-          hint="Opens AI Usage"
+          hint="Opens your AI credit balance and usage"
           onPress={() => router.push("/ai-usage")}
         />
       </SettingsGroup>

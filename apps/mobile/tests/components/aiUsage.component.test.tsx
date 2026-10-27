@@ -27,11 +27,12 @@ const product = { productId: "votic_ai_100", title: "More AI usage", priceString
 it("shows the server's percentage once, above an accessible progress bar, with the renewal date", async () => {
   jest.spyOn(api, "ai_usage").mockResolvedValue(usage());
   await render_with_providers(<AiUsageScreen />);
-  expect(screen.getByRole("header", { name: "AI Usage" })).toBeTruthy();
+  expect(screen.getByRole("header", { name: "AI Credits & Usage" })).toBeTruthy();
   expect(screen.getByText("MONTHLY AI ALLOWANCE")).toBeTruthy();
   expect(screen.getAllByText(/99% remaining/)).toHaveLength(1);
   expect(screen.queryByText(/% used|% left/)).toBeNull();
-  expect(screen.queryByText(/credit|1,000|990/i)).toBeNull();
+  expect(screen.queryByText(/1,000|990/)).toBeNull();
+  expect(screen.getByText("0 credits available")).toBeTruthy();
   const bar = screen.getByRole("progressbar");
   expect(bar.props.accessibilityValue).toEqual({ min: 0, max: 100, now: 99, text: "99% remaining" });
   expect(screen.getByText(/^Renews November 3, 2026$/)).toBeTruthy();
@@ -103,7 +104,7 @@ it("refreshes after an AI request finishes and when Votic returns to the foregro
   expect(screen.getByText("95% remaining")).toBeTruthy();
 });
 
-it("shows additional usage separately without counts, and offers only configured store products when used up", async () => {
+it("shows additional credits separately, and offers only configured store products when used up", async () => {
   fakeSubscriptions.creditProducts = [product, { ...product, productId: "not-credited" }];
   const read = jest
     .spyOn(api, "ai_usage")
@@ -118,8 +119,8 @@ it("shows additional usage separately without counts, and offers only configured
   await fireEvent.press(buy);
   expect(fakeSubscriptions.calls).toContain("purchaseCredits:votic_ai_100");
   expect(screen.getByText(/appears here once the store confirms the purchase/)).toBeTruthy();
-  expect(screen.getByRole("header", { name: "Additional AI usage" })).toBeTruthy();
-  expect(screen.queryByText(/100/)).toBeNull();
+  expect(screen.getByRole("header", { name: "Additional AI credits" })).toBeTruthy();
+  expect(screen.getByText("100 credits available")).toBeTruthy();
 });
 
 it("never offers a purchase that isn't configured, and says so only when usage has run out", async () => {
@@ -154,4 +155,13 @@ it("keeps pending and cancelled purchases honest", async () => {
   fakeSubscriptions.nextCreditPurchase = { kind: "failed", message: "The store couldn't confirm it." };
   await fireEvent.press(screen.getByRole("button", { name: "More AI usage · $2.99" }));
   expect(screen.getByText("The store couldn't confirm it.")).toBeTruthy();
+});
+
+it.each([0, 1, 240])("shows the server's additional credit balance of %i", async (remaining) => {
+  jest.spyOn(api, "ai_usage").mockResolvedValue(usage({ purchased: { remaining } }));
+  await render_with_providers(<AiUsageScreen />);
+  expect(screen.getByRole("header", { name: "Additional AI credits" })).toBeTruthy();
+  expect(
+    screen.getByText(`${remaining.toLocaleString()} ${remaining === 1 ? "credit" : "credits"} available`),
+  ).toBeTruthy();
 });

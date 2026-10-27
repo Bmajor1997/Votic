@@ -20,7 +20,7 @@ describe("Settings categories", () => {
     const rows = screen.getAllByRole("button");
     expect(rows.map((row) => row.props.accessibilityLabel)).toEqual([
       "Account & Membership",
-      "AI Usage",
+      "AI Credits & Usage",
       "Appearance",
       "Reading & Listening",
       "Accessibility",
@@ -55,8 +55,9 @@ describe("Settings categories", () => {
 
   it("opens AI Usage as its own page, separate from Reading Statistics", async () => {
     await render_with_providers(<Settings />);
-    const row = screen.getByRole("button", { name: "AI Usage" });
-    expect(row.props.accessibilityValue.text).toBe("Your monthly AI allowance");
+    expect(screen.getByRole("header", { name: "AI CREDITS & USAGE" })).toBeTruthy();
+    const row = screen.getByRole("button", { name: "AI Credits & Usage" });
+    expect(row.props.accessibilityValue.text).toBe("Monthly allowance, additional credits, and renewal date");
     await fireEvent.press(row);
     expect(router.push).toHaveBeenCalledWith("/ai-usage");
     expect(router.push).not.toHaveBeenCalledWith("/statistics");
