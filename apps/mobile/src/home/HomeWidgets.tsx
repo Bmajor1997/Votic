@@ -245,7 +245,7 @@ export function WeekWidget() {
         </View>
       ) : null}
       <View style={[s.weekFooter, { borderTopColor: colors.border }]}>
-        <Ionicons name="leaf-outline" size={17} color={colors.detail} />
+        <Ionicons name="trending-up-outline" size={17} color={colors.detail} accessible={false} />
         <Text style={[s.weekFooterText, { color: colors.detail }]}>
           {insight || "Small moments create lasting progress."}
         </Text>

@@ -197,7 +197,7 @@ function ContinueCard({
         </View>
       </View>
       <View style={[s.featuredFooter, { borderTopColor: colors.border }]}>
-        <Ionicons name="leaf-outline" size={17} color={colors.detail} />
+        <Ionicons name="bookmark-outline" size={17} color={colors.detail} accessible={false} />
         <Text style={[s.featuredFooterText, { color: colors.detail }]}>Your story continues here.</Text>
       </View>
       <View testID="home-continue-actions" style={s.featuredActions}>
