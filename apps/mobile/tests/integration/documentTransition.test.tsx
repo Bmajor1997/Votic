@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, renderHook } from "@testing-library/react-native";
+import { Animated, AppState, type AppStateStatus } from "react-native";
 import { PropsWithChildren } from "react";
 import { AccessibilityProvider } from "../../src/accessibility/AccessibilityProvider";
 import {
@@ -68,4 +69,88 @@ describe("Reader open/close transition", () => {
     await act(async () => result.current.closeReader(closeReader));
     expect(closeReader).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("Interrupted navigation", () => {
+  it("releases the open lock when the native animation is interrupted", async () => {
+    let complete: ((result: { finished: boolean }) => void) | undefined;
+    jest.spyOn(Animated, "timing").mockImplementation(() => ({
+      start: (callback) => {
+        complete = callback;
+      },
+      stop: jest.fn(),
+      reset: jest.fn(),
+    }));
+    const { result } = await render_transition();
+    await act(async () => result.current.openReader(card, () => {}));
+    await act(async () => result.current.beginReader());
+    await act(async () => complete!({ finished: false }));
+    expect(result.current.transitioning).toBe(false);
+    const reopen = jest.fn();
+    await act(async () => result.current.openReader(card, reopen));
+    expect(reopen).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores duplicate Close and late readiness callbacks", async () => {
+    const close = jest.fn();
+    const { result } = await render_transition();
+    await act(async () => result.current.openReader(card, () => {}));
+    await act(async () => result.current.closeReader(close));
+    await act(async () => result.current.closeReader(close));
+    await act(async () => result.current.beginReader());
+    await act(async () => jest.advanceTimersByTime(1000));
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(result.current.transitioning).toBe(false);
+    expect(result.current.sourceRect).toBeNull();
+  });
+});
+
+it.each(["preparing", "opening", "closing"])(
+  "settles %s on screen lock/background and ignores stale animation callbacks",
+  async (phase) => {
+    let change: (state: AppStateStatus) => void = () => {};
+    jest.spyOn(AppState, "addEventListener").mockImplementation((_event, listener) => {
+      change = listener;
+      return { remove: jest.fn() };
+    });
+    const callbacks: ((result: { finished: boolean }) => void)[] = [];
+    jest.spyOn(Animated, "timing").mockImplementation(() => ({
+      start: (callback) => {
+        if (callback) callbacks.push(callback);
+      },
+      stop: jest.fn(),
+      reset: jest.fn(),
+    }));
+    const { result } = await render_transition();
+    const close = jest.fn();
+    await act(async () => result.current.openReader(card, () => {}));
+    if (phase !== "preparing") await act(async () => result.current.beginReader());
+    if (phase === "closing") await act(async () => result.current.closeReader(close));
+    await act(async () => change("background"));
+    await act(async () => change("active"));
+    await act(async () => callbacks.forEach((callback) => callback({ finished: false })));
+    expect(result.current.transitioning).toBe(false);
+    expect(close).toHaveBeenCalledTimes(phase === "closing" ? 1 : 0);
+    expect(result.current.sourceRect).toEqual(phase === "closing" ? null : card);
+    const reopen = jest.fn();
+    await act(async () => result.current.openReader(card, reopen));
+    expect(reopen).toHaveBeenCalledTimes(1);
+  },
+);
+
+it("does not navigate from animation callbacks after the provider unmounts", async () => {
+  let complete: ((result: { finished: boolean }) => void) | undefined;
+  jest.spyOn(Animated, "timing").mockImplementation(() => ({
+    start: (callback) => {
+      complete = callback;
+    },
+    stop: jest.fn(),
+    reset: jest.fn(),
+  }));
+  const { result, unmount } = await render_transition();
+  const close = jest.fn();
+  await act(async () => result.current.closeReader(close));
+  await unmount();
+  await act(async () => complete!({ finished: true }));
+  expect(close).not.toHaveBeenCalled();
 });
