@@ -22,6 +22,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { auth_error_message } from "../auth/authErrors";
 import { Card } from "../components/Card";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
+import { store_deadline } from "../subscription/storeDeadline";
 import { has_access } from "../subscription/entitlement";
 import { BillingSwitch } from "../subscription/BillingSwitch";
 import { useSubscription } from "../subscription/SubscriptionProvider";
@@ -165,7 +166,7 @@ export function AccountSettings() {
             onPress={() => open("recover-library")}
           />
         ) : null}
-        {auth.user ? <PremiumRows /> : null}
+        {auth.user ? <PremiumRows key={auth.user.uid} /> : null}
         {auth.user ? (
           <>
             <Text accessibilityRole="header" style={[s.label, { color: theme.mutedText }]}>
@@ -339,6 +340,15 @@ function PremiumRows() {
   const subscription = useSubscription();
   const { theme } = useVoticTheme();
   const [restoreMessage, setRestoreMessage] = useState("");
+  const [restoring, setRestoring] = useState(false);
+  const pendingRestore = useRef(false);
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   // Builds that can't reach the store (Expo Go, missing keys) have nothing to manage or restore.
   if (subscription.service.unavailableReason)
     return subscription.canBypass ? (
@@ -361,15 +371,38 @@ function PremiumRows() {
         ) : null}
       </>
     ) : null;
+  async function manage() {
+    try {
+      await Linking.openURL(subscription.entitlement.managementUrl || STORE_SUBSCRIPTIONS_URL);
+      if (alive.current) setRestoreMessage("");
+    } catch {
+      if (alive.current)
+        setRestoreMessage(
+          "Could not open subscription settings. Open your store's subscriptions to manage or cancel Votic Plus.",
+        );
+    }
+  }
   async function restore() {
+    if (pendingRestore.current) return;
+    pendingRestore.current = true;
+    setRestoring(true);
     setRestoreMessage("");
-    const restored = await subscription.service.restore();
-    if (has_access(restored.status)) {
-      subscription.setEntitlement(restored);
-      setRestoreMessage("Your Votic Plus subscription is active.");
-    } else if (restored.status === "unknown")
-      setRestoreMessage("Votic couldn't reach the store. Check your connection and try again.");
-    else setRestoreMessage("No active Votic Plus subscription was found for this store account.");
+    try {
+      const restored = await store_deadline(subscription.service.restore());
+      if (!alive.current) return;
+      if (has_access(restored.status)) {
+        subscription.setEntitlement(restored);
+        setRestoreMessage("Your Votic Plus subscription is active.");
+      } else if (restored.status === "unknown")
+        setRestoreMessage("Votic couldn't reach the store. Check your connection and try again.");
+      else setRestoreMessage("No active Votic Plus subscription was found for this store account.");
+    } catch {
+      if (alive.current)
+        setRestoreMessage("Votic couldn't reach the store. Check your connection and try again.");
+    } finally {
+      pendingRestore.current = false;
+      if (alive.current) setRestoring(false);
+    }
   }
   return (
     <>
@@ -378,14 +411,17 @@ function PremiumRows() {
         detail={subscription_status(subscription.entitlement)}
         hint="Opens your store account to manage the subscription"
         icon="sparkles-outline"
-        onPress={() =>
-          void Linking.openURL(subscription.entitlement.managementUrl || STORE_SUBSCRIPTIONS_URL)
-        }
+        onPress={() => void manage()}
       />
       <BillingSwitch />
       <AccountRow
         label="Restore purchases"
-        detail="Already subscribed with this store account? Restore it here."
+        detail={
+          restoring
+            ? "Checking your store account…"
+            : "Already subscribed with this store account? Restore it here."
+        }
+        disabled={restoring}
         hint="Checks the store for an existing Votic Plus subscription"
         icon="refresh-outline"
         onPress={() => void restore()}
@@ -412,6 +448,7 @@ function AccountRow({
   icon,
   onPress,
   danger = false,
+  disabled = false,
   ref,
 }: {
   label: string;
@@ -420,6 +457,7 @@ function AccountRow({
   icon: ComponentProps<typeof Ionicons>["name"];
   onPress: () => void;
   danger?: boolean;
+  disabled?: boolean;
   ref?: Ref<View>;
 }) {
   const { theme } = useVoticTheme();
@@ -430,6 +468,8 @@ function AccountRow({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => [
         s.row,

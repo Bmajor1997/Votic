@@ -2,9 +2,10 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo, Text } from "react-native";
+import { AccessibilityInfo, Linking, Text } from "react-native";
 import { router } from "expo-router";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
+import * as billing from "../mocks/subscriptionService";
 import * as backend from "../mocks/authBackend";
 import { entitlement_of, fakeSubscriptions } from "../mocks/subscriptionService";
 import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
@@ -382,5 +383,43 @@ describe("switching Votic Plus billing", () => {
       expect(screen.queryByRole("button", { name: /^Switch to / })).toBeNull();
       await rendered.unmount();
     }
+  });
+});
+
+describe("Settings store failures", () => {
+  it("reports a failed subscription-management link and allows retry", async () => {
+    const open = jest.spyOn(Linking, "openURL").mockRejectedValueOnce(new Error("No store available"));
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Votic Plus" }));
+    expect(screen.getByText(/Could not open subscription settings/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Votic Plus" }));
+    expect(open).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/Could not open subscription settings/)).toBeNull();
+  });
+  it("handles an unexpected restore failure and leaves restore retryable", async () => {
+    fakeSubscriptions.throwNext = "restore";
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
+    expect(screen.getByText(/couldn't reach the store/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
+    expect(screen.getByText("Your Votic Plus subscription is active.")).toBeTruthy();
+  });
+  it("disables repeat restores while the store is pending and discards late results after unmount", async () => {
+    let finish!: (value: ReturnType<typeof entitlement_of>) => void;
+    const restore = jest.fn(
+      () =>
+        new Promise<ReturnType<typeof entitlement_of>>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const create = billing.create_subscription_service;
+    jest.spyOn(billing, "create_subscription_service").mockImplementation(() => ({ ...create(), restore }));
+    const rendered = await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
+    expect(screen.getByRole("button", { name: "Restore purchases", disabled: true })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Restore purchases" }));
+    expect(restore).toHaveBeenCalledTimes(1);
+    await rendered.unmount();
+    await act(async () => finish(entitlement_of("active")));
   });
 });
