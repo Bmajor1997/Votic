@@ -19,7 +19,7 @@ The webhook authenticates with `REVENUECAT_WEBHOOK_SECRET` and is handled before
 
 ## Refund delivery safeguards (October 27, 2026)
 
-Refunds and reversed refunds use the same product, account and environment checks as grants. Sandbox or missing-environment events cannot change a production wallet. Only a dedicated test server should enable sandbox events.
+Refunds and reversed refunds use the same product, account and environment checks as grants. Sandbox or missing-environment events cannot change a production wallet. Production startup rejects sandbox-credit mode and requires a usable webhook secret when credit products are configured. Only a dedicated test server should enable sandbox events.
 
 `credit_refund_states` is an additive SQLite table created on startup. It keeps the latest `event_timestamp_ms` for each transaction/account/product, including refunds received before their purchase. Old or duplicate events cannot undo a newer reversal. Equal-time ambiguity conservatively revokes the grant. Missing/invalid refund timestamps produce an error for retry/investigation rather than acknowledging a lost mutation. Existing grants remain intact on migration; the table cannot reconstruct refund events that were lost before this fix. Reconcile historical transactions with RevenueCat before launch.
 

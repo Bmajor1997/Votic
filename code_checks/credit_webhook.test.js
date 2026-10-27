@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { create_votic_server } from "../votic_server.js";
+import { create_votic_server, validate_production_security } from "../votic_server.js";
 import { create_credit_wallet } from "../app_parts/credit_wallet.js";
 
 // The production route: HTTP request, webhook secret, app-key check order, body limit, and the durable wallet.
@@ -86,4 +86,18 @@ test("refunds with no valid ordering timestamp are refused for retry instead of 
     assert.equal(result.statuses[1], 500);
     assert.equal(result.balance, 500);
   }
+});
+
+test("production startup refuses free sandbox-credit grants", () => {
+  const env = { NODE_ENV: "production", FIREBASE_PROJECT_ID: "fixture", REVENUECAT_SECRET_API_KEY: "fixture-only" };
+  assert.throws(() => validate_production_security({ ...env, VOTIC_CREDIT_ALLOW_SANDBOX: "true" }), /disabled in production/);
+  assert.doesNotThrow(() => validate_production_security(env));
+  assert.doesNotThrow(() => validate_production_security({ NODE_ENV: "development", VOTIC_CREDIT_ALLOW_SANDBOX: "true" }));
+});
+
+test("production credit products require a usable webhook secret before accepting customers", () => {
+  const env = { NODE_ENV: "production", FIREBASE_PROJECT_ID: "fixture", REVENUECAT_SECRET_API_KEY: "fixture-only", VOTIC_CREDIT_PRODUCTS_JSON: '{"credits_500":500}' };
+  for (const REVENUECAT_WEBHOOK_SECRET of [undefined, "short"])
+    assert.throws(() => validate_production_security({ ...env, REVENUECAT_WEBHOOK_SECRET }), /at least 24/);
+  assert.doesNotThrow(() => validate_production_security({ ...env, REVENUECAT_WEBHOOK_SECRET: secret }));
 });
