@@ -50,6 +50,11 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
         event.app_user_id.startsWith("$RCAnonymousID:")) throw new Error("Purchase has no verified Votic account.");
     return !db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(account_deletion_key(event.app_user_id));
   };
+  const atomic = work => {
+    db.exec("BEGIN IMMEDIATE");
+    try { const result = work(); db.exec("COMMIT"); return result; }
+    catch (error) { db.exec("ROLLBACK"); throw error; }
+  };
   return {
     balance,
     grant(event, { allowSandbox = false } = {}) {
@@ -61,24 +66,26 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
       const uid = event.app_user_id, transaction = event.transaction_id, eventId = event.id;
       const product = event.product_id, credits = Object.hasOwn(products, product) ? products[product] : null;
       if (!credits) return { processed: false };
-      // A purchase reported after its account was deleted has no account to credit.
-      if (!valid_identity(event)) return { processed: false };
-      // One SQLite statement makes a late grant observe any refund already recorded by another process.
-      db.prepare(`INSERT OR IGNORE INTO credit_grants(event_id,uid,transaction_id,product_id,credits,created_at,revoked)
-        VALUES(?,?,?,?,?,?,COALESCE((SELECT revoked FROM credit_refund_states WHERE transaction_id=? AND uid=? AND product_id=?),0))`)
-        .run(eventId, uid, transaction, product, credits, new Date(now()).toISOString(), transaction, uid, product);
-      return { processed: true };
+      // Serialize the deletion marker check and grant with account deletion in every server process.
+      return atomic(() => {
+        // A purchase reported after its account was deleted has no account to credit.
+        if (!valid_identity(event)) return { processed: false };
+        // One SQLite statement makes a late grant observe any refund already recorded by another process.
+        db.prepare(`INSERT OR IGNORE INTO credit_grants(event_id,uid,transaction_id,product_id,credits,created_at,revoked)
+          VALUES(?,?,?,?,?,?,COALESCE((SELECT revoked FROM credit_refund_states WHERE transaction_id=? AND uid=? AND product_id=?),0))`)
+          .run(eventId, uid, transaction, product, credits, new Date(now()).toISOString(), transaction, uid, product);
+        return { processed: true };
+      });
     },
     /** Refund state survives missing grants, retries, restarts and out-of-order webhook delivery. */
     refund(event, { allowSandbox = false } = {}) {
       if (!["CANCELLATION", "REFUND_REVERSED"].includes(event?.type) || !recognized(event, allowSandbox)) return { processed: false };
-      if (!valid_identity(event)) return { processed: false };
       if (!Number.isSafeInteger(event.event_timestamp_ms) || event.event_timestamp_ms < 0)
         throw new Error("Refund has no valid event timestamp.");
       const revoked = event.type === "CANCELLATION" ? 1 : 0;
       const args = [event.transaction_id, event.app_user_id, event.product_id];
-      db.exec("BEGIN IMMEDIATE");
-      try {
+      return atomic(() => {
+        if (!valid_identity(event)) return { processed: false };
         // Equal timestamps are resolved conservatively in favor of revocation, independent of delivery order.
         db.prepare(`INSERT INTO credit_refund_states(transaction_id,uid,product_id,revoked,event_timestamp_ms) VALUES(?,?,?,?,?)
           ON CONFLICT(transaction_id,uid,product_id) DO UPDATE SET revoked=excluded.revoked,event_timestamp_ms=excluded.event_timestamp_ms
@@ -87,9 +94,8 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
           .run(...args, revoked, event.event_timestamp_ms);
         const state = db.prepare("SELECT revoked FROM credit_refund_states WHERE transaction_id=? AND uid=? AND product_id=?").get(...args);
         db.prepare("UPDATE credit_grants SET revoked=? WHERE transaction_id=? AND uid=? AND product_id=?").run(state.revoked, ...args);
-        db.exec("COMMIT");
         return { processed: true };
-      } catch (error) { db.exec("ROLLBACK"); throw error; }
+      });
     },
     spend(uid, requestId, credits = 1) {
       if (!Number.isSafeInteger(credits) || credits <= 0) throw new Error("Invalid credit cost.");

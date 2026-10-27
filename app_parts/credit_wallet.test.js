@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
-import { create_credit_wallet, authorized_revenuecat_webhook } from "./credit_wallet.js";
+import { create_credit_wallet, authorized_revenuecat_webhook, account_deletion_key } from "./credit_wallet.js";
 
 test("RevenueCat top-up grants once, spends once and survives restart", () => {
   const dir = mkdtempSync(join(tmpdir(), "votic-credit-"));
@@ -75,4 +76,24 @@ test("refund ordering survives restart, equal-time delivery and duplicate grants
     wallet.grant({ ...event, id: "purchase", type: "NON_RENEWING_PURCHASE" });
     assert.equal(wallet.balance("buyer"), 500);
   } finally { wallet.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("wallet mutations roll back invalid identities and leave no personal refund data after deletion", () => {
+  const dir = mkdtempSync(join(tmpdir(), "votic-credit-delete-"));
+  const env = { VOTIC_AI_USAGE_DB: join(dir, "ledger.sqlite"), VOTIC_CREDIT_PRODUCTS_JSON: '{"credits_500":500}' };
+  const wallet = create_credit_wallet(env), db = new DatabaseSync(env.VOTIC_AI_USAGE_DB);
+  const purchase = { id: "evt", type: "NON_RENEWING_PURCHASE", app_user_id: "buyer", transaction_id: "tx", product_id: "credits_500", environment: "PRODUCTION", event_timestamp_ms: 1000 };
+  try {
+    assert.throws(() => wallet.grant({ ...purchase, app_user_id: "$RCAnonymousID:test" }), /verified/);
+    wallet.grant(purchase); // The rejected grant must not leave a transaction/lock open.
+    wallet.refund({ ...purchase, type: "CANCELLATION", event_timestamp_ms: 2000 });
+    wallet.deleteAccount("buyer");
+    db.prepare("INSERT INTO account_deletions(uid_hash,anonymous_id,requested_at) VALUES(?,?,?)").run(account_deletion_key("buyer"), "deleted", new Date().toISOString());
+    assert.equal(wallet.grant(purchase).processed, false);
+    assert.equal(wallet.refund({ ...purchase, type: "REFUND_REVERSED", event_timestamp_ms: 3000 }).processed, false);
+    assert.equal(db.prepare("SELECT COUNT(*) AS n FROM credit_refund_states WHERE uid=?").get("buyer").n, 0);
+    assert.equal(wallet.balance("buyer"), 0);
+    wallet.grant({ ...purchase, id: "other", transaction_id: "other", app_user_id: "other" });
+    assert.equal(wallet.balance("other"), 500);
+  } finally { db.close(); wallet.close(); rmSync(dir, { recursive: true, force: true }); }
 });
