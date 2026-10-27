@@ -44,7 +44,7 @@ export function NotebookCard({
         },
       ]}
     >
-      <NotePreview passage={preview} decorative />
+      <NotePreview document={document} passage={preview} decorative />
       <View style={s.copy}>
         <Text numberOfLines={3} style={[s.title, { color: theme.text }]}>
           {title}

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { SavedPassage } from "../../documents/types";
-import { darkCards } from "../../design/cardPalette";
+import { SavedPassage, VoticDocument } from "../../documents/types";
+import { note_palette } from "../notePalette";
 import { editorial } from "../../design/editorial";
 import { note_type_label } from "../noteMetadata";
 
@@ -11,14 +11,17 @@ const icons = {
   question: "help-circle-outline",
   definition: "book-outline",
 } as const;
-/** A shared note sheet: type in a lavender tab, actual note content in the foreground. */
+/** A shared note sheet: source-colored type tab, actual note content in the foreground. */
 export function NotePreview({
   passage,
+  document,
   decorative = false,
 }: {
   passage?: SavedPassage;
+  document: VoticDocument;
   decorative?: boolean;
 }) {
+  const colors = note_palette(document);
   const { fontScale } = useWindowDimensions();
   const { label, heading, body, quote, icon, pinned } = preview_content(passage);
   return (
@@ -27,26 +30,29 @@ export function NotePreview({
       accessible={false}
       accessibilityElementsHidden={decorative}
       importantForAccessibility={decorative ? "no-hide-descendants" : "auto"}
-      style={s.sheet}
+      style={[s.sheet, { borderColor: colors.border, backgroundColor: colors.paper }]}
     >
-      <View testID="note-preview-type" style={s.tab}>
-        <Ionicons name={icon} size={16} color={darkCards.notes.ink} />
-        <Text style={s.type}>{label.toUpperCase()}</Text>
-        {pinned ? <Ionicons name="pin" size={13} color={darkCards.notes.strong} /> : null}
+      <View testID="note-preview-type" style={[s.tab, { backgroundColor: colors.surface }]}>
+        <Ionicons name={icon} size={16} color={colors.ink} />
+        <Text style={[s.type, { color: colors.ink }]}>{label.toUpperCase()}</Text>
+        {pinned ? <Ionicons name="pin" size={13} color={colors.strong} /> : null}
       </View>
       <View style={s.copy}>
         {heading ? (
-          <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={s.heading}>
+          <Text numberOfLines={fontScale > 1.2 ? undefined : 2} style={[s.heading, { color: colors.ink }]}>
             {heading}
           </Text>
         ) : null}
         {body && body !== heading ? (
-          <Text numberOfLines={fontScale > 1.2 ? undefined : 5} style={s.body}>
+          <Text numberOfLines={fontScale > 1.2 ? undefined : 5} style={[s.body, { color: colors.detail }]}>
             {body}
           </Text>
         ) : null}
         {quote ? (
-          <Text numberOfLines={fontScale > 1.2 ? undefined : 3} style={s.quote}>
+          <Text
+            numberOfLines={fontScale > 1.2 ? undefined : 3}
+            style={[s.quote, { color: colors.detail, borderLeftColor: colors.border }]}
+          >
             {quote}
           </Text>
         ) : null}
@@ -80,10 +86,8 @@ const s = StyleSheet.create({
   sheet: {
     minHeight: 160,
     borderWidth: 1,
-    borderColor: darkCards.notes.border,
     borderRadius: 8,
     overflow: "hidden",
-    backgroundColor: "#F8F4FC",
   },
   tab: {
     minHeight: 34,
@@ -92,10 +96,8 @@ const s = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: darkCards.notes.surface,
   },
   type: {
-    color: darkCards.notes.ink,
     fontSize: 11,
     lineHeight: 16,
     fontWeight: "800",
@@ -103,15 +105,13 @@ const s = StyleSheet.create({
     flex: 1,
   },
   copy: { padding: 14, gap: 8 },
-  heading: { ...editorial, color: darkCards.notes.ink, fontSize: 19, lineHeight: 25 },
+  heading: { ...editorial, fontSize: 19, lineHeight: 25 },
   quote: {
     ...editorial,
-    color: darkCards.notes.detail,
     fontSize: 14,
     lineHeight: 21,
     borderLeftWidth: 2,
-    borderLeftColor: darkCards.notes.border,
     paddingLeft: 8,
   },
-  body: { color: darkCards.notes.detail, fontSize: 15, lineHeight: 23 },
+  body: { fontSize: 15, lineHeight: 23 },
 });

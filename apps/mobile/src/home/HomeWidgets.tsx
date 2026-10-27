@@ -442,7 +442,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
                 },
               ]}
             >
-              <NotePreview passage={passage} />
+              <NotePreview document={document} passage={passage} />
               <Text
                 numberOfLines={fontScale > 1.2 ? undefined : 1}
                 style={[s.noteSource, { color: theme.mutedText }]}

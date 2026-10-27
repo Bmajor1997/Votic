@@ -1,10 +1,9 @@
 import { editorial } from "../../design/editorial";
-import { widget_palette } from "../../home/widgetDesign";
+import { note_palette } from "../notePalette";
 import { FeedbackPop } from "../../motion/FeedbackPop";
 import { saved_motion_trigger, useMotionFeedback } from "../../motion/MotionFeedback";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { document_type_color } from "../../components/DocumentTypeIcon";
 import { readable_title } from "../../documents/documentDisplay";
 import { controlSizes, radii, spacing } from "../../design/tokens";
 import { SavedPassage, VoticDocument } from "../../documents/types";
@@ -40,9 +39,8 @@ export function NoteGroupCard({
   previewLimit?: number;
 }) {
   const { theme } = useVoticTheme();
-  const colors = widget_palette(theme.isDark, "notes");
+  const colors = note_palette(document);
   const { event } = useMotionFeedback();
-  const color = document_type_color(document.sourceName);
   const noteCount = passages.filter((passage) => passage.note.trim()).length;
   const savedCount = passages.length - noteCount;
   const title = readable_title(document.title);
@@ -86,7 +84,7 @@ export function NoteGroupCard({
                 s.row,
                 {
                   borderTopColor: colors.border,
-                  backgroundColor: "#F8F4FC",
+                  backgroundColor: colors.paper,
                 },
               ]}
             >
@@ -94,11 +92,7 @@ export function NoteGroupCard({
                 style={[
                   s.accent,
                   {
-                    backgroundColor: passage.tags?.includes("votic")
-                      ? theme.accent
-                      : hasNote
-                        ? "#B7791F"
-                        : color,
+                    backgroundColor: colors.strong,
                   },
                 ]}
               />
@@ -173,7 +167,7 @@ export function NoteGroupCard({
           ]}
         >
           <Text style={[s.showAllText, { color: colors.ink }]}>Show all {passages.length}</Text>
-          <Ionicons name="chevron-forward" size={16} color={theme.accent} />
+          <Ionicons name="chevron-forward" size={16} color={colors.strong} />
         </Pressable>
       ) : null}
     </View>

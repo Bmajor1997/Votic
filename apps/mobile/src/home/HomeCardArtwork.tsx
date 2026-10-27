@@ -5,37 +5,50 @@ import { VoticDocument } from "../documents/types";
 import { split_passages } from "../documents/passages";
 import { resolve_file_type } from "../documents/fileTypes";
 import { document_type_label } from "../documents/documentDisplay";
+import { documentPreviewColors } from "../design/documentPreviewColors";
 import { editorial } from "../design/editorial";
 
 function preview_identity(document: VoticDocument) {
   const type = resolve_file_type({ filename: document.sourceName });
   const label = document_type_label(document);
   if (label === "Scan")
-    return { kind: "page", label: "SCAN", color: "#6B573D", bar: "#EEE5D6", icon: "scan-outline" as const };
+    return {
+      kind: "page",
+      label: "SCAN",
+      color: documentPreviewColors.scan.ink,
+      bar: documentPreviewColors.scan.bar,
+      icon: "scan-outline" as const,
+    };
   const webpage = label === "Webpage";
   if (webpage || type.family === "html")
     return {
       kind: "browser",
       label: webpage ? "WEBPAGE" : "HTML",
-      color: "#234D59",
-      bar: "#DFEAED",
+      color: documentPreviewColors.html.ink,
+      bar: documentPreviewColors.html.bar,
       icon: (webpage ? "globe-outline" : "code-slash-outline") as ComponentProps<typeof Ionicons>["name"],
     };
   if (type.family === "pdf")
     return {
       kind: "pdf",
       label: "PDF",
-      color: "#853F3F",
-      bar: "#F5E1DE",
+      color: documentPreviewColors.pdf.ink,
+      bar: documentPreviewColors.pdf.bar,
       icon: "document-text-outline" as const,
     };
   if (type.family === "epub")
-    return { kind: "book", label: "EPUB", color: "#604D8E", bar: "#E6DFF1", icon: "book-outline" as const };
+    return {
+      kind: "book",
+      label: "EPUB",
+      color: documentPreviewColors.epub.ink,
+      bar: documentPreviewColors.epub.bar,
+      icon: "book-outline" as const,
+    };
   return {
     kind: "page",
     label: type.label.toUpperCase(),
-    color: "#515965",
-    bar: "#E7E8EB",
+    color: documentPreviewColors.text.ink,
+    bar: documentPreviewColors.text.bar,
     icon: "document-outline" as const,
   };
 }

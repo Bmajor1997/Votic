@@ -4,6 +4,7 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
 import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
+import { note_palette } from "../../src/notes/notePalette";
 import { home_notes } from "../../src/home/homeModel";
 import { document_widget_tone, widget_palette, WidgetTone } from "../../src/home/widgetDesign";
 import { router } from "../mocks/expoRouter";
@@ -97,7 +98,7 @@ describe("Colorful Home cards", () => {
         "transparent",
       );
       expect(StyleSheet.flatten(screen.getByTestId("note-preview-type").props.style).backgroundColor).toBe(
-        widget_palette(mode === "dark", "notes").surface,
+        note_palette(featured).surface,
       );
       const read = screen.getByRole("button", { name: "Continue Reading: The next chapter" });
       expect(read.props.accessibilityHint).toContain("without audio controls");

@@ -8,6 +8,7 @@ import { controlSizes, radii, spacing, typography } from "../../design/tokens";
 import { reader_type } from "../../reader/readerText";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 import { automatic_note_title, note_type_label } from "../noteMetadata";
+import { note_palette } from "../notePalette";
 import { NoteItem } from "../notesList";
 import { useNoteListening } from "../useNoteListening";
 
@@ -64,6 +65,7 @@ export function NoteViewer(props: Props) {
 function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }: Props & { item: NoteItem }) {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
+  const colors = note_palette(item.document);
   const [toolsOpen, setToolsOpen] = useState(false);
   const hasNote = Boolean(item.passage.note.trim());
   const content = hasNote ? item.passage.note : item.passage.text;
@@ -99,19 +101,21 @@ function NoteWorkspace({ item, onClose, onAsk, onEdit, onMore, onOpenInReader }:
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={s.content}>
-        <View style={[s.hero, theme.elevation, { backgroundColor: theme.hero, borderColor: theme.border }]}>
-          <Text style={[s.eyebrow, { color: theme.heroMuted }]}>
+        <View
+          style={[s.hero, theme.elevation, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
+          <Text style={[s.eyebrow, { color: colors.detail }]}>
             {hasNote ? note_type_label(item.passage.noteType).toUpperCase() : "PASSAGE"}
           </Text>
-          <Text accessibilityRole="header" style={[s.title, { color: theme.heroText }]}>
+          <Text accessibilityRole="header" style={[s.title, { color: colors.ink }]}>
             {automatic_note_title(item.passage)}
           </Text>
-          <Text style={[s.metadata, { color: theme.heroMuted }]}>{readable_title(item.document.title)}</Text>
-          <Text style={[s.metadata, { color: theme.heroMuted }]}>
+          <Text style={[s.metadata, { color: colors.detail }]}>{readable_title(item.document.title)}</Text>
+          <Text style={[s.metadata, { color: colors.detail }]}>
             Last edited {new Date(item.passage.updatedAt).toLocaleString()}
           </Text>
           {item.passage.tags?.length ? (
-            <Text style={[s.metadata, { color: theme.heroMuted }]}>
+            <Text style={[s.metadata, { color: colors.detail }]}>
               {item.passage.tags.map((tag) => `#${tag}`).join("  ")}
             </Text>
           ) : null}
