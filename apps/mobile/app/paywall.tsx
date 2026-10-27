@@ -15,7 +15,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
 import { PaywallBenefits, PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
-import { RiseTimeline, SettleOnChange } from "../src/motion/Rise";
 import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
 import { annual_value, default_plan, plus_plans } from "../src/subscription/paywallPresentation";
 import { BillingSelector } from "../src/subscription/BillingSelector";
@@ -243,9 +242,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <RiseTimeline>
-          <PaywallIntro />
-        </RiseTimeline>
+        <PaywallIntro />
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Votic Plus
         </Text>
@@ -272,9 +269,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         </Text>
         {inlineCheckout ? checkout : null}
 
-        <RiseTimeline>
-          <PaywallBenefits />
-        </RiseTimeline>
+        <PaywallBenefits />
         {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
 
         <PaywallQuestions store={STORE} />
@@ -304,7 +299,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
   const { theme } = useVoticTheme();
   const value = annual_value(plan, plans);
   return (
-    <SettleOnChange changeKey={plan.id}>
+    <View style={s.offer}>
       <View
         accessible
         accessibilityLabel={`Votic Plus, ${billing_summary(plan)}`}
@@ -351,7 +346,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
       <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
         {billing_terms(plan, { now, store: STORE, formatDate: format_long_date })}
       </Text>
-    </SettleOnChange>
+    </View>
   );
 }
 
@@ -431,6 +426,7 @@ function FooterLink({
 
 const s = StyleSheet.create({
   plansTitle: { marginTop: spacing.sm },
+  offer: { gap: 16 },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
   timelineRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   stepNumber: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
