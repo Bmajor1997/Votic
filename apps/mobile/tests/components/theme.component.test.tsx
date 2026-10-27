@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import * as ReactNative from "react-native";
 import { Pressable, Text } from "react-native";
 import { ThemeProvider, accentColors, useVoticTheme } from "../../src/theme/ThemeProvider";
 
@@ -77,8 +78,57 @@ describe("Votic's color", () => {
     await waitFor(async () =>
       expect(await saved()).toMatchObject({ accentName: "orange", accentChosen: true }),
     );
-    screen.unmount();
+    await screen.unmount();
     await render_theme();
     await waitFor(() => expect(accent()).toBe(`orange ${accentColors.orange}`));
+  });
+});
+
+function AppearanceProbe() {
+  const { theme, setAppearanceMode } = useVoticTheme();
+  return (
+    <>
+      <Text testID="background">{theme.background}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Use Light"
+        onPress={() => setAppearanceMode("light")}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Use Dark"
+        onPress={() => setAppearanceMode("dark")}
+      />
+    </>
+  );
+}
+describe("Neutral app appearance", () => {
+  it("follows live system changes while explicit modes stay fixed", async () => {
+    const scheme = jest.spyOn(ReactNative, "useColorScheme").mockReturnValue("light");
+    await AsyncStorage.setItem(THEME_KEY, JSON.stringify({ appearanceMode: "system" }));
+    const view = await render(
+      <ThemeProvider>
+        <AppearanceProbe />
+      </ThemeProvider>,
+    );
+    await act(async () => {});
+    expect(screen.getByTestId("background")).toHaveTextContent("#FFFFFF");
+    scheme.mockReturnValue("dark");
+    await view.rerender(
+      <ThemeProvider>
+        <AppearanceProbe />
+      </ThemeProvider>,
+    );
+    expect(screen.getByTestId("background")).toHaveTextContent("#000000");
+    await fireEvent.press(screen.getByRole("button", { name: "Use Light" }));
+    expect(screen.getByTestId("background")).toHaveTextContent("#FFFFFF");
+    await fireEvent.press(screen.getByRole("button", { name: "Use Dark" }));
+    scheme.mockReturnValue("light");
+    await view.rerender(
+      <ThemeProvider>
+        <AppearanceProbe />
+      </ThemeProvider>,
+    );
+    expect(screen.getByTestId("background")).toHaveTextContent("#000000");
   });
 });

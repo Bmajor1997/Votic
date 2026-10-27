@@ -353,7 +353,7 @@ describe("Appearance", () => {
     expect(theme.accent.toUpperCase()).toBe(mode === "sepia" ? "#2157CF" : "#2563EB");
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "light",
-      background: "#F8F5F0",
+      background: "#FFFFFF",
     });
   });
 
@@ -376,7 +376,7 @@ describe("Appearance", () => {
       }),
     );
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
-      background: "#F8F5F0",
+      background: "#FFFFFF",
       highContrast: false,
     });
   });
@@ -387,8 +387,8 @@ describe("Appearance", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sepia reader-theme" }));
     expect(JSON.parse(screen.getByTestId("app-theme").props.children)).toMatchObject({
       mode: "dark",
-      background: "#0B1220",
-      surface: "#152238",
+      background: "#000000",
+      surface: "#121212",
     });
     expect(JSON.parse(screen.getByTestId("reader-theme").props.children)).toMatchObject({ mode: "sepia" });
     await waitFor(async () =>
