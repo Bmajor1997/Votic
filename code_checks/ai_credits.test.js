@@ -172,7 +172,9 @@ test("account deletion removes the account's credit history and later purchases 
     const period = store.credits.period("gone", subscriber("2026-11-01T00:00:00Z", "2099-12-01T00:00:00Z"), 1000);
     store.credits.reserve({ uid: "gone", request_id: "r1", feature: "help", credits: 1001, period });
     store.credits.charge("r1");
+    wallet.refund({ ...event, id: "refund", type: "CANCELLATION", event_timestamp_ms: 2000 });
     store.beginAccountDeletion("gone");
+    assert.equal(wallet.refund({ ...event, id: "reversal", type: "REFUND_REVERSED", event_timestamp_ms: 3000 }).processed, false);
     assert.deepEqual(store.credits.records("gone"), []);
     assert.equal(wallet.balance("gone"), 0);
     assert.equal(wallet.grant({ ...event, id: "evt-2", transaction_id: "tx-2" }).processed, false);

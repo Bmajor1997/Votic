@@ -51,3 +51,28 @@ test("free store test purchases never grant credits unless a test server allows 
     assert.equal(wallet.balance("tester"), 500);
   } finally { wallet.close(); rmSync(dir, { recursive: true, force: true }); }
 });
+
+test("refund ordering survives restart, equal-time delivery and duplicate grants", () => {
+  const dir = mkdtempSync(join(tmpdir(), "votic-refund-"));
+  const env = { VOTIC_AI_USAGE_DB: join(dir, "ledger.sqlite"), VOTIC_CREDIT_PRODUCTS_JSON: '{"credits_500":500}' };
+  const event = { id: "refund", type: "CANCELLATION", app_user_id: "buyer", transaction_id: "tx", product_id: "credits_500", environment: "PRODUCTION", event_timestamp_ms: 2000 };
+  let wallet = create_credit_wallet(env);
+  try {
+    wallet.refund(event);
+    wallet.close();
+    wallet = create_credit_wallet(env);
+    wallet.grant({ ...event, id: "purchase", type: "NON_RENEWING_PURCHASE", event_timestamp_ms: 1000 });
+    assert.equal(wallet.balance("buyer"), 0);
+    wallet.refund({ ...event, id: "reverse", type: "REFUND_REVERSED", event_timestamp_ms: 3000 });
+    wallet.refund(event);
+    assert.equal(wallet.balance("buyer"), 500);
+    // Equal-time ambiguity always revokes, regardless of the order in which events arrive.
+    wallet.refund({ ...event, event_timestamp_ms: 3000 });
+    wallet.refund({ ...event, id: "reverse", type: "REFUND_REVERSED", event_timestamp_ms: 3000 });
+    assert.equal(wallet.balance("buyer"), 0);
+    wallet.deleteAccount("buyer");
+    // New isolated grant is not affected by deleted personal refund history.
+    wallet.grant({ ...event, id: "purchase", type: "NON_RENEWING_PURCHASE" });
+    assert.equal(wallet.balance("buyer"), 500);
+  } finally { wallet.close(); rmSync(dir, { recursive: true, force: true }); }
+});

@@ -140,7 +140,7 @@ test("purchased credits are spent after the monthly allowance and refunds are ho
       assert.equal((await post("/api/help", { question: "Two?", document })).status, 200);
       usage_now = (await ai_usage(post)).body;
       assert.deepEqual([usage_now.monthly.used, usage_now.purchased.remaining], [2, 98]);
-      assert.equal((await webhook({ ...event, id: "evt-2", type: "CANCELLATION", cancel_reason: "CUSTOMER_SUPPORT" })).status, 200);
+      assert.equal((await webhook({ ...event, id: "evt-2", type: "CANCELLATION", cancel_reason: "CUSTOMER_SUPPORT", event_timestamp_ms: 2000 })).status, 200);
       assert.equal((await ai_usage(post)).body.purchased.remaining, 0);
       assert.equal((await post("/api/help", { question: "Three?", document })).status, 429);
     });

@@ -602,9 +602,7 @@ const REVENUECAT_WEBHOOK_BODY_LIMIT = 256 * 1024;
  * this only happens when it was refunded); REFUND_REVERSED gives the credits back. Purchases are granted once.
  */
 function apply_revenuecat_event(wallet, event, allowSandbox) {
-  const transaction = typeof event.transaction_id === "string" && event.transaction_id ? event.transaction_id : null;
-  if (event.type === "CANCELLATION" && transaction) wallet.revoke(transaction);
-  else if (event.type === "REFUND_REVERSED" && transaction) wallet.restore(transaction);
+  if (["CANCELLATION", "REFUND_REVERSED"].includes(event.type)) wallet.refund(event, { allowSandbox });
   else wallet.grant(event, { allowSandbox });
 }
 async function no_text(status, message) { throw new HttpError(status, message); }
