@@ -6,7 +6,10 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": "votic",
+    "scheme": [
+      "votic",
+      "rc-713897a509"
+    ],
     "plugins": [
       "expo-router",
       "@bacons/apple-targets",
