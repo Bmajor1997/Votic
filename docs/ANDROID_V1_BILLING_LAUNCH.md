@@ -13,6 +13,9 @@ Verified in the service dashboards on 2026-10-28. These are setup observations, 
 - The offering contains Monthly (`$rc_monthly`) and Annual (`$rc_annual`) packages, both attached only to Test Store products. The entitlement also contains only those two Test Store products.
 - RevenueCat's Play app has the correct package but no uploaded service-account JSON. Developer notifications cannot connect until credentials are saved.
 - The Votic Apps personal Play developer account home displayed “Create your first app.” No existing Play app was listed.
+- Play Console Users and permissions listed only the owner; the RevenueCat service account was absent.
+- Contact email, contact phone and developer email were marked verified. The Android developer verification Identity tab displayed account identity details but no explicit pending/approved review status; final review status remains unconfirmed.
+- Firebase listed one active Web app, Votic. No Android Firebase app is registered. The mobile client uses the Firebase JavaScript SDK with Web configuration; native Google sign-in setup still needs separate verification.
 - Project IAM listed the owner and Firebase Admin SDK service account; no project role grant for the RevenueCat service account was listed.
 
 ## Approved scope for this setup
