@@ -133,14 +133,14 @@ describe("Settings", () => {
     await render_with_providers(<SettingsDetailScreen category="personalization" />, answered({}));
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
     expect(screen.getByLabelText("Step 1 of 4")).toBeTruthy();
-    await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
+    await fireEvent.press(screen.getByLabelText("Work. Get through reports and find decisions"));
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText("Find your listening rhythm.")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Save" }));
     await settle();
     expect(screen.queryByText("Find your listening rhythm.")).toBeNull();
-    expect((await load_account_preferences("test-user"))?.purpose).toBe("research");
+    expect((await load_account_preferences("test-user"))?.purpose).toBe("work");
   });
 
   it("offers Learn Votic and Personalization separately, without the old app tour", async () => {
@@ -159,7 +159,7 @@ it("discards every personalization preview when editing is closed without Save",
   await render_with_providers(<SettingsDetailScreen category="personalization" />);
   const original = await load_account_preferences("test-user");
   await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
-  await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
+  await fireEvent.press(screen.getByLabelText("Work. Get through reports and find decisions"));
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
   await fireEvent.press(screen.getByLabelText("Larger text"));
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));

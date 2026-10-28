@@ -14,17 +14,9 @@ export const PAYWALL_GOALS: Record<VoticPurpose | "default", { title: string; de
     title: "Less reading backlog.\nMore clarity.",
     detail: "Listen to reports and find the answers you need in your documents.",
   },
-  research: {
-    title: "Go deeper.\nFind the thread.",
-    detail: "Read papers your way and ask questions grounded in your documents.",
-  },
   personal: {
     title: "Your reading.\nAt your rhythm.",
     detail: "Make room for your articles and books, with listening that fits your day.",
-  },
-  accessibility: {
-    title: "Let reading\nwork for you.",
-    detail: "Hear the words, follow the highlights, and make the page comfortable.",
   },
 };
 

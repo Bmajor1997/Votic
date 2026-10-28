@@ -77,5 +77,5 @@ it("has a short sample page, question and answer for every goal, including no go
     expect(sample.text.length).toBeLessThanOrEqual(140);
     expect(sample.text.length).toBeLessThanOrEqual(MAX_TRY_TEXT);
   }
-  expect(new Set(Object.values(PREVIEW_SAMPLES).map((sample) => sample.text)).size).toBe(6);
+  expect(new Set(Object.values(PREVIEW_SAMPLES).map((sample) => sample.text)).size).toBe(4);
 });
