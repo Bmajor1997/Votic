@@ -1,0 +1,32 @@
+[Unit]
+Description=Votic test backend
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+DynamicUser=yes
+WorkingDirectory=/opt/votic
+EnvironmentFile=/etc/votic/backend.env
+# Explicit command environment wins over EnvironmentFile for these deployment constraints.
+ExecStart=/usr/bin/env NODE_ENV=production VOTIC_HOST=127.0.0.1 PORT=4173 VOTIC_AI_USAGE_DB=/var/lib/votic/ai-usage.sqlite VOTIC_TRUST_PROXY=1 /usr/bin/node /opt/votic/votic_server.js
+Restart=on-failure
+RestartSec=5
+StateDirectory=votic
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictSUIDSGID=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

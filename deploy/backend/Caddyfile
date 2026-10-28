@@ -1,0 +1,5 @@
+# Set VOTIC_BACKEND_HOST in the Caddy service environment to a hostname you control.
+# Its DNS must point to this host. Do not use a placeholder for a live build.
+{$VOTIC_BACKEND_HOST} {
+    reverse_proxy 127.0.0.1:4173
+}
