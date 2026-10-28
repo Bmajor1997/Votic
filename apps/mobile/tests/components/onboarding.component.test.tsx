@@ -269,11 +269,16 @@ describe("Personalization", () => {
     await render_with_providers(<Personalize />, NOT_SET_UP);
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Skip this step" }));
+    // Choosing a speed plays the sample at that speed straight away.
     await fireEvent.press(screen.getByRole("radio", { name: "1.2× speed" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
     await waitFor(() => expect(Speech.speak).toHaveBeenCalled());
     expect(jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]).toMatchObject({ rate: 1.2 });
     expect(screen.getByRole("button", { name: "Stop sample" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Stop sample" }));
+    const before = jest.mocked(Speech.speak).mock.calls.length;
+    await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
+    await waitFor(() => expect(Speech.speak).toHaveBeenCalledTimes(before + 1));
+    expect(jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]).toMatchObject({ rate: 1.2 });
   });
 });
 

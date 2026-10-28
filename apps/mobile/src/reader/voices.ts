@@ -1,5 +1,11 @@
 /** The fields Votic uses from a device voice (expo-speech's Voice has more). */
-export type DeviceVoice = { identifier: string; name: string; language: string };
+export type DeviceVoice = {
+  identifier: string;
+  name: string;
+  language: string;
+  /** "Enhanced" when the phone reports a high-quality voice (expo-speech's VoiceQuality). */
+  quality?: string;
+};
 export type VoiceGender = "female" | "male";
 const NAMES = {
   female: ["Mira", "Kaia", "Nyla", "Elara", "Clara", "Sofia", "Emma", "Lily"],

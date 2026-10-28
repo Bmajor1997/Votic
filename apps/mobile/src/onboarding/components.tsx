@@ -212,7 +212,7 @@ export function StepScaffold({
   onBack?: () => void;
   onSkip: () => void;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   children: ReactNode;
   footer: ReactNode;
 }) {
@@ -252,7 +252,7 @@ export function StepScaffold({
         <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
           {title}
         </Text>
-        <Text style={[s.subtitle, { color: theme.mutedText }]}>{subtitle}</Text>
+        {subtitle ? <Text style={[s.subtitle, { color: theme.mutedText }]}>{subtitle}</Text> : null}
         <View style={s.stepBody}>{children}</View>
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border, backgroundColor: theme.background }]}>
