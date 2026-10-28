@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { VoticLogo } from "../components/VoticLogo";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { Rise } from "../motion/Rise";
 import { paywallStyles as p } from "./paywallStyles";
 
 /**
@@ -38,17 +37,17 @@ export const PLUS_BENEFITS: { title: string; detail: string }[] = [
   },
 ];
 
-/** The hero settles in first; the headline and supporting copy follow it. */
+/** The logo, headline and supporting copy at the top of the paywall. */
 export function PaywallIntro() {
   const { theme } = useVoticTheme();
   const { width } = useWindowDimensions();
   return (
     <View style={[s.hero, { backgroundColor: theme.background }]}>
-      <Rise style={s.brand}>
+      <View style={s.brand}>
         <VoticLogo />
         <Text style={[p.eyebrow, { color: theme.accentText }]}>VOTIC PLUS</Text>
-      </Rise>
-      <Rise from={120} to={720} style={s.copy}>
+      </View>
+      <View style={s.copy}>
         <Text
           accessibilityRole="header"
           style={[s.title, { color: theme.text }, width < 360 && { fontSize: 22, lineHeight: 28 }]}
@@ -56,15 +55,12 @@ export function PaywallIntro() {
           Make more of every document.
         </Text>
         <Text style={[s.supporting, { color: theme.text }]}>Your AI-powered reading companion.</Text>
-      </Rise>
+      </View>
     </View>
   );
 }
 
-const BENEFITS_START = 260,
-  BENEFIT_STAGGER = 60;
-
-/** All six benefits, each settling in shortly after the one before. */
+/** All six Votic Plus benefits. */
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
   return (
@@ -72,14 +68,8 @@ export function PaywallBenefits() {
       <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
         Included with Votic Plus
       </Text>
-      {PLUS_BENEFITS.map((benefit, index) => (
-        <Rise
-          key={benefit.title}
-          from={BENEFITS_START + index * BENEFIT_STAGGER}
-          to={BENEFITS_START + index * BENEFIT_STAGGER + 360}
-          distance={8}
-          style={s.row}
-        >
+      {PLUS_BENEFITS.map((benefit) => (
+        <View key={benefit.title} style={s.row}>
           <View
             accessible
             accessibilityLabel={`${benefit.title}. ${benefit.detail} Included.`}
@@ -97,7 +87,7 @@ export function PaywallBenefits() {
               <Text style={[p.detail, { color: theme.mutedText }]}>{benefit.detail}</Text>
             </View>
           </View>
-        </Rise>
+        </View>
       ))}
     </View>
   );

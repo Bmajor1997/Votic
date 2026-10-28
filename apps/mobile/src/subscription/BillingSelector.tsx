@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { editorial } from "../design/editorial";
 import { radii, spacing } from "../design/tokens";
-import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { billing_period_label, plan_name } from "./offerText";
 import { annual_value } from "./paywallPresentation";
@@ -56,7 +55,6 @@ function BillingOption({
   onPress: () => void;
 }) {
   const { theme } = useVoticTheme();
-  const { reduceMotion } = useAccessibilityPreferences();
   // "Save 33%" and "$6.67/month" only when both store prices are known in the same currency.
   const value = annual_value(plan, plans);
   const per = billing_period_label(plan.billingPeriod);
@@ -74,13 +72,12 @@ function BillingOption({
       accessibilityState={{ checked: active, disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         s.option,
         {
           backgroundColor: active ? theme.sentenceHighlight : theme.surface,
           borderColor: active ? theme.accent : theme.border,
         },
-        !reduceMotion && pressed && { transform: [{ scale: 0.98 }] },
       ]}
     >
       <View style={s.top}>

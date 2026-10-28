@@ -145,6 +145,14 @@ describe("Reader", () => {
       const boundary = first.options.onBoundary as (event: { charIndex: number }) => void;
       await act(async () => boundary({ charIndex: 6 }));
       expect(screen.getByText("passage").props.style.fontWeight).toBe("900");
+      // The spoken word is highlighted on its own and a little larger than the rest of the sentence.
+      const spoken = screen.getByText("passage").props.style;
+      expect(spoken.backgroundColor).toBeTruthy();
+      // The sentence is the nearest Text above the word that sets its own font size.
+      let node = screen.getByText("passage").parent;
+      while (node && !StyleSheet.flatten(node.props.style)?.fontSize) node = node.parent;
+      const sentence = StyleSheet.flatten(node?.props.style) as { fontSize: number };
+      expect(spoken.fontSize).toBe(sentence.fontSize + 2);
       expect(speak).toHaveBeenCalledTimes(1);
       await act(async () => first.options.onDone?.());
       expect(last_speech().text).toBe("Second passage there.");
