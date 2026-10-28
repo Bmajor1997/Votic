@@ -12,7 +12,8 @@ Verified in the service dashboards on 2026-10-28. These are setup observations, 
 - Default offering: `default` (`ofrng0adbe6ddc5`).
 - The offering contains Monthly (`$rc_monthly`) and Annual (`$rc_annual`) packages, both attached only to Test Store products. The entitlement also contains only those two Test Store products.
 - RevenueCat's Play app has the correct package but no uploaded service-account JSON. Developer notifications cannot connect until credentials are saved.
-- The Votic Apps personal Play developer account home displayed “Create your first app.” No existing Play app was listed.
+- Votic now exists in Play Console, app ID `4972205974854492602`, package `com.votic.app`, with a free download. Internal testing track `4701030601478638609` has an empty draft release; no bundle is uploaded and nothing has been rolled out.
+- The approved one-address internal tester list is created and selected for Votic. Play shows 2 of 3 internal-testing setup tasks completed.
 - Play Console Users and permissions listed only the owner; the RevenueCat service account was absent.
 - Contact email, contact phone and developer email were marked verified. The Android developer verification Identity tab displayed account identity details but no explicit pending/approved review status; final review status remains unconfirmed.
 - Firebase listed one active Web app, Votic. No Android Firebase app is registered. The mobile client uses the Firebase JavaScript SDK with Web configuration; native Google sign-in setup still needs separate verification.
@@ -50,3 +51,12 @@ Environment examples are templates, not deployed configuration. Copying them doe
 ## Reference
 
 [RevenueCat Play service credentials](https://www.revenuecat.com/docs/service-credentials/creating-play-service-credentials). Credential propagation can take up to 36 hours. Successful dashboard setup alone does not verify end-to-end billing.
+
+## First Play test build investigation (2026-10-28)
+
+- Reuse the existing Expo project `@votic-organization/votic`, ID `9798a258-048f-45f1-b28a-92773d5039aa`. The app configuration now records this owner and ID. EAS CLI `project:info` verifies the link without creating a project.
+- Expo lists older internal Android builds, no production builds, and no store submissions. Both preview and production environments returned no variables. The existing production AAB profile can build a Play internal-test bundle, but its required service configuration must be supplied first. A production build profile does not itself submit or publish to Play.
+- A previous local checkout has backend and mobile environment files with Firebase/AI settings. Secret values were not copied into the repository or printed. Its mobile API URL points to the Android emulator host (`http://10.0.2.2:4173`), not a deployed HTTPS server. The local backend had no listener on port 4173 during inspection. Its backend settings do not include a RevenueCat secret key.
+- No Cloud Run services are deployed in `votic-da5c4`. The Firebase Hosting site's root, `/healthz`, and `/readyz` returned 404; the root identified Site Not Found. No hosted backend URL was found in repository deployment files or the checked EAS environments. A backend on another provider remains possible, but is unverified.
+- Targeted current-backend automated tests: **92 passed, 0 failed** across server, Premium access, AI usage, monthly credits, credit webhooks, and feedback auth configuration. These use simulated vendor responses and do not verify live credentials, actual purchases, or live AI. The mobile production configuration safeguard test also passed.
+- Do not bypass release configuration checks. Before the first Play test AAB, configure a reachable HTTPS test backend, approved legal-page URLs, Firebase public settings, and the Play RevenueCat SDK key plus `premium` entitlement. Complete the separate Play/RevenueCat credential and product setup above.
