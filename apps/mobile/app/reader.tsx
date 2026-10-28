@@ -1483,6 +1483,9 @@ function ReaderContent() {
                                     style={
                                       active && wordHighlight
                                         ? {
+                                            // The spoken word: its own highlight on top of the sentence's,
+                                            // bold, and a little larger.
+                                            backgroundColor: theme.wordHighlight,
                                             color: theme.text,
                                             fontWeight: "900",
                                             fontSize: (readingType.fontSize as number) + 2,
