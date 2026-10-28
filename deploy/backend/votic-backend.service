@@ -10,12 +10,8 @@ Type=simple
 DynamicUser=yes
 WorkingDirectory=/opt/votic
 EnvironmentFile=/etc/votic/backend.env
-Environment=NODE_ENV=production
-Environment=VOTIC_HOST=127.0.0.1
-Environment=PORT=4173
-Environment=VOTIC_AI_USAGE_DB=/var/lib/votic/ai-usage.sqlite
-Environment=VOTIC_TRUST_PROXY=1
-ExecStart=/usr/bin/node /opt/votic/votic_server.js
+# Explicit command environment wins over EnvironmentFile for these deployment constraints.
+ExecStart=/usr/bin/env NODE_ENV=production VOTIC_HOST=127.0.0.1 PORT=4173 VOTIC_AI_USAGE_DB=/var/lib/votic/ai-usage.sqlite VOTIC_TRUST_PROXY=1 /usr/bin/node /opt/votic/votic_server.js
 Restart=on-failure
 RestartSec=5
 StateDirectory=votic
