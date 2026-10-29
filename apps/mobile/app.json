@@ -6,10 +6,7 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "scheme": [
-      "votic",
-      "rc-713897a509"
-    ],
+    "scheme": ["votic", "rc-713897a509"],
     "plugins": [
       "expo-router",
       "@bacons/apple-targets",
@@ -73,9 +70,7 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.votic.app"
-        ]
+        "com.apple.security.application-groups": ["group.com.votic.app"]
       }
     },
     "android": {
@@ -86,9 +81,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "blockedPermissions": [
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+      "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
     },
     "owner": "votic-organization",
     "extra": {

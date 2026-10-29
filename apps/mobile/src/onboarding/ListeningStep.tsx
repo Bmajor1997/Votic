@@ -157,7 +157,6 @@ export function ListeningStep({
     void Linking.sendIntent(ANDROID_TTS_SETTINGS).catch(() => Linking.openSettings().catch(() => {}));
   }
 
-  const type = reader_type(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing);
   const progress = playing && word >= 0 ? Math.min(1, (word + 1) / listenWords.length) : 0;
 
   return (
@@ -183,89 +182,19 @@ export function ListeningStep({
         />
       }
     >
-      <View testID="listening-player" style={[s.player, { backgroundColor: theme.spotlight }]}>
-        <View style={s.playerHead}>
-          <Text numberOfLines={1} style={[s.eyebrow, s.playerTitle, { color: theme.spotlightMuted }]}>
-            {sample.title.toUpperCase()} · SAMPLE
-          </Text>
-          <View accessible accessibilityLabel={playing ? "Playing" : "Ready to play"} style={s.status}>
-            <Ionicons
-              name={playing ? "volume-high" : "volume-medium-outline"}
-              size={14}
-              color={theme.spotlightMuted}
-            />
-            <Text style={[s.eyebrow, { color: theme.spotlightMuted }]}>{playing ? "PLAYING" : "READY"}</Text>
-          </View>
-        </View>
-        <View style={[s.paper, { backgroundColor: PAPER }]}>
-          <Text
-            style={[
-              type,
-              s.paperText,
-              { color: INK },
-              playing && highlightMode !== "off" && { backgroundColor: theme.sentenceHighlight },
-            ]}
-          >
-            {listenWords.map((value, index) => (
-              <Text
-                key={index}
-                testID={playing && highlightMode === "both" && index === word ? "listening-word" : undefined}
-                style={
-                  playing && highlightMode === "both" && index === word
-                    ? {
-                        // The spoken word, as in the Reader: its own highlight, bold, and a little larger.
-                        backgroundColor: theme.wordHighlight,
-                        fontWeight: "900",
-                        fontSize: (type.fontSize as number) + 2,
-                        ...(a.readerFont === "accessible" && { fontFamily: ACCESSIBLE_FONT_BOLD }),
-                      }
-                    : undefined
-                }
-              >
-                {value}
-                {index < listenWords.length - 1 ? " " : ""}
-              </Text>
-            ))}
-          </Text>
-        </View>
-        <View style={s.controls}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={playing ? "Stop sample" : "Play sample"}
-            onPress={() => (playing ? stop() : play())}
-            style={({ pressed }) => [s.play, { opacity: pressed ? 0.85 : 1 }]}
-          >
-            <Ionicons name={playing ? "pause" : "play"} size={26} color={theme.spotlight} />
-          </Pressable>
-          <View style={s.meta}>
-            <Text numberOfLines={1} style={[s.metaTitle, { color: theme.spotlightText }]}>
-              {currentName} · {format_playback_rate(defaultPlaybackRate)}
-            </Text>
-            <Text numberOfLines={1} style={[s.metaDetail, { color: theme.spotlightMuted }]}>
-              {current ? voice_accent(current) : "Your phone's voice"}
-              {current && is_high_quality(current) ? " · High quality" : ""}
-            </Text>
-            <View
-              accessible
-              accessibilityRole="progressbar"
-              accessibilityLabel="Sample progress"
-              accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
-              style={s.track}
-            >
-              <View style={[s.trackFill, { width: `${progress * 100}%` }]} />
-            </View>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Play the sample from the start"
-            onPress={() => play()}
-            hitSlop={6}
-            style={({ pressed }) => [s.replay, { opacity: pressed ? 0.7 : 1 }]}
-          >
-            <Ionicons name="refresh" size={20} color={theme.spotlightText} />
-          </Pressable>
-        </View>
-      </View>
+      <ListeningPlayer
+        access={a}
+        sample={sample}
+        playing={playing}
+        word={word}
+        highlightMode={highlightMode}
+        currentName={currentName}
+        current={current}
+        rate={defaultPlaybackRate}
+        progress={progress}
+        onStop={stop}
+        onPlay={play}
+      />
 
       {shownVoices.length > 1 ? (
         <>
@@ -324,34 +253,7 @@ export function ListeningStep({
         </>
       ) : null}
 
-      {suggestBetterVoices ? (
-        <View
-          testID="better-voices"
-          style={[s.nudge, { borderColor: theme.accent, backgroundColor: theme.brandTint }]}
-        >
-          <Ionicons name="sparkles-outline" size={22} color={theme.accentText} />
-          <View style={s.nudgeCopy}>
-            <Text style={[s.nudgeTitle, { color: theme.text }]}>Want a more natural voice?</Text>
-            <Text style={[s.voiceDetail, { color: theme.mutedText }]}>
-              {Platform.OS === "android"
-                ? "Your phone can download better voices for free."
-                : "Download better voices for free in Settings › Accessibility › Spoken Content › Voices."}
-            </Text>
-          </View>
-          {Platform.OS === "android" ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Get more natural voices"
-              accessibilityHint="Opens your phone's text-to-speech settings"
-              onPress={open_voice_settings}
-              hitSlop={8}
-              style={({ pressed }) => [s.nudgeAction, { opacity: pressed ? 0.6 : 1 }]}
-            >
-              <Text style={[s.nudgeActionText, { color: theme.accentText }]}>Get voices</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      ) : null}
+      {suggestBetterVoices ? <BetterVoicesNotice onOpenSettings={open_voice_settings} /> : null}
 
       <Text style={[s.groupLabel, { color: theme.text }]}>Speed</Text>
       <View
@@ -433,6 +335,154 @@ export function ListeningStep({
         })}
       </View>
     </StepScaffold>
+  );
+}
+
+/** Sample rendering stays separate from the step's voice, speed and preference controls. */
+function ListeningPlayer({
+  access: a,
+  sample,
+  playing,
+  word,
+  highlightMode,
+  currentName,
+  current,
+  rate,
+  progress,
+  onStop,
+  onPlay,
+}: {
+  access: ListeningStepProps["access"];
+  sample: (typeof PREVIEW_SAMPLES)[keyof typeof PREVIEW_SAMPLES];
+  playing: boolean;
+  word: number;
+  highlightMode: HighlightMode;
+  currentName: string;
+  current: ReturnType<typeof useDeviceVoices>["voices"][number] | undefined;
+  rate: number;
+  progress: number;
+  onStop: () => void;
+  onPlay: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const type = reader_type(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing);
+  const listenWords = sample.text.split(" ");
+  return (
+    <View testID="listening-player" style={[s.player, { backgroundColor: theme.spotlight }]}>
+      <View style={s.playerHead}>
+        <Text numberOfLines={1} style={[s.eyebrow, s.playerTitle, { color: theme.spotlightMuted }]}>
+          {sample.title.toUpperCase()} · SAMPLE
+        </Text>
+        <View accessible accessibilityLabel={playing ? "Playing" : "Ready to play"} style={s.status}>
+          <Ionicons
+            name={playing ? "volume-high" : "volume-medium-outline"}
+            size={14}
+            color={theme.spotlightMuted}
+          />
+          <Text style={[s.eyebrow, { color: theme.spotlightMuted }]}>{playing ? "PLAYING" : "READY"}</Text>
+        </View>
+      </View>
+      <View style={[s.paper, { backgroundColor: PAPER }]}>
+        <Text
+          style={[
+            type,
+            s.paperText,
+            { color: INK },
+            playing && highlightMode !== "off" && { backgroundColor: theme.sentenceHighlight },
+          ]}
+        >
+          {listenWords.map((value, index) => (
+            <Text
+              key={index}
+              testID={playing && highlightMode === "both" && index === word ? "listening-word" : undefined}
+              style={
+                playing && highlightMode === "both" && index === word
+                  ? {
+                      // The spoken word, as in the Reader: its own highlight, bold, and a little larger.
+                      backgroundColor: theme.wordHighlight,
+                      fontWeight: "900",
+                      fontSize: (type.fontSize as number) + 2,
+                      ...(a.readerFont === "accessible" && { fontFamily: ACCESSIBLE_FONT_BOLD }),
+                    }
+                  : undefined
+              }
+            >
+              {value}
+              {index < listenWords.length - 1 ? " " : ""}
+            </Text>
+          ))}
+        </Text>
+      </View>
+      <View style={s.controls}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={playing ? "Stop sample" : "Play sample"}
+          onPress={() => (playing ? onStop() : onPlay())}
+          style={({ pressed }) => [s.play, { opacity: pressed ? 0.85 : 1 }]}
+        >
+          <Ionicons name={playing ? "pause" : "play"} size={26} color={theme.spotlight} />
+        </Pressable>
+        <View style={s.meta}>
+          <Text numberOfLines={1} style={[s.metaTitle, { color: theme.spotlightText }]}>
+            {currentName} · {format_playback_rate(rate)}
+          </Text>
+          <Text numberOfLines={1} style={[s.metaDetail, { color: theme.spotlightMuted }]}>
+            {current ? voice_accent(current) : "Your phone's voice"}
+            {current && is_high_quality(current) ? " · High quality" : ""}
+          </Text>
+          <View
+            accessible
+            accessibilityRole="progressbar"
+            accessibilityLabel="Sample progress"
+            accessibilityValue={{ min: 0, max: 100, now: Math.round(progress * 100) }}
+            style={s.track}
+          >
+            <View style={[s.trackFill, { width: `${progress * 100}%` }]} />
+          </View>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Play the sample from the start"
+          onPress={onPlay}
+          hitSlop={6}
+          style={({ pressed }) => [s.replay, { opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Ionicons name="refresh" size={20} color={theme.spotlightText} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function BetterVoicesNotice({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { theme } = useVoticTheme();
+  return (
+    <View
+      testID="better-voices"
+      style={[s.nudge, { borderColor: theme.accent, backgroundColor: theme.brandTint }]}
+    >
+      <Ionicons name="sparkles-outline" size={22} color={theme.accentText} />
+      <View style={s.nudgeCopy}>
+        <Text style={[s.nudgeTitle, { color: theme.text }]}>Want a more natural voice?</Text>
+        <Text style={[s.voiceDetail, { color: theme.mutedText }]}>
+          {Platform.OS === "android"
+            ? "Your phone can download better voices for free."
+            : "Download better voices for free in Settings › Accessibility › Spoken Content › Voices."}
+        </Text>
+      </View>
+      {Platform.OS === "android" ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Get more natural voices"
+          accessibilityHint="Opens your phone's text-to-speech settings"
+          onPress={onOpenSettings}
+          hitSlop={8}
+          style={({ pressed }) => [s.nudgeAction, { opacity: pressed ? 0.6 : 1 }]}
+        >
+          <Text style={[s.nudgeActionText, { color: theme.accentText }]}>Get voices</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 

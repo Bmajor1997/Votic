@@ -14,10 +14,13 @@ function public_https(value) {
   } catch { return false; }
 }
 function validate_release_environment(env, config = {}) {
-  const required = ["EXPO_PUBLIC_FIREBASE_API_KEY", "EXPO_PUBLIC_FIREBASE_PROJECT_ID", "EXPO_PUBLIC_FIREBASE_APP_ID", "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY"];
+  const required = ["EXPO_PUBLIC_FIREBASE_API_KEY", "EXPO_PUBLIC_FIREBASE_PROJECT_ID", "EXPO_PUBLIC_FIREBASE_APP_ID", "EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY", "EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID"];
   const missing = required.filter(key => !env[key]?.trim());
   for (const key of ["EXPO_PUBLIC_VOTIC_API_URL", "EXPO_PUBLIC_VOTIC_TERMS_URL", "EXPO_PUBLIC_VOTIC_PRIVACY_URL"])
     if (!public_https(env[key])) missing.push(key);
+  // Play builds must use the Google Play public SDK key, never Test Store or backend secrets.
+  if (!/^goog_[A-Za-z0-9]+$/.test(env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY || ""))
+    missing.push("Google Play RevenueCat public SDK key (goog_)");
   const projectId = env.EAS_PROJECT_ID || config.extra?.eas?.projectId;
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId || "")) missing.push("EAS project ID");
   if (missing.length) throw new Error("Production configuration is missing or invalid: " + missing.join(", "));

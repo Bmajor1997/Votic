@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Run in Google Cloud Shell. Creates (or reuses) Votic's always-free test server in project votic-da5c4:
+# Run in Google Cloud Shell. Creates (or reuses) Votic's small test server in project votic-da5c4:
 # one e2-micro VM in us-east1 with a 30 GB standard persistent disk, a static IP and HTTP/HTTPS open,
-# then installs the backend on it with vm-bootstrap.sh. Safe to run again: existing resources are reused.
+# then installs the backend on it with vm-bootstrap.sh. Existing resources are reused.
+# Eligible VM/disk usage can fit Google's Free Tier, but external IPv4 and excess usage can incur charges.
 set -euo pipefail
 PROJECT=votic-da5c4 REGION=us-east1 ZONE=us-east1-b VM=votic-backend BRANCH="${BRANCH:-claude/v1-internal-test}"
 gcloud config set project "$PROJECT" >/dev/null

@@ -10,10 +10,10 @@ Use one existing or approved Linux VM with at least 2 GB RAM, Node 24+, systemd 
 
 ## Required before starting
 
-- The existing Google Cloud project currently reports billing disabled. An owner must choose/link a billing account before creating paid Google Cloud infrastructure. Do not create a duplicate project.
-- Select a real backend hostname owned by the account holder and configure its DNS. No hostname is invented here.
+- The owner reports that the existing Google Cloud project is now linked to a billing account and the test VM is provisioned. This review did not authenticate to Cloud Console to recheck those settings. Do not create a duplicate project or VM.
+- The reported test address is https://136-72-31-77.sslip.io. It is a third-party hostname based on the static IP, not a domain owned by Votic. Public health/readiness and legal-page checks returned HTTP 502 during the October 28 review; verify the service before using it in a build.
 - The selected machine, disk, network charges and backup storage must fit an approved budget.
-- Configure the existing Firebase project and a RevenueCat backend REST key with customer-read access. The blank required RevenueCat key deliberately prevents production startup.
+- Configure the existing Firebase project and a RevenueCat backend REST key with Customer information Read & write access (the existing deletion flow calls the REST v1 customer DELETE endpoint). The blank required RevenueCat key deliberately prevents production startup.
 - AI can stay disabled until its key, spending safeguards and live smoke test are approved. Never copy a service-account JSON into these files.
 
 ## Installation on the approved host
@@ -39,3 +39,12 @@ Use one existing or approved Linux VM with at least 2 GB RAM, Node 24+, systemd 
 The templates were inspected alongside the existing backend tests on Windows. They have not been installed or validated on a Linux host; systemd and Caddy validation remain required deployment gates.
 
 References: [systemd execution and state directories](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html), [Caddy automatic HTTPS requirements](https://caddyserver.com/docs/automatic-https), [backend accounting and live checks](../../docs/openai-backend.md).
+
+
+## Cost and current setup notes
+
+The e2-micro VM and 30 GB standard disk can qualify for Google's Free Tier when eligible and within account-wide allowances. That does not make the entire deployment free: public IPv4, network traffic, backups and other usage can be billed. Google's listed in-use standard-VM IPv4 rate is $0.005/hour (about $3.65 for 730 hours before free allowance or credits). See [current network pricing](https://cloud.google.com/vpc/network-pricing) and [Free Tier conditions](https://docs.cloud.google.com/free/docs/free-cloud-features).
+
+The bootstrap script sets an estimated OpenAI usage budget of $20/month in Votic's ledger when it first creates the private environment file. This is an application accounting safeguard, not a cap on the Google Cloud bill or all uses of an OpenAI key. Existing environment files are preserved, so verify the value on the host without printing keys.
+
+Google Play real-time developer notifications reaching RevenueCat do not prove a RevenueCat-to-backend webhook is configured. The current webhook handler is enabled only with the separate purchased-credit wallet configuration, which remains outside the approved V1 setup. Monthly subscription access is rechecked against RevenueCat REST profiles with a short cache. Do not enable extra-credit products just to turn on the webhook; verify subscription expiry/refund behavior in live tests.

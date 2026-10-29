@@ -14,7 +14,13 @@ fi
 apt-get update -q
 apt-get install -y -q curl git ca-certificates gnupg debian-keyring debian-archive-keyring apt-transport-https sqlite3
 if ! node --version 2>/dev/null | grep -q '^v24'; then
-  curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+  # Configure the signed package repository directly; never execute a downloaded installer as root.
+  install -d -m 0755 /etc/apt/keyrings
+  curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key |
+    gpg --batch --yes --dearmor -o /etc/apt/keyrings/nodesource.gpg
+  chmod 0644 /etc/apt/keyrings/nodesource.gpg
+  printf 'deb [arch=%s signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main\n' "$(dpkg --print-architecture)" > /etc/apt/sources.list.d/nodesource.list
+  apt-get update -q
   apt-get install -y -q nodejs
 fi
 if ! command -v caddy >/dev/null; then
@@ -28,7 +34,7 @@ if [ -d /opt/votic/.git ]; then
 else
   git clone --depth 1 --branch "$BRANCH" https://github.com/Bmajor1997/Votic.git /opt/votic
 fi
-(cd /opt/votic && (npm ci --omit=dev --no-audit --no-fund || npm install --omit=dev --no-audit --no-fund --no-package-lock))
+(cd /opt/votic && npm ci --omit=dev --no-audit --no-fund)
 # Private settings: created once with blank secrets; never overwritten.
 install -d -m 0700 /etc/votic
 if [ ! -f /etc/votic/backend.env ]; then
@@ -37,7 +43,7 @@ if [ ! -f /etc/votic/backend.env ]; then
   sed -i 's/^VOTIC_AI_MONTHLY_BUDGET_USD=100$/VOTIC_AI_MONTHLY_BUDGET_USD=20/' /etc/votic/backend.env
 fi
 install -m 0644 /opt/votic/deploy/backend/votic-backend.service /etc/systemd/system/votic-backend.service
-systemd-analyze verify /etc/systemd/system/votic-backend.service || true
+systemd-analyze verify /etc/systemd/system/votic-backend.service
 systemctl daemon-reload
 # HTTPS in front of the loopback-only backend.
 printf '%s {\n    reverse_proxy 127.0.0.1:4173\n}\n' "$VOTIC_BACKEND_HOST" > /etc/caddy/Caddyfile
