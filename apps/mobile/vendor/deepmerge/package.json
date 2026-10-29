@@ -1,0 +1,9 @@
+{
+  "name": "@votic/deepmerge",
+  "version": "4.3.1-votic.1",
+  "private": true,
+  "description": "Vendored deepmerge 4.3.1 with prototype-poisoning guards (CVE-2026-93753)",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "license": "MIT"
+}

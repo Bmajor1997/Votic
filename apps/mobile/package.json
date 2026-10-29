@@ -47,7 +47,8 @@
     "react-native-purchases": "^10.10.2",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
-    "react-native-web": "~0.21.0"
+    "react-native-web": "~0.21.0",
+    "deepmerge": "file:vendor/deepmerge"
   },
   "devDependencies": {
     "@testing-library/react-native": "^14.0.1",
@@ -70,6 +71,7 @@
     "@bacons/xcode": {
       "@expo/plist": "0.8.1"
     },
-    "zod": "4.6.6"
+    "zod": "4.6.6",
+    "deepmerge": "$deepmerge"
   }
 }
