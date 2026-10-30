@@ -19,6 +19,10 @@ for (const density of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) {
   const dir = path.join(res, `mipmap-${density}`);
   const icon = fs.readFileSync(path.join(dir, "ic_launcher.png"));
   assert.equal(icon.readUInt32BE(0), 0x89504e47, "launcher must be a real PNG");
+  for (const layer of ["foreground", "background", "monochrome"]) {
+    const bytes = fs.readFileSync(path.join(dir, `ic_launcher_${layer}.png`));
+    assert.equal(bytes.readUInt32BE(0), 0x89504e47, `${layer} must be a real PNG`);
+  }
   assert.equal(fs.existsSync(path.join(dir, "ic_launcher_round.png")), false, "round icon uses an alias");
   assert.equal(fs.readdirSync(dir).filter(name => name.endsWith(".webp")).length, 0);
 }
@@ -26,7 +30,7 @@ assert.equal(fs.readdirSync(res).filter(name => /^drawable-.*-v4$/.test(name)).l
 assert.match(fs.readFileSync(path.join(res, "values/votic_launcher_alias.xml"), "utf8"), /name="ic_launcher_round">@mipmap\/ic_launcher/);
 for (const name of ["ic_launcher", "ic_launcher_round"]) {
   assert.match(fs.readFileSync(path.join(res, `mipmap-anydpi-v26/${name}.xml`), "utf8"),
-    /<monochrome android:drawable="@drawable\/votic_launcher_monochrome"/);
+    /<monochrome android:drawable="@mipmap\/ic_launcher_monochrome"/);
 }
 assert.match(fs.readFileSync(path.join(res, "raw/votic_resource_keep.xml"), "utf8"), /@string\/share_into_scheme/);
 console.log("Generated Android manifest, sharing filters, text fields and icon resources verified.");
