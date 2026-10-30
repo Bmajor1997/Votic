@@ -9,6 +9,8 @@ export type FileTypeIconProps = FileTypeInput & {
   accessibilityLabel?: string;
   decorative?: boolean;
   status?: "uploading" | "processing" | "ready" | "failed";
+  /** Shown instead of the extension, for documents whose kind isn't a file type (a webpage or a scan). */
+  monogram?: string;
 };
 
 const STATUS_COLORS: Record<
@@ -38,13 +40,15 @@ export const FileTypeIcon = memo(function FileTypeIcon({
   accessibilityLabel,
   decorative = false,
   status,
+  monogram,
 }: FileTypeIconProps) {
   const { theme } = useVoticTheme();
   const type = resolve_file_type({ filename, mimeType, extension });
   const colors = file_type_colors(type, theme.isDark);
   const dimension = Number.isFinite(size) && size > 0 ? Math.max(24, size) : 44;
-  const fontSize = dimension * (type.monogram.length > 3 ? 0.235 : 0.28);
-  const label = accessibilityLabel ?? `${type.monogram} file${status ? `, ${status}` : ""}`;
+  const shown = monogram ?? type.monogram;
+  const fontSize = dimension * (shown.length > 3 ? 0.235 : 0.28);
+  const label = accessibilityLabel ?? `${shown} file${status ? `, ${status}` : ""}`;
   return (
     <View
       accessible={!decorative}
@@ -112,7 +116,7 @@ export const FileTypeIcon = memo(function FileTypeIcon({
           },
         ]}
       >
-        {type.monogram}
+        {shown}
       </Text>
       {status ? (
         <View

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
+import { DocumentCover } from "../../src/components/DocumentCover";
 import { FileTypeIcon } from "../../src/components/FileTypeIcon";
 import {
   FILE_TYPE_PALETTE,
@@ -81,5 +82,28 @@ describe("FileTypeIcon", () => {
     );
     expect(screen.queryByRole("image")).toBeNull();
     expect(screen.getByText("FILE", { includeHiddenElements: true })).toBeTruthy();
+  });
+  it("shows WEB and SCAN for webpages and scans instead of TXT", async () => {
+    const base = {
+      id: "d",
+      title: "Doc",
+      plainText: "Text.",
+      importedAt: 1,
+      updatedAt: 1,
+      progress: 0,
+      sentenceIndex: 0,
+      wordIndex: 0,
+      playbackRate: 1,
+    };
+    await render(
+      <ThemeProvider>
+        <DocumentCover document={{ ...base, sourceName: "page.txt", origin: "webpage" }} />
+        <DocumentCover document={{ ...base, id: "s", sourceName: "scan.txt", origin: "scan" }} />
+        <DocumentCover document={{ ...base, id: "t", sourceName: "notes.txt" }} />
+      </ThemeProvider>,
+    );
+    expect(screen.getByText("WEB", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText("SCAN", { includeHiddenElements: true })).toBeTruthy();
+    expect(screen.getByText("TXT", { includeHiddenElements: true })).toBeTruthy();
   });
 });
