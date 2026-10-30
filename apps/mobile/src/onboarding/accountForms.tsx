@@ -4,6 +4,7 @@ import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
 import { ReactNode, forwardRef, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -21,7 +22,6 @@ import { SignInCancelled, auth_error_message } from "../auth/authErrors";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { SecondaryButton } from "./components";
 import { BrandMark } from "./WelcomeMotion";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -120,15 +120,59 @@ export function SocialSignIn({
         />
       ) : null}
       {auth.googleAvailable ? (
-        <SecondaryButton
-          label="Continue with Google"
+        <GoogleButton
           busy={busy === "google"}
-          disabled={busy !== null || disabled}
-          icon={<Ionicons name="logo-google" size={19} color={theme.text} />}
+          disabled={busy !== null || Boolean(disabled)}
           onPress={() => void continue_with("google")}
         />
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Google's own sign-in button style: a white pill with a thin gray border and bold dark label (dark theme: Google's
+ * dark variant). Uses the one-color G glyph until Google's official multicolor "G" asset is added to the app.
+ */
+function GoogleButton({
+  busy,
+  disabled,
+  onPress,
+}: {
+  busy: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const colors = theme.isDark
+    ? { fill: "#131314", pressed: "#2A2A2C", border: "#8E918F", text: "#E3E3E3" }
+    : { fill: "#FFFFFF", pressed: "#F2F2F2", border: "#DADCE0", text: "#1F1F1F" };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Continue with Google"
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
+      onPress={onPress}
+      testID="google-sign-in"
+      style={({ pressed }) => [
+        s.googleButton,
+        {
+          backgroundColor: pressed ? colors.pressed : colors.fill,
+          borderColor: colors.border,
+          opacity: disabled && !busy ? 0.55 : 1,
+        },
+      ]}
+    >
+      {busy ? (
+        <ActivityIndicator color={colors.text} />
+      ) : (
+        <Ionicons name="logo-google" size={22} color={colors.text} accessible={false} />
+      )}
+      <Text allowFontScaling style={[s.googleText, { color: colors.text }]}>
+        Continue with Google
+      </Text>
+    </Pressable>
   );
 }
 
@@ -370,6 +414,17 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center" },
   social: { gap: spacing.md },
   appleButton: { height: 54, width: "100%" },
+  googleButton: {
+    minHeight: 56,
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+    paddingHorizontal: spacing.lg,
+  },
+  googleText: { fontSize: 17, fontWeight: "700", letterSpacing: 0.1 },
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   rule: { flex: 1, height: StyleSheet.hairlineWidth },
   dividerText: { fontSize: 14, fontWeight: "600" },
