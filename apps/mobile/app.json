@@ -70,18 +70,30 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.votic.app"]
+        "com.apple.security.application-groups": [
+          "group.com.votic.app"
+        ]
       }
     },
     "android": {
       "package": "com.votic.app",
-      "icon": "./assets/icon.png",
+      "icon": "./assets/android-icon/icon.png",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/android-icon/adaptive-foreground.png",
+        "backgroundColor": "#D6EAFD",
+        "backgroundImage": "./assets/android-icon/adaptive-background.png",
+        "monochromeImage": "./assets/android-icon/adaptive-monochrome.png"
       },
-      "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
+      "blockedPermissions": [
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "owner": "votic-organization",
+    "extra": {
+      "eas": {
+        "projectId": "9798a258-048f-45f1-b28a-92773d5039aa"
+      }
     }
   }
 }

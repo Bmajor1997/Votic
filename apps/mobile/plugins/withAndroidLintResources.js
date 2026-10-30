@@ -126,21 +126,6 @@ async function configureIcons(res) {
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
-    for (const name of ["ic_launcher.xml", "ic_launcher_round.xml"]) {
-      const file = path.join(folder, name);
-      try {
-        await updateXml(file, (xml) =>
-          xml.includes("<monochrome")
-            ? xml
-            : xml.replace(
-                "</adaptive-icon>",
-                '    <monochrome android:drawable="@drawable/votic_launcher_monochrome"/>\n</adaptive-icon>',
-              ),
-        );
-      } catch (error) {
-        if (error.code !== "ENOENT") throw error;
-      }
-    }
   }
   await fs.writeFile(
     path.join(res, "values/votic_launcher_alias.xml"),
