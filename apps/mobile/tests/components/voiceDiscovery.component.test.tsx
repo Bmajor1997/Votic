@@ -60,7 +60,7 @@ describe("finding voices", () => {
       accountSetup: { answers: { ...EMPTY_ANSWERS } },
     });
     await fireEvent.press(screen.getByRole("button", { name: "Your answers" }));
-    await fireEvent.press(screen.getByLabelText("Research. Dig into papers and compare findings"));
+    await fireEvent.press(screen.getByLabelText("Work. Get through reports and find decisions"));
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText("Find your listening rhythm.")).toBeTruthy();
@@ -68,7 +68,7 @@ describe("finding voices", () => {
     await fireEvent.press(await screen.findByRole("radio", { name: `${gb} voice, British English` }));
     await waitFor(() =>
       expect(jest.mocked(Speech.speak)).toHaveBeenLastCalledWith(
-        "People who slept after learning new words remembered more of them the next day than people who stayed awake.",
+        "Sign-ups grew this month, but support replies are slower. We need to decide on extra help by Friday.",
         expect.objectContaining({ voice: "voice-gb" }),
       ),
     );

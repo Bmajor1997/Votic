@@ -77,7 +77,7 @@ describe("Ask Votic suggestions from personalization", () => {
 describe("legacy purpose compatibility", () => {
   it("keeps the old purpose suggestions until personalization is answered", () => {
     expect(ask_suggestions(null, "work")).toContain("Find action items");
-    expect(ask_suggestions(answers({}), "research")).toContain("What should I investigate next?");
+    expect(ask_suggestions(answers({}), "work")).toContain("Find action items");
     expect(ask_suggestions(answers({ readingHelp: ["decide-as-i-go"] }), "learning")).toContain(
       "Quiz me on this document",
     );
@@ -114,7 +114,6 @@ describe("Notes notebook actions", () => {
       explainLabel: "Explain key ideas",
     });
     expect(notebook_actions(null, "work").studyAction.label).toBe("Action items");
-    expect(notebook_actions(null, "research").studyAction.label).toBe("Key findings");
     expect(notebook_actions(null, null)).toMatchObject({
       studyAction: { label: "Key points" },
       explainLabel: "Explain",

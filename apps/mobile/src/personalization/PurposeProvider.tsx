@@ -3,7 +3,8 @@ import { PropsWithChildren, createContext, useContext, useEffect, useState } fro
 import type { ExplanationStyle } from "../api/voticApi";
 import { normalize_playback_rate } from "../playback/rates";
 export type { ExplanationStyle } from "../api/voticApi";
-export type VoticPurpose = "learning" | "work" | "research" | "personal" | "accessibility";
+/** Removed purposes ("research", "accessibility") saved before are read back as not chosen. */
+export type VoticPurpose = "learning" | "work" | "personal";
 export const PURPOSES = [
   {
     value: "learning" as const,
@@ -18,22 +19,10 @@ export const PURPOSES = [
     icon: "briefcase-outline" as const,
   },
   {
-    value: "research" as const,
-    label: "Research",
-    detail: "Dig into papers and compare findings",
-    icon: "search-outline" as const,
-  },
-  {
     value: "personal" as const,
     label: "Personal reading",
     detail: "Read and listen at your own pace",
     icon: "book-outline" as const,
-  },
-  {
-    value: "accessibility" as const,
-    label: "Accessibility",
-    detail: "Make text easier to read and hear",
-    icon: "accessibility-outline" as const,
   },
 ];
 export const EXPLANATION_STYLES = [

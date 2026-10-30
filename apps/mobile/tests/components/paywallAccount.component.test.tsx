@@ -149,17 +149,12 @@ it("switches billing options instantly with Reduce Motion, and restores purchase
   expect(screen.getByText("Your Votic Plus subscription is restored.")).toBeTruthy();
 });
 
-it("settles the offer briefly when switching billing options without Reduce Motion", async () => {
+it("switches billing options instantly without Reduce Motion too", async () => {
   const errors = jest.spyOn(console, "error").mockImplementation(() => {});
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
-  const offer = () => screen.getByLabelText(/^Votic Plus, \$79\.99\/year/) as never;
-  expect(visible_opacity(offer())).toBeLessThan(1);
-  await act(async () => {
-    jest.advanceTimersByTime(400);
-  });
-  expect(visible_opacity(offer())).toBe(1);
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$79\.99\/year/) as never)).toBe(1);
   expect(errors).not.toHaveBeenCalled();
 });
 
@@ -310,18 +305,11 @@ it("shows the whole paywall at once with Reduce Motion", async () => {
   expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
 });
 
-it("settles its entrance in under a second and then stays still", async () => {
+it("shows the whole paywall at once without Reduce Motion too, with no entrance animation", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  const headline = () => screen.getByRole("header", { name: "Make more of every document." }) as never;
-  expect(visible_opacity(headline())).toBeLessThan(1);
-  await act(async () => {
-    jest.advanceTimersByTime(1000);
-  });
-  expect(visible_opacity(headline())).toBe(1);
+  expect(visible_opacity(screen.getByRole("header", { name: "Make more of every document." }) as never)).toBe(
+    1,
+  );
   expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
-  await act(async () => {
-    jest.advanceTimersByTime(5000);
-  });
-  expect(visible_opacity(headline())).toBe(1);
 });

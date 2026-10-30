@@ -3,7 +3,13 @@ import { describe, expect, it } from "@jest/globals";
 import { render, screen } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 import { FileTypeIcon } from "../../src/components/FileTypeIcon";
-import { FILE_TYPE_PALETTE, file_type_colors, resolve_file_type } from "../../src/documents/fileTypes";
+import {
+  FILE_TYPE_PALETTE,
+  FILE_FORMAT_PALETTE,
+  file_type_palette,
+  file_type_colors,
+  resolve_file_type,
+} from "../../src/documents/fileTypes";
 import { mix, ThemeProvider } from "../../src/theme/ThemeProvider";
 
 function luminance(hex: string) {
@@ -29,13 +35,12 @@ describe("FileTypeIcon", () => {
     expect(StyleSheet.flatten(screen.getByText("PDF").props.style).color).toBe(
       file_type_colors(resolve_file_type({ extension: "pdf" }), dark).foreground,
     );
-    for (const family of Object.keys(FILE_TYPE_PALETTE) as (keyof typeof FILE_TYPE_PALETTE)[]) {
-      const palette = FILE_TYPE_PALETTE[family];
-      // Include the neutral reader palettes and sepia, not only navigation surfaces.
+    for (const extension of Object.keys(FILE_FORMAT_PALETTE)) {
+      const type = resolve_file_type({ extension });
+      const palette = file_type_palette(type);
+      // Check every actual format, including split image/slide/text identities.
       for (const paper of dark ? [surface, "#000000"] : [surface, "#FBF5E6"]) {
-        const fg = luminance(
-          file_type_colors({ extension: "", monogram: "", label: "", family }, dark).foreground,
-        );
+        const fg = luminance(file_type_colors(type, dark).foreground);
         const bg = luminance(mix(paper, palette.accent, 0.1));
         expect((Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)).toBeGreaterThanOrEqual(4.5);
       }

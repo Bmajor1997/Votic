@@ -201,24 +201,22 @@ describe("Personalization", () => {
     // Continue waits for a choice; Skip doesn't.
     expect(screen.getByRole("button", { name: "Continue", disabled: true })).toBeTruthy();
     await fireEvent.press(
-      screen.getByRole("radio", { name: "Research. Dig into papers and compare findings" }),
+      screen.getByRole("radio", { name: "Work. Get through reports and find decisions" }),
     );
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     // The reading preview changes as soon as a choice is made.
     expect(screen.getByRole("header", { name: "Make the page your own." })).toBeTruthy();
-    const before = JSON.stringify(screen.getByText(/People who slept after learning new words/).props.style);
+    const before = JSON.stringify(screen.getByText(/Sign-ups grew this month/).props.style);
     await fireEvent.press(screen.getByRole("checkbox", { name: "Larger text" }));
-    expect(
-      JSON.stringify(screen.getByText(/People who slept after learning new words/).props.style),
-    ).not.toBe(before);
+    expect(JSON.stringify(screen.getByText(/Sign-ups grew this month/).props.style)).not.toBe(before);
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     // "Adapt to the question" is chosen until something else is, and its example shows.
     expect(screen.getByRole("radio", { name: /^Adapt to the question/, checked: true })).toBeTruthy();
-    expect(screen.getByText(/Sleeping after learning helped people remember/)).toBeTruthy();
+    expect(screen.getByText(/The team needs to decide on extra support help/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("radio", { name: "Simple. Plain words, no jargon" }));
-    expect(screen.getByText(/The people who slept after learning remembered/)).toBeTruthy();
+    expect(screen.getByText(/The team needs to choose whether to get more help/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 
     expect(screen.getByRole("progressbar", { name: "Step 4 of 4" })).toBeTruthy();
@@ -271,11 +269,16 @@ describe("Personalization", () => {
     await render_with_providers(<Personalize />, NOT_SET_UP);
     for (let step = 0; step < 3; step += 1)
       await fireEvent.press(screen.getByRole("button", { name: "Skip this step" }));
+    // Choosing a speed plays the sample at that speed straight away.
     await fireEvent.press(screen.getByRole("radio", { name: "1.2× speed" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
     await waitFor(() => expect(Speech.speak).toHaveBeenCalled());
     expect(jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]).toMatchObject({ rate: 1.2 });
     expect(screen.getByRole("button", { name: "Stop sample" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Stop sample" }));
+    const before = jest.mocked(Speech.speak).mock.calls.length;
+    await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
+    await waitFor(() => expect(Speech.speak).toHaveBeenCalledTimes(before + 1));
+    expect(jest.mocked(Speech.speak).mock.calls.at(-1)?.[1]).toMatchObject({ rate: 1.2 });
   });
 });
 

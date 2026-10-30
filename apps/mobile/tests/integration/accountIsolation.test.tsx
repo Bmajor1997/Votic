@@ -46,8 +46,8 @@ it("keeps what each account said Votic should help with, so a new account on the
   }
   const shown = () => screen.getByTestId("purpose").props.children;
   await render_with_providers(<Probe />);
-  await act(async () => purpose!.setPurpose("research"));
-  expect(shown()).toBe("research");
+  await act(async () => purpose!.setPurpose("work"));
+  expect(shown()).toBe("work");
   await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(shown()).toBe("null");
@@ -55,14 +55,14 @@ it("keeps what each account said Votic should help with, so a new account on the
   await act(async () => purpose!.setPurpose("learning"));
   await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
-  expect(shown()).toBe("research");
+  expect(shown()).toBe("work");
   await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(shown()).toBe("learning");
 });
 
 it("gives preferences saved before the purpose moved per account the device's purpose only in the restored session", async () => {
-  await AsyncStorage.setItem("votic.mobile.purpose.v1", "accessibility");
+  await AsyncStorage.setItem("votic.mobile.purpose.v1", "personal");
   const saved = { explanationStyle: "quick", highlightMode: "both", defaultPlaybackRate: 1 };
   await AsyncStorage.setItem(account_preferences_key("test-user"), JSON.stringify(saved));
   await AsyncStorage.setItem(account_preferences_key("B"), JSON.stringify(saved));
@@ -70,8 +70,8 @@ it("gives preferences saved before the purpose moved per account the device's pu
     return <Text testID="purpose">{String(useVoticPurpose().purpose)}</Text>;
   }
   await render_with_providers(<Probe />);
-  expect(screen.getByTestId("purpose").props.children).toBe("accessibility");
-  expect(await load_account_preferences("test-user")).toMatchObject({ purpose: "accessibility" });
+  expect(screen.getByTestId("purpose").props.children).toBe("personal");
+  expect(await load_account_preferences("test-user")).toMatchObject({ purpose: "personal" });
   await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(screen.getByTestId("purpose").props.children).toBe("null");
@@ -317,4 +317,26 @@ it("keeps testing bypasses with their account and ignores the unowned legacy dev
       account_storage_key("votic.mobile.development-paywall-bypass.v1", "test-user"),
     ),
   ).toBeNull();
+});
+
+it("reads a purpose Votic no longer offers (Research, Accessibility) as not chosen", async () => {
+  await AsyncStorage.setItem("votic.mobile.purpose.v1", "research");
+  await AsyncStorage.setItem(
+    account_preferences_key("test-user"),
+    JSON.stringify({
+      purpose: "accessibility",
+      explanationStyle: "quick",
+      highlightMode: "both",
+      defaultPlaybackRate: 1,
+    }),
+  );
+  function Probe() {
+    return <Text testID="purpose">{String(useVoticPurpose().purpose)}</Text>;
+  }
+  await render_with_providers(<Probe />);
+  expect(screen.getByTestId("purpose").props.children).toBe("null");
+  expect(await load_account_preferences("test-user")).toMatchObject({
+    purpose: null,
+    explanationStyle: "quick",
+  });
 });

@@ -37,23 +37,7 @@ const LEGACY_ASK_SUGGESTIONS: Record<VoticPurpose, string[]> = {
     "Compare key details",
     "Find information",
   ],
-  research: [
-    "Summarize this document",
-    "Identify key findings",
-    "Compare key ideas",
-    "Explain the evidence",
-    "Find information",
-    "What should I investigate next?",
-  ],
   personal: DEFAULT_ASK_SUGGESTIONS,
-  accessibility: [
-    "Summarize this document",
-    "Explain this section simply",
-    "Find key points",
-    "Help me understand this passage",
-    "Ask about my notes",
-    "Find information",
-  ],
 };
 
 type Answer = { key: "goals" | "readingHelp" | "keepingTrack"; value: string };
@@ -159,11 +143,6 @@ const LEGACY_STUDY_ACTIONS: Partial<Record<VoticPurpose, NotebookStudyAction>> =
     icon: "checkbox-outline",
     label: "Action items",
     question: "Find the action items and decisions in my notes",
-  },
-  research: {
-    icon: "flask-outline",
-    label: "Key findings",
-    question: "Identify the key findings and evidence in my notes",
   },
 };
 

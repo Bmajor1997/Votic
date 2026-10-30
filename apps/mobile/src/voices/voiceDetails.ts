@@ -30,3 +30,8 @@ export function featured_voices<T extends DeviceVoice>(voices: T[], selected: st
   const chosen = voices.find((voice) => voice.identifier === selected);
   return (chosen ? [chosen, ...voices.filter((voice) => voice !== chosen)] : voices).slice(0, count);
 }
+
+/** Whether the phone reports this voice as high quality (iOS "Enhanced"/Premium, Android above normal quality). */
+export function is_high_quality(voice: Pick<DeviceVoice, "quality">) {
+  return voice.quality === "Enhanced";
+}

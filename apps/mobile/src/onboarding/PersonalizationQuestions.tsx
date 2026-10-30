@@ -1,25 +1,22 @@
-import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import { useEffect, useRef, useState } from "react";
-import { BackHandler, Pressable, StyleSheet, Text, View } from "react-native";
+import { BackHandler, StyleSheet, Text, View } from "react-native";
 import { HighlightMode, useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { radii, spacing } from "../design/tokens";
 import { useAccountSetup } from "./AccountSetupProvider";
 import { OptionRow, PrimaryButton, StepScaffold } from "./components";
+import { ListeningStep } from "./ListeningStep";
 import { SampleDocumentHeading } from "./SampleDocumentHeading";
 import { PREVIEW_SAMPLES, sample_explanation } from "./sampleDocument";
-import { EMPTY_ANSWERS, ListeningPreference, PersonalizationAnswers } from "./onboardingModel";
+import { EMPTY_ANSWERS, PersonalizationAnswers } from "./onboardingModel";
 import {
   EXPLANATION_STYLES,
   ExplanationStyle,
   PURPOSES,
   useVoticPurpose,
 } from "../personalization/PurposeProvider";
-import { format_playback_rate } from "../playback/rates";
 import { reader_type } from "../reader/readerText";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { useDeviceVoices } from "../voices/useDeviceVoices";
-import { featured_voices, voice_accent } from "../voices/voiceDetails";
 
 const STEPS = 4;
 
@@ -122,7 +119,7 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   if (step === 0) return <GoalStep {...stepProps} />;
   if (step === 1) return <ComfortStep {...stepProps} />;
   if (step === 2) return <ExplanationStep {...stepProps} />;
-  return <ListeningStep {...stepProps} />;
+  return <ListeningStep {...stepProps} total={STEPS} />;
 }
 
 type StepProps = {
@@ -281,259 +278,10 @@ function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personaliz
   );
 }
 
-const SPEEDS = [0.8, 1, 1.2, 1.5, 2];
-const HIGHLIGHTS: { value: HighlightMode; label: string; detail: string }[] = [
-  { value: "both", label: "Words and sentences", detail: "Follow every word as it's read" },
-  { value: "sentence", label: "Sentences only", detail: "A calmer highlight" },
-  { value: "off", label: "No highlighting", detail: "Just listen" },
-];
-/** The listening answers saved with this account for each highlight choice. */
-const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
-  both: ["highlight-words", "highlight-sentence"],
-  word: ["highlight-words"],
-  sentence: ["highlight-sentence"],
-  off: [],
-};
-
-function ListeningStep({
-  step,
-  onBack,
-  onNext,
-  answers,
-  setAnswers,
-  finishLabel,
-  access: a,
-  personalization,
-}: StepProps) {
-  const { theme } = useVoticTheme();
-  const { defaultPlaybackRate, setDefaultPlaybackRate } = personalization;
-  const sample = PREVIEW_SAMPLES[personalization.purpose ?? "default"];
-  const listenWords = sample.text.split(" ");
-  const [playing, setPlaying] = useState(false);
-  const [word, setWord] = useState(-1);
-  const session = useRef(0);
-  const highlightMode = a.highlightMode === "word" ? "both" : a.highlightMode;
-  const { voices, names } = useDeviceVoices();
-  // A few voices to try here, ordered once so choosing one doesn't reshuffle them; the full list is in
-  // Settings › Reading & Listening › Voice.
-  const [initialVoice] = useState(a.voiceIdentifier);
-  const shownVoices = featured_voices(voices, initialVoice, 4);
-
-  function stop() {
-    session.current += 1;
-    setPlaying(false);
-    setWord(-1);
-    void Speech.stop();
-  }
-  function play(rate = defaultPlaybackRate, voice = a.voiceIdentifier) {
-    const current = session.current + 1;
-    session.current = current;
-    setPlaying(true);
-    setWord(0);
-    const done = () => {
-      if (session.current !== current) return;
-      setPlaying(false);
-      setWord(-1);
-    };
-    void Speech.stop()
-      .then(() => {
-        if (session.current !== current) return;
-        Speech.speak(sample.text, {
-          rate,
-          voice: voice || undefined,
-          onBoundary: (event: { charIndex?: number }) => {
-            if (session.current !== current) return;
-            const offset = Number(event?.charIndex);
-            if (!Number.isFinite(offset)) return;
-            setWord(sample.text.slice(0, offset).split(" ").length - 1);
-          },
-          onDone: done,
-          onStopped: done,
-          onError: done,
-        });
-      })
-      .catch(done);
-  }
-  // Leaving this step (or setup) always stops the sample.
-  useEffect(
-    () => () => {
-      session.current += 1;
-      void Speech.stop();
-    },
-    [],
-  );
-
-  /** Choosing a voice saves it for every document and plays the sample in it, so it can be heard at once. */
-  function choose_voice(identifier: string) {
-    a.setVoiceIdentifier(identifier);
-    play(defaultPlaybackRate, identifier);
-  }
-  function choose_speed(rate: number) {
-    setDefaultPlaybackRate(rate);
-    if (playing) play(rate);
-  }
-  function choose_highlight(mode: HighlightMode) {
-    a.setHighlightMode(mode);
-    setAnswers({ ...answers, listening: LISTENING_FOR[mode] });
-  }
-
-  return (
-    <StepScaffold
-      step={step}
-      total={STEPS}
-      onBack={() => {
-        stop();
-        onBack?.();
-      }}
-      onSkip={() => {
-        stop();
-        onNext();
-      }}
-      title="Find your listening rhythm."
-      subtitle="Hear the same page in your choice of voice and speed."
-      footer={
-        <PrimaryButton
-          label={finishLabel}
-          onPress={() => {
-            stop();
-            onNext();
-          }}
-        />
-      }
-    >
-      <SampleDocumentHeading title={sample.title} />
-      <View style={[s.preview, s.listenCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={playing ? "Stop sample" : "Play sample"}
-          onPress={() => (playing ? stop() : play())}
-          style={({ pressed }) => [
-            s.play,
-            { backgroundColor: theme.playButton, opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <Ionicons name={playing ? "stop" : "play"} size={24} color={theme.playIcon} />
-        </Pressable>
-        <Text
-          style={[
-            s.listenText,
-            { color: theme.text },
-            playing && highlightMode !== "off" && { backgroundColor: theme.sentenceHighlight },
-          ]}
-        >
-          {listenWords.map((value, index) => (
-            <Text
-              key={index}
-              style={
-                playing && highlightMode === "both" && index === word
-                  ? { backgroundColor: theme.wordHighlight, fontWeight: "800" }
-                  : undefined
-              }
-            >
-              {value}
-              {index < listenWords.length - 1 ? " " : ""}
-            </Text>
-          ))}
-        </Text>
-      </View>
-      {shownVoices.length > 1 ? (
-        <>
-          <Text style={[s.groupLabel, { color: theme.text }]}>Voice</Text>
-          <View accessibilityRole="radiogroup" accessibilityLabel="Voice" style={s.speeds}>
-            {shownVoices.map((voice) => {
-              const selected = a.voiceIdentifier === voice.identifier;
-              const name = names[voice.identifier];
-              return (
-                <Pressable
-                  key={voice.identifier}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: selected }}
-                  accessibilityLabel={`${name} voice, ${voice_accent(voice)}`}
-                  accessibilityHint="Chooses this voice and plays the sample"
-                  onPress={() => choose_voice(voice.identifier)}
-                  style={[
-                    s.speed,
-                    {
-                      borderColor: selected ? theme.accent : theme.border,
-                      backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
-                    },
-                  ]}
-                >
-                  <Text style={[s.speedText, { color: theme.text, fontWeight: selected ? "800" : "600" }]}>
-                    {name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={[s.voiceNote, { color: theme.mutedText }]}>
-            More voices are in Settings › Reading & Listening › Voice.
-          </Text>
-        </>
-      ) : null}
-      <Text style={[s.groupLabel, { color: theme.text }]}>Speed</Text>
-      <View accessibilityRole="radiogroup" style={s.speeds}>
-        {SPEEDS.map((rate) => {
-          const selected = defaultPlaybackRate === rate;
-          return (
-            <Pressable
-              key={rate}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: selected }}
-              accessibilityLabel={`${format_playback_rate(rate)} speed`}
-              onPress={() => choose_speed(rate)}
-              style={[
-                s.speed,
-                {
-                  borderColor: selected ? theme.accent : theme.border,
-                  backgroundColor: selected ? theme.sentenceHighlight : theme.surface,
-                },
-              ]}
-            >
-              <Text style={[s.speedText, { color: theme.text, fontWeight: selected ? "800" : "600" }]}>
-                {format_playback_rate(rate)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      <Text style={[s.groupLabel, { color: theme.text }]}>Follow along</Text>
-      <View accessibilityRole="radiogroup" style={s.options}>
-        {HIGHLIGHTS.map((item) => (
-          <OptionRow
-            key={item.value}
-            label={item.label}
-            detail={item.detail}
-            selected={highlightMode === item.value}
-            onPress={() => choose_highlight(item.value)}
-          />
-        ))}
-      </View>
-    </StepScaffold>
-  );
-}
-
 const s = StyleSheet.create({
   options: { gap: spacing.md },
   preview: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.sm },
   previewLabel: { fontSize: 12, fontWeight: "800", letterSpacing: 0.8 },
   question: { fontSize: 16, fontWeight: "700" },
   answer: { fontSize: 16, lineHeight: 23, borderRadius: radii.md, padding: spacing.md, overflow: "hidden" },
-  listenCard: { flexDirection: "row", alignItems: "center", gap: spacing.lg },
-  play: { width: 56, height: 56, borderRadius: 28, alignItems: "center", justifyContent: "center" },
-  listenText: { flex: 1, fontSize: 18, lineHeight: 28 },
-  groupLabel: { fontSize: 17, fontWeight: "800", marginTop: spacing.sm },
-  speeds: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  speed: {
-    minHeight: 48,
-    minWidth: 60,
-    flexGrow: 1,
-    borderWidth: 2,
-    borderRadius: radii.md,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-  },
-  speedText: { fontSize: 16 },
-  voiceNote: { fontSize: 14, lineHeight: 20 },
 });

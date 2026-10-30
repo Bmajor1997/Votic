@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { IMPORT_TYPES, supported_document } from "./importDocument";
-import { FILE_TYPE_PALETTE, file_type_colors, resolve_file_type } from "./fileTypes";
+import { FILE_FORMAT_PALETTE, file_type_palette, file_type_colors, resolve_file_type } from "./fileTypes";
 
 describe("file identities", () => {
   it.each([
@@ -94,9 +94,22 @@ describe("file identities", () => {
   ] as const)("maps %s to its palette", (extension, family) => {
     const type = resolve_file_type({ extension });
     expect(type.family).toBe(family);
-    expect(file_type_colors(type, false).foreground).toBe(FILE_TYPE_PALETTE[family].ink);
-    expect(file_type_colors(type, true).accent).toBe(FILE_TYPE_PALETTE[family].accent);
-    expect(file_type_colors(type, true).foreground).not.toBe(FILE_TYPE_PALETTE[family].ink);
+    expect(file_type_colors(type, false).foreground).toBe(file_type_palette(type).ink);
+    expect(file_type_colors(type, true).accent).toBe(file_type_palette(type).accent);
+    expect(file_type_colors(type, true).foreground).not.toBe(file_type_palette(type).ink);
+  });
+  it("gives all 15 imported formats distinct color pairs while keeping aliases consistent", () => {
+    const palettes = Object.values(FILE_FORMAT_PALETTE);
+    expect(palettes).toHaveLength(15);
+    expect(new Set(palettes.map((p) => p.accent)).size).toBe(15);
+    expect(new Set(palettes.map((p) => p.ink)).size).toBe(15);
+    for (const [alias, canonical] of [
+      ["jpg", "jpeg"],
+      ["htm", "html"],
+    ])
+      expect(file_type_palette(resolve_file_type({ extension: alias }))).toEqual(
+        file_type_palette(resolve_file_type({ extension: canonical })),
+      );
   });
   it("does not change upload support through display-only formats", () => {
     expect(supported_document("photo.heic")).toBe(true);
