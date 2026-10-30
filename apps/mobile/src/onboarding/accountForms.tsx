@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { ReactNode, forwardRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -130,9 +131,12 @@ export function SocialSignIn({
   );
 }
 
+/** Google's official "G" mark (from Google's own Firebase console asset), rendered at 1x/2x/3x. */
+const GOOGLE_G = require("../../assets/google-g.png");
+
 /**
  * Google's own sign-in button style: a white pill with a thin gray border and bold dark label (dark theme: Google's
- * dark variant). Uses the one-color G glyph until Google's official multicolor "G" asset is added to the app.
+ * dark variant), with Google's official multicolor "G" as its branding guidelines require.
  */
 function GoogleButton({
   busy,
@@ -167,7 +171,7 @@ function GoogleButton({
       {busy ? (
         <ActivityIndicator color={colors.text} />
       ) : (
-        <Ionicons name="logo-google" size={22} color={colors.text} accessible={false} />
+        <Image source={GOOGLE_G} style={s.googleLogo} accessible={false} />
       )}
       <Text allowFontScaling style={[s.googleText, { color: colors.text }]}>
         Continue with Google
@@ -424,6 +428,7 @@ const s = StyleSheet.create({
     gap: 14,
     paddingHorizontal: spacing.lg,
   },
+  googleLogo: { width: 22, height: 22 },
   googleText: { fontSize: 17, fontWeight: "700", letterSpacing: 0.1 },
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   rule: { flex: 1, height: StyleSheet.hairlineWidth },
