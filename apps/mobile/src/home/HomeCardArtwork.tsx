@@ -12,7 +12,7 @@ function preview_identity(document: VoticDocument) {
   const label = document_type_label(document);
   const palette = file_type_palette(type);
   // Known image files keep their own format identity even when imported via OCR.
-  if (label === "Scan" && type.family === "unknown")
+  if (label === "Scan" && type.family !== "image" && type.family !== "photo")
     return { kind: "page", label: "SCAN", color: documentPreviewColors.scan.ink };
   if (label === "Webpage")
     return { kind: "browser", label: "WEBPAGE", color: documentPreviewColors.html.ink };

@@ -14,11 +14,19 @@ export function note_palette(document: NoteSource) {
   const label = document_type_label(document);
   const palette = file_type_palette(type);
   const identity =
-    label === "Scan" && type.family === "unknown"
+    label === "Scan" && type.family !== "image" && type.family !== "photo"
       ? documentPreviewColors.scan
       : label === "Webpage"
         ? documentPreviewColors.html
-        : { ink: palette.ink, bar: mix("#FFFFFF", palette.accent, 0.2) };
+        : type.family === "pdf"
+          ? documentPreviewColors.pdf
+          : type.family === "html"
+            ? documentPreviewColors.html
+            : type.family === "epub"
+              ? documentPreviewColors.epub
+              : type.extension === "txt" || type.family === "unknown"
+                ? documentPreviewColors.text
+                : { ink: palette.ink, bar: mix("#FFFFFF", palette.accent, 0.2) };
   return {
     surface: identity.bar,
     paper: mix("#FFFFFF", identity.bar, 0.25),

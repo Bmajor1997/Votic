@@ -350,7 +350,11 @@ it.each(["light", "dark"])(
 it("keeps source-note ink consistent with every file format, including image scans", () => {
   for (const extension of Object.keys(FILE_FORMAT_PALETTE)) {
     const type = resolve_file_type({ extension });
-    const doc = { ...recent, sourceName: `sample.${extension}`, origin: "scan" as const };
+    const doc = {
+      ...recent,
+      sourceName: `sample.${extension}`,
+      origin: type.family === "image" || type.family === "photo" ? ("scan" as const) : ("file" as const),
+    };
     expect(note_palette(doc).ink).toBe(file_type_palette(type).ink);
   }
 });

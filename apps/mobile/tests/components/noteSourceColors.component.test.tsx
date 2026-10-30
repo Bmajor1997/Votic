@@ -20,7 +20,7 @@ const passage = {
 const sources = [
   { sourceName: "report.PDF", tint: "#F5E1DE", ink: "#853F3F" },
   { sourceName: "notes.txt", tint: "#E7E8EB", ink: "#515965" },
-  { sourceName: "article.html", tint: "#DFEAED", ink: "#234D59" },
+  { sourceName: "article.html", tint: "#D9F1F7", ink: "#195B70" },
 ];
 const documents = sources.map((source, i) =>
   test_document(String(i), `Source ${i}`, { sourceName: source.sourceName, savedPassages: [passage] }),
@@ -79,12 +79,12 @@ describe("Notes inherit source identity", () => {
   it("uses origins for webpages/scans, gray for unknown sources, and lavender for Quick Notes", () => {
     expect(
       note_palette(test_document("web", "Web", { sourceName: "article.txt", origin: "webpage" })).surface,
-    ).toBe("#DFEAED");
+    ).toBe("#D9F1F7");
     expect(
       note_palette(
         test_document("legacy", "Web", { sourceName: "article.txt", sourceUrl: "https://example.com" }),
       ).surface,
-    ).toBe("#DFEAED");
+    ).toBe("#D9F1F7");
     expect(
       note_palette(test_document("scan", "Scan", { sourceName: "scan.txt", origin: "scan" })).surface,
     ).toBe("#EEE5D6");
@@ -96,7 +96,7 @@ describe("Notes inherit source identity", () => {
         test_document("quick", "Quick Notes", { notebookKind: "quick-notes", sourceName: "ideas.txt" }),
       ).surface,
     ).toBe("#C9BEDC");
-    expect(note_palette(test_document("word", "Word", { sourceName: "letter.docx" })).ink).toBe("#365B96");
+    expect(note_palette(test_document("word", "Word", { sourceName: "letter.docx" })).ink).toBe("#28529A");
   });
 
   it("keeps note text legible on colored headers and paper for every file family", () => {
