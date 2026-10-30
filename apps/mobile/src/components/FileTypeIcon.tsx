@@ -71,27 +71,16 @@ export const FileTypeIcon = memo(function FileTypeIcon({
             height: dimension * 0.78,
             borderRadius: dimension * 0.09,
             top: dimension * 0.08,
-            backgroundColor: theme.surface,
+            backgroundColor: "#FFFFFF",
             borderColor: mix(theme.surface, colors.accent, 0.35),
           },
         ]}
       >
-        <View
-          style={[
-            s.fold,
-            {
-              width: dimension * 0.18,
-              height: dimension * 0.18,
-              borderBottomLeftRadius: dimension * 0.06,
-              backgroundColor: mix(theme.surface, colors.accent, 0.32),
-            },
-          ]}
-        />
         {dimension >= 48 ? (
           <Ionicons
             name={FILE_GLYPHS[type.family] ?? "reorder-two-outline"}
             size={dimension * 0.25}
-            color={colors.foreground}
+            color={file_type_colors(type, false).foreground}
             style={{ position: "absolute", left: dimension * 0.09, top: dimension * 0.12 }}
             accessible={false}
           />
@@ -145,12 +134,7 @@ const s = StyleSheet.create({
   paper: {
     position: "absolute",
     borderWidth: 1,
-    shadowColor: "#17243D",
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 3,
-    shadowOpacity: 0.08,
   },
-  fold: { position: "absolute", right: -1, top: -1 },
   monogram: {
     position: "absolute",
     fontWeight: "700",

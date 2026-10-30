@@ -1,7 +1,7 @@
 import { darkCards } from "../design/cardPalette";
 import { documentPreviewColors } from "../design/documentPreviewColors";
 import { document_type_label } from "../documents/documentDisplay";
-import { FILE_TYPE_PALETTE, resolve_file_type } from "../documents/fileTypes";
+import { file_type_palette, resolve_file_type } from "../documents/fileTypes";
 import { VoticDocument } from "../documents/types";
 import { mix } from "../theme/ThemeProvider";
 
@@ -12,21 +12,21 @@ export function note_palette(document: NoteSource) {
   if (document.notebookKind === "quick-notes") return { ...darkCards.notes, paper: "#F8F4FC" };
   const type = resolve_file_type({ filename: document.sourceName });
   const label = document_type_label(document);
+  const palette = file_type_palette(type);
   const identity =
-    label === "Scan"
+    label === "Scan" && type.family !== "image" && type.family !== "photo"
       ? documentPreviewColors.scan
-      : label === "Webpage" || type.family === "html"
+      : label === "Webpage"
         ? documentPreviewColors.html
         : type.family === "pdf"
           ? documentPreviewColors.pdf
-          : type.family === "epub"
-            ? documentPreviewColors.epub
-            : type.family === "text" || type.family === "unknown"
-              ? documentPreviewColors.text
-              : {
-                  ink: FILE_TYPE_PALETTE[type.family].ink,
-                  bar: mix("#FFFFFF", FILE_TYPE_PALETTE[type.family].accent, 0.2),
-                };
+          : type.family === "html"
+            ? documentPreviewColors.html
+            : type.family === "epub"
+              ? documentPreviewColors.epub
+              : type.extension === "txt" || type.family === "unknown"
+                ? documentPreviewColors.text
+                : { ink: palette.ink, bar: mix("#FFFFFF", palette.accent, 0.2) };
   return {
     surface: identity.bar,
     paper: mix("#FFFFFF", identity.bar, 0.25),
