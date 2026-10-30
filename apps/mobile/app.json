@@ -75,11 +75,13 @@
     },
     "android": {
       "package": "com.votic.app",
-      "icon": "./assets/icon.png",
+      "icon": "./assets/android-icon/icon.png",
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/android-icon/adaptive-foreground.png",
+        "backgroundColor": "#D6EAFD",
+        "backgroundImage": "./assets/android-icon/adaptive-background.png",
+        "monochromeImage": "./assets/android-icon/adaptive-monochrome.png"
       },
       "blockedPermissions": ["android.permission.WRITE_EXTERNAL_STORAGE"]
     }
