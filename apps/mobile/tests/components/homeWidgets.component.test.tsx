@@ -5,6 +5,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import Home from "../../app/(tabs)/index";
 import { NotesShelf, RecentShelf } from "../../src/home/HomeWidgets";
 import { note_palette } from "../../src/notes/notePalette";
+import { FILE_FORMAT_PALETTE, file_type_palette, resolve_file_type } from "../../src/documents/fileTypes";
 import { home_notes } from "../../src/home/homeModel";
 import { document_widget_tone, widget_palette, WidgetTone } from "../../src/home/widgetDesign";
 import { router } from "../mocks/expoRouter";
@@ -327,6 +328,29 @@ it("keeps recent files usable when retained preview text is empty", async () => 
   await render_with_providers(
     <RecentShelf documents={[{ ...recent, plainText: "" }]} onOpen={() => {}} onMore={() => {}} />,
   );
-  expect(screen.getByText("Your next read starts here.", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByText("Preview unavailable", { includeHiddenElements: true })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
+});
+
+it.each(["light", "dark"])(
+  "keeps minimal preview paper white and labels real excerpts in %s mode",
+  async (appearanceMode) => {
+    await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
+    const doc = { ...recent, sourceName: "sample.pdf", plainText: "Actual retained document content." };
+    await render_with_providers(<RecentShelf documents={[doc]} onOpen={() => {}} onMore={() => {}} />);
+    const frame = screen.getByTestId("home-preview-pdf", { includeHiddenElements: true });
+    expect(StyleSheet.flatten(frame.props.style).backgroundColor).toBe("#FFFFFF");
+    expect(
+      StyleSheet.flatten(screen.getByText(doc.plainText, { includeHiddenElements: true }).props.style).color,
+    ).toBe("#202124");
+    expect(screen.getByText("Text excerpt · reflowed", { includeHiddenElements: true })).toBeTruthy();
+  },
+);
+
+it("keeps source-note ink consistent with every file format, including image scans", () => {
+  for (const extension of Object.keys(FILE_FORMAT_PALETTE)) {
+    const type = resolve_file_type({ extension });
+    const doc = { ...recent, sourceName: `sample.${extension}`, origin: "scan" as const };
+    expect(note_palette(doc).ink).toBe(file_type_palette(type).ink);
+  }
 });

@@ -1,16 +1,38 @@
 /** Display metadata only: this registry never grants upload/parser support. */
 export const FILE_TYPE_PALETTE = {
   pdf: { accent: "#E77B7B", ink: "#853F3F" },
-  word: { accent: "#80A9EF", ink: "#365B96" },
+  word: { accent: "#5289E2", ink: "#28529A" },
   text: { accent: "#A6ADB8", ink: "#515965" },
-  rtf: { accent: "#B49BE8", ink: "#654B91" },
-  odt: { accent: "#76B9AD", ink: "#34665C" },
-  html: { accent: "#E7AD75", ink: "#80552C" },
-  epub: { accent: "#A693D8", ink: "#604D8E" },
-  image: { accent: "#83BA9B", ink: "#3B6750" },
-  photo: { accent: "#79B8C9", ink: "#356473" },
-  slides: { accent: "#D9A078", ink: "#805332" },
+  rtf: { accent: "#DB78AD", ink: "#8A365E" },
+  odt: { accent: "#43B19F", ink: "#216657" },
+  html: { accent: "#43B7D0", ink: "#195B70" },
+  epub: { accent: "#AC82DE", ink: "#65408F" },
+  image: { accent: "#57A963", ink: "#31663B" },
+  photo: { accent: "#B88355", ink: "#744924" },
+  slides: { accent: "#EA923D", ink: "#85470F" },
   unknown: { accent: "#A6ADB8", ink: "#515965" },
+} as const;
+
+/** Format colors are shared by cards, file icons and source notes.
+ * Aliases (.jpg/.jpeg and .htm/.html) identify the same format.
+ * Semantic families remain separate from color identity and import support.
+ */
+export const FILE_FORMAT_PALETTE = {
+  pdf: FILE_TYPE_PALETTE.pdf,
+  txt: FILE_TYPE_PALETTE.text,
+  md: { accent: "#657F91", ink: "#3C5365" },
+  docx: FILE_TYPE_PALETTE.word,
+  ppt: FILE_TYPE_PALETTE.slides,
+  pptx: { accent: "#CCAD32", ink: "#6E5910" },
+  epub: FILE_TYPE_PALETTE.epub,
+  rtf: FILE_TYPE_PALETTE.rtf,
+  odt: FILE_TYPE_PALETTE.odt,
+  html: FILE_TYPE_PALETTE.html,
+  jpeg: FILE_TYPE_PALETTE.image,
+  png: { accent: "#94AD3D", ink: "#53641C" },
+  webp: { accent: "#7786E0", ink: "#3F4998" },
+  heic: FILE_TYPE_PALETTE.photo,
+  heif: { accent: "#AF6B9E", ink: "#753C67" },
 } as const;
 type Family = keyof typeof FILE_TYPE_PALETTE;
 export type FileType = { extension: string; monogram: string; label: string; family: Family };
@@ -85,8 +107,15 @@ export function strip_file_extension(name: string) {
   return match && known(match[2].toLowerCase()) ? match[1].trimEnd() : text;
 }
 
+export function file_type_palette(type: FileType): { accent: string; ink: string } {
+  const extension = type.extension === "jpg" ? "jpeg" : type.extension === "htm" ? "html" : type.extension;
+  return Object.hasOwn(FILE_FORMAT_PALETTE, extension)
+    ? FILE_FORMAT_PALETTE[extension as keyof typeof FILE_FORMAT_PALETTE]
+    : FILE_TYPE_PALETTE[type.family];
+}
+
 export function file_type_colors(type: FileType, isDark: boolean) {
-  const palette = FILE_TYPE_PALETTE[type.family];
+  const palette = file_type_palette(type);
   return {
     accent: palette.accent,
     foreground: isDark ? lift_ink(palette.accent) : palette.ink,
