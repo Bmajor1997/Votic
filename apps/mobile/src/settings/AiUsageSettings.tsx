@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Animated, AppState, Easing, StyleSheet, Text, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
@@ -230,9 +231,14 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
         ? "Your plan doesn't use a monthly AI allowance."
         : "AI usage details aren't available from this Votic server.";
   return (
-    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Text style={[s.detail, { color: theme.text }]}>{message}</Text>
-    </View>
+    <>
+      <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <Text style={[s.detail, { color: theme.text }]}>{message}</Text>
+      </View>
+      {usage.status === "not-subscribed" ? (
+        <SecondaryButton label="See Votic Plus" onPress={() => router.push("/paywall")} />
+      ) : null}
+    </>
   );
 }
 

@@ -86,8 +86,14 @@ export function recent_week_activity(documents: VoticDocument[], count = 4, now 
   });
 }
 
+/**
+ * The document to continue: the most recently opened one that's started but not finished. A document that was
+ * only opened (still at its first passage) is offered only when nothing is in progress, so glancing at a new
+ * file doesn't push the book you're reading off Home.
+ */
 export function most_recent_incomplete(documents: VoticDocument[]) {
-  return documents
+  const recent = documents
     .filter((document) => document.progress < 1)
-    .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))[0];
+    .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt));
+  return recent.find((document) => document.progress > 0 || document.sentenceIndex > 0) ?? recent[0];
 }

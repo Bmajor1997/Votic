@@ -6,6 +6,7 @@ import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 import { date_label } from "../notesList";
+import { notebook_counts_label } from "../notebookCounts";
 
 export function NotebookCard({
   document,
@@ -26,9 +27,7 @@ export function NotebookCard({
   const title = readable_title(document.title);
   // The source file's own name, so notes from similarly titled documents stay distinguishable.
   const filename = quick ? null : document.sourceName.trim() || null;
-  const counts = entries.length
-    ? `${notes} ${notes === 1 ? "note" : "notes"} · ${passages} ${passages === 1 ? "passage" : "passages"}`
-    : "No notes yet";
+  const counts = notebook_counts_label(notes, passages);
   return (
     <Pressable
       accessibilityRole="button"

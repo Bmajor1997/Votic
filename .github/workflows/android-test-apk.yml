@@ -31,6 +31,14 @@ jobs:
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:562186959755:web:d73025f437c45490b14d8e"
       EXPO_PUBLIC_VOTIC_CLIENT_KEY: 0d8fe5ded3d05f8c97f2353531fe890e48e909dd8b1af158
       EXPO_PUBLIC_VOTIC_API_URL: https://136-72-31-77.sslip.io
+      EXPO_PUBLIC_VOTIC_TERMS_URL: https://136-72-31-77.sslip.io/terms
+      EXPO_PUBLIC_VOTIC_PRIVACY_URL: https://136-72-31-77.sslip.io/privacy
+      # Google sign-in: the Firebase Google provider's Web client ID. The APK's SHA-1 must be on the
+      # Firebase Android app (com.votic.app); the "Print signing fingerprint" step shows it.
+      EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 562186959755-g37j6f6gjmg7gdsihouk00dkjgrvtekl.apps.googleusercontent.com
+      # RevenueCat public Android SDK key (Play app app713897a509) and the existing entitlement.
+      EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: goog_TiurUfaynPFCRbnABgRbJmivPBt
+      EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: premium
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
@@ -51,6 +59,11 @@ jobs:
         run: ./gradlew :app:assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=x86_64,arm64-v8a
         env:
           NODE_ENV: production
+      - name: Print signing fingerprint
+        working-directory: apps/mobile/android
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          "$apksigner" verify --print-certs app/build/outputs/apk/release/*.apk | grep -E "SHA-1|SHA-256"
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -353,6 +353,10 @@ function PremiumRows() {
   if (subscription.service.unavailableReason)
     return subscription.canBypass ? (
       <>
+        <Text style={[s.detail, { color: theme.mutedText }]}>
+          Votic Plus: store purchases aren’t set up in this build, so your plan can’t be shown or managed
+          here.
+        </Text>
         <AccountRow
           label="Review paywall"
           detail="Testing build only. Keeps your account and library."

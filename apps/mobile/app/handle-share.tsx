@@ -74,6 +74,8 @@ export default function HandleShare() {
         const saved = await saveImported(name, text, defaultPlaybackRate);
         clearSharedPayloads();
         if (saved && job.current()) router.replace("/reader");
+        // Declining to add a duplicate leaves nothing to open; go to the library instead of this screen.
+        else if (!saved && !is_page_photo(name) && job.current()) router.replace("/documents");
       } catch (caught) {
         if (!job.current()) return;
         clearSharedPayloads();

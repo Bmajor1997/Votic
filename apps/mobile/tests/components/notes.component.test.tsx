@@ -50,7 +50,7 @@ describe("Notes", () => {
     await render_with_providers(<Notes />, { documents });
     expect(screen.getByRole("button", { name: "Open Psychology notebook" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Biology notebook" })).toBeTruthy();
-    expect(screen.getByText("1 note · 1 passage")).toBeTruthy();
+    expect(screen.getByText("1 note · 1 saved passage")).toBeTruthy();
   });
 
   it("names each notebook by its document title and file, never a generic format label", async () => {
@@ -111,7 +111,7 @@ describe("Notes", () => {
     await fireEvent.changeText(screen.getByLabelText("Note text"), "Quote from chapter two.");
     await fireEvent.press(screen.getByRole("button", { name: "Save note" }));
     expect(screen.getByText("Quote from chapter two.")).toBeTruthy();
-    expect(screen.getByText("2 notes · 0 saved passages")).toBeTruthy();
+    expect(screen.getByText("2 notes")).toBeTruthy();
   });
 
   it("asks before removing a note, then removes it", async () => {
@@ -123,7 +123,7 @@ describe("Notes", () => {
     expect(alert).toHaveBeenCalledWith("Remove from Notes?", expect.any(String), expect.any(Array));
     const buttons = alert.mock.calls[0][2] as AlertButton[];
     await act(async () => buttons.find((button) => button.text === "Remove")?.onPress?.());
-    expect(await screen.findByText("0 notes · 1 saved passage")).toBeTruthy();
+    expect(await screen.findByText("1 saved passage")).toBeTruthy();
     expect(screen.queryByText("Chunking helps memory.")).toBeNull();
   });
 

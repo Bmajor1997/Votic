@@ -11,6 +11,7 @@ import { useVoticTheme } from "../../theme/ThemeProvider";
 import { note_selection_id } from "../askVoticNotesContext";
 import { automatic_note_title, note_type_label } from "../noteMetadata";
 import { date_label, NoteItem } from "../notesList";
+import { notebook_counts_label } from "../notebookCounts";
 
 /** One document's notes and saved passages in the Notes list. */
 export function NoteGroupCard({
@@ -52,7 +53,7 @@ export function NoteGroupCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open ${title} notebook`}
-          accessibilityHint={`${noteCount} ${noteCount === 1 ? "note" : "notes"}, ${savedCount} saved ${savedCount === 1 ? "passage" : "passages"}`}
+          accessibilityHint={notebook_counts_label(noteCount, savedCount)}
           onPress={onOpenNotebook}
           style={({ pressed }) => [s.header, { backgroundColor: pressed ? colors.art : colors.surface }]}
         >
@@ -62,8 +63,7 @@ export function NoteGroupCard({
               {title} Notebook
             </Text>
             <Text style={[s.counts, { color: colors.detail }]}>
-              {noteCount} {noteCount === 1 ? "note" : "notes"} · {savedCount}{" "}
-              {savedCount === 1 ? "passage" : "passages"}
+              {notebook_counts_label(noteCount, savedCount)}
             </Text>
           </View>
           {inNotebook ? (

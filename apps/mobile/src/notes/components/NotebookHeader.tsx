@@ -6,6 +6,7 @@ import { radii, spacing } from "../../design/tokens";
 import { readable_title } from "../../documents/documentDisplay";
 import { VoticDocument } from "../../documents/types";
 import { useVoticTheme } from "../../theme/ThemeProvider";
+import { notebook_counts_label } from "../notebookCounts";
 
 /** A notebook's summary and sharing controls, shown above its notes. */
 export function NotebookHeader({
@@ -40,9 +41,7 @@ export function NotebookHeader({
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
               {readable_title(notebook.title)}
             </Text>
-            <Text style={[s.counts, { color: theme.mutedText }]}>
-              {notes} {notes === 1 ? "note" : "notes"} · {saved} saved {saved === 1 ? "passage" : "passages"}
-            </Text>
+            <Text style={[s.counts, { color: theme.mutedText }]}>{notebook_counts_label(notes, saved)}</Text>
           </View>
         </View>
         <View style={s.toolbar}>

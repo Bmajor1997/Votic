@@ -314,7 +314,7 @@ describe("Notes", () => {
       savedPassages: [passage("p1", "First"), passage("p2", ""), passage("p3", "Third")],
     };
     await render_with_providers(<Notes />, { documents: [noted] });
-    expect(screen.getByText("2 notes · 1 passage")).toBeTruthy();
+    expect(screen.getByText("2 notes · 1 saved passage")).toBeTruthy();
     expect(screen.queryByText("Third")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL notebook" }));
     expect(screen.getAllByText("Third").length).toBeGreaterThan(0);

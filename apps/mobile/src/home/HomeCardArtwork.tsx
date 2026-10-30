@@ -6,6 +6,7 @@ import { file_type_palette, resolve_file_type } from "../documents/fileTypes";
 import { document_type_label } from "../documents/documentDisplay";
 import { documentPreviewColors } from "../design/documentPreviewColors";
 import { editorial } from "../design/editorial";
+import { mix } from "../theme/ThemeProvider";
 
 function preview_identity(document: VoticDocument) {
   const type = resolve_file_type({ filename: document.sourceName });
@@ -47,7 +48,11 @@ export const HomeDocumentArtwork = memo(function HomeDocumentArtwork({
       pointerEvents="none"
       style={s.artwork}
     >
-      <View testID={`home-preview-${identity.kind}`} style={[s.frame, { borderColor: identity.color }]}>
+      <View
+        testID={`home-preview-${identity.kind}`}
+        // Elegant and minimal: a soft border tinted with the format color, never a heavy outline.
+        style={[s.frame, { borderColor: mix("#FFFFFF", identity.color, 0.38) }]}
+      >
         <View style={s.formatBar}>
           <View style={[s.marker, { backgroundColor: identity.accent ?? identity.color }]} />
           <Text allowFontScaling={false} numberOfLines={1} style={[s.formatLabel, { color: identity.color }]}>
@@ -78,7 +83,7 @@ const s = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: "#E5E7EB",
   },
-  marker: { width: 5, height: 15, borderRadius: 2 },
+  marker: { width: 7, height: 15, borderRadius: 3.5 },
   formatLabel: { flexShrink: 1, fontSize: 11, fontWeight: "800", letterSpacing: 0.8 },
   page: { flex: 1, paddingHorizontal: 13, paddingVertical: 12, overflow: "hidden" },
   content: { ...editorial, color: "#202124", fontSize: 12, lineHeight: 18, letterSpacing: 0 },
