@@ -4,6 +4,7 @@ import { SavedPassage, VoticDocument } from "../../documents/types";
 import { note_palette } from "../notePalette";
 import { editorial } from "../../design/editorial";
 import { note_type_label } from "../noteMetadata";
+import { mix } from "../../theme/ThemeProvider";
 
 const icons = {
   note: "create-outline",
@@ -11,7 +12,10 @@ const icons = {
   question: "help-circle-outline",
   definition: "book-outline",
 } as const;
-/** A shared note sheet: source-colored type tab, actual note content in the foreground. */
+/**
+ * A shared note sheet in the approved elegant, minimal style (matching document cards): white paper, a soft border
+ * tinted with the source's format color, a small color marker beside the note type, a hairline, then the content.
+ */
 export function NotePreview({
   passage,
   document,
@@ -30,10 +34,11 @@ export function NotePreview({
       accessible={false}
       accessibilityElementsHidden={decorative}
       importantForAccessibility={decorative ? "no-hide-descendants" : "auto"}
-      style={[s.sheet, { borderColor: colors.border, backgroundColor: colors.paper }]}
+      style={[s.sheet, { borderColor: mix("#FFFFFF", colors.ink, 0.38), backgroundColor: "#FFFFFF" }]}
     >
-      <View testID="note-preview-type" style={[s.tab, { backgroundColor: colors.surface }]}>
-        <Ionicons name={icon} size={16} color={colors.ink} />
+      <View testID="note-preview-type" style={s.tab}>
+        <View testID="note-preview-marker" style={[s.marker, { backgroundColor: colors.ink }]} />
+        <Ionicons name={icon} size={14} color={colors.ink} />
         <Text style={[s.type, { color: colors.ink }]}>{label.toUpperCase()}</Text>
         {pinned ? <Ionicons name="pin" size={13} color={colors.strong} /> : null}
       </View>
@@ -51,7 +56,7 @@ export function NotePreview({
         {quote ? (
           <Text
             numberOfLines={fontScale > 1.2 ? undefined : 3}
-            style={[s.quote, { color: colors.detail, borderLeftColor: colors.border }]}
+            style={[s.quote, { color: colors.detail, borderLeftColor: mix("#FFFFFF", colors.ink, 0.38) }]}
           >
             {quote}
           </Text>
@@ -94,9 +99,12 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
+    marginHorizontal: 12,
     paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E5E7EB",
   },
+  marker: { width: 7, height: 15, borderRadius: 3.5 },
   type: {
     fontSize: 11,
     lineHeight: 16,

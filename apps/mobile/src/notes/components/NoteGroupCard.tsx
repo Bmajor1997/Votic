@@ -7,7 +7,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { readable_title } from "../../documents/documentDisplay";
 import { controlSizes, radii, spacing } from "../../design/tokens";
 import { SavedPassage, VoticDocument } from "../../documents/types";
-import { useVoticTheme } from "../../theme/ThemeProvider";
+import { mix, useVoticTheme } from "../../theme/ThemeProvider";
 import { note_selection_id } from "../askVoticNotesContext";
 import { automatic_note_title, note_type_label } from "../noteMetadata";
 import { date_label, NoteItem } from "../notesList";
@@ -48,16 +48,26 @@ export function NoteGroupCard({
   const shown = previewLimit ? passages.slice(0, previewLimit) : passages;
   const hidden = passages.length - shown.length;
   return (
-    <View style={[s.group, { borderColor: colors.border, backgroundColor: theme.background }]}>
+    <View
+      style={[s.group, { borderColor: mix("#FFFFFF", colors.ink, 0.38), backgroundColor: theme.background }]}
+    >
       {!inNotebook ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Open ${title} notebook`}
           accessibilityHint={notebook_counts_label(noteCount, savedCount)}
           onPress={onOpenNotebook}
-          style={({ pressed }) => [s.header, { backgroundColor: pressed ? colors.art : colors.surface }]}
+          style={({ pressed }) => [
+            s.header,
+            // Minimal: a white header with a hairline, the source color carried by the ink and marker.
+            {
+              backgroundColor: pressed ? colors.art : "#FFFFFF",
+              borderBottomColor: mix("#FFFFFF", colors.ink, 0.38),
+            },
+          ]}
         >
-          <Ionicons name="create-outline" size={22} color={colors.ink} />
+          <View testID="note-group-marker" style={[s.marker, { backgroundColor: colors.ink }]} />
+          <Ionicons name="create-outline" size={20} color={colors.ink} />
           <View style={s.headerCopy}>
             <Text numberOfLines={2} style={[s.documentTitle, { color: colors.ink }]}>
               {title} Notebook
@@ -182,7 +192,9 @@ const s = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  marker: { width: 7, height: 15, borderRadius: 3.5 },
   headerCopy: { flex: 1 },
   showAll: {
     minHeight: 48,

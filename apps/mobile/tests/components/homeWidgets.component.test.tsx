@@ -98,8 +98,8 @@ describe("Colorful Home cards", () => {
       expect(StyleSheet.flatten(screen.getByTestId("home-recent-card").props.style).backgroundColor).toBe(
         "transparent",
       );
-      expect(StyleSheet.flatten(screen.getByTestId("note-preview-type").props.style).backgroundColor).toBe(
-        note_palette(featured).surface,
+      expect(StyleSheet.flatten(screen.getByTestId("note-preview-marker").props.style).backgroundColor).toBe(
+        note_palette(featured).ink,
       );
       expect(StyleSheet.flatten(screen.getByTestId("home-preview-paper").props.style).backgroundColor).toBe(
         "#FFFFFF",

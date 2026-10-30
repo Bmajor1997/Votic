@@ -38,12 +38,15 @@ describe("Notes inherit source identity", () => {
         ))}
       </>,
     );
-    const tabs = screen.getAllByTestId("note-preview-type", { includeHiddenElements: true });
-    expect(tabs).toHaveLength(6);
+    // Minimal style: the source color is carried by the type marker on white paper, not a filled band.
+    const markers = screen.getAllByTestId("note-preview-marker", { includeHiddenElements: true });
+    expect(markers).toHaveLength(6);
     sources.forEach((source, i) => {
-      expect(StyleSheet.flatten(tabs[i].props.style).backgroundColor).toBe(source.tint);
-      expect(StyleSheet.flatten(tabs[i + 3].props.style).backgroundColor).toBe(source.tint);
+      expect(StyleSheet.flatten(markers[i].props.style).backgroundColor).toBe(source.ink);
+      expect(StyleSheet.flatten(markers[i + 3].props.style).backgroundColor).toBe(source.ink);
     });
+    for (const sheet of screen.getAllByTestId("note-content-preview", { includeHiddenElements: true }))
+      expect(StyleSheet.flatten(sheet.props.style).backgroundColor).toBe("#FFFFFF");
     await fireEvent.press(screen.getAllByTestId("home-note-card")[0]);
     expect(open).toHaveBeenCalledWith({ document: documents[0], passage });
   });
@@ -69,7 +72,13 @@ describe("Notes inherit source identity", () => {
       expect(
         StyleSheet.flatten(screen.getByRole("button", { name: "Open Source notebook" }).props.style)
           .backgroundColor,
-      ).toBe(tint);
+      ).toBe("#FFFFFF");
+      expect(
+        StyleSheet.flatten(
+          screen.getByTestId("note-group-marker", { includeHiddenElements: true }).props.style,
+        ).backgroundColor,
+      ).toBe(ink);
+      expect(tint).toBeTruthy();
       expect(StyleSheet.flatten(screen.getByText("Remember this").props.style).color).toBe(ink);
       await fireEvent.press(screen.getByRole("button", { name: "View note from Source" }));
       expect(view).toHaveBeenCalledWith({ document, passage });
