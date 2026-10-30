@@ -10,6 +10,8 @@ export default defineConfig({
       reporter: ["text", "json-summary", "lcov"],
       include: [
         "src/documents/documentStorage.ts",
+        "src/storage/storageUsage.ts",
+        "src/storage/storageUsageFiles.ts",
         "src/documents/throttledSaver.ts",
         "src/subscription/entitlement.ts",
         "src/subscription/storeDeadline.ts",

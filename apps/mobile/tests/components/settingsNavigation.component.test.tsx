@@ -24,9 +24,13 @@ describe("Settings categories", () => {
       "Reading & Listening",
       "Accessibility",
       "Personalization",
+      "Library tools",
+      "Storage management",
       "AI Credits & Usage",
       "Help",
+      "Contact support",
       "Feedback",
+      "Privacy & Legal",
     ]);
     for (const row of rows) {
       expect(row.props.accessibilityHint).toMatch(/^Opens/);

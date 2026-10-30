@@ -63,7 +63,8 @@
       ],
       "./plugins/withValidSharingIntentFilters",
       "./plugins/withAndroidLintResources",
-      "./plugins/withNativeDependencyHardening"
+      "./plugins/withNativeDependencyHardening",
+      "./plugins/withLocalLibraryStorage"
     ],
     "ios": {
       "bundleIdentifier": "com.votic.app",

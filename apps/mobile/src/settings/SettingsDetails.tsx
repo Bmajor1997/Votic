@@ -1,4 +1,7 @@
-import { useOcrReview } from "../documents/OcrReviewProvider";
+import { LibraryToolsSettings } from "./LibraryToolsSettings";
+import { PrivacySettings } from "./PrivacySettings";
+import { StorageSettings } from "./StorageSettings";
+import { SupportSettings } from "./SupportSettings";
 import { current_voice_name, useDeviceVoices } from "../voices/useDeviceVoices";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { clean_local_document_text } from "../documents/importDocument";
@@ -349,7 +352,6 @@ function PersonalizationSettings() {
 }
 
 function HelpSettings() {
-  const scanReview = useOcrReview();
   const guideRef = useRef<View>(null);
   const library = useDocumentLibrary();
   const transition = useDocumentTransition();
@@ -424,29 +426,6 @@ function HelpSettings() {
           onPress={() => router.push("/statistics")}
         />
       </SettingsGroup>
-      <SettingsGroup>
-        <SettingsRow
-          label="Unfinished scan"
-          detail="Review recognized text and corrections."
-          hint="Resume the saved scan review"
-          icon="scan-outline"
-          onPress={scanReview.resume}
-        />
-        <SettingsRow
-          label="Recently Deleted"
-          hint="Restore deleted documents and notes"
-          detail="Restore documents and notes for 30 days."
-          icon="trash-outline"
-          onPress={() => router.push("/recently-deleted")}
-        />
-        <SettingsRow
-          label="Note drafts"
-          hint="Review unfinished notes"
-          detail="Continue an unfinished note."
-          icon="create-outline"
-          onPress={() => router.push("/note-drafts")}
-        />
-      </SettingsGroup>
       {/* Replays one walkthrough at a time: Home, Documents, Notes, or the Reader. */}
       <LearnVoticSettings />
     </>
@@ -467,6 +446,14 @@ export function SettingsDetailScreen({ category }: { category: SettingsCategory 
         <PersonalizationSettings />
       ) : category === "account" ? (
         <AccountSettings />
+      ) : category === "library" ? (
+        <LibraryToolsSettings />
+      ) : category === "storage" ? (
+        <StorageSettings />
+      ) : category === "support" ? (
+        <SupportSettings />
+      ) : category === "privacy" ? (
+        <PrivacySettings />
       ) : category === "help" ? (
         <HelpSettings />
       ) : (
@@ -474,7 +461,7 @@ export function SettingsDetailScreen({ category }: { category: SettingsCategory 
           This settings category is unavailable. Return to Settings to choose another category.
         </Text>
       )}
-      <PolicyLinks />
+      {category !== "privacy" ? <PolicyLinks /> : null}
     </SettingsPage>
   );
 }
