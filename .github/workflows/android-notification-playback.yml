@@ -55,8 +55,8 @@ jobs:
           rg --version
       - name: Install app dependencies
         run: npm ci --ignore-scripts
-      - name: Test native dependency hardening
-        run: node --test ../../code_checks/native_dependency_hardening.test.js
+      - name: Test native dependency hardening and launcher resources
+        run: node --test ../../code_checks/native_dependency_hardening.test.js ../../code_checks/android_launcher_resources.test.js
       - name: Test Android emulator recovery
         run: python3 ../../code_checks/android_smoke_test.py
       - name: Install and validate Android NDK

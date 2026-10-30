@@ -2,6 +2,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { Buffer } = require("node:buffer");
 const { AndroidConfig, withFinalizedMod, withAppBuildGradle } = require("@expo/config-plugins");
+const { configureLauncherBackground } = require("./androidLauncherResources.cjs");
 
 async function updateXml(file, transform) {
   const before = await fs.readFile(file, "utf8");
@@ -52,13 +53,7 @@ android { lint { warningsAsErrors = true } }
       );
 
       await configureIcons(res);
-      // This splash color is actually displayed, rather than left as an orphan.
-      await updateXml(path.join(res, "values/styles.xml"), (xml) =>
-        xml.replace(
-          '<item name="android:windowBackground">@drawable/splashscreen_logo</item>',
-          '<item name="android:windowBackground">@drawable/ic_launcher_background</item>',
-        ),
-      );
+      await configureLauncherBackground(res, Boolean(mod.android?.adaptiveIcon?.backgroundImage));
       // These names are resolved dynamically by Expo Sharing and RN dev support.
       await fs.writeFile(
         path.join(res, "raw/votic_resource_keep.xml"),
