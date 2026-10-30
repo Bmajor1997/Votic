@@ -1,5 +1,5 @@
 import { useFocusEffect } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing, Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -24,11 +24,21 @@ type Flight = {
 
 /**
  * The Votic V on its own, without an app-icon square, over a soft blue glow. Its wings are the logo's
- * blue. Given a flight (see useMarkFlight), its pieces can fly away. Decorative: the logo already names
- * Votic for screen readers.
+ * blue. The paywall can pulse the wings once while keeping the mark assembled. Given a flight (see
+ * useMarkFlight), its pieces can fly away. Decorative: the logo already names Votic for screen readers.
  */
-export function BrandMark({ size = 88, flight }: { size?: number; flight?: Flight }) {
+export function BrandMark({
+  size = 88,
+  flight,
+  pulseWings = false,
+}: {
+  size?: number;
+  flight?: Flight;
+  /** One gentle brightness pulse; the full V stays assembled. */
+  pulseWings?: boolean;
+}) {
   const { theme } = useVoticTheme();
+  const wingOpacity = useWingBrightnessPulse(pulseWings && !flight);
   const halo = size * 1.8;
   const piece = (source: ImageSourcePropType, tint: string | undefined, motion?: object) => (
     <Animated.View style={[StyleSheet.absoluteFill, motion]}>
@@ -84,7 +94,10 @@ export function BrandMark({ size = 88, flight }: { size?: number; flight?: Fligh
         {piece(STROKE, theme.isDark ? "#FFFFFF" : undefined, strokeMotion)}
         {WINGS.map((wing, index) => (
           <View key={index} style={StyleSheet.absoluteFill}>
-            {piece(wing, theme.logoWing, wingMotion(flight?.wings[index]))}
+            {piece(wing, theme.logoWing, {
+              ...wingMotion(flight?.wings[index]),
+              opacity: wingOpacity,
+            })}
           </View>
         ))}
       </View>
@@ -92,8 +105,43 @@ export function BrandMark({ size = 88, flight }: { size?: number; flight?: Fligh
   );
 }
 
+/** Once per mounted mark, with no movement, loops, or replay when preferences change. */
+function useWingBrightnessPulse(active: boolean) {
+  const { reduceMotion, motionReady } = useAccessibilityPreferences();
+  const [opacity] = useState(() => new Animated.Value(1));
+  const played = useRef(false);
+  useEffect(() => {
+    opacity.setValue(1);
+    if (!active || !motionReady || reduceMotion || played.current) return;
+    played.current = true;
+    const animation = Animated.sequence([
+      Animated.delay(180),
+      Animated.timing(opacity, {
+        toValue: 0.68,
+        duration: 240,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+        isInteraction: false,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 360,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+        isInteraction: false,
+      }),
+    ]);
+    animation.start();
+    return () => {
+      animation.stop();
+      opacity.setValue(1);
+    };
+  }, [active, motionReady, reduceMotion, opacity]);
+  return opacity;
+}
+
 /**
- * The V's one movement: when someone taps Sign in, the top wing flies off to the right, then the middle
+ * The welcome transition: when someone taps Sign in, the top wing flies off to the right, then the middle
  * wing, then the bottom one, and the left stroke flies up and away. Then Sign in opens. With Less motion
  * nothing moves and Sign in opens straight away. Coming back to the screen puts the V together again.
  */
