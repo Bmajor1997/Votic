@@ -25,10 +25,14 @@ jobs:
     env:
       EXPO_NO_TELEMETRY: "1"
       EAS_BUILD_PROFILE: preview
+      # Firebase's public project identifier, bundled in the APK; never an Admin SDK credential.
+      # https://firebase.google.com/docs/projects/api-keys
+      # nosemgrep: generic.secrets.security.detected-generic-api-key.detected-generic-api-key
       EXPO_PUBLIC_FIREBASE_API_KEY: AIzaSyAxlf77We41rIP0x3CylHE24kqBjcAD8yc
       EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: votic-da5c4.firebaseapp.com
       EXPO_PUBLIC_FIREBASE_PROJECT_ID: votic-da5c4
       EXPO_PUBLIC_FIREBASE_APP_ID: "1:562186959755:web:d73025f437c45490b14d8e"
+      # Public app gateway identifier (docs/openai-backend.md); Firebase tokens authenticate users.
       EXPO_PUBLIC_VOTIC_CLIENT_KEY: 0d8fe5ded3d05f8c97f2353531fe890e48e909dd8b1af158
       EXPO_PUBLIC_VOTIC_API_URL: https://136-72-31-77.sslip.io
       EXPO_PUBLIC_VOTIC_TERMS_URL: https://136-72-31-77.sslip.io/terms
@@ -52,6 +56,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Install and validate Android NDK
         run: bash ../../security/install-android-ndk.sh
+      - name: Configure Maven Central mirror for Android builds
+        run: install -Dm644 ../../security/maven-central-mirror.init.gradle "${GRADLE_USER_HOME:-$HOME/.gradle}/init.d/votic-maven-central.gradle"
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
       - name: Build release APK (emulator x86_64 + phone arm64)

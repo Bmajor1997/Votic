@@ -1,0 +1,27 @@
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
+// Maven Central has returned HTTP 403 to GitHub-hosted Android runners. Use Google's
+// HTTPS mirror for that repository only; leave Google Maven, the plugin portal,
+// private repositories, dependency versions and TLS verification unchanged.
+// https://maven-central.storage.googleapis.com/index.html
+// Install in GRADLE_USER_HOME/init.d so React Native/Expo included builds also use it.
+def mirrorCentral = { repositories ->
+    repositories.all { repository ->
+        if (repository instanceof MavenArtifactRepository &&
+            repository.url.host in ['repo.maven.apache.org', 'repo1.maven.org'] &&
+            repository.url.path in ['/maven2', '/maven2/']) {
+            repository.setUrl('https://maven-central.storage-download.googleapis.com/maven2/')
+        }
+    }
+}
+
+gradle.beforeSettings { settings ->
+    mirrorCentral(settings.pluginManagement.repositories)
+    mirrorCentral(settings.dependencyResolutionManagement.repositories)
+    mirrorCentral(settings.buildscript.repositories)
+}
+
+gradle.beforeProject { project ->
+    mirrorCentral(project.buildscript.repositories)
+    mirrorCentral(project.repositories)
+}

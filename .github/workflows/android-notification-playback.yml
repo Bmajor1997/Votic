@@ -6,6 +6,8 @@ on:
       - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/maven-central-mirror.init.gradle"
+      - "security/test-maven-central-mirror.sh"
       - "security/android-smoke.sh"
       - "security/android-smoke-screen.py"
       - "code_checks/android_smoke_test.py"
@@ -14,6 +16,8 @@ on:
       - "apps/mobile/**"
       - ".github/workflows/android-notification-playback.yml"
       - "security/install-android-ndk.sh"
+      - "security/maven-central-mirror.init.gradle"
+      - "security/test-maven-central-mirror.sh"
       - "security/android-smoke.sh"
       - "security/android-smoke-screen.py"
       - "code_checks/android_smoke_test.py"
@@ -57,10 +61,14 @@ jobs:
         run: python3 ../../code_checks/android_smoke_test.py
       - name: Install and validate Android NDK
         run: bash ../../security/install-android-ndk.sh
+      - name: Configure Maven Central mirror for Android builds
+        run: install -Dm644 ../../security/maven-central-mirror.init.gradle "${GRADLE_USER_HOME:-$HOME/.gradle}/init.d/votic-maven-central.gradle"
       - name: Generate native Android project
         run: npx expo prebuild --platform android --no-install
         env:
           EXPO_NO_TELEMETRY: "1"
+      - name: Test Maven mirror across composite builds
+        run: bash ../../security/test-maven-central-mirror.sh android/gradlew
       - name: Verify generated Android manifest and resources
         run: node ../../security/verify-generated-android.cjs android/app/src/main
       - name: Initialize native CodeQL

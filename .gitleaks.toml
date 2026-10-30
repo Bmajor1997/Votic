@@ -6,3 +6,18 @@ targetRules = ["generic-api-key"]
 description = "Ignore false positive for PERSISTENCE_CONSENT_KEY"
 regexTarget = "line"
 regexes = [ '''PERSISTENCE_CONSENT_KEY''' ]
+
+# Public APK configuration, not server credentials. The Firebase key identifies the
+# project (https://firebase.google.com/docs/projects/api-keys); the Votic gateway
+# key is a public abuse filter (docs/openai-backend.md). Require BOTH an exact
+# reviewed value and its configuration path, including historical revisions.
+[[allowlists]]
+description = "Reviewed public Android test-build identifiers"
+targetRules = ["gcp-api-key", "generic-api-key"]
+condition = "AND"
+paths = [ '''^\.github/workflows/android-test-apk\.yml$''', '''^\.gitleaks\.toml$''' ]
+regexTarget = "secret"
+regexes = [
+  '''^AIzaSyAxlf77We41rIP0x3CylHE24kqBjcAD8yc$''',
+  '''^0d8fe5ded3d05f8c97f2353531fe890e48e909dd8b1af158$''',
+]

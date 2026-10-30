@@ -73,9 +73,7 @@ export default function HandleShare() {
 
         const saved = await saveImported(name, text, defaultPlaybackRate);
         clearSharedPayloads();
-        if (saved && job.current()) router.replace("/reader");
-        // Declining to add a duplicate leaves nothing to open; go to the library instead of this screen.
-        else if (!saved && !is_page_photo(name) && job.current()) router.replace("/documents");
+        open_shared_import(name, Boolean(saved), job.current);
       } catch (caught) {
         if (!job.current()) return;
         clearSharedPayloads();
@@ -163,4 +161,11 @@ const s = StyleSheet.create({
 function check_shared_import(details: Parameters<typeof validate_import>[0], ensureAvailable: () => void) {
   validate_import(details);
   if (is_page_photo(details.name)) ensureAvailable();
+}
+
+/** A canceled duplicate returns to the library; a photo's review manages its own navigation. */
+function open_shared_import(name: string, saved: boolean, current: () => boolean) {
+  if (!current()) return;
+  if (saved) router.replace("/reader");
+  else if (!is_page_photo(name)) router.replace("/documents");
 }
