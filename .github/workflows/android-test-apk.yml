@@ -5,7 +5,7 @@ name: Android Test APK (Google Cloud backend)
 # the app (Firebase web config, public app gateway key, backend URL). Never add secret keys here.
 on:
   push:
-    branches: ["claude/v1-all-oct30"]
+    branches: ["claude/legal-updates"]
   workflow_dispatch:
 
 permissions:
