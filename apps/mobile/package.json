@@ -61,7 +61,8 @@
     "prettier": "^3.9.9",
     "typescript": "~6.0.3",
     "vite": "8.3.3",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "minimatch": "file:vendor/minimatch-compat"
   },
   "overrides": {
     "decode-uri-component": "0.5.1",
@@ -72,6 +73,8 @@
       "@expo/plist": "0.8.1"
     },
     "zod": "4.6.6",
-    "deepmerge": "$deepmerge"
+    "deepmerge": "$deepmerge",
+    "glob@>=9": "14.0.3",
+    "minimatch": "$minimatch"
   }
 }
