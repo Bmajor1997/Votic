@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
-import { Pressable, Text } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import Reader from "../../app/reader";
 import { LIBRARY_KEY } from "../../src/documents/documentStorage";
@@ -249,6 +249,60 @@ describe("Read mode", () => {
 });
 
 describe("Listen mode", () => {
+  it("can turn word enlargement off and back on without losing highlighting", async () => {
+    await open_in("listen");
+    await fireEvent.press(screen.getByRole("button", { name: "Expand listening controls" }));
+    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    const spoken = () => StyleSheet.flatten(screen.getByText("Passage", { exact: true }).props.style);
+    expect(spoken().fontWeight).toBe("900");
+    const enlargedSize = spoken().fontSize;
+    const highlight = spoken().backgroundColor;
+    await fireEvent(screen.getByRole("switch", { name: "Emphasize current word" }), "valueChange", false);
+    expect(spoken().fontSize).toBeUndefined();
+    expect(spoken().fontWeight).toBeUndefined();
+    expect(spoken().backgroundColor).toBe(highlight);
+    await fireEvent(screen.getByRole("switch", { name: "Emphasize current word" }), "valueChange", true);
+    expect(spoken().fontSize).toBe(enlargedSize);
+    expect(spoken().fontWeight).toBe("900");
+    await fireEvent.press(screen.getByRole("radio", { name: "Off" }));
+    expect(spoken()).toBeUndefined();
+    await fireEvent.press(screen.getByRole("radio", { name: "Sentence" }));
+    expect(spoken()).toBeUndefined();
+    await fireEvent.press(screen.getByRole("radio", { name: "Word" }));
+    expect(spoken().backgroundColor).toBe(highlight);
+    await fireEvent.press(screen.getByRole("radio", { name: "Both" }));
+    expect(spoken().backgroundColor).toBe(highlight);
+  });
+
+  it("stops automatic scrolling with Sentence flow off and resumes when enabled", async () => {
+    await open_in("listen");
+    await lay_out();
+    await fireEvent.press(screen.getByRole("button", { name: "Expand listening controls" }));
+    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    await fireEvent(screen.getByRole("switch", { name: "Sentence flow" }), "valueChange", false);
+    await fireEvent.press(screen.getAllByRole("button", { name: "Close reader controls" }).at(-1)!);
+    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+    await waitFor(() => expect(speak).toHaveBeenCalled());
+    const scroll = jest.spyOn(ScrollView.prototype, "scrollTo");
+    scroll.mockClear();
+    // Advance narration beyond the visible viewport without a user seek.
+    for (let n = 0; n < 5; n++) {
+      const options = speak.mock.calls.at(-1)?.[1] as Speech.SpeechOptions;
+      await act(async () => options.onDone?.());
+    }
+    expect(screen.getByText("43% read")).toBeTruthy();
+    expect(scroll).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
+    expect(scroll).toHaveBeenCalled();
+    scroll.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "Previous passage" }));
+    expect(scroll).toHaveBeenCalled();
+    scroll.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "More" }));
+    await fireEvent(screen.getByRole("switch", { name: "Sentence flow" }), "valueChange", true);
+    expect(scroll).toHaveBeenCalled();
+  });
+
   it("shows Ask Votic, Play, and More", async () => {
     await open_in("listen");
     expect(screen.getByRole("button", { name: "Ask Votic about this page" })).toBeTruthy();
