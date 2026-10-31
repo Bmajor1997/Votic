@@ -42,7 +42,9 @@ test("external deletion instructions are public while the operator script stays 
     assert.equal(page.status, 200);
     const html = await page.text();
     assert.match(html, /href="https:\/\/violet-subtasks-579694\.framer\.app\/delete-account"/);
-    assert.doesNotMatch(html, /mailto:|@gmail\.com/i);
+    assert.match(html, /href="mailto:votic\.support@gmail\.com\?subject=Votic%20account%20deletion"/);
+    assert.match(html, /verify control of the account email or ask you to sign in/);
+    assert.match(html, /We do not ask for your password/);
     assert.equal((await fetch(base + "/security/delete-account-data.js")).status, 404);
   });
 });

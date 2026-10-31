@@ -1069,6 +1069,7 @@ function ReaderContent() {
     const resume = playing;
     const target = Math.max(0, Math.min(passages.length - 1, index + delta));
     await stop();
+    scrollToPosition.current = true;
     setWordIndex(0);
     setIndex(target);
     if (resume && target !== index) speak(target, 0);

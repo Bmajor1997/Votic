@@ -292,6 +292,12 @@ describe("Listen mode", () => {
     }
     expect(screen.getByText("43% read")).toBeTruthy();
     expect(scroll).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByRole("button", { name: "Next passage" }));
+    expect(scroll).toHaveBeenCalled();
+    scroll.mockClear();
+    await fireEvent.press(screen.getByRole("button", { name: "Previous passage" }));
+    expect(scroll).toHaveBeenCalled();
+    scroll.mockClear();
     await fireEvent.press(screen.getByRole("button", { name: "More" }));
     await fireEvent(screen.getByRole("switch", { name: "Sentence flow" }), "valueChange", true);
     expect(scroll).toHaveBeenCalled();
