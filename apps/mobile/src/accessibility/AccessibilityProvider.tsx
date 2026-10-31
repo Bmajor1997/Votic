@@ -32,6 +32,8 @@ type AccessibilityPreferences = {
   /** The device's own Reduce Motion setting, which Votic always follows. */
   systemReduceMotion: boolean;
   setReduceMotion: (value: boolean) => void;
+  sentenceFlow: boolean;
+  setSentenceFlow: (value: boolean) => void;
   wordEmphasis: boolean;
   setWordEmphasis: (value: boolean) => void;
   /** Stronger text and border contrast for the Reader's page, in every reader theme. */
@@ -53,6 +55,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
   const [systemMotionReady, setSystemMotionReady] = useState(false);
   const reduceMotion = reduceMotionPreference || systemReduceMotion;
   const setReduceMotion = setReduceMotionPreference;
+  const [sentenceFlow, setSentenceFlow] = useState(true);
   const [wordEmphasis, setWordEmphasis] = useState(true);
   const [highContrast, setHighContrast] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -68,6 +71,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         setHighlightMode(saved.highlightMode);
       if (typeof saved?.voiceIdentifier === "string") setVoiceIdentifier(saved.voiceIdentifier);
       if (typeof saved?.reduceMotion === "boolean") setReduceMotionPreference(saved.reduceMotion);
+      if (typeof saved?.sentenceFlow === "boolean") setSentenceFlow(saved.sentenceFlow);
       if (typeof saved?.wordEmphasis === "boolean") setWordEmphasis(saved.wordEmphasis);
       if (typeof saved?.highContrast === "boolean") setHighContrast(saved.highContrast);
       setHydrated(true);
@@ -95,6 +99,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         highlightMode,
         voiceIdentifier,
         reduceMotion: reduceMotionPreference,
+        sentenceFlow,
         wordEmphasis,
         highContrast,
       }).catch(() => {});
@@ -106,6 +111,7 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
     highlightMode,
     voiceIdentifier,
     reduceMotionPreference,
+    sentenceFlow,
     wordEmphasis,
     highContrast,
     hydrated,
@@ -131,7 +137,9 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         reduceMotion,
         systemReduceMotion,
         setReduceMotion,
+        sentenceFlow,
         wordEmphasis,
+        setSentenceFlow,
         setWordEmphasis,
         highContrast,
         setHighContrast,
