@@ -15,6 +15,17 @@ assert.ok(manifest.indexOf("<uses-feature") < manifest.indexOf("<application"), 
 const background = fs.readFileSync(path.join(res, "drawable/rn_edit_text_material.xml"), "utf8");
 assert.doesNotMatch(background, /@(?:dimen|drawable)\/abc_/);
 assert.match(background, /@drawable\/votic_textfield_activated_mtrl_alpha/);
+assert.equal(fs.existsSync(path.join(res, "drawable/ic_launcher_background.xml")), false,
+  "splash XML must not collide with the launcher background bitmaps");
+assert.match(fs.readFileSync(path.join(res, "values/styles.xml"), "utf8"),
+  /name="android:windowBackground">@drawable\/votic_splash_background</);
+assert.match(fs.readFileSync(path.join(res, "drawable/votic_splash_background.xml"), "utf8"),
+  /@drawable\/splashscreen_logo/);
+const adaptiveIcon = fs.readFileSync(path.join(res, "mipmap-anydpi-v26/ic_launcher.xml"), "utf8");
+if (adaptiveIcon.includes("@mipmap/ic_launcher_background")) {
+  assert.doesNotMatch(fs.readFileSync(path.join(res, "values/colors.xml"), "utf8"),
+    /name="iconBackground"/, "image-backed icons must not retain an unused fallback color");
+}
 for (const density of ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"]) {
   const dir = path.join(res, `mipmap-${density}`);
   const icon = fs.readFileSync(path.join(dir, "ic_launcher.png"));

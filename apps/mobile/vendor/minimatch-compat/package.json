@@ -1,0 +1,12 @@
+{
+  "name": "@votic/minimatch-compat",
+  "version": "11.0.3-votic.1",
+  "private": true,
+  "description": "Legacy callable minimatch API backed entirely by patched upstream minimatch",
+  "main": "index.cjs",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "dependencies": {
+    "minimatch-modern": "npm:minimatch@11.0.3"
+  }
+}

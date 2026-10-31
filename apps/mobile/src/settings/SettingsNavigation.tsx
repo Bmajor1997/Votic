@@ -14,6 +14,10 @@ export const SETTINGS_CATEGORIES = {
   personalization: "Personalization",
   account: "Account & Membership",
   help: "Help",
+  library: "Library tools",
+  storage: "Storage management",
+  support: "Contact support",
+  privacy: "Privacy & Legal",
 } as const;
 export type SettingsCategory = keyof typeof SETTINGS_CATEGORIES;
 

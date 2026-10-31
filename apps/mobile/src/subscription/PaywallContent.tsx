@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { VoticLogo } from "../components/VoticLogo";
+import { BrandMark } from "../onboarding/WelcomeMotion";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { paywallStyles as p } from "./paywallStyles";
 
@@ -44,7 +45,7 @@ export function PaywallIntro() {
   return (
     <View style={[s.hero, { backgroundColor: theme.background }]}>
       <View style={s.brand}>
-        <VoticLogo />
+        <VoticLogo animate={false} />
         <Text style={[p.eyebrow, { color: theme.accentText }]}>VOTIC PLUS</Text>
       </View>
       <View style={s.copy}>
@@ -55,6 +56,9 @@ export function PaywallIntro() {
           Make more of every document.
         </Text>
         <Text style={[s.supporting, { color: theme.text }]}>Your AI-powered reading companion.</Text>
+      </View>
+      <View testID="paywall-brand-mark" style={s.art}>
+        <BrandMark size={width < 360 ? 88 : 112} pulseWings />
       </View>
     </View>
   );
@@ -144,6 +148,7 @@ const s = StyleSheet.create({
   copy: { gap: 10 },
   title: { ...editorial, fontSize: 24, lineHeight: 30 },
   supporting: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
+  art: { alignItems: "center", justifyContent: "center" },
   subtitle: { fontSize: 16, lineHeight: 24 },
   card: { width: "100%", maxWidth: 420, alignSelf: "center" },
   cardTitle: { paddingTop: 12, paddingBottom: 8, textAlign: "center" },
