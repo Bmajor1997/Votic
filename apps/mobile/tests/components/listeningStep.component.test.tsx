@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import * as Speech from "expo-speech";
@@ -40,6 +41,21 @@ async function open_listening_step(voices: typeof BASIC) {
 }
 
 describe("Listening step", () => {
+  it("keeps the sample word highlighted without enlarging it when emphasis was disabled", async () => {
+    await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ wordEmphasis: false }));
+    await open_listening_step(BASIC);
+    await fireEvent.press(screen.getByRole("button", { name: "Play sample" }));
+    await waitFor(() => expect(Speech.speak).toHaveBeenCalled());
+    const options = jest.mocked(Speech.speak).mock.calls.at(-1)?.[1] as {
+      onBoundary: (event: { charIndex: number }) => void;
+    };
+    await act(async () => options.onBoundary({ charIndex: 9 }));
+    const spoken = StyleSheet.flatten(screen.getByTestId("listening-word").props.style);
+    expect(spoken.backgroundColor).toBeTruthy();
+    expect(spoken.fontWeight).toBeUndefined();
+    expect(spoken.fontSize).toBeUndefined();
+  });
+
   it("shows the sample in a player with the voice and speed in use", async () => {
     await open_listening_step(BASIC);
     expect(screen.getByTestId("listening-player")).toBeTruthy();

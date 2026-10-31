@@ -237,6 +237,20 @@ export function ReaderSettingsSheet({
                 </Setting>
                 <View style={[s.toggleRow, { borderColor: theme.border }]}>
                   <View style={s.toggleCopy}>
+                    <Text style={[s.toggleTitle, { color: theme.text }]}>Sentence flow</Text>
+                    <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
+                      Automatically scroll to follow the narration. Turn off to move the page yourself.
+                    </Text>
+                  </View>
+                  <Switch
+                    accessibilityLabel="Sentence flow"
+                    value={accessibility.sentenceFlow}
+                    onValueChange={accessibility.setSentenceFlow}
+                    trackColor={{ true: theme.accent }}
+                  />
+                </View>
+                <View style={[s.toggleRow, { borderColor: theme.border }]}>
+                  <View style={s.toggleCopy}>
                     <Text style={[s.toggleTitle, { color: theme.text }]}>Emphasize current word</Text>
                     <Text style={[s.toggleDescription, { color: theme.mutedText }]}>
                       Adds weight and size as Votic reads.

@@ -402,11 +402,10 @@ function ReaderContent() {
   // Listen mode keeps the spoken word in view. In Read mode the reader's own scrolling sets the
   // position, so the page only moves for an explicit jump such as a seek.
   const onPositionChange = useEffectEvent(() => {
-    if (listening) follow_active_word();
-    else if (scrollToPosition.current) {
+    if (scrollToPosition.current) {
       scrollToPosition.current = false;
       follow_active_word(true);
-    }
+    } else if (listening && accessibility.sentenceFlow) follow_active_word();
   });
 
   useEffect(() => {
@@ -450,7 +449,7 @@ function ReaderContent() {
   );
   useEffect(() => {
     onPositionChange();
-  }, [index, wordIndex, accessibility.reduceMotion]);
+  }, [index, wordIndex, accessibility.reduceMotion, accessibility.sentenceFlow]);
   // Read entry cancels queued utterances and voice previews without moving the saved position.
   const onReadEntry = useEffectEvent(() => {
     void progressSync.flush();
@@ -1070,6 +1069,7 @@ function ReaderContent() {
     const resume = playing;
     const target = Math.max(0, Math.min(passages.length - 1, index + delta));
     await stop();
+    scrollToPosition.current = true;
     setWordIndex(0);
     setIndex(target);
     if (resume && target !== index) speak(target, 0);
@@ -1487,10 +1487,12 @@ function ReaderContent() {
                                             // bold, and a little larger.
                                             backgroundColor: theme.wordHighlight,
                                             color: theme.text,
-                                            fontWeight: "900",
-                                            fontSize: (readingType.fontSize as number) + 2,
-                                            ...(accessibility.readerFont === "accessible" && {
-                                              fontFamily: ACCESSIBLE_FONT_BOLD,
+                                            ...(accessibility.wordEmphasis && {
+                                              fontWeight: "900",
+                                              fontSize: (readingType.fontSize as number) + 2,
+                                              ...(accessibility.readerFont === "accessible" && {
+                                                fontFamily: ACCESSIBLE_FONT_BOLD,
+                                              }),
                                             }),
                                           }
                                         : undefined

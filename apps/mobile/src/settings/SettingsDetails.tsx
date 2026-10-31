@@ -236,6 +236,23 @@ function ReadingSettings() {
             onPress={() => router.push("/voices")}
           />
         </SettingsGroup>
+        <Choices
+          title="Spoken-text highlight"
+          selected={a.highlightMode}
+          onSelect={a.setHighlightMode}
+          options={[
+            { value: "off", label: "Off" },
+            { value: "sentence", label: "Sentence" },
+            { value: "word", label: "Word" },
+            { value: "both", label: "Both" },
+          ]}
+        />
+        <Toggle
+          label="Sentence flow"
+          detail="Automatically scroll to follow the narration. Turn off to move the page yourself."
+          value={a.sentenceFlow}
+          onChange={a.setSentenceFlow}
+        />
         <Toggle
           label="Emphasize current word"
           detail="Make the spoken word slightly larger and bolder."

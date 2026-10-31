@@ -400,9 +400,11 @@ function ListeningPlayer({
                   ? {
                       // The spoken word, as in the Reader: its own highlight, bold, and a little larger.
                       backgroundColor: theme.wordHighlight,
-                      fontWeight: "900",
-                      fontSize: (type.fontSize as number) + 2,
-                      ...(a.readerFont === "accessible" && { fontFamily: ACCESSIBLE_FONT_BOLD }),
+                      ...(a.wordEmphasis && {
+                        fontWeight: "900",
+                        fontSize: (type.fontSize as number) + 2,
+                        ...(a.readerFont === "accessible" && { fontFamily: ACCESSIBLE_FONT_BOLD }),
+                      }),
                     }
                   : undefined
               }
