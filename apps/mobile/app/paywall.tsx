@@ -271,13 +271,14 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           style={[s.accessibilityDiscount, { backgroundColor: theme.brandTint, borderColor: theme.border }]}
         >
           <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.text }]}>
-            Accessibility discount by request
+            30% ongoing accessibility discount
           </Text>
           <Text style={[p.detail, { color: theme.text }]}>
             Need accessibility support for reading or using documents? People with disabilities can request a
-            discount. Explain your accessibility needs and why you need the discount. No medical information
-            is required at this stage. Each request is personally reviewed by Votic&apos;s owner; approval is
-            required before a discount can be applied.
+            30% discount that continues while their approved subscription stays active. Explain your
+            accessibility needs and why you need the discount. No medical information is required at this
+            stage. Each request is personally reviewed by Votic&apos;s owner; approval is required before a
+            discount can be applied.
           </Text>
           <FooterLink
             label="Request an accessibility discount"
