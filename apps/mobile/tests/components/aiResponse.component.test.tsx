@@ -1,7 +1,7 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
 import { useState } from "react";
-import { Pressable, Text } from "react-native";
+import { Pressable, StyleSheet, Text } from "react-native";
 import { AIResponse, AIThinking } from "../../src/components/AIResponse";
 import { edge_color, UNWRITTEN_INK } from "../../src/components/RevealingText";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
@@ -110,4 +110,25 @@ it("forms the newest letters out of see-through light and settles older ones int
   expect(alpha).toBeGreaterThan(0);
   expect(alpha).toBeLessThan(128);
   expect(edge_color(text, violet, light, 0.5, 0.5)).not.toBe(edge_color(text, violet, light, 0.5, 0));
+});
+it("keeps the melting word at the left and gives the chip the Writing row's height, so the answer never moves", async () => {
+  await render_with_providers(<AIResponse text="Short." header={<Text>Passage 2</Text>} />);
+  await act(async () => jest.advanceTimersByTime(3000));
+  const melting = screen.getByTestId("ai-status-melting", { includeHiddenElements: true });
+  // No horizontal centering anywhere above the melting word.
+  let node = melting.parent;
+  while (node) {
+    const flat = StyleSheet.flatten(node.props.style) ?? {};
+    if (flat.flexDirection === "row") expect(flat.justifyContent).toBeUndefined();
+    node = node.parent;
+  }
+  await act(async () => jest.advanceTimersByTime(1500));
+  // The chip's slot, between it and the answer, has the Writing row's 48-point height.
+  let slot = screen.getByText("Passage 2").parent;
+  const heights: unknown[] = [];
+  while (slot) {
+    heights.push((StyleSheet.flatten(slot.props.style) ?? {}).minHeight);
+    slot = slot.parent;
+  }
+  expect(heights).toContain(48);
 });

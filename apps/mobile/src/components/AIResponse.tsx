@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Animated,
   Easing,
-  LayoutAnimation,
   Pressable,
   StyleSheet,
   Text,
@@ -100,13 +99,14 @@ function AnswerStatus({
   const [melted, setMelted] = useState(false);
   function finish_melt() {
     setMelted(true);
-    LayoutAnimation.configureNext(LayoutAnimation.create(260, "easeInEaseOut", "opacity"));
     setPhase("done");
   }
-  if (phase === "done") return melted ? <FadeIn>{header}</FadeIn> : <>{header}</>;
+  // The chip takes the exact height of the row it replaces, so the answer below never moves.
+  if (phase === "done")
+    return melted ? <FadeIn style={header ? s.statusSlot : undefined}>{header}</FadeIn> : <>{header}</>;
   if (phase === "melting")
     return (
-      <View style={[s.statusRow, s.statusRowHeight]}>
+      <View style={[s.statusRow, s.meltRow]}>
         <View style={s.thinking}>
           <View style={s.meltStage}>
             <MeltingWord
@@ -353,6 +353,10 @@ const s = StyleSheet.create({
   statusRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
   // Matches the "Show all" button's height in the writing row, so the label sits at the same height in both.
   statusRowHeight: { minHeight: 48, justifyContent: "center" },
+  // The answer's status slot: the Writing row (its Show all button is 48 tall), the melt, then the chip.
+  statusSlot: { minHeight: 48, justifyContent: "center" },
+  // A row (left to right), so only its height is set: the melting word stays at the left where Writing was.
+  meltRow: { minHeight: 48 },
   status: { fontSize: 13 },
   aiStatus: { fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1, flexShrink: 1 },
   // Same place as the word inside bounceStage, so the melt starts exactly where "Writing" was.

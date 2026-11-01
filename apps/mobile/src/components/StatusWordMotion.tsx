@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Animated, Easing, StyleSheet, View, type StyleProp, type TextStyle } from "react-native";
+import {
+  Animated,
+  Easing,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
 /** One letter's part of a change between status words. */
 export const MORPH_LETTER_MS = 240;
@@ -203,7 +211,15 @@ export function MeltingWord({
 }
 
 /** Fades in something that takes the melted word's place, like the answer's source chip. */
-export function FadeIn({ children, duration = 320 }: { children: React.ReactNode; duration?: number }) {
+export function FadeIn({
+  children,
+  duration = 320,
+  style,
+}: {
+  children: React.ReactNode;
+  duration?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
   const [opacity] = useState(() => new Animated.Value(0));
   useEffect(() => {
     const motion = Animated.timing(opacity, {
@@ -217,10 +233,13 @@ export function FadeIn({ children, duration = 320 }: { children: React.ReactNode
   }, [opacity, duration]);
   return (
     <Animated.View
-      style={{
-        opacity,
-        transform: [{ translateY: opacity.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-      }}
+      style={[
+        style,
+        {
+          opacity,
+          transform: [{ translateY: opacity.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+        },
+      ]}
     >
       {children}
     </Animated.View>
