@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, Ref, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
+  ActivityIndicator,
   findNodeHandle,
   Linking,
   Modal,
@@ -37,6 +38,8 @@ type Step = "sign-out" | "keep-offer" | "deletion-info" | "deletion-final" | "re
 /** Testing builds show the retention offer's design with example prices when the store has none yet. */
 const PREVIEW_TESTING = Constants.expoConfig?.extra?.previewTesting === true;
 const STORE = Platform.OS === "ios" ? "App Store" : "Google Play";
+/** The longest Delete account waits for the store's offer; after that it goes straight to the deletion steps. */
+export const OFFER_WAIT_MS = 2_000;
 
 /** Account deletion coordinates local erasure, private backend data, billing profile and Firebase. */
 export function AccountSettings() {
@@ -47,6 +50,7 @@ export function AccountSettings() {
   const [claiming, setClaiming] = useState(false);
   const [offerMessage, setOfferMessage] = useState<string | null>(null);
   const [stayed, setStayed] = useState<string | null>(null);
+  const [checkingOffer, setCheckingOffer] = useState(false);
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const [step, setStep] = useState<Step | null>(null);
@@ -88,14 +92,16 @@ export function AccountSettings() {
   async function start_deletion() {
     if (pending.current || !auth.user) return;
     pending.current = true;
+    setCheckingOffer(true);
     let found: RetentionOffer | null = null;
     try {
       const lookup = subscription.service.getRetentionOffer?.();
-      found = lookup ? await store_deadline(lookup, 6_000) : null;
+      found = lookup ? await store_deadline(lookup, OFFER_WAIT_MS) : null;
     } catch {
       found = null; // Never let the offer stand in the way of deleting an account.
     } finally {
       pending.current = false;
+      setCheckingOffer(false);
     }
     setOfferMessage(null);
     setStayed(null);
@@ -248,6 +254,7 @@ export function AccountSettings() {
                   hint="Destructive action. Opens an explanation; two confirmation steps are required before deletion"
                   icon="trash-outline"
                   onPress={() => void start_deletion()}
+                  busy={checkingOffer}
                   danger
                 />
               </View>
@@ -551,6 +558,7 @@ function AccountRow({
   onPress,
   danger = false,
   disabled = false,
+  busy = false,
   ref,
 }: {
   label: string;
@@ -560,6 +568,8 @@ function AccountRow({
   onPress: () => void;
   danger?: boolean;
   disabled?: boolean;
+  /** Shows a spinner in place of the chevron while the row's action gets ready. */
+  busy?: boolean;
   ref?: Ref<View>;
 }) {
   const { theme } = useVoticTheme();
@@ -570,8 +580,8 @@ function AccountRow({
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
+      accessibilityState={{ disabled: disabled || busy, busy }}
+      disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
         s.row,
@@ -583,7 +593,11 @@ function AccountRow({
         <Text style={[s.title, { color: danger ? destructive : theme.text }]}>{label}</Text>
         {detail ? <Text style={[s.detail, { color: theme.mutedText }]}>{detail}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={20} color={theme.mutedText} accessible={false} />
+      {busy ? (
+        <ActivityIndicator testID="account-row-busy" color={danger ? destructive : theme.accentText} />
+      ) : (
+        <Ionicons name="chevron-forward" size={20} color={theme.mutedText} accessible={false} />
+      )}
     </Pressable>
   );
 }

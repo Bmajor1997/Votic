@@ -478,3 +478,26 @@ describe("Retention offer before account deletion", () => {
     expect(screen.queryByText("Are you sure you want to leave?")).toBeNull();
   });
 });
+
+describe("Delete account while the store is slow", () => {
+  it("shows a spinner on the row and waits at most two seconds before the deletion steps", async () => {
+    fakeSubscriptions.reset();
+    let release: (value: null) => void = () => {};
+    const slow = new Promise<null>((resolve) => {
+      release = resolve;
+    });
+    const service = billing.create_subscription_service;
+    jest.spyOn(billing, "create_subscription_service").mockImplementation(() => ({
+      ...service(),
+      getRetentionOffer: () => slow,
+    }));
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(screen.getByTestId("account-row-busy")).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Before you delete your account" })).toBeNull();
+    await act(async () => jest.advanceTimersByTime(2_100));
+    expect(screen.getByRole("header", { name: "Before you delete your account" })).toBeTruthy();
+    expect(screen.queryByTestId("account-row-busy")).toBeNull();
+    release(null);
+  });
+});
