@@ -156,7 +156,6 @@ describe("Sign in", () => {
     fakeAuth.accounts.set("reader@example.com", "reading1");
     await render_with_providers(<SignIn />);
     expect(screen.getByRole("header", { name: "Welcome back" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();
     await fireEvent.changeText(screen.getByLabelText("Email"), "reader@example.com");
     await fireEvent.changeText(screen.getByLabelText("Password"), "wrong-pass1");
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
@@ -552,4 +551,11 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByLabelText("Your listening. Device voice · 1.5× · no highlighting")).toBeTruthy();
   expect(screen.getByLabelText("Your explanations. Simple")).toBeTruthy();
   expect(screen.getByRole("button", { name: "See Votic Plus" })).toBeTruthy();
+});
+
+it("goes straight to email sign-in, without repeating Continue with Google from Welcome", async () => {
+  await render_with_providers(<SignIn />);
+  expect(screen.queryByRole("button", { name: /Google/ })).toBeNull();
+  expect(screen.queryByText("or sign in with email")).toBeNull();
+  expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
 });

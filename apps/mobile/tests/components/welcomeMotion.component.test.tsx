@@ -46,11 +46,11 @@ describe("Welcome motion", () => {
     expect(router.push).toHaveBeenLastCalledWith("/create-account");
   });
 
-  it("keeps Sign in's title, Google, and the email form under the V", async () => {
+  it("keeps Sign in's title and the email form under the V, with Google left on Welcome", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<SignIn />);
     expect(screen.getByRole("header", { name: "Welcome back" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue with Google" })).toBeNull();
     expect(screen.getByLabelText("Email")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
   });
