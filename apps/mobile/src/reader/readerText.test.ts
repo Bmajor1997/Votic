@@ -265,3 +265,10 @@ describe("Votic voices", () => {
     expect(names.some((name) => /\d/.test(name))).toBe(false);
   });
 });
+
+it("makes the spoken word a quarter larger than the text around it", async () => {
+  const { spoken_word_size } = await import("./readerText");
+  expect(spoken_word_size(18)).toBe(23);
+  expect(spoken_word_size(21)).toBe(26);
+  expect(spoken_word_size(25)).toBe(31);
+});

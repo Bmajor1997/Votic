@@ -99,6 +99,7 @@ import {
   passage_tokens,
   progress_for_location,
   reader_type,
+  spoken_word_size,
   speech_segment,
   word_at_speech_offset,
   word_matches,
@@ -1489,12 +1490,12 @@ function ReaderContent() {
                                       active && wordHighlight
                                         ? {
                                             // The spoken word: its own highlight on top of the sentence's,
-                                            // bold, and a little larger.
+                                            // bold, and clearly larger (the line height stays the same).
                                             backgroundColor: theme.wordHighlight,
                                             color: theme.text,
                                             ...(accessibility.wordEmphasis && {
                                               fontWeight: "900",
-                                              fontSize: (readingType.fontSize as number) + 2,
+                                              fontSize: spoken_word_size(readingType.fontSize as number),
                                               ...(accessibility.readerFont === "accessible" && {
                                                 fontFamily: ACCESSIBLE_FONT_BOLD,
                                               }),

@@ -129,6 +129,14 @@ export function reader_type(
   };
 }
 
+/**
+ * The spoken word's size: a quarter larger than the text around it (18 → 23), clearly bigger at a glance. The line
+ * height stays the reader's own, so the lines don't move as the word changes.
+ */
+export function spoken_word_size(fontSize: number) {
+  return Math.round(fontSize * 1.25);
+}
+
 /** "1 passage left", "2 passages left". */
 export function passages_left_label(count: number) {
   return `${count} ${count === 1 ? "passage" : "passages"} left`;

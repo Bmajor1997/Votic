@@ -179,7 +179,7 @@ export const RetentionOfferPanel = forwardRef<
         </Pressable>
       </View>
       <View style={s.mark}>
-        <BrandMark size={72} />
+        <BrandMark size={72} arrive />
       </View>
       <Text style={[s.eyebrow, { color: theme.accentText }]}>BEFORE YOU GO</Text>
       <Text ref={heading} accessibilityRole="header" style={[s.title, { color: theme.text }]}>
@@ -190,11 +190,11 @@ export const RetentionOfferPanel = forwardRef<
       </Text>
       <View
         accessible
-        accessibilityLabel={`Special offer: ${text.price} ${text.length}, instead of ${text.regular}. ${text.terms}`}
+        accessibilityLabel={`Stay and save: ${text.price} ${text.length}, instead of ${text.regular}. ${text.terms}`}
         style={[s.card, { backgroundColor: theme.brandTint, borderColor: theme.accent }]}
       >
         <View style={[s.badge, { backgroundColor: theme.accent }]}>
-          <Text style={[s.badgeText, { color: theme.onAccent }]}>SPECIAL OFFER</Text>
+          <Text style={[s.badgeText, { color: theme.onAccent }]}>STAY &amp; SAVE</Text>
         </View>
         <Text style={[s.was, { color: theme.mutedText }]}>{text.regular}</Text>
         <Text style={[s.price, { color: theme.text }]}>{text.price}</Text>

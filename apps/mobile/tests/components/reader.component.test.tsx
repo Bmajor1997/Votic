@@ -152,7 +152,8 @@ describe("Reader", () => {
       let node = screen.getByText("passage").parent;
       while (node && !StyleSheet.flatten(node.props.style)?.fontSize) node = node.parent;
       const sentence = StyleSheet.flatten(node?.props.style) as { fontSize: number };
-      expect(spoken.fontSize).toBe(sentence.fontSize + 2);
+      // A quarter larger than its sentence, so the spoken word clearly stands out.
+      expect(spoken.fontSize).toBe(Math.round(sentence.fontSize * 1.25));
       expect(speak).toHaveBeenCalledTimes(1);
       await act(async () => first.options.onDone?.());
       expect(last_speech().text).toBe("Second passage there.");
