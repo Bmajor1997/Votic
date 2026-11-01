@@ -40,23 +40,23 @@ export function SupportSettings() {
         You can also write to {SUPPORT_EMAIL}. Describe what happened and what you expected. Only share
         documents or screenshots if you are comfortable sending them.
       </Text>
-      <SettingsGroup title="Accessibility discount">
+      <SettingsGroup title="30% ongoing accessibility discount">
         <SettingsRow
           label="Accessibility discount request"
-          detail="Email a request for personal review and approval"
+          detail="Request 30% off an ongoing subscription, subject to personal approval"
           hint="Opens your email app with the subject Accessibility discount request"
           icon="accessibility-outline"
           onPress={() => void compose(ACCESSIBILITY_DISCOUNT_SUBJECT)}
         />
       </SettingsGroup>
       <Text selectable style={{ color: theme.mutedText, fontSize: 15, lineHeight: 23 }}>
-        This discount is intended for people with disabilities who need accessibility support for reading
-        or using documents. Email {SUPPORT_EMAIL} with the subject {ACCESSIBILITY_DISCOUNT_SUBJECT}.
-        Include your Votic account email, explain the accessibility barriers you face, the support you
-        need, and why you are requesting the discount. No medical information is required at this stage.
-        Each request is personally reviewed by Votic&apos;s owner. Approval is not guaranteed, and sending
-        a request does not apply a discount. Please submit only one request per Votic account and wait for
-        a reply before following up.
+        The 30% accessibility discount continues while your approved subscription stays active. It is intended
+        for people with disabilities who need accessibility support for reading or using documents. Email{" "}
+        {SUPPORT_EMAIL} with the subject {ACCESSIBILITY_DISCOUNT_SUBJECT}. Include your Votic account email,
+        explain the accessibility barriers you face, the support you need, and why you are requesting the
+        discount. No medical information is required at this stage. Each request is personally reviewed by
+        Votic&apos;s owner. Approval is not guaranteed, and sending a request does not apply a discount.
+        Please submit only one request per Votic account and wait for a reply before following up.
       </Text>
       {error ? (
         <Text accessibilityRole="alert" style={{ color: theme.text }}>
