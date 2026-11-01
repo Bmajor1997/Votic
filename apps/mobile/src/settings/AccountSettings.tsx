@@ -191,27 +191,7 @@ export function AccountSettings() {
             {stayed}
           </Text>
         ) : null}
-        <Card>
-          <View style={s.identity}>
-            <View style={[s.avatar, { backgroundColor: theme.brandTint }]}>
-              <Ionicons name="person-outline" size={26} color={theme.accentText} accessible={false} />
-            </View>
-            <View style={s.copy}>
-              <Text style={[s.title, { color: theme.text }]}>
-                {auth.user ? "Your Votic account" : "Not signed in"}
-              </Text>
-              <Text style={[s.detail, { color: theme.mutedText }]}>
-                {auth.user?.email ??
-                  auth.user?.displayName ??
-                  (auth.user
-                    ? auth.configured
-                      ? "Signed-in session"
-                      : "Development preview"
-                    : "Sign in to manage account access.")}
-              </Text>
-            </View>
-          </View>
-        </Card>
+        <AccountIdentity />
         {auth.user ? (
           <AccountRow
             label="Library backup & restore"
@@ -421,6 +401,34 @@ export function AccountSettings() {
         </SafeAreaView>
       </Modal>
     </>
+  );
+}
+/** Account identity and signed-in status, shared independently of the account action flow. */
+function AccountIdentity() {
+  const auth = useAuth();
+  const { theme } = useVoticTheme();
+  return (
+    <Card>
+      <View style={s.identity}>
+        <View style={[s.avatar, { backgroundColor: theme.brandTint }]}>
+          <Ionicons name="person-outline" size={26} color={theme.accentText} accessible={false} />
+        </View>
+        <View style={s.copy}>
+          <Text style={[s.title, { color: theme.text }]}>
+            {auth.user ? "Your Votic account" : "Not signed in"}
+          </Text>
+          <Text style={[s.detail, { color: theme.mutedText }]}>
+            {auth.user?.email ??
+              auth.user?.displayName ??
+              (auth.user
+                ? auth.configured
+                  ? "Signed-in session"
+                  : "Development preview"
+                : "Sign in to manage account access.")}
+          </Text>
+        </View>
+      </View>
+    </Card>
   );
 }
 /** Votic Plus as the store reports it: manage it in the store, or restore a purchase. */
