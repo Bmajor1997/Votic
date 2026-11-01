@@ -4,19 +4,20 @@ import { SettingsGroup, SettingsRow } from "./SettingsNavigation";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 export const SUPPORT_EMAIL = "votic.support@gmail.com";
+export const ACCESSIBILITY_DISCOUNT_SUBJECT = "Accessibility discount request";
 
 export function SupportSettings() {
   const { theme } = useVoticTheme();
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const pending = useRef(false);
-  async function compose() {
+  async function compose(subject = "Votic support") {
     if (pending.current) return;
     pending.current = true;
-    setError(false);
+    setError(null);
     try {
-      await Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Votic support")}`);
+      await Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(subject)}`);
     } catch {
-      setError(true);
+      setError(subject);
     } finally {
       pending.current = false;
     }
@@ -39,10 +40,26 @@ export function SupportSettings() {
         You can also write to {SUPPORT_EMAIL}. Describe what happened and what you expected. Only share
         documents or screenshots if you are comfortable sending them.
       </Text>
+      <SettingsGroup title="Accessibility discount">
+        <SettingsRow
+          label="Accessibility discount request"
+          detail="Email a request for personal review and approval"
+          hint="Opens your email app with the subject Accessibility discount request"
+          icon="accessibility-outline"
+          onPress={() => void compose(ACCESSIBILITY_DISCOUNT_SUBJECT)}
+        />
+      </SettingsGroup>
+      <Text selectable style={{ color: theme.mutedText, fontSize: 15, lineHeight: 23 }}>
+        To request a disability discount, email {SUPPORT_EMAIL} with the subject{" "}
+        {ACCESSIBILITY_DISCOUNT_SUBJECT}. Include your Votic account email and a brief explanation of how a
+        disability affects reading or using documents. No diagnosis or medical paperwork is required.
+        Votic&apos;s owner personally reviews and approves each request. Sending a request does not
+        automatically apply a discount. You will receive a reply with the decision and any next steps.
+      </Text>
       {error ? (
         <Text accessibilityRole="alert" style={{ color: theme.text }}>
           Could not open your email app. Copy the email address above and send a message from your usual email
-          service.
+          service. Use the subject: {error}.
         </Text>
       ) : null}
     </>
