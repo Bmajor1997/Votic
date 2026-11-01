@@ -1,5 +1,6 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
+import { Text } from "react-native";
 import { AIResponse } from "../../src/components/AIResponse";
 import { edge_color, UNWRITTEN_INK } from "../../src/components/RevealingText";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
@@ -27,9 +28,7 @@ function parts(full: string) {
 it("writes answers from left to right, holding only the current word's place, and can show the full response", async () => {
   const answer = "First word.\nNext line of the answer.";
   await render_with_providers(<AIResponse text={answer} />);
-  expect(screen.queryByLabelText("Writing")).toBeNull();
-  expect(screen.queryByTestId("ai-status-orb", { includeHiddenElements: true })).toBeNull();
-  expect(screen.queryByTestId("ai-status-letter", { includeHiddenElements: true })).toBeNull();
+  expect(screen.getByText("Writing")).toBeTruthy();
   // At first nothing is inked; only the first word's place is held, so it can't jump to another line mid-word.
   expect(parts(answer)).toEqual({ inked: "", hidden: "First" });
   await act(async () => jest.advanceTimersByTime(24 * 8));
@@ -47,6 +46,18 @@ it("finishes laying down the answer, fully inked, and clears the generating stat
   await act(async () => jest.advanceTimersByTime(2600));
   expect(parts("One two three.")).toEqual({ inked: "One two three.", hidden: "" });
   expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
+});
+it("keeps the Writing status above the answer's source chip, where the thinking word was", async () => {
+  await render_with_providers(<AIResponse text="An answer with a source." header={<Text>Passage 4</Text>} />);
+  expect(screen.getByText("Writing")).toBeTruthy();
+  // Rendered order: the status word comes before the chip, so it never drops below it.
+  const tree = JSON.stringify(screen.toJSON());
+  expect(tree.indexOf('"Writing"')).toBeGreaterThan(-1);
+  expect(tree.indexOf('"Writing"')).toBeLessThan(tree.indexOf('"Passage 4"'));
+  await act(async () => jest.advanceTimersByTime(4000));
+  // Once written, the status goes away and the chip stays above the answer.
+  expect(screen.queryByText("Writing")).toBeNull();
+  expect(screen.getByText("Passage 4")).toBeTruthy();
 });
 it("shows complete text immediately with reduced motion", async () => {
   await render_with_providers(<AIResponse text="A complete answer." />, { reduceMotion: true });

@@ -529,32 +529,39 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                 >
                   {m.role === "votic" ? (
                     <View>
-                      {(() => {
-                        // The same passage chip as the Reader's Ask panel, leading the answer it supports.
-                        const link = m.link;
-                        const target = link && documents.find((document) => document.id === link.documentId);
-                        return link && target ? (
-                          <View style={s.answerSource}>
-                            <AskAnswerSourceChip
-                              kind="passage"
-                              passage={link.sentenceIndex + 1}
-                              section={m.sectionTitle}
-                              documentTitle={readable_title(target.title)}
-                              filename={target.sourceName}
-                              onPress={() => open_answer_link(link)}
-                            />
-                          </View>
-                        ) : null;
-                      })()}
-                      {m.summary ? (
-                        <Text style={[s.body, { color: theme.text, fontWeight: "700" }]}>
-                          Conversation summary
-                        </Text>
-                      ) : null}
+                      {/* The source chip and title go under the status row, so "Thinking" turns into
+                          "Writing" in place instead of dropping below the chip. */}
                       <AIResponse
                         text={m.text}
                         animate={!m.fallback}
                         style={[s.body, { color: theme.text }]}
+                        header={
+                          <>
+                            {(() => {
+                              // The same passage chip as the Reader's Ask panel, leading the answer it supports.
+                              const link = m.link;
+                              const target =
+                                link && documents.find((document) => document.id === link.documentId);
+                              return link && target ? (
+                                <View style={s.answerSourceInResponse}>
+                                  <AskAnswerSourceChip
+                                    kind="passage"
+                                    passage={link.sentenceIndex + 1}
+                                    section={m.sectionTitle}
+                                    documentTitle={readable_title(target.title)}
+                                    filename={target.sourceName}
+                                    onPress={() => open_answer_link(link)}
+                                  />
+                                </View>
+                              ) : null;
+                            })()}
+                            {m.summary ? (
+                              <Text style={[s.body, { color: theme.text, fontWeight: "700" }]}>
+                                Conversation summary
+                              </Text>
+                            ) : null}
+                          </>
+                        }
                       />
                     </View>
                   ) : (
@@ -581,11 +588,14 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               ))
             )}
             {sending ? (
-              <AIThinking
-                summary={summarizing}
-                question={messages.filter((message) => message.role === "user").at(-1)?.text}
-                grounded={context.kind === "document" || context.kind === "notes"}
-              />
+              // Same frame as an answer, so its status word sits exactly where the answer's "Writing" will.
+              <View style={[s.message, s.voticMessage]}>
+                <AIThinking
+                  summary={summarizing}
+                  question={messages.filter((message) => message.role === "user").at(-1)?.text}
+                  grounded={context.kind === "document" || context.kind === "notes"}
+                />
+              </View>
             ) : null}
             {error || retrying ? (
               <View accessibilityLiveRegion="polite" style={[s.error, { borderColor: theme.border }]}>
@@ -848,7 +858,8 @@ const s = StyleSheet.create({
   userMessage: { alignSelf: "flex-end", borderRadius: 16, paddingHorizontal: spacing.md },
   voticMessage: { alignSelf: "flex-start" },
   answerFooter: { marginTop: spacing.sm },
-  answerSource: { marginBottom: spacing.sm },
+  // The response already spaces its parts by spacing.xs; together they keep the chip spacing.sm above the answer.
+  answerSourceInResponse: { marginBottom: spacing.xs },
   status: { fontSize: 14 },
   error: { borderWidth: 1, borderRadius: 12, padding: spacing.md, gap: spacing.sm },
   retry: {

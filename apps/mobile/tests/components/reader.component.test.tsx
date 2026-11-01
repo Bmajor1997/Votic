@@ -95,7 +95,7 @@ describe("Reader", () => {
     expect(transcript).toContain("You: My first question?");
     expect(transcript).toContain("Votic: First answer.");
     expect(transcript).not.toContain(book.plainText);
-    expect(screen.getByText("Preparing answer…")).toBeTruthy();
+    expect(screen.getByLabelText("Summarizing")).toBeTruthy();
     await act(async () =>
       finish({
         answer: "The guide covers three passages.",

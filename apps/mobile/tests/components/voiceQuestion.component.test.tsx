@@ -93,7 +93,7 @@ describe("Ask Votic recording composer", () => {
     await start();
     await capture();
     await stop();
-    expect(screen.getByText("Transcribing…")).toBeTruthy();
+    expect(screen.getByText("Transcribing")).toBeTruthy();
     searchParams.current = { notesDocumentId: "other-doc" };
     await view.rerender(
       <AppProviders>

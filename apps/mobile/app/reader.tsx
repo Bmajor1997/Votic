@@ -663,18 +663,23 @@ function ReaderContent() {
       </View>
     ) : (
       <View key={messageIndex} style={s.askAnswer}>
-        <AskAnswerSourceChip
-          kind={message.fallback ? "help" : message.link ? "passage" : "document"}
-          passage={message.link ? message.link.sentenceIndex + 1 : undefined}
-          section={message.sectionTitle}
-          documentTitle={document_heading(activeDocument, "this document")}
-          filename={activeDocument?.sourceName}
-          onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
-        />
+        {/* The chip goes under the status row, so "Reading" turns into "Writing" in place. */}
         <AIResponse
           text={message.text}
           animate={!message.fallback && !message.revealed}
           style={[s.askAnswerText, { color: theme.text }]}
+          header={
+            <View style={s.askAnswerSourceInResponse}>
+              <AskAnswerSourceChip
+                kind={message.fallback ? "help" : message.link ? "passage" : "document"}
+                passage={message.link ? message.link.sentenceIndex + 1 : undefined}
+                section={message.sectionTitle}
+                documentTitle={document_heading(activeDocument, "this document")}
+                filename={activeDocument?.sourceName}
+                onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
+              />
+            </View>
+          }
         />
         <AskAnswerFooter
           reportText={!message.fallback ? message.text : undefined}
@@ -1765,11 +1770,14 @@ function ReaderContent() {
                         ) : null}
                         {ask_conversation_views()}
                         {askSending || summarizing ? (
-                          <AIThinking
-                            summary={summarizing}
-                            question={askMessages.filter((message) => message.role === "user").at(-1)?.text}
-                            grounded
-                          />
+                          // Same frame as an answer, so its status word sits where the answer's "Writing" will.
+                          <View style={s.askAnswer}>
+                            <AIThinking
+                              summary={summarizing}
+                              question={askMessages.filter((message) => message.role === "user").at(-1)?.text}
+                              grounded
+                            />
+                          </View>
                         ) : null}
                         {askError ? (
                           <Text
@@ -2024,6 +2032,8 @@ const s = StyleSheet.create({
   // Answers sit directly on the panel, without a box, like the questions opposite them.
   askAnswer: { paddingVertical: spacing.xs, gap: spacing.sm },
   askAnswerSource: { fontSize: 11 },
+  // With the response's own spacing.xs gap, keeps the chip spacing.sm above the answer as before.
+  askAnswerSourceInResponse: { marginBottom: spacing.xs },
   askAnswerText: { fontSize: 15, lineHeight: 22 },
   askThinking: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   askStatus: { fontSize: 13 },
