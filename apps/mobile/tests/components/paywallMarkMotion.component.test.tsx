@@ -5,6 +5,8 @@ import { useAccessibilityPreferences } from "../../src/accessibility/Accessibili
 import { PaywallIntro } from "../../src/subscription/PaywallContent";
 import { render_with_providers } from "../renderWithProviders";
 
+type Readable = Animated.Value & { __getValue(): number };
+
 function MotionControl() {
   const { reduceMotion, setReduceMotion } = useAccessibilityPreferences();
   return (
@@ -18,48 +20,51 @@ function MotionControl() {
   );
 }
 
-function observe_pulse() {
+/** Records each piece that animates back into place (toValue 0), in the order the timings are created. */
+function observe_arrival() {
   const timing = Animated.timing;
-  const values: Animated.Value[] = [];
+  const landings: { value: Readable }[] = [];
   jest.spyOn(Animated, "timing").mockImplementation((value, config) => {
-    if (config.toValue === 0.68) values.push(value as Animated.Value);
+    if (config.toValue === 0 && config.easing) landings.push({ value: value as Readable });
     return timing(value, config);
   });
-  return values;
+  return landings;
 }
 
-it("finishes the paywall wing pulse once and remains fully visible without looping", async () => {
-  const pulses = observe_pulse();
+it("assembles the paywall V once: the stroke and then each wing land in place, without looping", async () => {
+  const landings = observe_arrival();
   await render_with_providers(<PaywallIntro />);
   expect(screen.getByTestId("paywall-brand-mark")).toBeTruthy();
-  expect(pulses).toHaveLength(1);
-  await act(async () => jest.advanceTimersByTime(2000));
-  expect((pulses[0] as Animated.Value & { __getValue(): number }).__getValue()).toBe(1);
+  // The stroke plus three wings.
+  expect(landings).toHaveLength(4);
+  expect(landings.every(({ value }) => value.__getValue() === 1)).toBe(true);
+  await act(async () => jest.advanceTimersByTime(3000));
+  expect(landings.every(({ value }) => value.__getValue() === 0)).toBe(true);
   await act(async () => jest.advanceTimersByTime(10_000));
-  expect(pulses).toHaveLength(1);
+  expect(landings).toHaveLength(4);
 });
 
-it("skips the pulse with Reduce Motion enabled", async () => {
-  const pulses = observe_pulse();
+it("shows the V already whole with Reduce Motion enabled", async () => {
+  const landings = observe_arrival();
   await render_with_providers(<PaywallIntro />, { reduceMotion: true });
   await act(async () => jest.advanceTimersByTime(2000));
-  expect(pulses).toHaveLength(0);
+  expect(landings).toHaveLength(0);
   expect(screen.getByTestId("paywall-brand-mark")).toBeTruthy();
 });
 
 it("settles immediately if Reduce Motion is enabled and does not replay when it is switched back", async () => {
-  const pulses = observe_pulse();
+  const landings = observe_arrival();
   await render_with_providers(
     <>
       <PaywallIntro />
       <MotionControl />
     </>,
   );
-  expect(pulses).toHaveLength(1);
+  expect(landings).toHaveLength(4);
   await act(async () => jest.advanceTimersByTime(250));
   await fireEvent.press(screen.getByRole("button", { name: "Toggle motion" }));
-  expect((pulses[0] as Animated.Value & { __getValue(): number }).__getValue()).toBe(1);
+  expect(landings.every(({ value }) => value.__getValue() === 0)).toBe(true);
   await fireEvent.press(screen.getByRole("button", { name: "Toggle motion" }));
   await act(async () => jest.advanceTimersByTime(2000));
-  expect(pulses).toHaveLength(1);
+  expect(landings).toHaveLength(4);
 });

@@ -58,7 +58,7 @@ export function PaywallIntro() {
         <Text style={[s.supporting, { color: theme.text }]}>Your AI-powered reading companion.</Text>
       </View>
       <View testID="paywall-brand-mark" style={s.art}>
-        <BrandMark size={width < 360 ? 88 : 112} pulseWings />
+        <BrandMark size={width < 360 ? 88 : 112} arrive />
       </View>
     </View>
   );

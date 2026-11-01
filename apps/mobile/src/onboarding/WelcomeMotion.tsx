@@ -24,20 +24,26 @@ type Flight = {
 
 /**
  * The Votic V on its own, without an app-icon square, over a soft blue glow. Its wings are the logo's
- * blue. The paywall can pulse the wings once while keeping the mark assembled. Given a flight (see
- * useMarkFlight), its pieces can fly away. Decorative: the logo already names Votic for screen readers.
+ * blue. Given a flight (see useMarkFlight), its pieces can fly away; with `arrive` (the paywall) they fly in
+ * and assemble once. `pulseWings` brightens the assembled wings once. Decorative: the logo already names
+ * Votic for screen readers.
  */
 export function BrandMark({
   size = 88,
-  flight,
+  flight: departure,
+  arrive = false,
   pulseWings = false,
 }: {
   size?: number;
   flight?: Flight;
+  /** The sign-in flight in reverse: the stroke flies in, then each wing settles into it. Plays once. */
+  arrive?: boolean;
   /** One gentle brightness pulse; the full V stays assembled. */
   pulseWings?: boolean;
 }) {
   const { theme } = useVoticTheme();
+  const arrival = useMarkArrival(arrive && !departure);
+  const flight = departure ?? (arrive ? arrival : undefined);
   const wingOpacity = useWingBrightnessPulse(pulseWings && !flight);
   const halo = size * 1.8;
   const piece = (source: ImageSourcePropType, tint: string | undefined, motion?: object) => (
@@ -103,6 +109,66 @@ export function BrandMark({
       </View>
     </View>
   );
+}
+
+/**
+ * The paywall's arrival: the sign-in flight played backwards along the same paths. Every piece starts away,
+ * the left stroke flies in first, then the bottom, middle and top wings settle into it one at a time, each
+ * easing past its place by a few points and back so it clicks in. Plays once per mounted mark; with Less
+ * motion (or once played) the V is simply whole, and switching motion back on does not replay it.
+ */
+function useMarkArrival(active: boolean) {
+  const { reduceMotion, motionReady } = useAccessibilityPreferences();
+  const [flight] = useState<Flight>(() => {
+    const start = active ? 1 : 0;
+    return {
+      wings: [new Animated.Value(start), new Animated.Value(start), new Animated.Value(start)],
+      stroke: new Animated.Value(start),
+      glow: new Animated.Value(start),
+    };
+  });
+  const played = useRef(false);
+  useEffect(() => {
+    const pieces = [...flight.wings, flight.stroke, flight.glow];
+    const settle = () => pieces.forEach((value) => value.setValue(0));
+    if (!active) {
+      settle();
+      return;
+    }
+    if (!motionReady) return;
+    if (reduceMotion || played.current) {
+      settle();
+      return;
+    }
+    played.current = true;
+    // Plain per-piece delays rather than Animated.delay or stagger. The JS driver lets a stopped arrival
+    // settle cleanly (a native-driven one left later screens waiting in tests); it's four small images, once.
+    const land = (value: Animated.Value, delay: number, duration: number) =>
+      Animated.timing(value, {
+        toValue: 0,
+        delay,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+        isInteraction: false,
+      });
+    const animation = Animated.parallel([
+      Animated.timing(flight.glow, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: false,
+        isInteraction: false,
+      }),
+      land(flight.stroke, 120, 620),
+      ...[...flight.wings].reverse().map((wing, order) => land(wing, 520 + order * 150, 560)),
+    ]);
+    animation.start();
+    return () => {
+      animation.stop();
+      settle();
+    };
+  }, [active, motionReady, reduceMotion, flight]);
+  return flight;
 }
 
 /** Once per mounted mark, with no movement, loops, or replay when preferences change. */

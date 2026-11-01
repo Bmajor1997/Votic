@@ -267,25 +267,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         <Text style={[p.detail, { color: theme.text }]}>
           A subscription is required to read, listen to, and ask questions about your documents.
         </Text>
-        <View
-          style={[s.accessibilityDiscount, { backgroundColor: theme.brandTint, borderColor: theme.border }]}
-        >
-          <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.text }]}>
-            30% ongoing accessibility discount
-          </Text>
-          <Text style={[p.detail, { color: theme.text }]}>
-            Need accessibility support for reading or using documents? People with disabilities can request a
-            30% discount that continues while their approved subscription stays active. Explain your
-            accessibility needs and why you need the discount. No medical information is required at this
-            stage. Each request is personally reviewed by Votic&apos;s owner; approval is required before a
-            discount can be applied.
-          </Text>
-          <FooterLink
-            label="Request an accessibility discount"
-            disabled={working}
-            onPress={() => router.push("/support")}
-          />
-        </View>
+        <AccessibilityDiscountCard disabled={working} />
         {inlineCheckout ? checkout : null}
 
         <PaywallBenefits />
@@ -369,6 +351,40 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
   );
 }
 
+/**
+ * The accessibility discount as a compact offer: a "30% OFF" badge and one line, the way apps advertise a
+ * discount on a paywall. The full request steps live on the Support screen it opens.
+ */
+function AccessibilityDiscountCard({ disabled }: { disabled: boolean }) {
+  const { theme } = useVoticTheme();
+  const line = "For people with disabilities who need support reading documents. Ongoing once approved.";
+  return (
+    <Pressable
+      testID="accessibility-discount"
+      accessibilityRole="button"
+      accessibilityLabel={`Accessibility discount, 30% off. ${line}`}
+      accessibilityHint="Opens how to request the discount"
+      disabled={disabled}
+      onPress={() => router.push("/support")}
+      style={({ pressed }) => [
+        s.discount,
+        { backgroundColor: theme.brandTint, borderColor: theme.border, opacity: pressed ? 0.7 : 1 },
+      ]}
+    >
+      <View style={s.discountCopy}>
+        <View style={s.discountTitleRow}>
+          <View style={[s.discountBadge, { backgroundColor: theme.accent }]}>
+            <Text style={[s.discountBadgeText, { color: theme.onAccent }]}>30% OFF</Text>
+          </View>
+          <Text style={[p.benefitTitle, s.discountTitle, { color: theme.text }]}>Accessibility discount</Text>
+        </View>
+        <Text style={[p.detail, { color: theme.mutedText }]}>{line}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={theme.accentText} />
+    </Pressable>
+  );
+}
+
 /** Store management and recovery remain available even when offerings fail to load. */
 function CheckoutLinks({
   working,
@@ -444,7 +460,21 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
-  accessibilityDiscount: { borderWidth: 1, borderRadius: 20, padding: spacing.md, gap: spacing.sm },
+  discount: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    minHeight: controlSizes.minimumTouch,
+  },
+  discountCopy: { flex: 1, gap: 4 },
+  discountTitleRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8 },
+  discountBadge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
+  discountBadgeText: { fontSize: 12, fontWeight: "800", letterSpacing: 0.4 },
+  discountTitle: { flexShrink: 1 },
   plansTitle: { marginTop: spacing.sm },
   offer: { gap: 16 },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
