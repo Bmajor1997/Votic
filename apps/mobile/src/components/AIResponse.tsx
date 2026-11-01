@@ -45,7 +45,6 @@ export function AIResponse({
 }) {
   const text = readable_ai_text(raw);
   const { reduceMotion } = useAccessibilityPreferences();
-  const { theme } = useVoticTheme();
   const [frame, setFrame] = useState<TextRevealFrame>({
     text,
     visible: "",
