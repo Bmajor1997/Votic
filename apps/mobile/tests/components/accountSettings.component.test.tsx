@@ -464,6 +464,8 @@ describe("Retention offer before account deletion", () => {
       "claimRetentionOffer:monthly:stay-two-months:from:votic_plus:monthly",
     );
     expect(await screen.findByText(/Thanks for staying/)).toBeTruthy();
+    // The sheet drops back down before it closes.
+    await act(async () => jest.advanceTimersByTime(500));
     expect(screen.queryByRole("header", { name: "Are you sure you want to leave?" })).toBeNull();
     expect(backend.fakeAuth.calls).not.toContain("deleteAccount");
   });

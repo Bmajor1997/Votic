@@ -99,7 +99,10 @@ it("bounces the ball along the letters, keeps the word on screen, and restarts f
 
     await fireEvent.press(screen.getByRole("button", { name: "Next status" }));
     expect(stopFirst).toHaveBeenCalled();
+    // "Reading" turns into "Thinking" letter by letter; the ball waits for the new word to settle.
     expect(screen.getByLabelText("Thinking")).toBeTruthy();
+    expect(loop).toHaveBeenCalledTimes(1);
+    await act(async () => jest.advanceTimersByTime(1000));
     await lay_out_letters();
     expect(loop).toHaveBeenCalledTimes(2);
     const second = loop.mock.results[1].value as { stop: () => void };

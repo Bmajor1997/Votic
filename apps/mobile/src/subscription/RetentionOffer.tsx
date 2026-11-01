@@ -1,6 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
-import { forwardRef } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { forwardRef, useEffect, useRef, useState } from "react";
+import {
+  AccessibilityInfo,
+  ActivityIndicator,
+  Animated,
+  Easing,
+  findNodeHandle,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { editorial } from "../design/editorial";
 import { controlSizes, spacing } from "../design/tokens";
 import { BrandMark } from "../onboarding/WelcomeMotion";
@@ -33,6 +49,95 @@ export function retention_offer_text(offer: RetentionOffer, store: "App Store" |
     length: `for your next ${length}`,
     terms: `Then ${regularPer ? `${offer.regularPrice}/${regularPer}` : offer.regularPrice}. Auto-renews. Cancel anytime in ${store}.`,
   };
+}
+
+type PanelProps = {
+  offer: RetentionOffer;
+  store: "App Store" | "Google Play";
+  /** Testing build without a store offer: shows the design with example prices, and can't be claimed. */
+  preview: boolean;
+  claiming: boolean;
+  message: string | null;
+  onClaim: () => void;
+  onContinue: () => void;
+  onClose: () => void;
+};
+
+/** How long the sheet takes to rise: slow enough to read as moving up the screen, not popping in. */
+export const SHEET_RISE_MS = 700;
+const SHEET_DROP_MS = 260;
+
+/**
+ * The offer as a sheet that rises slowly from the bottom of the screen over a dimmed backdrop, and drops back
+ * down when it closes. With Less motion it simply appears.
+ */
+export function RetentionOfferSheet({ visible, ...panel }: PanelProps & { visible: boolean }) {
+  const { theme } = useVoticTheme();
+  const { reduceMotion } = useAccessibilityPreferences();
+  const { height } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const heading = useRef<Text>(null);
+  const [progress] = useState(() => new Animated.Value(0));
+  const [mounted, setMounted] = useState(visible);
+  if (visible && !mounted) setMounted(true);
+  if (!visible && mounted && reduceMotion) setMounted(false);
+  useEffect(() => {
+    if (!mounted) return;
+    progress.stopAnimation();
+    if (reduceMotion) {
+      progress.setValue(visible ? 1 : 0);
+      return;
+    }
+    // The JS driver lets a sheet interrupted mid-rise settle cleanly; it is one view moving for under a second.
+    const motion = Animated.timing(progress, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? SHEET_RISE_MS : SHEET_DROP_MS,
+      easing: visible ? Easing.out(Easing.cubic) : Easing.in(Easing.quad),
+      useNativeDriver: false,
+    });
+    motion.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => motion.stop();
+  }, [visible, mounted, reduceMotion, progress]);
+  function focus_heading() {
+    const handle = heading.current && Platform.OS !== "web" ? findNodeHandle(heading.current) : null;
+    if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
+  }
+  return (
+    <Modal
+      testID="retention-offer"
+      visible={mounted}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={panel.onClose}
+      onShow={focus_heading}
+    >
+      <Animated.View
+        accessible={false}
+        importantForAccessibility="no"
+        style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.45)", opacity: progress }]}
+      />
+      <Animated.View
+        accessibilityViewIsModal
+        style={[
+          s.sheet,
+          {
+            top: insets.top + 12,
+            paddingBottom: insets.bottom,
+            backgroundColor: theme.background,
+            transform: [
+              { translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }) },
+            ],
+          },
+        ]}
+      >
+        <View style={[s.grabber, { backgroundColor: theme.border }]} />
+        <RetentionOfferPanel ref={heading} {...panel} />
+      </Animated.View>
+    </Modal>
+  );
 }
 
 /**
@@ -146,6 +251,16 @@ export const RetentionOfferPanel = forwardRef<
 });
 
 const s = StyleSheet.create({
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: "hidden",
+  },
+  grabber: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, marginTop: 10 },
   content: { padding: spacing.lg, gap: spacing.md, maxWidth: 560, width: "100%", alignSelf: "center" },
   top: { flexDirection: "row", justifyContent: "flex-end" },
   close: {

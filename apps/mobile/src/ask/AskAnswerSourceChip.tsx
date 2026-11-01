@@ -4,11 +4,11 @@ import { FileTypeIcon } from "../components/FileTypeIcon";
 import { mix, useVoticTheme } from "../theme/ThemeProvider";
 
 /** The longest section name shown on the chip; the full name is still read by screen readers. */
-const MAX_SECTION = 40;
+const MAX_SECTION = 30;
 
 /**
- * The line above an Ask Votic answer that says where it came from. A document answer gets a tinted, bordered chip
- * with the file icon and a chevron, so it's clearly tappable: "From passage 1 · Job Description". Tapping it opens
+ * The line above an Ask Votic answer that says where it came from, shown once the answer has finished writing. A
+ * document answer gets a soft, borderless oval with the file icon and a chevron, so it's clearly tappable: "From passage 1 · Job Description". Tapping it opens
  * that passage in the Reader. An answer that didn't rest on one passage (including "the document doesn't say") is
  * labelled "Searched this document", and a notice that didn't use the document at all is labelled "Votic help".
  */
@@ -56,13 +56,10 @@ export function AskAnswerSourceChip({
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={({ pressed }) => [
         s.chip,
-        {
-          borderColor: theme.linkText,
-          backgroundColor: mix(theme.linkText, theme.background, pressed ? 0.75 : 0.9),
-        },
+        { backgroundColor: mix(theme.linkText, theme.background, pressed ? 0.78 : 0.9) },
       ]}
     >
-      <FileTypeIcon filename={filename} size={16} decorative />
+      <FileTypeIcon filename={filename} size={15} decorative />
       <Text numberOfLines={1} style={[s.chipText, { color: theme.linkText }]}>
         From passage {passage}
         <Text style={s.chipSection}> · {shown}</Text>
@@ -75,19 +72,19 @@ export function AskAnswerSourceChip({
 const s = StyleSheet.create({
   plain: { flexDirection: "row", alignItems: "center", gap: 5, minHeight: 24 },
   plainText: { fontSize: 12, fontWeight: "600" },
+  // A soft oval: fully rounded ends, no outline, a little more room on each side than above and below.
   chip: {
     alignSelf: "flex-start",
     maxWidth: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
-    minHeight: 28,
-    paddingLeft: 7,
-    paddingRight: 6,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderRadius: 14,
+    gap: 6,
+    minHeight: 32,
+    paddingLeft: 10,
+    paddingRight: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  chipText: { flexShrink: 1, fontSize: 12, fontWeight: "800" },
-  chipSection: { fontWeight: "600" },
+  chipText: { flexShrink: 1, fontSize: 13, fontWeight: "700" },
+  chipSection: { fontWeight: "500", opacity: 0.85 },
 });

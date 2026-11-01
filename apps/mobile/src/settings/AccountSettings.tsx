@@ -26,7 +26,7 @@ import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { store_deadline } from "../subscription/storeDeadline";
 import { has_access } from "../subscription/entitlement";
 import { BillingSwitch } from "../subscription/BillingSwitch";
-import { PREVIEW_RETENTION_OFFER, RetentionOfferPanel } from "../subscription/RetentionOffer";
+import { PREVIEW_RETENTION_OFFER, RetentionOfferSheet } from "../subscription/RetentionOffer";
 import { RetentionOffer } from "../subscription/subscriptionTypes";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
@@ -59,11 +59,16 @@ export function AccountSettings() {
   const destructive = theme.isDark ? "#FFB4B4" : "#B91C1C";
   function focus(target: Text | View | null) {
     // findNodeHandle isn't supported on web, where the browser keeps focus on its own.
-    const handle = target && Platform.OS !== "web" ? findNodeHandle(target) : null;
-    if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
+    try {
+      const handle = target && Platform.OS !== "web" ? findNodeHandle(target) : null;
+      if (handle) AccessibilityInfo.setAccessibilityFocus(handle);
+    } catch {
+      // The row or heading closed before focus could move there; nothing to focus.
+    }
   }
   useEffect(() => {
-    if (!step) return;
+    // The offer sheet focuses its own heading.
+    if (!step || step === "keep-offer") return;
     const frame = requestAnimationFrame(() => focus(heading.current));
     return () => cancelAnimationFrame(frame);
   }, [step]);
@@ -257,147 +262,144 @@ export function AccountSettings() {
           </>
         ) : null}
       </View>
+      {offer ? (
+        <RetentionOfferSheet
+          visible={step === "keep-offer"}
+          offer={offer.value}
+          store={STORE}
+          preview={offer.preview}
+          claiming={claiming}
+          message={offerMessage}
+          onClaim={() => void claim()}
+          onContinue={() => setStep("deletion-info")}
+          onClose={close}
+        />
+      ) : null}
       <Modal
         testID="account-confirmation"
-        visible={step !== null}
+        visible={step !== null && step !== "keep-offer"}
         animationType={reduceMotion ? "none" : "fade"}
         onRequestClose={close}
         onShow={() => focus(heading.current)}
       >
         <SafeAreaView accessibilityViewIsModal style={[s.safe, { backgroundColor: theme.background }]}>
-          {step === "keep-offer" && offer ? (
-            <RetentionOfferPanel
-              ref={heading}
-              offer={offer.value}
-              store={STORE}
-              preview={offer.preview}
-              claiming={claiming}
-              message={offerMessage}
-              onClaim={() => void claim()}
-              onContinue={() => setStep("deletion-info")}
-              onClose={close}
-            />
-          ) : (
-            <ScrollView contentContainerStyle={s.content}>
-              {eyebrow ? (
-                <Text style={[s.label, { color: final ? destructive : theme.accentText }]}>{eyebrow}</Text>
-              ) : null}
-              <Text ref={heading} accessibilityRole="header" style={[s.modalTitle, { color: theme.text }]}>
-                {title}
+          <ScrollView contentContainerStyle={s.content}>
+            {eyebrow ? (
+              <Text style={[s.label, { color: final ? destructive : theme.accentText }]}>{eyebrow}</Text>
+            ) : null}
+            <Text ref={heading} accessibilityRole="header" style={[s.modalTitle, { color: theme.text }]}>
+              {title}
+            </Text>
+            <Card>
+              {recovering ? (
+                <Text style={[s.body, { color: theme.text }]}>
+                  Recover only if the older library on this device belongs to you. It will be assigned to this
+                  account and will not be available to other accounts. Your current library stays intact, and
+                  a backup of the older data is kept on this device.
+                </Text>
+              ) : signingOut ? (
+                <Text style={[s.body, { color: theme.text }]}>
+                  Documents and notes saved on this device won&apos;t be deleted.
+                </Text>
+              ) : final ? (
+                <Text style={[s.body, { color: theme.text }]}>
+                  This permanently deletes your Votic account and sign-in. It cannot be undone. You will be
+                  signed out when deletion completes. Your local documents, notes, activity and pronunciations
+                  will be erased, along with your private backend reports and billing profile. Anonymous cost
+                  totals are retained for spending controls. If interrupted, retry to finish; some data may
+                  already be erased. App Store or Google Play subscriptions must be managed separately.
+                </Text>
+              ) : (
+                <>
+                  <Text style={[s.title, { color: theme.text }]}>A permanent decision</Text>
+                  <Text style={[s.body, { color: theme.text }]}>
+                    This permanently deletes your Votic account and sign-in. Unlike signing out, this cannot
+                    be undone.
+                  </Text>
+                  <Text style={[s.title, { color: theme.text }]}>Documents and notes on this device</Text>
+                  <Text style={[s.body, { color: theme.text }]}>
+                    Confirming deletion erases your account&apos;s documents, notes and settings on this
+                    device. Other devices clear their account data when they next connect and detect deletion.
+                  </Text>
+                  <Text style={[s.title, { color: theme.text }]}>Manage your subscription separately</Text>
+                  <Text style={[s.body, { color: theme.text }]}>
+                    Deleting your Votic account does not cancel an App Store or Google Play subscription. If
+                    you subscribed through either store, manage or cancel your subscription in that store’s
+                    subscription settings.
+                  </Text>
+                </>
+              )}
+            </Card>
+            {error ? (
+              <Text
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+                style={[s.body, { color: destructive }]}
+              >
+                {error}
               </Text>
-              <Card>
-                {recovering ? (
-                  <Text style={[s.body, { color: theme.text }]}>
-                    Recover only if the older library on this device belongs to you. It will be assigned to
-                    this account and will not be available to other accounts. Your current library stays
-                    intact, and a backup of the older data is kept on this device.
-                  </Text>
-                ) : signingOut ? (
-                  <Text style={[s.body, { color: theme.text }]}>
-                    Documents and notes saved on this device won&apos;t be deleted.
-                  </Text>
-                ) : final ? (
-                  <Text style={[s.body, { color: theme.text }]}>
-                    This permanently deletes your Votic account and sign-in. It cannot be undone. You will be
-                    signed out when deletion completes. Your local documents, notes, activity and
-                    pronunciations will be erased, along with your private backend reports and billing
-                    profile. Anonymous cost totals are retained for spending controls. If interrupted, retry
-                    to finish; some data may already be erased. App Store or Google Play subscriptions must be
-                    managed separately.
-                  </Text>
-                ) : (
-                  <>
-                    <Text style={[s.title, { color: theme.text }]}>A permanent decision</Text>
-                    <Text style={[s.body, { color: theme.text }]}>
-                      This permanently deletes your Votic account and sign-in. Unlike signing out, this cannot
-                      be undone.
-                    </Text>
-                    <Text style={[s.title, { color: theme.text }]}>Documents and notes on this device</Text>
-                    <Text style={[s.body, { color: theme.text }]}>
-                      Confirming deletion erases your account&apos;s documents, notes and settings on this
-                      device. Other devices clear their account data when they next connect and detect
-                      deletion.
-                    </Text>
-                    <Text style={[s.title, { color: theme.text }]}>Manage your subscription separately</Text>
-                    <Text style={[s.body, { color: theme.text }]}>
-                      Deleting your Votic account does not cancel an App Store or Google Play subscription. If
-                      you subscribed through either store, manage or cancel your subscription in that store’s
-                      subscription settings.
-                    </Text>
-                  </>
-                )}
-              </Card>
-              {error ? (
-                <Text
-                  accessibilityRole="alert"
-                  accessibilityLiveRegion="assertive"
-                  style={[s.body, { color: destructive }]}
-                >
-                  {error}
-                </Text>
-              ) : null}
-              {busy ? (
-                <Text accessibilityLiveRegion="polite" style={[s.body, { color: theme.mutedText }]}>
-                  {recovering ? "Recovering library…" : signingOut ? "Signing out…" : "Deleting account…"}
-                </Text>
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={final ? "Keep account" : "Cancel"}
-                accessibilityHint="Closes this request without changing your account"
-                accessibilityState={{ disabled: busy }}
-                disabled={busy}
-                onPress={close}
-                style={[s.button, { borderColor: theme.border, backgroundColor: theme.surface }]}
-              >
-                <Text style={[s.title, { color: theme.text }]}>{final ? "Keep account" : "Cancel"}</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  recovering
-                    ? "Recover my library"
-                    : signingOut
-                      ? "Sign out"
-                      : final
-                        ? "Delete account"
-                        : "Continue"
-                }
-                accessibilityHint={
-                  recovering
-                    ? "Assigns the older device library to this account while keeping a backup"
-                    : signingOut
-                      ? "Ends this session and keeps your account and local library"
-                      : final
-                        ? "Destructive action. Permanently deletes your account and signs you out"
-                        : "Opens the final confirmation. Your account will not be deleted yet"
-                }
-                accessibilityState={{ disabled: busy, busy }}
-                disabled={busy}
-                onPress={() => {
-                  if (step === "deletion-info") setStep("deletion-final");
-                  else void execute(recovering ? "recover" : signingOut ? "sign-out" : "delete");
-                }}
-                style={[
-                  s.button,
-                  {
-                    borderColor: final ? destructive : theme.accent,
-                    backgroundColor: final ? theme.surface : theme.accent,
-                  },
-                ]}
-              >
-                <Text style={[s.title, { color: final ? destructive : theme.onAccent }]}>
-                  {recovering
-                    ? "Recover my library"
-                    : signingOut
-                      ? "Sign out"
-                      : final
-                        ? "Delete account"
-                        : "Continue"}
-                </Text>
-              </Pressable>
-            </ScrollView>
-          )}
+            ) : null}
+            {busy ? (
+              <Text accessibilityLiveRegion="polite" style={[s.body, { color: theme.mutedText }]}>
+                {recovering ? "Recovering library…" : signingOut ? "Signing out…" : "Deleting account…"}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={final ? "Keep account" : "Cancel"}
+              accessibilityHint="Closes this request without changing your account"
+              accessibilityState={{ disabled: busy }}
+              disabled={busy}
+              onPress={close}
+              style={[s.button, { borderColor: theme.border, backgroundColor: theme.surface }]}
+            >
+              <Text style={[s.title, { color: theme.text }]}>{final ? "Keep account" : "Cancel"}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={
+                recovering
+                  ? "Recover my library"
+                  : signingOut
+                    ? "Sign out"
+                    : final
+                      ? "Delete account"
+                      : "Continue"
+              }
+              accessibilityHint={
+                recovering
+                  ? "Assigns the older device library to this account while keeping a backup"
+                  : signingOut
+                    ? "Ends this session and keeps your account and local library"
+                    : final
+                      ? "Destructive action. Permanently deletes your account and signs you out"
+                      : "Opens the final confirmation. Your account will not be deleted yet"
+              }
+              accessibilityState={{ disabled: busy, busy }}
+              disabled={busy}
+              onPress={() => {
+                if (step === "deletion-info") setStep("deletion-final");
+                else void execute(recovering ? "recover" : signingOut ? "sign-out" : "delete");
+              }}
+              style={[
+                s.button,
+                {
+                  borderColor: final ? destructive : theme.accent,
+                  backgroundColor: final ? theme.surface : theme.accent,
+                },
+              ]}
+            >
+              <Text style={[s.title, { color: final ? destructive : theme.onAccent }]}>
+                {recovering
+                  ? "Recover my library"
+                  : signingOut
+                    ? "Sign out"
+                    : final
+                      ? "Delete account"
+                      : "Continue"}
+              </Text>
+            </Pressable>
+          </ScrollView>
         </SafeAreaView>
       </Modal>
     </>

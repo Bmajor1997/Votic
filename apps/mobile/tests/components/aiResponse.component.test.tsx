@@ -1,7 +1,8 @@
 import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen } from "@testing-library/react-native";
-import { Text } from "react-native";
-import { AIResponse } from "../../src/components/AIResponse";
+import { useState } from "react";
+import { Pressable, Text } from "react-native";
+import { AIResponse, AIThinking } from "../../src/components/AIResponse";
 import { edge_color, UNWRITTEN_INK } from "../../src/components/RevealingText";
 import { KeyboardDictationButton } from "../../src/components/KeyboardDictationButton";
 import { render_with_providers } from "../renderWithProviders";
@@ -47,17 +48,44 @@ it("finishes laying down the answer, fully inked, and clears the generating stat
   expect(parts("One two three.")).toEqual({ inked: "One two three.", hidden: "" });
   expect(screen.queryByRole("button", { name: "Show full response" })).toBeNull();
 });
-it("keeps the Writing status above the answer's source chip, where the thinking word was", async () => {
+it("writes with the status where the thinking word was, then melts it and shows the source chip there", async () => {
   await render_with_providers(<AIResponse text="An answer with a source." header={<Text>Passage 4</Text>} />);
   expect(screen.getByText("Writing")).toBeTruthy();
-  // Rendered order: the status word comes before the chip, so it never drops below it.
-  const tree = JSON.stringify(screen.toJSON());
-  expect(tree.indexOf('"Writing"')).toBeGreaterThan(-1);
-  expect(tree.indexOf('"Writing"')).toBeLessThan(tree.indexOf('"Passage 4"'));
-  await act(async () => jest.advanceTimersByTime(4000));
-  // Once written, the status goes away and the chip stays above the answer.
-  expect(screen.queryByText("Writing")).toBeNull();
+  // The chip waits until the answer is written, so "Writing" never has anything above or below it to jump past.
+  expect(screen.queryByText("Passage 4")).toBeNull();
+  await act(async () => jest.advanceTimersByTime(3000));
+  // Done: "Writing" melts away letter by letter rather than vanishing.
+  expect(screen.getByTestId("ai-status-melting", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.queryByText("Passage 4")).toBeNull();
+  await act(async () => jest.advanceTimersByTime(1500));
+  expect(screen.queryByTestId("ai-status-melting", { includeHiddenElements: true })).toBeNull();
   expect(screen.getByText("Passage 4")).toBeTruthy();
+  // The chip sits above the answer.
+  const tree = JSON.stringify(screen.toJSON());
+  expect(tree.indexOf('"Passage 4"')).toBeLessThan(tree.indexOf("An answer"));
+});
+it("turns the previous status word into Writing when the answer's row replaces the thinking row", async () => {
+  function Conversation() {
+    const [answered, setAnswered] = useState(false);
+    return (
+      <>
+        {answered ? <AIResponse text="An answer." /> : <AIThinking question="What does it say?" grounded />}
+        <Pressable accessibilityRole="button" accessibilityLabel="Answer" onPress={() => setAnswered(true)}>
+          <Text>Answer</Text>
+        </Pressable>
+      </>
+    );
+  }
+  await render_with_providers(<Conversation />);
+  const before = screen.getByLabelText(/Reading|Thinking|Finding/).props.accessibilityLabel as string;
+  await fireEvent.press(screen.getByRole("button", { name: "Answer" }));
+  // Both words are drawn, crossing in the same place, until the change finishes.
+  expect(screen.getByLabelText("Writing")).toBeTruthy();
+  const letters = JSON.stringify(screen.toJSON());
+  expect(letters).toContain(`"${Array.from(before)[0]}"`);
+  expect(letters).toContain('"W"');
+  await act(async () => jest.advanceTimersByTime(1000));
+  expect(screen.getByText("Writing")).toBeTruthy();
 });
 it("shows complete text immediately with reduced motion", async () => {
   await render_with_providers(<AIResponse text="A complete answer." />, { reduceMotion: true });

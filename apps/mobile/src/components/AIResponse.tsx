@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   Animated,
   Easing,
+  LayoutAnimation,
   Pressable,
   StyleSheet,
   Text,
@@ -11,6 +12,14 @@ import {
 } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ShimmerText } from "./ShimmerText";
+import { ai_shimmer_colors } from "./aiShimmerColors";
+import {
+  FadeIn,
+  MeltingWord,
+  remember_status_word,
+  take_previous_status_word,
+  WordMorph,
+} from "./StatusWordMotion";
 import { RevealingText } from "./RevealingText";
 import { lay_down_text, readable_ai_text, type TextRevealFrame } from "./textReveal";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -20,7 +29,8 @@ import { ask_status } from "../ask/askStatus";
  * Reveal completed answers in reading order; the complete answer remains available to assistive technology.
  * While the answer is being written, its status row comes first, in the same place and at the same height as
  * the AIThinking row it replaces, so the word ("Reading", "Thinking"…) turns into "Writing" where it already is
- * instead of dropping below the answer's source chip. `header` (a source chip or title) sits under that row.
+ * instead of dropping below. When the answer is done, "Writing" melts away and `header` (a source chip or title)
+ * fades in where it was.
  */
 export function AIResponse({
   text: raw,
@@ -49,22 +59,15 @@ export function AIResponse({
     if (reduceMotion || !animate || skipped) return;
     return lay_down_text(text, { onFrame: setFrame, onComplete: () => {} });
   }, [text, reduceMotion, animate, skipped]);
+  const instant = reduceMotion || !animate || skipped;
   return (
     <View style={s.response}>
-      {!complete ? (
-        <View style={s.statusRow}>
-          <AIStatus label="Writing" />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Show full response"
-            onPress={() => setSkippedText(text)}
-            style={s.skip}
-          >
-            <Text style={[s.status, { color: theme.accentText }]}>Show all</Text>
-          </Pressable>
-        </View>
-      ) : null}
-      {header}
+      <AnswerStatus
+        complete={complete}
+        skipped={instant}
+        header={header}
+        onSkip={() => setSkippedText(text)}
+      />
       {reduceMotion || !animate || skipped ? (
         <Text selectable accessibilityLabel={text} style={style}>
           {text}
@@ -78,6 +81,60 @@ export function AIResponse({
     </View>
   );
 }
+/** The slot above the answer: "Writing" while it's written, the melt when it's done, then the source chip. */
+function AnswerStatus({
+  complete,
+  skipped,
+  header,
+  onSkip,
+}: {
+  complete: boolean;
+  /** No melt: Less motion, a saved answer, or Show all. */
+  skipped: boolean;
+  header?: ReactNode;
+  onSkip: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const [phase, setPhase] = useState<"writing" | "melting" | "done">(complete ? "done" : "writing");
+  if (!complete && phase !== "writing") setPhase("writing");
+  if (complete && phase === "writing") setPhase(skipped ? "done" : "melting");
+  const [melted, setMelted] = useState(false);
+  function finish_melt() {
+    setMelted(true);
+    LayoutAnimation.configureNext(LayoutAnimation.create(260, "easeInEaseOut", "opacity"));
+    setPhase("done");
+  }
+  if (phase === "done") return melted ? <FadeIn>{header}</FadeIn> : <>{header}</>;
+  if (phase === "melting")
+    return (
+      <View style={[s.statusRow, s.statusRowHeight]}>
+        <View style={s.thinking}>
+          <View style={s.meltStage}>
+            <MeltingWord
+              text="Writing"
+              color={ai_shimmer_colors(theme.mode).blue}
+              style={s.aiStatus}
+              onDone={finish_melt}
+            />
+          </View>
+        </View>
+      </View>
+    );
+  return (
+    <View style={s.statusRow}>
+      <AIStatus label="Writing" />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Show full response"
+        onPress={onSkip}
+        style={s.skip}
+      >
+        <Text style={[s.status, { color: theme.accentText }]}>Show all</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export function AIThinking({
   summary = false,
   question = "",
@@ -109,13 +166,29 @@ export function AIStatus({ label, compact = false }: { label: string; compact?: 
   const { reduceMotion } = useAccessibilityPreferences();
   const { theme } = useVoticTheme();
   const bounce = !compact && !reduceMotion;
+  const { blue } = ai_shimmer_colors(theme.mode);
+  // The word grows out of the one before it, whether that was this row's last word or the row it replaced.
+  const [morphFrom, setMorphFrom] = useState<string | null>(() =>
+    compact ? null : take_previous_status_word(text),
+  );
+  const [shownText, setShownText] = useState(text);
+  if (shownText !== text) {
+    setShownText(text);
+    if (!compact) setMorphFrom(shownText);
+  }
+  const morphing = Boolean(morphFrom) && !reduceMotion;
+  useEffect(() => {
+    if (compact) return;
+    remember_status_word(text);
+    return () => remember_status_word(text, Date.now());
+  }, [text, compact]);
   const characters = Array.from(text);
   // Where each letter sits, measured from an invisible copy of the word; spaces get no bounce.
   const [layout, setLayout] = useState<{ text: string; spots: (Spot | undefined)[] }>({ text, spots: [] });
   const spots = layout.text === text ? layout.spots : [];
   const letters = bouncing_letters(text, spots) ?? [];
   const measured = bouncing_letters(text, spots) !== null;
-  const ready = bounce && measured && letters.length > 0;
+  const ready = bounce && measured && letters.length > 0 && !morphing;
   const [step] = useState(() => new Animated.Value(-1));
 
   useEffect(() => {
@@ -140,7 +213,19 @@ export function AIStatus({ label, compact = false }: { label: string; compact?: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, text, letters.map((spot) => `${spot.x},${spot.width}`).join("|"), step]);
 
-  const word = <ShimmerText key={text} text={text} accessibilityLabel={text} style={s.aiStatus} />;
+  const word =
+    morphing && morphFrom ? (
+      <WordMorph
+        key={`${morphFrom}>${text}`}
+        from={morphFrom}
+        to={text}
+        color={blue}
+        style={s.aiStatus}
+        onDone={() => setMorphFrom(null)}
+      />
+    ) : (
+      <ShimmerText key={text} text={text} accessibilityLabel={text} style={s.aiStatus} />
+    );
   if (!bounce) return <View style={[s.thinking, compact && s.compact]}>{word}</View>;
 
   function measure(index: number, x: number, width: number) {
@@ -271,6 +356,8 @@ const s = StyleSheet.create({
   statusRowHeight: { minHeight: 48, justifyContent: "center" },
   status: { fontSize: 13 },
   aiStatus: { fontSize: 14, lineHeight: 20, fontWeight: "600", letterSpacing: 0.1, flexShrink: 1 },
+  // Same place as the word inside bounceStage, so the melt starts exactly where "Writing" was.
+  meltStage: { paddingTop: HEADROOM, paddingLeft: 16, paddingRight: 10 },
   bounceStage: { position: "relative", paddingTop: HEADROOM, paddingLeft: 16, paddingRight: 10 },
   measureRow: {
     position: "absolute",
