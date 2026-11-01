@@ -50,13 +50,13 @@ export function SupportSettings() {
         />
       </SettingsGroup>
       <Text selectable style={{ color: theme.mutedText, fontSize: 15, lineHeight: 23 }}>
-        To request a disability discount, email {SUPPORT_EMAIL} with the subject{" "}
-        {ACCESSIBILITY_DISCOUNT_SUBJECT}. Include your Votic account email. In your request, you must briefly
-        explain how a disability affects reading or using documents, what accessibility support you need,
-        and why you need the accessibility discount. You do not need to name your condition or share a
-        diagnosis, medical details, or medical paperwork.
-        Votic&apos;s owner personally reviews and approves each request. Sending a request does not
-        automatically apply a discount. You will receive a reply with the decision and any next steps.
+        This discount is intended for people with disabilities who need accessibility support for reading
+        or using documents. Email {SUPPORT_EMAIL} with the subject {ACCESSIBILITY_DISCOUNT_SUBJECT}.
+        Include your Votic account email, explain the accessibility barriers you face, the support you
+        need, and why you are requesting the discount. No medical information is required at this stage.
+        Each request is personally reviewed by Votic&apos;s owner. Approval is not guaranteed, and sending
+        a request does not apply a discount. Please submit only one request per Votic account and wait for
+        a reply before following up.
       </Text>
       {error ? (
         <Text accessibilityRole="alert" style={{ color: theme.text }}>
