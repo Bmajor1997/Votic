@@ -172,7 +172,7 @@ export function AccountSettings() {
           detail="Request a disability discount by email for personal review and approval."
           hint="Opens contact support with instructions for requesting an accessibility discount"
           icon="accessibility-outline"
-          onPress={() => router.push({ pathname: "/settings/[category]", params: { category: "support" } })}
+          onPress={() => router.push("/support")}
         />
         {auth.user ? (
           <>
