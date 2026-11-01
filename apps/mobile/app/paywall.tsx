@@ -267,6 +267,24 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         <Text style={[p.detail, { color: theme.text }]}>
           A subscription is required to read, listen to, and ask questions about your documents.
         </Text>
+        <View
+          style={[s.accessibilityDiscount, { backgroundColor: theme.brandTint, borderColor: theme.border }]}
+        >
+          <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.text }]}>
+            Accessibility discount by request
+          </Text>
+          <Text style={[p.detail, { color: theme.text }]}>
+            Need accessibility support for reading or using documents? People with disabilities can request a
+            discount. Explain your accessibility needs and why you need the discount. No medical information
+            is required at this stage. Each request is personally reviewed by Votic&apos;s owner; approval is
+            required before a discount can be applied.
+          </Text>
+          <FooterLink
+            label="Request an accessibility discount"
+            disabled={working}
+            onPress={() => router.push("/support")}
+          />
+        </View>
         {inlineCheckout ? checkout : null}
 
         <PaywallBenefits />
@@ -425,6 +443,7 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
+  accessibilityDiscount: { borderWidth: 1, borderRadius: 20, padding: spacing.md, gap: spacing.sm },
   plansTitle: { marginTop: spacing.sm },
   offer: { gap: 16 },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
