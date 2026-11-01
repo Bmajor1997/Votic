@@ -27,7 +27,9 @@ function parts(full: string) {
 it("writes answers from left to right, holding only the current word's place, and can show the full response", async () => {
   const answer = "First word.\nNext line of the answer.";
   await render_with_providers(<AIResponse text={answer} />);
-  expect(screen.getByText("Writing")).toBeTruthy();
+  expect(screen.queryByLabelText("Writing")).toBeNull();
+  expect(screen.queryByTestId("ai-status-orb", { includeHiddenElements: true })).toBeNull();
+  expect(screen.queryByTestId("ai-status-letter", { includeHiddenElements: true })).toBeNull();
   // At first nothing is inked; only the first word's place is held, so it can't jump to another line mid-word.
   expect(parts(answer)).toEqual({ inked: "", hidden: "First" });
   await act(async () => jest.advanceTimersByTime(24 * 8));

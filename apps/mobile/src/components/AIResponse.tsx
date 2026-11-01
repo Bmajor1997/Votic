@@ -46,7 +46,6 @@ export function AIResponse({
     <View style={s.response}>
       {!complete ? (
         <View style={s.statusRow}>
-          <AIStatus label="Writing" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Show full response"
