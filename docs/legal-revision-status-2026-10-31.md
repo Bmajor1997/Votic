@@ -6,7 +6,7 @@ Draft revision of the October 30 policies on claude/legal-updates, based on Voti
 
 - Cancellation, store-management links, refund routes and developer assistance; mandatory rights preserved.
 - Monthly allowance, conditional annual billing and additional-purchase rules. No new price, trial or launch product is promised. Rules grounded in app_parts/ai_credits.js and docs/ai-credit-policy.md; deployed configuration still needs checking.
-- Proposed minimum age of 13, any higher local minimum, and guardian authorization for minors. This is a proposed contractual rule, not a verified age-control implementation or an approved audience decision.
+- Ben selected an all-ages policy with no app minimum age. Removed the proposed 13-plus exclusion and inconsistent under-13 privacy wording. Legally required parent/guardian authorization and child-data safeguards remain separate implementation obligations.
 - Scope extended to support and deletion forms; Gmail and the linked Framer host identified. Submission destination, fields and website tracking remain unverified.
 - Privacy access/correction/deletion and other applicable rights, verification, agents, appeals, regulator complaints and consent withdrawal.
 - AI context can include an entire short document, history, notes and scans; endpoint retention differs. No zero-retention promise.
@@ -18,7 +18,7 @@ Draft revision of the October 30 policies on claude/legal-updates, based on Voti
 ## Decisions Ben needs to confirm
 
 1. Launch countries and Android-only versus iOS. International lawful bases, transfer mechanisms, representatives and market-specific disclosures remain unresolved. Do not use the general rights section as evidence of GDPR readiness.
-2. Age policy: adopt the proposed 13-plus/guardian approach, choose adults only, or another reviewed policy. Align onboarding and store audience settings before publication. The existing privacy notice still says the service is not directed to under-13s.
+2. Audience decision resolved: Ben selected all ages, with no app minimum age. Implement the required child-data safeguards and align actual app behavior and Play audience declarations before wider release. No birth date collection or age gate was added by this wording update.
 3. Which subscription periods and additional-usage products will actually be available. Repository documentation describes annual billing and top-ups, but this does not prove the live offer. Match purchase screens, unit disclosures and limits to the offer.
 4. Whether to prohibit highly sensitive/regulated documents or support them with appropriate controls. The revision preserves the existing caution and adds authority and regulated-use limits; it does not establish a special-category lawful basis.
 
@@ -28,7 +28,7 @@ Draft revision of the October 30 policies on claude/legal-updates, based on Voti
 | --- | --- |
 | 1. AI-sharing permission | Build and test disclosure before relevant transfers; name OpenAI, identify data and purpose, provide cancel, and record permission appropriately. The policy does not claim this control exists. |
 | 2–3. Paid benefits | Verify localized offer, reset behavior, failed-request releases, top-up grants/refunds and usable management links in release builds. Confirm refund support and safeguards do not defeat purchased benefits. |
-| 4. Children | Implement the selected eligibility rule and underage-account handling; evaluate applicable parental-consent requirements. |
+| 4. Children | Implement all-ages child-data handling, required direct parental notice/verified consent, parental rights and child-safe SDK/AI behavior. Current signup and ordinary AI consent do not provide those controls. |
 | 5. External deletion | Verify Framer form fields, receipt destination, cookies/analytics, access controls and retention. Test email fallback through verification and completion. Gmail naming is based on the support address, not an inbox audit. |
 | 6. Privacy requests | Establish an operating process for applicable response deadlines, proportionate verification, authorized agents, exceptions, appeals and complaints. Rights text alone does not implement it. |
 | 7. International | Determine distribution and marketing scope; assess lawful bases, processor agreements, transfers and local contacts before targeting covered markets. Do not assert unverified safeguards. |
@@ -59,4 +59,4 @@ The original review remains the detailed source for the 16 findings and conditio
 
 ## Beta-readiness implementation follow-up
 
-The beta-readiness branch adds a versioned account/device AI-sharing disclosure and withdrawal control, and labels the still-unapproved public HTML as beta review copies. Automated UI and transport-boundary tests verify affirmative action and no content upload on decline. This is not age-policy approval or launch clearance. All audience, provider-account, market and operational decisions above remain open until explicitly verified. See `beta-readiness-2026-10-31.md` for scope and validation.
+The beta-readiness branch adds a versioned account/device AI-sharing disclosure and withdrawal control, and labels the still-unapproved public HTML as beta review copies. Automated UI and transport-boundary tests verify affirmative action and no content upload on decline. Ben subsequently approved an all-ages policy without an app minimum age. This is not launch clearance: child-data handling, provider-account, market and operational checks remain open until explicitly verified. See `beta-readiness-2026-10-31.md` for scope and validation.
