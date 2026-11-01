@@ -82,9 +82,15 @@ jobs:
         env:
           NODE_ENV: production
           EXPO_NO_TELEMETRY: "1"
+          # Verification build only (emulator smoke test, CodeQL, lint). Debug-signed; never upload it to Play.
+          VOTIC_CI_VERIFY_BUILD: "1"
+          VOTIC_LOCAL_DEBUG_SIGNING: "1"
       - name: Test playback and lint Android release
         working-directory: apps/mobile/android
         run: ./gradlew :votic-playback:testDebugUnitTest :app:lintRelease :votic-playback:lintDebug :votic-widgets:lintDebug --no-daemon --max-workers=2
+        env:
+          VOTIC_CI_VERIFY_BUILD: "1"
+          VOTIC_LOCAL_DEBUG_SIGNING: "1"
       - name: Analyze native code
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
@@ -107,7 +113,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: android-ci-build
+          name: android-ci-build-debug-signed-NOT-FOR-PLAY
           path: |
             apps/mobile/android/app/build/outputs/apk/release/*.apk
             apps/mobile/android/app/build/outputs/bundle/release/*.aab

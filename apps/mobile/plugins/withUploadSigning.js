@@ -1,7 +1,11 @@
 const { withAppBuildGradle } = require("@expo/config-plugins");
 const GUARD = `
-// Votic release signing: public debug keys are allowed only in explicitly marked local preview builds.
-def voticLocalDebug = System.getenv('EAS_BUILD_PROFILE') == 'preview' && System.getenv('VOTIC_LOCAL_DEBUG_SIGNING') == '1'
+// Votic release signing: public debug keys are allowed only in explicitly marked local preview builds, or in the
+// CI verification build (compiled, linted and smoke-tested on an emulator; never uploaded to Play). Never production.
+def voticProfile = System.getenv('EAS_BUILD_PROFILE')
+def voticDebugOptIn = System.getenv('VOTIC_LOCAL_DEBUG_SIGNING') == '1'
+def voticLocalDebug = voticDebugOptIn && voticProfile != 'production' &&
+    (voticProfile == 'preview' || System.getenv('VOTIC_CI_VERIFY_BUILD') == '1')
 def voticSigningNames = ['VOTIC_UPLOAD_STORE_FILE', 'VOTIC_UPLOAD_STORE_PASSWORD', 'VOTIC_UPLOAD_KEY_ALIAS', 'VOTIC_UPLOAD_KEY_PASSWORD']
 def voticHasUploadSigning = voticSigningNames.every { System.getenv(it)?.trim() }
 // Inspect the resolved graph, so aggregate tasks such as 'build', 'assemble' and 'bundle' cannot bypass this.

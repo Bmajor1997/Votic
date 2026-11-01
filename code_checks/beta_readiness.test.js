@@ -108,3 +108,19 @@ test("deployment rejects missing/malformed SHA before cloud or root operations a
     assert.doesNotMatch(source, /reset --hard FETCH_HEAD|\$BRANCH|curl.*\| sudo/);
   }
 });
+
+test("CI verification build opts into debug signing explicitly, never for production, and labels its artifact", () => {
+  const workflow = readFileSync(".github/workflows/android-notification-playback.yml", "utf8");
+  // Every Gradle step that runs release tasks carries both opt-ins, or the signing guard stops the build.
+  const steps = workflow.split(/\n      - name: /).filter(step => /gradlew[^\n]*Release/.test(step));
+  assert.equal(steps.length, 2);
+  for (const step of steps) {
+    assert.match(step, /VOTIC_CI_VERIFY_BUILD: "1"/);
+    assert.match(step, /VOTIC_LOCAL_DEBUG_SIGNING: "1"/);
+    assert.doesNotMatch(step, /EAS_BUILD_PROFILE/);
+  }
+  assert.match(workflow, /name: android-ci-build-debug-signed-NOT-FOR-PLAY/);
+  const GUARD = readFileSync("apps/mobile/plugins/withUploadSigning.js", "utf8");
+  assert.match(GUARD, /voticProfile != 'production'/);
+  assert.match(GUARD, /VOTIC_CI_VERIFY_BUILD/);
+});
