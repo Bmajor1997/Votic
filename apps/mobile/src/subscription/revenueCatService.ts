@@ -1,11 +1,23 @@
 import { Platform } from "react-native";
-import type { CustomerInfo, PurchasesPackage, PurchasesStoreProduct } from "react-native-purchases";
+import type {
+  CustomerInfo,
+  PurchasesPackage,
+  PurchasesStoreProduct,
+  SubscriptionOption,
+} from "react-native-purchases";
 import {
   entitlement_from_customer_info,
+  parse_iso_period,
   plan_from_store_product,
   purchase_outcome_from_error,
 } from "./entitlement";
-import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
+import {
+  Entitlement,
+  RETENTION_OFFER_TAG,
+  RetentionOffer,
+  SubscriptionService,
+  UNKNOWN_ENTITLEMENT,
+} from "./subscriptionTypes";
 
 type Sdk = typeof import("react-native-purchases").default;
 
@@ -18,6 +30,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
   let sdkPromise: Promise<Sdk> | null = null;
   const packages = new Map<string, PurchasesPackage>();
   const creditProducts = new Map<string, PurchasesStoreProduct>();
+  const retentionOptions = new Map<string, SubscriptionOption>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
   let generation = 0;
   let intendedUser: string | null = null;
@@ -233,6 +246,52 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
+    async getRetentionOffer() {
+      // Google Play only: the App Store needs signed promotional offers, which Votic doesn't issue yet.
+      if (Platform.OS !== "android") return null;
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser) return null;
+      const sdk = await load();
+      const offerings = await sdk.getOfferings();
+      if (token !== generation || owner !== identifiedUser) return null;
+      for (const item of offerings.current?.availablePackages || []) {
+        const option = item.product.subscriptionOptions?.find((candidate) =>
+          candidate.tags.includes(RETENTION_OFFER_TAG),
+        );
+        const offer = option && retention_offer_from(item.product.identifier, option);
+        if (option && offer) {
+          retentionOptions.set(offer.id, option);
+          return offer;
+        }
+      }
+      return null;
+    },
+    async claimRetentionOffer(offerId, fromProductId) {
+      const token = generation;
+      const owner = identifiedUser;
+      const option = retentionOptions.get(offerId);
+      if (!option || !owner)
+        return { kind: "failed", message: "This offer isn't available right now. Please try again." };
+      try {
+        await identityQueue;
+        const sdk = await load();
+        if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
+        // A current subscriber switches at their next renewal, so the paid period they're in isn't charged again.
+        const change = fromProductId
+          ? {
+              oldProductIdentifier: fromProductId.split(":")[0],
+              replacementMode: sdk.STORE_REPLACEMENT_MODE.DEFERRED,
+            }
+          : null;
+        const { customerInfo } = await sdk.purchaseSubscriptionOption(option, change);
+        if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
+        return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
+      } catch (error) {
+        return purchase_outcome_from_error(error);
+      }
+    },
     async getCreditProducts(productIds) {
       const token = generation;
       const owner = intendedUser;
@@ -279,5 +338,26 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
+  };
+}
+
+/** The discounted phase (finite, paid) and the regular price after it, straight from the store's option. */
+export function retention_offer_from(productId: string, option: SubscriptionOption): RetentionOffer | null {
+  const discounted = option.pricingPhases.find(
+    (phase) =>
+      phase.recurrenceMode === 2 && phase.price.amountMicros > 0 && (phase.billingCycleCount ?? 0) > 0,
+  );
+  const regular = option.fullPricePhase;
+  const period = discounted && parse_iso_period(discounted.billingPeriod.iso8601);
+  if (!discounted || !regular || !period || regular.price.amountMicros <= discounted.price.amountMicros)
+    return null;
+  return {
+    id: option.id,
+    productId,
+    offerPrice: discounted.price.formatted,
+    offerPeriod: period,
+    offerCycles: discounted.billingCycleCount ?? 1,
+    regularPrice: regular.price.formatted,
+    regularPeriod: parse_iso_period(regular.billingPeriod.iso8601),
   };
 }

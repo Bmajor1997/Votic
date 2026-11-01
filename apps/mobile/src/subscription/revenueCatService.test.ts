@@ -351,3 +351,34 @@ it("switches between monthly and annual through Google Play's replacement flow, 
   await service.changePlan?.("$rc_annual", "votic_plus_monthly");
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, null);
 });
+
+it("reads the retention discount and the regular price from the store's tagged offer", async () => {
+  const { retention_offer_from } = await import("./revenueCatService");
+  const phase = (formatted: string, micros: number, iso: string, mode: number, cycles: number | null) => ({
+    billingPeriod: { iso8601: iso, unit: "MONTH", value: 1 },
+    recurrenceMode: mode,
+    billingCycleCount: cycles,
+    price: { formatted, amountMicros: micros, currencyCode: "USD" },
+    offerPaymentMode: null,
+  });
+  const regular = phase("$9.99", 9_990_000, "P1M", 1, null);
+  const option = {
+    id: "monthly:stay",
+    tags: ["votic-retention"],
+    pricingPhases: [phase("$7.99", 7_990_000, "P1M", 2, 2), regular],
+    fullPricePhase: regular,
+  } as unknown as Parameters<typeof retention_offer_from>[1];
+  expect(retention_offer_from("votic_plus", option)).toEqual({
+    id: "monthly:stay",
+    productId: "votic_plus",
+    offerPrice: "$7.99",
+    offerPeriod: { count: 1, unit: "month" },
+    offerCycles: 2,
+    regularPrice: "$9.99",
+    regularPeriod: { count: 1, unit: "month" },
+  });
+  // No discount (or a "discount" that isn't cheaper) is never shown as one.
+  expect(
+    retention_offer_from("votic_plus", { ...option, pricingPhases: [regular] } as unknown as typeof option),
+  ).toBeNull();
+});

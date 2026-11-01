@@ -47,6 +47,25 @@ export type PurchaseOutcome =
   | { kind: "pending" }
   | { kind: "failed"; message: string };
 
+/**
+ * Tag on the Google Play offer (a "Developer determined" offer on the monthly base plan) that Votic shows to
+ * someone about to delete their account. Also tag it rc-ignore-offer so the paywall never picks it by default.
+ */
+export const RETENTION_OFFER_TAG = "votic-retention";
+
+/** A discount for staying, described entirely by the store: e.g. $7.99/month for 2 months, then $9.99/month. */
+export type RetentionOffer = {
+  /** The store's subscription option ("base-plan:offer"), used to claim it. */
+  id: string;
+  productId: string;
+  offerPrice: string;
+  offerPeriod: Period;
+  /** How many discounted billing periods, e.g. 2 months. */
+  offerCycles: number;
+  regularPrice: string;
+  regularPeriod: Period | null;
+};
+
 /** A one-time purchase of additional AI usage, described entirely by the store's product data. */
 export type CreditProduct = { productId: string; title: string; priceString: string };
 
@@ -73,6 +92,13 @@ export interface SubscriptionService {
    * flow (never a second subscription). The store shows the final price, proration and timing first.
    */
   changePlan?(planId: string, fromProductId: string): Promise<PurchaseOutcome>;
+  /** The store's discount for staying, if one is set up and this account is eligible; otherwise null. */
+  getRetentionOffer?(): Promise<RetentionOffer | null>;
+  /**
+   * Claims the discount through the store's own purchase sheet. A current subscriber keeps their plan and moves
+   * onto the discounted price at their next renewal, so nobody pays twice for the same period.
+   */
+  claimRetentionOffer?(offerId: string, fromProductId: string | null): Promise<PurchaseOutcome>;
   /** Store products for additional AI usage, limited to the IDs Votic's server is configured to credit. */
   getCreditProducts?(productIds: string[]): Promise<CreditProduct[]>;
   purchaseCredits?(productId: string): Promise<CreditPurchaseOutcome>;

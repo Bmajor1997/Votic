@@ -423,3 +423,56 @@ describe("Settings store failures", () => {
     await act(async () => finish(entitlement_of("active")));
   });
 });
+
+describe("Retention offer before account deletion", () => {
+  const OFFER = {
+    id: "monthly:stay-two-months",
+    productId: "votic_plus",
+    offerPrice: "$7.99",
+    offerPeriod: { count: 1, unit: "month" as const },
+    offerCycles: 2,
+    regularPrice: "$9.99",
+    regularPeriod: { count: 1, unit: "month" as const },
+  };
+
+  it("asks first with the store's discount, and leaving stays one tap away", async () => {
+    fakeSubscriptions.reset();
+    fakeSubscriptions.retentionOffer = OFFER;
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(await screen.findByRole("header", { name: "Are you sure you want to leave?" })).toBeTruthy();
+    expect(screen.getByText("$7.99/month")).toBeTruthy();
+    expect(screen.getByText("for your next 2 months")).toBeTruthy();
+    expect(screen.getByText("$9.99/month")).toBeTruthy();
+    expect(
+      screen.getByText(/^Then \$9.99\/month. Auto-renews. Cancel anytime in (Google Play|App Store)\.$/),
+    ).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue to delete account" }));
+    expect(screen.getByRole("header", { name: "Before you delete your account" })).toBeTruthy();
+    expect(backend.fakeAuth.calls).not.toContain("deleteAccount");
+  });
+
+  it("claims the discount from the current plan and keeps the account", async () => {
+    fakeSubscriptions.reset({
+      defaultEntitlement: entitlement_of("active", { productId: "votic_plus:monthly" }),
+    });
+    fakeSubscriptions.retentionOffer = OFFER;
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    await fireEvent.press(await screen.findByRole("button", { name: /^Claim offer/ }));
+    expect(fakeSubscriptions.calls).toContain(
+      "claimRetentionOffer:monthly:stay-two-months:from:votic_plus:monthly",
+    );
+    expect(await screen.findByText(/Thanks for staying/)).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Are you sure you want to leave?" })).toBeNull();
+    expect(backend.fakeAuth.calls).not.toContain("deleteAccount");
+  });
+
+  it("goes straight to the deletion steps when the store has no offer", async () => {
+    fakeSubscriptions.reset();
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(await screen.findByRole("header", { name: "Before you delete your account" })).toBeTruthy();
+    expect(screen.queryByText("Are you sure you want to leave?")).toBeNull();
+  });
+});

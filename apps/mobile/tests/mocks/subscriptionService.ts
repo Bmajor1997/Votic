@@ -4,6 +4,7 @@ import {
   CreditPurchaseOutcome,
   Entitlement,
   PurchaseOutcome,
+  RetentionOffer,
   SubscriptionPlan,
   SubscriptionService,
   SubscriptionUnavailableReason,
@@ -50,6 +51,8 @@ export const fakeSubscriptions = {
   legal: { termsUrl: null, privacyUrl: null } as LegalLinks,
   /** Additional-usage products the store returns; only IDs the server lists are requested. */
   creditProducts: [] as CreditProduct[],
+  /** The store's discount for staying; null when none is set up. */
+  retentionOffer: null as RetentionOffer | null,
   nextCreditPurchase: { kind: "purchased" } as CreditPurchaseOutcome,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
@@ -65,6 +68,7 @@ export const fakeSubscriptions = {
     fakeSubscriptions.restoreResult = null;
     fakeSubscriptions.throwNext = null;
     fakeSubscriptions.creditProducts = [];
+    fakeSubscriptions.retentionOffer = null;
     fakeSubscriptions.nextCreditPurchase = { kind: "purchased" };
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
@@ -119,6 +123,16 @@ export function create_subscription_service(): SubscriptionService {
     },
     async changePlan(planId, fromProductId) {
       fakeSubscriptions.calls.push(`changePlan:${planId}:from:${fromProductId}`);
+      const outcome = fakeSubscriptions.nextPurchase ?? { kind: "purchased", entitlement: read() };
+      fakeSubscriptions.nextPurchase = null;
+      return outcome;
+    },
+    async getRetentionOffer() {
+      fakeSubscriptions.calls.push("getRetentionOffer");
+      return fakeSubscriptions.retentionOffer;
+    },
+    async claimRetentionOffer(offerId, fromProductId) {
+      fakeSubscriptions.calls.push(`claimRetentionOffer:${offerId}:from:${fromProductId}`);
       const outcome = fakeSubscriptions.nextPurchase ?? { kind: "purchased", entitlement: read() };
       fakeSubscriptions.nextPurchase = null;
       return outcome;
