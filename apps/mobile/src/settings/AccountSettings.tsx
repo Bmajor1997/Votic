@@ -167,6 +167,13 @@ export function AccountSettings() {
           />
         ) : null}
         {auth.user ? <PremiumRows key={auth.user.uid} /> : null}
+        <AccountRow
+          label="Accessibility discount"
+          detail="Request a disability discount by email for personal review and approval."
+          hint="Opens contact support with instructions for requesting an accessibility discount"
+          icon="accessibility-outline"
+          onPress={() => router.push({ pathname: "/settings/[category]", params: { category: "support" } })}
+        />
         {auth.user ? (
           <>
             <Text accessibilityRole="header" style={[s.label, { color: theme.mutedText }]}>
