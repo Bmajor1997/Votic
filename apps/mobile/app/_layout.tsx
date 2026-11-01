@@ -149,6 +149,7 @@ function ThemedStack() {
                     <Stack.Screen name="widget" options={{ animation: "none" }} />
                   </Stack.Protected>
                   <Stack.Protected guard={signedIn}>
+                    <Stack.Screen name="support" options={slide} />
                     <Stack.Screen name="subscription" options={slide} />
                     <Stack.Screen name="account" options={slide} />
                     <Stack.Screen name="library-backup" options={slide} />
