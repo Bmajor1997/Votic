@@ -9,6 +9,7 @@ const state = vi.hoisted(() => ({
   os: "android",
   files: new Map<string, { size: number; modified: number | null; created?: number | null }>(),
   removed: [] as string[],
+  contents: new Map<string, string>(),
 }));
 vi.mock("react-native", () => ({
   Platform: {
@@ -24,8 +25,18 @@ vi.mock("expo-crypto", () => ({
 vi.mock("expo-file-system", () => {
   class File {
     uri: string;
-    constructor(uri: string) {
-      this.uri = uri;
+    constructor(...parts: (string | { uri: string })[]) {
+      this.uri = parts.map((p) => (typeof p === "string" ? p : p.uri)).join("/");
+    }
+    create() {
+      state.files.set(this.uri, { size: 0, modified: 1 });
+    }
+    write(text: string) {
+      state.contents.set(this.uri, text);
+      state.files.set(this.uri, { size: text.length, modified: 1 });
+    }
+    textSync() {
+      return state.contents.get(this.uri) ?? "";
     }
     get exists() {
       return state.files.has(this.uri);
@@ -74,6 +85,7 @@ vi.mock("expo-file-system", () => {
 const now = 10 * TEMP_RETENTION_MS;
 beforeEach(() => {
   state.files.clear();
+  state.contents.clear();
   state.removed = [];
   state.os = "android";
 });
@@ -110,6 +122,8 @@ describe("temporary file cleanup", () => {
     state.files.set(path, { size: 20, modified: 1, created: null });
     clear_old_temporary_files(now);
     expect(state.files.has(path)).toBe(true);
+    clear_old_temporary_files(now + TEMP_RETENTION_MS + 1);
+    expect(state.files.has(path)).toBe(false);
   });
   it("does not expose native measurements or cleanup on web", async () => {
     state.os = "web";
@@ -119,4 +133,17 @@ describe("temporary file cleanup", () => {
     clear_old_temporary_files(now);
     expect(state.removed).toEqual([]);
   });
+});
+
+it("persists conservative Android age across measurements and rejects corrupted age metadata", () => {
+  const path = "file:///cache/Camera/no-birthtime.jpg";
+  state.files.set(path, { size: 30, modified: 1, created: null });
+  expect(read_temporary_usage(now)?.clearableBytes).toBe(0);
+  expect(state.contents.get("file:///cache/VoticTemporaryAges.json")).toContain("no-birthtime.jpg");
+  // No process-only state is required: each operation loads the saved cache metadata.
+  expect(read_temporary_usage(now + TEMP_RETENTION_MS + 1)?.clearableBytes).toBe(30);
+  state.contents.set("file:///cache/VoticTemporaryAges.json", "broken json");
+  expect(read_temporary_usage(now + TEMP_RETENTION_MS + 2)?.clearableBytes).toBe(0);
+  clear_old_temporary_files(now + TEMP_RETENTION_MS + 3);
+  expect(state.files.has(path)).toBe(true);
 });

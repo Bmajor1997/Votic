@@ -23,3 +23,7 @@ and build checks remain necessary after changes.
 
 Remove the adapter and its file dependency/override together when all installed consumers support the
 current upstream module and compiled-segment APIs. Until then, review it when upgrading minimatch.
+
+Track removal with Jest and ESLint upgrades: use `npm explain glob minimatch`, confirm no glob 7 compiled-segment callers and no callable-only minimatch consumers remain, remove the override/wrapper together, regenerate the lockfile, and run reliability/component tests, lint, typecheck and an Expo Android release build. Do not defer this review indefinitely after those consumers are upgraded.
+
+`makeRe()` returns a test-only object, **not a RegExp**. It does not support `.exec`, `.source`, regex flags, `String.match`, serialization or combining regexes. A new dependency requiring those APIs must block the upgrade until the override can be narrowed or removed; do not add an unsafe backtracking compiler to simulate compatibility.

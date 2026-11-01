@@ -23,7 +23,7 @@ export function revenue_cat_config_from(env: Env): RevenueCatConfig {
   return {
     iosApiKey: clean(env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY),
     androidApiKey: clean(env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY),
-    entitlementId: clean(env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID) || "pro",
+    entitlementId: clean(env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID) || "premium",
   };
 }
 

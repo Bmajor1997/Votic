@@ -6,7 +6,7 @@ describe("build configuration", () => {
     expect(revenue_cat_config_from({})).toEqual({
       iosApiKey: null,
       androidApiKey: null,
-      entitlementId: "pro",
+      entitlementId: "premium",
     });
   });
   it("only shows HTTPS legal links and never invents them", () => {

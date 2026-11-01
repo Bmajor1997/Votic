@@ -41,14 +41,16 @@ export function LibraryToolsSettings() {
           icon="create-outline"
           onPress={() => router.push("/note-drafts")}
         />
-        <SettingsRow
-          separated
-          label="Unfinished scan"
-          detail="Resume recognized text and corrections."
-          hint="Opens your saved scan review"
-          icon="scan-outline"
-          onPress={review.resume}
-        />
+        {review.hasUnfinishedScan ? (
+          <SettingsRow
+            separated
+            label="Unfinished scan"
+            detail="Resume recognized text and corrections."
+            hint="Opens your saved scan review"
+            icon="scan-outline"
+            onPress={review.resume}
+          />
+        ) : null}
       </SettingsGroup>
       {!uid ? <Text style={{ color: theme.mutedText }}>Sign in to back up your library.</Text> : null}
     </>

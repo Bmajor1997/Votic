@@ -37,6 +37,7 @@ type Options = {
   onPrepared?: () => Promise<void>;
 };
 type Value = {
+  hasUnfinishedScan: boolean;
   review: (name: string, pages: string[], options: Options) => Promise<VoticDocument | null>;
   resume: () => void;
   /** Throws before any paid text recognition starts if a new review could not be opened afterwards. */
@@ -208,6 +209,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
   return (
     <Context.Provider
       value={{
+        hasUnfinishedScan: ready && Boolean(record),
         ensureAvailable,
         review: async (name, pages, options) => {
           if (!ready) throw new Error(error || "Scan review is loading. Please try again.");

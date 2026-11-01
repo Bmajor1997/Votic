@@ -7,7 +7,13 @@ import {
 } from "../documents/documentStorage";
 import { account_storage_key } from "./accountStorage";
 
-export type DocumentUsage = { id: string; title: string; bytes: number; deleted: boolean };
+export type DocumentUsage = {
+  id: string;
+  title: string;
+  bytes: number;
+  deleted: boolean;
+  incomplete?: boolean;
+};
 export type AccountStorageUsage = { bytes: number; documents: DocumentUsage[] };
 const utf8_bytes = (value: string) => new TextEncoder().encode(value).byteLength;
 
@@ -33,7 +39,7 @@ export async function read_account_storage_usage(uid: string): Promise<AccountSt
   const stored: unknown = JSON.parse(metadata);
   if (!Array.isArray(stored) || stored.length > MAX_STORED_DOCUMENTS)
     throw new Error("Saved document sizes could not be read. Your library has not been changed.");
-  const documents = stored.map((entry): DocumentUsage => {
+  const documents = stored.flatMap((entry): DocumentUsage[] => {
     const chunks = entry?.textChunks ?? 1;
     if (
       typeof entry?.id !== "string" ||
@@ -42,15 +48,23 @@ export async function read_account_storage_usage(uid: string): Promise<AccountSt
       chunks < 1 ||
       chunks > MAX_DOCUMENT_CHUNKS
     )
-      throw new Error("Saved document sizes could not be read. Your library has not been changed.");
+      return []; // An invalid row must not hide healthy documents; no saved data is changed.
+    let incomplete = false;
     let size = utf8_bytes(JSON.stringify(entry));
     for (let chunk = 0; chunk < chunks; chunk++) {
       const textSize = sizes.get(document_text_key(entry.id, chunk, uid));
-      if (textSize === undefined)
-        throw new Error("Some document text is unavailable. Your saved data has been kept.");
-      size += textSize;
+      if (textSize === undefined) incomplete = true;
+      else size += textSize;
     }
-    return { id: entry.id, title: entry.title, bytes: size, deleted: Boolean(entry.deletedAt) };
+    return [
+      {
+        id: entry.id,
+        title: entry.title,
+        bytes: size,
+        deleted: Boolean(entry.deletedAt),
+        ...(incomplete ? { incomplete: true } : {}),
+      },
+    ];
   });
   return { bytes, documents: documents.sort((a, b) => b.bytes - a.bytes) };
 }

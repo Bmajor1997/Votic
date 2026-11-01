@@ -69,3 +69,11 @@ describe("patched pattern dependencies", () => {
     }
   });
 });
+
+it("documents makeRe's test-only contract without claiming RegExp compatibility", () => {
+  const pattern = legacy.makeRe("src/**/*.ts");
+  expect(pattern).not.toBeInstanceOf(RegExp);
+  expect(pattern.exec).toBeUndefined();
+  expect(pattern.test("src/a.ts")).toBe(true);
+  expect(pattern.test("src/a.js")).toBe(false);
+});

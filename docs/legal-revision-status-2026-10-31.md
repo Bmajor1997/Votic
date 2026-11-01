@@ -56,3 +56,7 @@ Primary guidance checked during drafting:
 - OpenAI API data controls: https://developers.openai.com/api/docs/guides/your-data
 
 The original review remains the detailed source for the 16 findings and conditional legal applicability. Have qualified counsel assess the final market-specific documents and deployed practices before launch.
+
+## Beta-readiness implementation follow-up
+
+The beta-readiness branch adds a versioned account/device AI-sharing disclosure and withdrawal control, and labels the still-unapproved public HTML as beta review copies. Automated UI and transport-boundary tests verify affirmative action and no content upload on decline. This is not age-policy approval or launch clearance. All audience, provider-account, market and operational decisions above remain open until explicitly verified. See `beta-readiness-2026-10-31.md` for scope and validation.

@@ -1,3 +1,4 @@
+import { require_ai_consent } from "../api/aiConsent";
 import { Ionicons } from "@expo/vector-icons";
 import {
   requestRecordingPermissionsAsync,
@@ -323,6 +324,7 @@ export function KeyboardDictationButton({
       requestController.current = new AbortController();
       await check_voice_question_availability(requestController.current.signal);
       if (!current()) return;
+      await require_ai_consent(requestController.current.signal);
       const permission = await requestRecordingPermissionsAsync();
       if (!current()) return;
       if (!permission.granted) {

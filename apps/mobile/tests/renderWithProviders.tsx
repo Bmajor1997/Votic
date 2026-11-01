@@ -1,3 +1,6 @@
+import { AiConsentProvider } from "../src/api/AiConsentProvider";
+import { AI_CONSENT_VERSION } from "../src/api/aiConsent";
+import { account_storage_key } from "../src/storage/accountStorage";
 import { MotionFeedbackProvider } from "../src/motion/MotionFeedback";
 import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
 import { AccountDataProvider } from "../src/storage/AccountDataProvider";
@@ -33,6 +36,8 @@ import { MeasureNode, WalkthroughProvider } from "../src/walkthrough/Walkthrough
 import { walkthrough_key } from "../src/walkthrough/walkthroughState";
 import { fakeAuth } from "./mocks/authBackend";
 
+const test_access = async () => ({ uid: fakeAuth.user?.uid ?? "", allowed: false, beta: false });
+
 const metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
   insets: { top: 47, left: 0, right: 0, bottom: 34 },
@@ -47,23 +52,25 @@ export function AppProviders({ children, measureNode }: PropsWithChildren<{ meas
           <AccessibilityProvider>
             <PurposeProvider>
               <AuthProvider>
-                <SubscriptionProvider>
+                <SubscriptionProvider checkAccess={test_access}>
                   <AccountSetupProvider>
-                    <AccountDataProvider>
-                      <ActivityProvider>
-                        <DocumentLibraryProvider>
-                          <MotionFeedbackProvider>
-                            <OcrReviewProvider>
-                              <DocumentTransitionProvider>
-                                <WalkthroughProvider measureNode={measureNode}>
-                                  {children}
-                                </WalkthroughProvider>
-                              </DocumentTransitionProvider>
-                            </OcrReviewProvider>
-                          </MotionFeedbackProvider>
-                        </DocumentLibraryProvider>
-                      </ActivityProvider>
-                    </AccountDataProvider>
+                    <AiConsentProvider>
+                      <AccountDataProvider>
+                        <ActivityProvider>
+                          <DocumentLibraryProvider>
+                            <MotionFeedbackProvider>
+                              <OcrReviewProvider>
+                                <DocumentTransitionProvider>
+                                  <WalkthroughProvider measureNode={measureNode}>
+                                    {children}
+                                  </WalkthroughProvider>
+                                </DocumentTransitionProvider>
+                              </OcrReviewProvider>
+                            </MotionFeedbackProvider>
+                          </DocumentLibraryProvider>
+                        </ActivityProvider>
+                      </AccountDataProvider>
+                    </AiConsentProvider>
                   </AccountSetupProvider>
                 </SubscriptionProvider>
               </AuthProvider>
@@ -107,6 +114,11 @@ export async function seed_storage({
   if (walkthrough === "fresh" && !(await AsyncStorage.getItem(DEVICE_HISTORY_KEY)))
     await AsyncStorage.setItem(DEVICE_HISTORY_KEY, "new");
   const uid = fakeAuth.user?.uid;
+  if (uid)
+    await AsyncStorage.setItem(
+      account_storage_key(`votic.mobile.ai-consent.${AI_CONSENT_VERSION}`, uid),
+      AI_CONSENT_VERSION,
+    );
   if (uid && accountSetup !== "none")
     await save_account_setup(uid, {
       ...new_onboarding_state(),

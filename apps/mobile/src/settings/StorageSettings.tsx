@@ -128,6 +128,7 @@ export function StorageSettings() {
                 <Text style={[s.body, { color: theme.text, flex: 1 }]}>
                   {document.title}
                   {document.deleted ? " (Recently Deleted)" : ""}
+                  {document.incomplete ? " (Some text unavailable; size is partial)" : ""}
                 </Text>
                 <Text style={[s.body, { color: theme.mutedText }]}>{bytes(document.bytes)}</Text>
               </View>

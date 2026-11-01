@@ -1,4 +1,5 @@
-import { afterEach, describe, expect, it, jest } from "@jest/globals";
+import { AI_CONSENT_VERSION, register_ai_consent } from "../../src/api/aiConsent";
+import { beforeEach, afterEach, describe, expect, it, jest } from "@jest/globals";
 import { set_auth_token_provider } from "../../src/api/authToken";
 import {
   ask_votic,
@@ -9,7 +10,9 @@ import {
 } from "../../src/api/voticApi";
 
 const realFetch = global.fetch;
+beforeEach(() => register_ai_consent(async () => true));
 afterEach(() => {
+  register_ai_consent(null);
   global.fetch = realFetch;
   set_auth_token_provider(null);
 });
@@ -161,6 +164,7 @@ describe("Votic API requests", () => {
     const outcome = expect(
       transcribe_voice_question(new ArrayBuffer(44), controller.signal),
     ).rejects.toMatchObject({ name: "AbortError" });
+    await jest.advanceTimersByTimeAsync(0);
     controller.abort();
     await outcome;
     finish("late-token");
@@ -207,4 +211,32 @@ describe("Votic API requests", () => {
       "Votic could not connect. Check your connection and try again.",
     );
   });
+});
+
+it("blocks content transmission while consent is pending or declined, and carries the accepted version", async () => {
+  const network = jest.fn(async () => new Response(JSON.stringify({ answer: "ok" })));
+  global.fetch = network as typeof fetch;
+  const credentials = jest.fn(async () => "token");
+  set_auth_token_provider(credentials);
+  let decide!: (value: boolean) => void;
+  register_ai_consent(
+    () =>
+      new Promise((resolve) => {
+        decide = resolve;
+      }),
+  );
+  const request = ask_votic("Private question");
+  expect(network).not.toHaveBeenCalled();
+  expect(credentials).not.toHaveBeenCalled();
+  decide(false);
+  await expect(request).rejects.toThrow(/declined/);
+  expect(network).not.toHaveBeenCalled();
+  register_ai_consent(async () => true);
+  await ask_votic("Allowed question");
+  expect((network.mock.calls[0] as unknown as [string, RequestInit])[1].headers).toMatchObject({
+    "X-Votic-AI-Consent": AI_CONSENT_VERSION,
+  });
+  register_ai_consent(null);
+  await expect(extract_document("scan.pdf", new ArrayBuffer(4))).rejects.toThrow(/declined/);
+  expect(network).toHaveBeenCalledTimes(1);
 });

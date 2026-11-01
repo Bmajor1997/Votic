@@ -47,7 +47,14 @@ describe("local storage measurement", () => {
     const key = account_storage_key(LIBRARY_KEY, "a");
     memory.set(key, JSON.stringify([{ id: "one", title: "Book", textChunks: 2 }]));
     memory.set(document_text_key("one", 0, "a"), "kept");
-    await expect(read_account_storage_usage("a")).rejects.toThrow(/unavailable/);
+    const partial = await read_account_storage_usage("a");
+    expect(partial.documents[0]).toMatchObject({ id: "one", incomplete: true });
+    memory.set(
+      key,
+      JSON.stringify([{ id: "one", title: "Book", textChunks: 2 }, null, { id: "two", title: "Healthy" }]),
+    );
+    memory.set(document_text_key("two", 0, "a"), "healthy");
+    expect((await read_account_storage_usage("a")).documents).toHaveLength(2);
     memory.set(key, "{}");
     await expect(read_account_storage_usage("a")).rejects.toThrow(/could not be read/);
     vi.mocked(AsyncStorage.multiGet).mockRejectedValueOnce(new Error("storage failed"));

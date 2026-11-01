@@ -32,7 +32,9 @@ const PREMIUM_CACHE_MS = 60_000, PREMIUM_CACHE_LIMIT = 10_000;
 
 export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 5000, now = Date.now, cacheMs = PREMIUM_CACHE_MS } = {}) {
   const key = String(env.REVENUECAT_SECRET_API_KEY || "").trim();
-  const entitlementId = String(env.REVENUECAT_ENTITLEMENT_ID || "pro").trim();
+  const entitlementId = String(env.REVENUECAT_ENTITLEMENT_ID ?? "premium").trim();
+  if (!entitlementId || !/^[A-Za-z0-9_.-]+$/.test(entitlementId))
+    throw new Error("REVENUECAT_ENTITLEMENT_ID must be a nonempty RevenueCat entitlement identifier (Votic uses premium).");
   const confirmed = new Map();
   const subscription = async (uid) => {
     if (typeof uid !== "string" || !uid) return { allowed: false, productId: null, store: null };

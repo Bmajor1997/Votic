@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
   },
   "scripts": {
     "start": "node votic_server.js",
@@ -35,5 +36,6 @@
     "mammoth": {
       "argparse": "2.0.1"
     }
-  }
+  },
+  "packageManager": "npm@11.9.0"
 }

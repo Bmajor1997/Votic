@@ -40,9 +40,6 @@ const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
   sentence: ["highlight-sentence"],
   off: [],
 };
-/** The sample always sits on white paper with dark ink, in every theme, like the Home preview. */
-const PAPER = "#FFFCF7";
-const INK = "#1F2937";
 const AVATAR_COLORS = ["#2563EB", "#1F5C4D", "#9333EA", "#C2410C"];
 /** Where Android keeps its text-to-speech engine and voice downloads. */
 const ANDROID_TTS_SETTINGS = "com.android.settings.TTS_SETTINGS";
@@ -310,11 +307,11 @@ export function ListeningStep({
                 },
               ]}
             >
-              <View style={[s.mini, { backgroundColor: PAPER }]}>
+              <View style={[s.mini, { backgroundColor: theme.surface }]}>
                 <Text
                   style={[
                     s.miniText,
-                    { color: INK },
+                    { color: theme.text },
                     item.value !== "off" && { backgroundColor: theme.sentenceHighlight },
                   ]}
                 >
@@ -382,12 +379,12 @@ function ListeningPlayer({
           <Text style={[s.eyebrow, { color: theme.spotlightMuted }]}>{playing ? "PLAYING" : "READY"}</Text>
         </View>
       </View>
-      <View style={[s.paper, { backgroundColor: PAPER }]}>
+      <View style={[s.paper, { backgroundColor: theme.surface }]}>
         <Text
           style={[
             type,
             s.paperText,
-            { color: INK },
+            { color: theme.text },
             playing && highlightMode !== "off" && { backgroundColor: theme.sentenceHighlight },
           ]}
         >

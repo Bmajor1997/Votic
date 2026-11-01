@@ -1,3 +1,4 @@
+import { beta_access_config } from "./app_parts/beta_access.js";
 import { create_credit_wallet, authorized_revenuecat_webhook } from "./app_parts/credit_wallet.js";
 import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
@@ -110,6 +111,7 @@ const AI_CLIENT_LIMIT_MESSAGE = "You've reached today's limit for Votic's AI fea
 export function create_votic_handler(options = {}) {
  const env = options.env || process.env, config = { ...load_server_config(env), ...options.config };
  validate_production_security(env);
+ const beta = beta_access_config(env);
  const tiers = subscription_tiers(env);
  const usage_store = options.usageStore || create_usage_store(env);
  const credit_wallet = env.VOTIC_CREDIT_PRODUCTS_JSON ? (options.creditWallet || create_credit_wallet(env)) : null;
@@ -120,7 +122,7 @@ export function create_votic_handler(options = {}) {
  // Without a verifier every request is anonymous, so features tied to an account must say they are unavailable,
  // not ask a person who is already signed in to sign in.
  const sign_in_verified = Boolean(options.authorize || env.FIREBASE_PROJECT_ID);
- const premium_required = env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorizePremium);
+ const premium_required = beta.mode !== "off" || env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorizePremium);
  const authorize_premium = options.authorizePremium || create_premium_authorizer(env, { fetchImpl: options.revenueCatFetchImpl });
  let active_extractions = 0, next_prune = 0, ai_day = "", ai_calls = 0;
  // Paid AI calls per client today. Only granted calls are recorded, so it never outgrows ai_daily_limit.
@@ -200,9 +202,9 @@ export function create_votic_handler(options = {}) {
  const premium_allowance = async (path, identity) => {
     if (!premium_required || !["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) return null;
     if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Plus.");
-    if (!(await authorize_premium(identity.uid))) throw new HttpError(403, "An active Votic Plus subscription is required.");
-    if (!authorize_premium.subscription) return null;
-    return credit_plan(identity.uid, await authorize_premium.subscription(identity.uid));
+    const plan = await effective_plan(identity);
+    if (!plan) throw new HttpError(403, "An active Votic Plus subscription is required.");
+    return plan;
  };
  // The verified subscription's monthly AI credits, in its verified billing period. Null means credits are not
  // enforced (no verifier that reports subscriptions, e.g. local development), and the token limits still apply.
@@ -212,17 +214,40 @@ export function create_votic_handler(options = {}) {
     const allowance = tier ? tier.monthlyCredits ?? null : config.monthly_credits;
     return { uid, tier, profile, period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
  };
+ // Beta uses the same durable account credit ledger, not a client-granted balance. Paid access takes priority.
+ const effective_plan = async (identity) => {
+    if (!identity?.uid || !sign_in_verified) return null;
+    const beta_allowed = beta.allows(identity.uid);
+    try {
+      if (authorize_premium.subscription) {
+        const profile = await authorize_premium.subscription(identity.uid);
+        if (profile.allowed) return credit_plan(identity.uid, profile);
+      } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
+    } catch (error) { if (!beta_allowed) throw error; }
+    if (!beta_allowed) return null;
+    return { uid: identity.uid, beta: true, tier: null,
+      period: usage_store.credits.period(identity.uid, {}, config.monthly_credits) };
+ };
+ const handle_access = async (request, response, identity, ai_client) => {
+    if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to check access.");
+    rate_limit(`${ai_client}:access`, 30);
+    await read_body(request, 1024, config.body_timeout_ms);
+    const plan = await effective_plan(identity);
+    send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan), beta: Boolean(plan?.beta) });
+ };
+ const usage_configured = (identity) => beta.allows(identity.uid) || (premium_required && Boolean(authorize_premium.subscription));
+ const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.tier?.name ?? "Votic Plus";
  const handle_ai_usage = async (request, response, identity, ai_client) => {
     if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to see your AI usage.");
     rate_limit(`${ai_client}:ai-usage`, 30);
     await read_body(request, 1024, config.body_timeout_ms);
     const purchase_products = credit_wallet ? Object.keys(JSON.parse(env.VOTIC_CREDIT_PRODUCTS_JSON)) : [];
-    if (!premium_required || !authorize_premium.subscription) {
+    if (!usage_configured(identity)) {
       send_json(response, 200, { status: "not-configured", plan: null, monthly: null, purchased: null, purchaseProducts: [] });
       return;
     }
     // Throws PremiumVerificationError (503) when RevenueCat can't be reached: never a guessed percentage.
-    const plan = credit_plan(identity.uid, await authorize_premium.subscription(identity.uid));
+    const plan = await effective_plan(identity);
     const summary = usage_store.credits.summary(identity.uid, plan?.period ?? null);
     const monthly = plan?.period ? {
       percentRemaining: percent_remaining(summary.allowance, summary.used),
@@ -233,10 +258,10 @@ export function create_votic_handler(options = {}) {
     } : null;
     send_json(response, 200, {
       status: plan ? (plan.period ? "active" : "unmetered") : "not-subscribed",
-      plan: plan ? { name: plan.tier?.name ?? "Votic Plus" } : null,
+      plan: plan ? { name: usage_plan_name(plan) } : null,
       monthly,
       purchased: { remaining: summary.purchased },
-      purchaseProducts: plan ? purchase_products : [],
+      purchaseProducts: plan && !plan.beta ? purchase_products : [],
     });
  };
  // RevenueCat webhooks use a separate server secret and never trust app-originated grants.
@@ -354,6 +379,10 @@ export function create_votic_handler(options = {}) {
     await handle_ai_usage(request, response, identity, ai_client);
     return;
    }
+   if (request.method === "POST" && path === "/api/access") {
+    return await handle_access(request, response, identity, ai_client);
+   }
+   require_ai_sharing_consent(request, path, env);
    plan = await premium_allowance(path, identity);
    if (request.method === "POST" && path === "/api/extract") {
     rate_limit(`${client}:extract`, config.extract_rate_limit);
@@ -556,8 +585,20 @@ function validate_credit_purchase_security(env) {
      (typeof env.REVENUECAT_WEBHOOK_SECRET !== "string" || env.REVENUECAT_WEBHOOK_SECRET.length < 24))
    throw new Error("REVENUECAT_WEBHOOK_SECRET must contain at least 24 characters before production credit purchases are enabled.");
 }
+function validate_beta_security(env) {
+ const beta = beta_access_config(env);
+ if (beta.mode !== "off" && (!String(env.FIREBASE_PROJECT_ID || "").trim() || !env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
+   throw new Error("Beta access requires FIREBASE_PROJECT_ID and a persistent VOTIC_AI_USAGE_DB.");
+}
+function require_ai_sharing_consent(request, path, env) {
+ if ((env.NODE_ENV === "production" || env.VOTIC_REQUIRE_AI_CONSENT === "true") &&
+     ["/api/extract", "/api/scan", "/api/help", "/api/review", "/api/transcribe-question"].includes(path) &&
+     request.headers["x-votic-ai-consent"] !== "openai-v1")
+   throw new HttpError(428, "Review and agree to AI data sharing in Votic before using this feature.");
+}
 export function validate_production_security(env = process.env) {
  validate_credit_purchase_security(env);
+ validate_beta_security(env);
  if (env.NODE_ENV === "production" && !String(env.FIREBASE_PROJECT_ID || "").trim())
    throw new Error("FIREBASE_PROJECT_ID is required when NODE_ENV=production so Votic API routes cannot start without authentication.");
  if (env.NODE_ENV === "production" && env.OPENAI_API_KEY && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:"))
@@ -584,6 +625,8 @@ export function capability_report(env = process.env) {
   lines.push(on(env.OPENAI_API_KEY) && env.VOTIC_VOICE_QUESTIONS_ENABLED === "true" && on(env.FIREBASE_PROJECT_ID)
     ? "  Voice questions: on"
     : "  Voice questions: off (needs OPENAI_API_KEY, FIREBASE_PROJECT_ID and VOTIC_VOICE_QUESTIONS_ENABLED=true).");
+  lines.push(`  Subscription entitlement: ${String(env.REVENUECAT_ENTITLEMENT_ID ?? "premium").trim()} (must match RevenueCat; HTTP success cannot verify identifier spelling).`);
+  lines.push(`  Beta access: ${beta_access_config(env).mode}; monthly credits use VOTIC_MONTHLY_CREDITS and the persistent account ledger.`);
   const keys = String(env.VOTIC_CLIENT_KEYS || "").split(",").filter((key) => key.trim()).length;
   lines.push(keys
     ? `  App client keys: required (${keys} configured). Apps must set EXPO_PUBLIC_VOTIC_CLIENT_KEY to one of them.`

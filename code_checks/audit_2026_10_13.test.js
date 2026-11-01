@@ -57,7 +57,7 @@ test("confirmed Premium is remembered briefly; denials and errors are never reme
   let calls = 0, active = true, clock = Date.parse("2026-10-13T12:00:00Z");
   const fetch_impl = async () => {
     calls += 1;
-    const entitlements = active ? { pro: { purchase_date: "2026-01-01T00:00:00Z", expires_date: null } } : {};
+    const entitlements = active ? { premium: { purchase_date: "2026-01-01T00:00:00Z", expires_date: null } } : {};
     return { ok: true, json: async () => ({ subscriber: { entitlements } }) };
   };
   const authorize = create_premium_authorizer({ REVENUECAT_SECRET_API_KEY: "test-key" }, { fetchImpl: fetch_impl, now: () => clock });

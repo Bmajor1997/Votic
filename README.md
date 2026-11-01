@@ -359,3 +359,7 @@ This repository intentionally begins with the product problem and validation pla
 ## Software assurance
 
 See [the tailored safety baseline](docs/safety/SAFETY_BASELINE.md), [risk-to-test traceability](docs/safety/TRACEABILITY.md), and [release/operations acceptance](docs/safety/OPERATIONS_ACCEPTANCE.md). These records distinguish automated evidence from device and live-service checks; they do not establish NASA certification.
+
+## Supported local toolchain
+
+Use Node 24.x and npm 11.x (validated with Node 24.22.1 / npm 11.9.0), matching CI. Run `npm ci --ignore-scripts` at the root and in `apps/mobile`. The mobile lockfile uses local dependency overrides; older npm versions are not the supported install path. Node and npm can be installed/upgraded independently; Node 22 does not inherently require npm 10. See `docs/beta-readiness-2026-10-31.md` for beta configuration and remaining release gates.

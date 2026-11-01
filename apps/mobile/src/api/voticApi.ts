@@ -1,3 +1,4 @@
+import { AI_CONTENT_PATHS, AI_CONSENT_VERSION, require_ai_consent } from "./aiConsent";
 import { allowance_notifier } from "../subscription/allowanceNotice";
 import { AI_USAGE_PATHS, AiUsage, notify_ai_usage_changed, parse_ai_usage } from "../subscription/aiUsage";
 import Constants from "expo-constants";
@@ -35,6 +36,8 @@ async function api_fetch(
   signal?: AbortSignal,
   requireSignIn: boolean | string = false,
 ) {
+  // Before credentials are refreshed, a body is uploaded, or a provider request can start.
+  if (AI_CONTENT_PATHS.includes(path)) await require_ai_consent(signal);
   const signInMessage = typeof requireSignIn === "string" ? requireSignIn : "Sign in to use voice questions.";
   const notify_allowance = allowance_notifier();
   const url = votic_api_url() + path;
@@ -66,6 +69,7 @@ async function api_fetch(
       headers: {
         ...client_headers(process.env.EXPO_PUBLIC_VOTIC_CLIENT_KEY),
         ...auth,
+        ...(AI_CONTENT_PATHS.includes(path) ? { "X-Votic-AI-Consent": AI_CONSENT_VERSION } : {}),
         ...(init.headers as Record<string, string> | undefined),
       },
       signal: controller.signal,
@@ -119,6 +123,18 @@ export async function account_deletion_request(phase: "prepare" | "complete", to
   }
   if (response.result[phase === "prepare" ? "ready" : "deleted"] !== true)
     throw new Error("Votic could not confirm account deletion. Please retry.");
+}
+
+export async function check_server_access() {
+  const response = await api_fetch("/api/access", { method: "POST" }, API_TIMEOUT_MS, undefined, true);
+  if (!response.ok) throw new Error(server_error(response.result, "Access could not be checked."));
+  if (
+    typeof response.result.uid !== "string" ||
+    typeof response.result.allowed !== "boolean" ||
+    typeof response.result.beta !== "boolean"
+  )
+    throw new Error("Access could not be checked.");
+  return { uid: response.result.uid, allowed: response.result.allowed, beta: response.result.beta };
 }
 
 export async function check_account_status() {

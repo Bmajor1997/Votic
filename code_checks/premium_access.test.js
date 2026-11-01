@@ -6,20 +6,20 @@ import { create_votic_server, validate_production_security } from "../votic_serv
 
 const now = Date.parse("2026-10-10T12:00:00Z");
 const purchase = "2026-10-01T12:00:00Z", expired = "2026-10-09T12:00:00Z", future = "2026-10-11T12:00:00Z";
-const customer = (entry) => ({ subscriber: { entitlements: entry === undefined ? {} : { pro: { purchase_date: purchase, expires_date: future, grace_period_expires_date: null, ...entry } } } });
+const customer = (entry) => ({ subscriber: { entitlements: entry === undefined ? {} : { premium: { purchase_date: purchase, expires_date: future, grace_period_expires_date: null, ...entry } } } });
 
 test("Premium accepts active/trial/paid-through/lifetime/grace and denies expired or absent entitlements", () => {
-  assert.equal(has_premium_entitlement(customer({}), "pro", now), true);
-  assert.equal(has_premium_entitlement(customer({ expires_date: null }), "pro", now), true);
-  assert.equal(has_premium_entitlement(customer({ expires_date: expired, grace_period_expires_date: future }), "pro", now), true);
-  assert.equal(has_premium_entitlement(customer({ expires_date: expired }), "pro", now), false);
-  assert.equal(has_premium_entitlement(customer({ expires_date: new Date(now).toISOString() }), "pro", now), false);
-  assert.equal(has_premium_entitlement(customer(undefined), "pro", now), false);
-  assert.equal(has_premium_entitlement(customer({ purchase_date: future }), "pro", now), false);
+  assert.equal(has_premium_entitlement(customer({}), "premium", now), true);
+  assert.equal(has_premium_entitlement(customer({ expires_date: null }), "premium", now), true);
+  assert.equal(has_premium_entitlement(customer({ expires_date: expired, grace_period_expires_date: future }), "premium", now), true);
+  assert.equal(has_premium_entitlement(customer({ expires_date: expired }), "premium", now), false);
+  assert.equal(has_premium_entitlement(customer({ expires_date: new Date(now).toISOString() }), "premium", now), false);
+  assert.equal(has_premium_entitlement(customer(undefined), "premium", now), false);
+  assert.equal(has_premium_entitlement(customer({ purchase_date: future }), "premium", now), false);
   assert.equal(has_premium_entitlement(customer({}), "other-entitlement", now), false);
   for (const entry of [{ expires_date: undefined }, { expires_date: "invalid" }, { purchase_date: null }, { grace_period_expires_date: "invalid" }])
-    assert.throws(() => has_premium_entitlement(customer(entry), "pro", now), /could not verify your Votic Plus/);
-  assert.throws(() => has_premium_entitlement({}, "pro", now), /could not verify your Votic Plus/);
+    assert.throws(() => has_premium_entitlement(customer(entry), "premium", now), /could not verify your Votic Plus/);
+  assert.throws(() => has_premium_entitlement({}, "premium", now), /could not verify your Votic Plus/);
 });
 
 test("RevenueCat checks use only the authenticated UID, encoded safely, and a backend key", async () => {

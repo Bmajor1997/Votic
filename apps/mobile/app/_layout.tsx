@@ -1,3 +1,4 @@
+import { AiConsentProvider } from "../src/api/AiConsentProvider";
 import { MotionFeedbackProvider } from "../src/motion/MotionFeedback";
 import { NativeActivitySync } from "../src/playback/NativeActivitySync";
 import { OcrReviewProvider } from "../src/documents/OcrReviewProvider";
@@ -177,11 +178,13 @@ export default function RootLayout() {
             <AuthProvider>
               <SubscriptionProvider>
                 <AccountSetupProvider>
-                  <AccountDataProvider>
-                    <ActivityProvider>
-                      <ThemedStack />
-                    </ActivityProvider>
-                  </AccountDataProvider>
+                  <AiConsentProvider>
+                    <AccountDataProvider>
+                      <ActivityProvider>
+                        <ThemedStack />
+                      </ActivityProvider>
+                    </AccountDataProvider>
+                  </AiConsentProvider>
                 </AccountSetupProvider>
               </SubscriptionProvider>
             </AuthProvider>

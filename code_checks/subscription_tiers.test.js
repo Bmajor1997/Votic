@@ -44,7 +44,7 @@ async function with_server(options, run) {
   try { await run(`http://127.0.0.1:${server.address().port}`); }
   finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 }
-const customer = productId => ({ subscriber: { entitlements: { pro: { product_identifier: productId, purchase_date: "2026-01-01T00:00:00Z", expires_date: null } }, subscriptions: { [productId]: { store: "play_store" } } } });
+const customer = productId => ({ subscriber: { entitlements: { premium: { product_identifier: productId, purchase_date: "2026-01-01T00:00:00Z", expires_date: null } }, subscriptions: { [productId]: { store: "play_store" } } } });
 test("subscription endpoint uses authenticated RevenueCat product, excludes budgets and spoofed identity", async () => {
   const requested = [];
   await with_server({ revenueCatFetchImpl: async url => { requested.push(url); return { ok: true, json: async () => customer(base.productId) }; } }, async url => {

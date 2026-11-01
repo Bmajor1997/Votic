@@ -44,7 +44,7 @@ describe("Settings support and library tools", () => {
     await render_with_providers(<SettingsDetailScreen category="library" />);
     await fireEvent.press(screen.getByRole("button", { name: label }));
     expect(router.push).toHaveBeenCalledWith(path);
-    expect(screen.getByRole("button", { name: "Unfinished scan" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Unfinished scan" })).toBeNull();
   });
   it("measures only the current account and requires confirmation before clearing temporary files", async () => {
     jest.mocked(files.clear_old_temporary_files).mockClear();

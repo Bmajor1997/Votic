@@ -1,3 +1,4 @@
+import { check_server_access } from "../api/voticApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { AppState } from "react-native";
@@ -44,17 +45,37 @@ type SubscriptionValue = {
 
 const SubscriptionContext = createContext<SubscriptionValue | null>(null);
 
+function server_access_for(uid: string | null, result: { uid: string; allowed: boolean } | null) {
+  return Boolean(uid && result?.uid === uid && result.allowed);
+}
+function access_check_pending(
+  uid: string | null,
+  server: { uid: string } | null,
+  checked: { uid: string } | null,
+  unavailable: SubscriptionService["unavailableReason"],
+  canBypass: boolean,
+  bypassLoaded: boolean,
+) {
+  return (
+    Boolean(uid && server?.uid !== uid) ||
+    Boolean(uid && !unavailable && checked?.uid !== uid) ||
+    (canBypass && !bypassLoaded)
+  );
+}
+
 export function SubscriptionProvider({
   children,
   // The same builds that may be explored without an account (see AuthProvider): local development, and EAS
   // builds made with the "preview" profile. Production and unmarked release builds never qualify.
+  checkAccess = check_server_access,
   isDevelopment = __DEV__ || Constants.expoConfig?.extra?.previewTesting === true,
-}: PropsWithChildren<{ isDevelopment?: boolean }>) {
+}: PropsWithChildren<{ isDevelopment?: boolean; checkAccess?: typeof check_server_access }>) {
   const [service] = useState(create_subscription_service);
   const [legal] = useState(legal_links);
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
+  const [serverAccess, setServerAccess] = useState<{ uid: string; allowed: boolean } | null>(null);
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [bypassState, setBypassState] = useState<{ uid: string; bypassed: boolean } | null>(null);
@@ -63,14 +84,43 @@ export function SubscriptionProvider({
   if (observedUid !== uid) {
     setObservedUid(uid);
     setChecked(null);
+    setServerAccess(null);
     setRecoveryError(null);
     setBypassState(null);
   }
-  const identified = useRef<string | null>(null);
   const uidRef = useRef(uid);
   useLayoutEffect(() => {
     uidRef.current = uid;
   }, [uid]);
+  const refresh_server_access = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const result = await checkAccess();
+      if (result.uid === uid && uidRef.current === uid) setServerAccess({ uid, allowed: result.allowed });
+    } catch {
+      if (uidRef.current === uid) setServerAccess({ uid, allowed: false });
+    }
+  }, [uid, checkAccess]);
+  useEffect(() => {
+    let active = true;
+    if (uid)
+      void Promise.resolve()
+        .then(checkAccess)
+        .then((result) => {
+          if (active && result.uid === uid) setServerAccess({ uid, allowed: result.allowed });
+        })
+        .catch(() => {
+          if (active) setServerAccess({ uid, allowed: false });
+        });
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh_server_access();
+    });
+    return () => {
+      active = false;
+      listener.remove();
+    };
+  }, [uid, refresh_server_access, checkAccess]);
+  const identified = useRef<string | null>(null);
   const settled = useRef<string | null>(null);
   const canBypass = isDevelopment && Boolean(service.unavailableReason);
 
@@ -149,8 +199,14 @@ export function SubscriptionProvider({
     });
     return () => subscription.remove();
   }, [service, set_entitlement, uid]);
-  const checking =
-    Boolean(uid && !service.unavailableReason && checked?.uid !== uid) || (canBypass && !bypassLoaded);
+  const checking = access_check_pending(
+    uid,
+    serverAccess,
+    checked,
+    service.unavailableReason,
+    canBypass,
+    bypassLoaded,
+  );
   const value: SubscriptionValue = {
     service,
     legal,
@@ -158,6 +214,7 @@ export function SubscriptionProvider({
     checking,
     recoveryError,
     access:
+      server_access_for(uid, serverAccess) ||
       has_access(entitlement.status) ||
       (canBypass && Boolean(uid && bypassState?.uid === uid && bypassState.bypassed)),
     canBypass,
@@ -177,6 +234,7 @@ export function SubscriptionProvider({
     },
     setEntitlement: set_entitlement,
     async refresh() {
+      await refresh_server_access();
       try {
         const next = await store_deadline(service.refresh());
         set_entitlement(next);

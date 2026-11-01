@@ -4,7 +4,9 @@
 # Secrets are never written here: /etc/votic/backend.env is created with blank keys for the owner to fill in.
 set -euo pipefail
 : "${VOTIC_BACKEND_HOST:?set VOTIC_BACKEND_HOST}"
-BRANCH="${BRANCH:-main}"
+: "${COMMIT_SHA:?set COMMIT_SHA to the reviewed commit}"
+[[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "Invalid COMMIT_SHA" >&2; exit 1; }
+[[ "$VOTIC_BACKEND_HOST" =~ ^[a-zA-Z0-9]([a-zA-Z0-9.-]*[a-zA-Z0-9])?$ ]] || { echo "Invalid backend hostname" >&2; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 # e2-micro has 1 GB of memory: add 2 GB of swap so document parsing doesn't run out.
 if [ ! -f /swapfile ]; then
@@ -29,12 +31,17 @@ if ! command -v caddy >/dev/null; then
   apt-get update -q && apt-get install -y -q caddy
 fi
 # The reviewed code, read-only to the service.
-if [ -d /opt/votic/.git ]; then
-  git -C /opt/votic fetch --depth 1 origin "$BRANCH" && git -C /opt/votic reset --hard FETCH_HEAD
-else
-  git clone --depth 1 --branch "$BRANCH" https://github.com/Bmajor1997/Votic.git /opt/votic
+if [ ! -d /opt/votic/.git ]; then
+  install -d -m 0755 /opt/votic
+  git -C /opt/votic init
+  git -C /opt/votic remote add origin https://github.com/Bmajor1997/Votic.git
 fi
-(cd /opt/votic && npm ci --omit=dev --no-audit --no-fund)
+[[ $(git -C /opt/votic remote get-url origin) == https://github.com/Bmajor1997/Votic.git ]] || { echo "Unexpected repository origin" >&2; exit 1; }
+git -C /opt/votic -c core.hooksPath=/dev/null fetch --depth 1 origin "$COMMIT_SHA"
+[[ $(git -C /opt/votic rev-parse FETCH_HEAD) == "$COMMIT_SHA" ]] || exit 1
+git -C /opt/votic -c core.hooksPath=/dev/null checkout --force --detach "$COMMIT_SHA"
+[[ $(git -C /opt/votic rev-parse HEAD) == "$COMMIT_SHA" ]] || exit 1
+(cd /opt/votic && npm ci --ignore-scripts --omit=dev --no-audit --no-fund)
 # Private settings: created once with blank secrets; never overwritten.
 install -d -m 0700 /etc/votic
 if [ ! -f /etc/votic/backend.env ]; then

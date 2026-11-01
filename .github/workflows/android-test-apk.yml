@@ -1,4 +1,4 @@
-name: Android Test APK (Google Cloud backend)
+name: Local-device debug-signed APK (not for Play)
 
 # Builds an installable release APK (JavaScript bundled, no Metro needed) for manual testing on the
 # emulator or a phone. All EXPO_PUBLIC_* values below are public client identifiers that ship inside
@@ -25,6 +25,8 @@ jobs:
     env:
       EXPO_NO_TELEMETRY: "1"
       EAS_BUILD_PROFILE: preview
+      # Personal-phone/emulator APK only. Never upload this debug-signed artifact to Play.
+      VOTIC_LOCAL_DEBUG_SIGNING: "1"
       # Firebase's public project identifier, bundled in the APK; never an Admin SDK credential.
       # https://firebase.google.com/docs/projects/api-keys
       # nosemgrep: generic.secrets.security.detected-generic-api-key.detected-generic-api-key
@@ -73,6 +75,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: votic-test-apk
+          name: votic-local-debug-signed-apk-NOT-FOR-PLAY
           path: apps/mobile/android/app/build/outputs/apk/release/*.apk
           retention-days: 30

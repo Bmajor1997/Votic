@@ -18,7 +18,7 @@ const document_answer = answer(JSON.stringify({ answer: "They improved.", sectio
 const period_start = new Date(Date.now() - 2 * 86400_000);
 period_start.setUTCHours(10, 0, 0, 0);
 const period = { purchase_date: period_start.toISOString(), expires_date: new Date(add_months(period_start.getTime(), 1)).toISOString() };
-const customer = (entitlement = period) => ({ subscriber: { entitlements: entitlement ? { pro: { product_identifier: "votic_plus", ...entitlement } } : {}, subscriptions: { votic_plus: { store: "play_store" } } } });
+const customer = (entitlement = period) => ({ subscriber: { entitlements: entitlement ? { premium: { product_identifier: "votic_plus", ...entitlement } } : {}, subscriptions: { votic_plus: { store: "play_store" } } } });
 const base_env = { REVENUECAT_SECRET_API_KEY: "rc-secret", OPENAI_API_KEY: "test-key", VOTIC_MONTHLY_CREDITS: "10" };
 
 async function with_server({ env = {}, revenueCat = async () => ({ ok: true, json: async () => customer() }), ai = async () => provider(answer("Help")), uid = "plus-user", store, ...options } = {}, run) {

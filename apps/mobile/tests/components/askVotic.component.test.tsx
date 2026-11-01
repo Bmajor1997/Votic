@@ -45,7 +45,7 @@ describe("Ask Votic retry", () => {
 
     // While the retry is in flight it says so, and can't be pressed again.
     expect(screen.getByText("Trying again…")).toBeTruthy();
-    expect(screen.getByText("Thinking")).toBeTruthy();
+    expect(screen.getByText("Preparing answer…")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry question", disabled: true })).toBeTruthy();
     expect(askVoticMock).toHaveBeenLastCalledWith("What is ATP?", undefined, [], "adaptive");
 
