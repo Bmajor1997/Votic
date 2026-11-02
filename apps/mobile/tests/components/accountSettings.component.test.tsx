@@ -343,7 +343,7 @@ describe("switching Votic Plus billing", () => {
     ...month,
     id: "$rc_annual",
     productId: "plus:annual",
-    priceString: "$79.99",
+    priceString: "$59.99",
     billingPeriod: { count: 1, unit: "year" as const },
   };
   it("offers the other billing period through the store's change flow, never a second purchase", async () => {
@@ -352,7 +352,7 @@ describe("switching Votic Plus billing", () => {
       defaultEntitlement: entitlement_of("active", { productId: "plus:monthly" }),
     });
     await render_with_providers(<SettingsDetailScreen category="account" />);
-    expect(await screen.findByText(/Annual billing is \$79\.99\/year/)).toBeTruthy();
+    expect(await screen.findByText(/Annual billing is \$59\.99\/year/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Switch to annual billing" }));
     expect(fakeSubscriptions.calls).toContain("changePlan:$rc_annual:from:plus:monthly");
     expect(fakeSubscriptions.calls.some((call) => call.startsWith("purchase:"))).toBe(false);

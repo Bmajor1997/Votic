@@ -360,7 +360,7 @@ it("switches between monthly and annual through Google Play's replacement flow, 
     defaultOption: { freePhase: null, pricingPhases: [] },
   });
   const monthly = { identifier: "$rc_monthly", product: product("votic_plus:monthly", "P1M", "$9.99") };
-  const annual = { identifier: "$rc_annual", product: product("votic_plus:annual", "P1Y", "$79.99") };
+  const annual = { identifier: "$rc_annual", product: product("votic_plus:annual", "P1Y", "$59.99") };
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
   sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
   sdk.getAppUserID.mockResolvedValue("a");
@@ -369,7 +369,7 @@ it("switches between monthly and annual through Google Play's replacement flow, 
   await service.identify("a");
   expect((await service.getPlans()).map((plan) => [plan.id, plan.priceString])).toEqual([
     ["$rc_monthly", "$9.99"],
-    ["$rc_annual", "$79.99"],
+    ["$rc_annual", "$59.99"],
   ]);
   expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toMatchObject({ kind: "purchased" });
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, {

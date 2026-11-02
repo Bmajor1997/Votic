@@ -1,8 +1,10 @@
 # Votic Plus AI credit policy (V1)
 
-Decided 2026-10-26 on `feature/paywall-research-improvements-2026-10-22`.
+Credit policy decided 2026-10-26; subscription pricing updated 2026-11-02.
 
-Votic V1 sells one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $79.99/year, about $6.67/month, about 33% less than 12 monthly payments). The app always shows the store's localized prices and calculates savings from them. Both plans have identical features and include **1,000 AI credits per monthly allowance cycle** (`VOTIC_MONTHLY_CREDITS`, default 1000). Annual billing does not mean an annual allowance: annual subscribers get 1,000 credits each month, never 12,000 at once. Credits are an internal unit. The paywall and AI Usage screen describe "generous monthly AI usage" and a percentage remaining, not credit counts.
+Votic V1 sells one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $59.99/year, about $5.00/month, about 50% less than 12 monthly payments). The app always shows the store's localized prices and calculates savings from them. Both plans have identical features and include **1,000 AI credits per monthly allowance cycle** (`VOTIC_MONTHLY_CREDITS`, default 1000). Annual billing does not mean an annual allowance: annual subscribers get 1,000 credits each month, never 12,000 at once. Credits are an internal unit. The paywall and AI Usage screen describe "generous monthly AI usage" and a percentage remaining, not credit counts.
+
+Approved accessibility pricing is **$6.99/month or $41.99/year**, an ongoing 30% reduction rounded to cents, subject to personal approval. Both billing periods retain the same monthly AI allowance as the corresponding standard plan. Store configuration must match these approved targets; changing this document does not change live checkout prices. See `credit-plan-integration-status.md`.
 
 ## What a credit pays for
 

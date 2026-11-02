@@ -1,8 +1,19 @@
 # Credit-plan integration status
 
-Target branch: `feature/paywall-research-improvements-2026-10-22`. Updated 2026-10-26.
+Pricing updated 2026-11-02 on `main`.
 
-**V1 decision:** one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $79.99/year), with identical features and 1,000 AI credits per monthly cycle on both (`VOTIC_MONTHLY_CREDITS`). Localized prices and savings always come from the store. Annual subscribers get a fresh monthly allowance on each monthly anniversary of their verified start date. Credits reset on the verified billing anniversary and never roll over. Additional usage is bought separately, survives renewals, and is granted only after RevenueCat confirms the purchase. The previously planned $12.99 / 2,000-credit tier is deferred to V2 as Votic Pro (see `v2-decisions.md`).
+**V1 decision:** one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $59.99/year), with identical features and 1,000 AI credits per monthly cycle on both (`VOTIC_MONTHLY_CREDITS`). Localized prices and savings always come from the store. Annual subscribers get a fresh monthly allowance on each monthly anniversary of their verified start date. Credits reset on the verified billing anniversary and never roll over. Additional usage is bought separately, survives renewals, and is granted only after RevenueCat confirms the purchase. The previously planned $12.99 / 2,000-credit tier is deferred to V2 as Votic Pro (see `v2-decisions.md`).
+
+## Approved U.S. pricing
+
+| Billing period | Standard | Accessibility discount (30% ongoing) |
+| --- | ---: | ---: |
+| Monthly | $9.99/month | $6.99/month |
+| Annual | $59.99/year | $41.99/year |
+
+Annual charges are paid upfront and renew yearly. The accessibility price is 30% off the corresponding standard billing period, rounded to cents; it continues while the approved subscription stays active. Monthly and annual accessibility requests both require personal approval by Votic's owner through the existing support-email process. No lifetime plan is approved.
+
+**Live billing status:** these are approved target prices, not confirmation of a Google Play or RevenueCat dashboard change. The app continues to display the localized prices returned by the store. Configure and verify the checkout prices before advertising the amounts as available. Do not expose accessibility pricing to every account in the public offering or use a temporary discount that later renews at full price.
 
 ## Done (server and app)
 
@@ -13,7 +24,7 @@ Target branch: `feature/paywall-research-improvements-2026-10-22`. Updated 2026-
 
 ## Still required outside the repository before launch
 
-1. **Google Play Console:** create the Votic Plus subscription with two auto-renewing base plans, monthly (P1M, US $9.99) and yearly (P1Y, US $79.99). Use base plans of one subscription product, which the in-app switch's replacement flow expects. Create any one-time additional-usage products too. No product IDs are invented in this repository.
+1. **Google Play Console:** create the Votic Plus subscription with two auto-renewing base plans, monthly (P1M, US $9.99) and yearly (P1Y, US $59.99). Use base plans of one subscription product, which the in-app switch's replacement flow expects. Create any one-time additional-usage products too. No product IDs are invented in this repository.
 2. **RevenueCat:** import both base plans and attach both to the entitlement the app and server use (`REVENUECAT_ENTITLEMENT_ID` / `EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID`, default `pro`). In the current offering, add them as the Monthly (`$rc_monthly`) and Annual (`$rc_annual`) packages. The paywall shows only 1-month and 1-year packages. Add the one-time products. Point the webhook at `/api/revenuecat-webhook` with `REVENUECAT_WEBHOOK_SECRET` as its Authorization header.
 3. **Server environment:** set a persistent `VOTIC_AI_USAGE_DB`, `REVENUECAT_SECRET_API_KEY`, `REVENUECAT_WEBHOOK_SECRET`, and `VOTIC_CREDIT_PRODUCTS_JSON` (real product IDs → credit quantities; suggested price at least $0.005 per credit, for example 500 credits for $2.99). Raise `VOTIC_AI_MONTHLY_BUDGET_USD` to about subscribers × $3.60.
 4. **End-to-end test on an Android development build** with a Google Play license tester: subscribe monthly and annually, switch both ways, restore, buy additional usage, refund, and let renewals happen. Play accelerates test subscription renewals; a short sandbox annual term does not exercise real calendar-month anniversaries. Use the ledger regression tests for monthly anniversary rollover, and verify store renewal and plan-switch behavior separately.
