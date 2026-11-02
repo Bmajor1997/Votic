@@ -6,14 +6,14 @@ Pricing updated 2026-11-02 on `main`.
 
 ## Approved U.S. pricing
 
-| Billing period | Standard | Accessibility discount (30% ongoing) |
-| --- | ---: | ---: |
-| Monthly | $9.99/month | $6.99/month |
-| Annual | $59.99/year | $41.99/year |
+| Billing period | Price |
+| --- | ---: |
+| Monthly | $9.99/month |
+| Annual | $59.99/year |
 
-Annual charges are paid upfront and renew yearly. The accessibility price is 30% off the corresponding standard billing period, rounded to cents; it continues while the approved subscription stays active. Monthly and annual accessibility requests both require personal approval by Votic's owner through the existing support-email process. No lifetime plan is approved.
+Annual charges are paid upfront and renew yearly. No lifetime plan is approved.
 
-**Live billing status:** these are approved target prices, not confirmation of a Google Play or RevenueCat dashboard change. The app continues to display the localized prices returned by the store. Configure and verify the checkout prices before advertising the amounts as available. Do not expose accessibility pricing to every account in the public offering or use a temporary discount that later renews at full price.
+**Live billing status:** these are approved target prices, not confirmation of a Google Play or RevenueCat dashboard change. The app continues to display the localized prices returned by the store. Configure and verify the checkout prices before advertising the amounts as available.
 
 ## Done (server and app)
 

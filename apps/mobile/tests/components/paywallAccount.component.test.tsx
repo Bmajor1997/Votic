@@ -313,14 +313,3 @@ it("shows the whole paywall at once without Reduce Motion too, with no entrance 
   );
   expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
 });
-
-it("advertises the accessibility discount as a compact 30% off card that opens the request steps", async () => {
-  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
-  await render_with_providers(<Paywall />);
-  expect(screen.getByText("30% OFF")).toBeTruthy();
-  expect(screen.getByText("Accessibility discount")).toBeTruthy();
-  // The long explanation lives on the Support screen, not the paywall.
-  expect(screen.queryByText(/No medical information/)).toBeNull();
-  await fireEvent.press(screen.getByRole("button", { name: /^Accessibility discount, 30% off\./ }));
-  expect(router.push).toHaveBeenCalledWith("/support");
-});
