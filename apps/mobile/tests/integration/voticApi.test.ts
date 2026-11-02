@@ -1,12 +1,14 @@
 import { AI_CONSENT_VERSION, register_ai_consent } from "../../src/api/aiConsent";
 import { beforeEach, afterEach, describe, expect, it, jest } from "@jest/globals";
 import { set_auth_token_provider } from "../../src/api/authToken";
+import { on_remote_account_deletion } from "../../src/storage/accountDeletion";
 import {
   ask_votic,
   extract_document,
   report_ai_answer,
   check_voice_question_availability,
   transcribe_voice_question,
+  check_account_status,
 } from "../../src/api/voticApi";
 
 const realFetch = global.fetch;
@@ -15,9 +17,42 @@ afterEach(() => {
   register_ai_consent(null);
   global.fetch = realFetch;
   set_auth_token_provider(null);
+  on_remote_account_deletion(null);
 });
 
 describe("Votic API requests", () => {
+  it("does not apply a delayed deletion response to a replacement account session", async () => {
+    const oldSession = jest.fn();
+    const newSession = jest.fn();
+    on_remote_account_deletion(oldSession);
+    set_auth_token_provider(async () => "account-a-token");
+    let complete!: (response: Response) => void;
+    global.fetch = jest.fn(
+      async () =>
+        new Promise<Response>((resolve) => {
+          complete = resolve;
+        }),
+    ) as typeof fetch;
+    const pending = check_account_status();
+    await jest.advanceTimersByTimeAsync(0);
+    on_remote_account_deletion(null);
+    on_remote_account_deletion(newSession);
+    set_auth_token_provider(async () => "account-b-token");
+    complete(new Response(JSON.stringify({ code: "ACCOUNT_DELETED" }), { status: 403 }));
+    await pending;
+    expect(oldSession).not.toHaveBeenCalled();
+    expect(newSession).not.toHaveBeenCalled();
+  });
+  it("still notifies the same account session of its confirmed remote deletion", async () => {
+    const session = jest.fn();
+    on_remote_account_deletion(session);
+    set_auth_token_provider(async () => "current-token");
+    global.fetch = jest.fn(
+      async () => new Response(JSON.stringify({ code: "ACCOUNT_DELETED" }), { status: 403 }),
+    ) as typeof fetch;
+    await check_account_status();
+    expect(session).toHaveBeenCalledTimes(1);
+  });
   it("allows PDF OCR to finish after 30 seconds and cancels at 45 seconds", async () => {
     let signal: AbortSignal | null | undefined;
     let finish!: (value: Response) => void;

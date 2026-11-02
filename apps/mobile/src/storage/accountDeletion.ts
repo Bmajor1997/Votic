@@ -103,6 +103,14 @@ export function notify_remote_account_deletion() {
   remotelyDeleted?.();
 }
 
+/** A response may only notify the account session that owned the request when it started. */
+export function remote_account_deletion_notifier() {
+  const started = remotelyDeleted;
+  return () => {
+    if (started && remotelyDeleted === started) started();
+  };
+}
+
 /** Test-only lifecycle reset; callers must also clear their fake AsyncStorage. */
 export function reset_account_deletion_state() {
   blocked.clear();

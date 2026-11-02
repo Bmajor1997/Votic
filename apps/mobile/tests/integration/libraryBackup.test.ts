@@ -38,6 +38,21 @@ async function seed(uid: string) {
   await create_document_store(uid).saveDocuments([document]);
 }
 describe("portable library backup", () => {
+  it("rejects backup IDs that overlap another document's text chunks before restore", async () => {
+    await seed("source");
+    const backup = await create_library_backup("source");
+    const colliding = {
+      ...backup,
+      documents: [
+        { ...document, id: "x" },
+        { ...document, id: "x:1", plainText: "Other document" },
+      ],
+    };
+    expect(() => parse_library_backup(JSON.stringify(colliding))).toThrow("supported, complete");
+    await expect(restore_library_backup("destination", colliding)).rejects.toThrow("supported, complete");
+    expect(await create_document_store("destination").loadDocuments()).toEqual([]);
+    expect((await create_document_store("source").loadDocuments())[0].plainText).toBe(document.plainText);
+  });
   it("round trips chunked documents, notes and progress into another account without credentials", async () => {
     await seed("a");
     await AsyncStorage.setItem("firebase:authUser:private", "secret-token");

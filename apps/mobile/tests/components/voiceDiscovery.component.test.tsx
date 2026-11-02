@@ -5,7 +5,6 @@ import * as Speech from "expo-speech";
 import VoicesScreen from "../../app/voices";
 import { votic_voice_names } from "../../src/reader/voices";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
-import { PaywallPreview } from "../../src/subscription/PaywallPreview";
 import { EMPTY_ANSWERS } from "../../src/onboarding/onboardingModel";
 import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
@@ -76,18 +75,16 @@ describe("finding voices", () => {
     expect(screen.getByText("More voices are in Settings › Reading & Listening › Voice.")).toBeTruthy();
   });
 
-  it("keeps the voice chosen on the paywall preview, in the same order", async () => {
-    await render_with_providers(<PaywallPreview />);
-    const before = (await screen.findAllByRole("radio", { name: /^Preview voice / })).map(
+  it("keeps the voice chosen in voice settings in the same order", async () => {
+    await render_with_providers(<VoicesScreen />);
+    const before = (await screen.findAllByRole("radio", { name: /^Select / })).map(
       (radio) => radio.props.accessibilityLabel,
     );
-    await fireEvent.press(screen.getByRole("radio", { name: `Preview voice ${gb}` }));
+    await fireEvent.press(screen.getByRole("radio", { name: `Select ${gb} voice, British English` }));
     await waitFor(async () => expect(await saved_voice()).toBe("voice-gb"));
     await act(async () => {});
     expect(
-      screen
-        .getAllByRole("radio", { name: /^Preview voice / })
-        .map((radio) => radio.props.accessibilityLabel),
+      screen.getAllByRole("radio", { name: /^Select / }).map((radio) => radio.props.accessibilityLabel),
     ).toEqual(before);
   });
 });

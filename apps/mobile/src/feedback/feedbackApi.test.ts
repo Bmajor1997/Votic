@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { FeedbackSubmitError, submit_feedback } from "../api/voticApi";
 import { set_auth_token_provider } from "../api/authToken";
 vi.mock("expo-constants", () => ({ default: { expoConfig: { hostUri: "127.0.0.1:8081" } } }));
-vi.mock("../storage/accountDeletion", () => ({ notify_remote_account_deletion: vi.fn() }));
+vi.mock("../storage/accountDeletion", () => ({ remote_account_deletion_notifier: () => vi.fn() }));
 const input = {
   category: "feature" as const,
   title: "Offline listening",

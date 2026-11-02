@@ -111,6 +111,8 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       intendedUser = userId;
       identifiedUser = null;
       packages.clear();
+      creditProducts.clear();
+      retentionOptions.clear();
       return serialize_identity(async () => {
         try {
           const sdk = await load(userId);
@@ -128,6 +130,8 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       intendedUser = null;
       identifiedUser = null;
       packages.clear();
+      creditProducts.clear();
+      retentionOptions.clear();
       await serialize_identity(async () => {
         try {
           const sdk = await load();
@@ -247,6 +251,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       }
     },
     async getRetentionOffer() {
+      retentionOptions.clear();
       // Google Play only: the App Store needs signed promotional offers, which Votic doesn't issue yet.
       if (Platform.OS !== "android") return null;
       const token = generation;
