@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { card_placement, dim_regions, spotlight_rect } from "./placement";
+import { card_placement, dim_regions, scroll_needed, spotlight_rect } from "./placement";
 import { applicable_steps, copy_for, FLOWS, FlowId } from "./walkthroughFlows";
 import { migrated_flows, parse_walkthrough_state } from "./walkthroughState";
 
@@ -122,6 +122,24 @@ describe("walkthrough steps", () => {
           expect(message.length).toBeLessThanOrEqual(160);
         }
       }
+  });
+});
+
+describe("controls outside the visible screen", () => {
+  const height = 900;
+  it("leaves anything fully on screen alone, the tab bar included", () => {
+    expect(scroll_needed({ x: 0, y: 300, width: 100, height: 44 }, height, "tabs")).toBe(0);
+    expect(scroll_needed({ x: 0, y: 830, width: 98, height: 64 }, height, "tabs")).toBe(0);
+    // A long list only needs its top in view.
+    expect(scroll_needed({ x: 0, y: 200, width: 350, height: 2000 }, height, "tabs")).toBe(0);
+  });
+  it("scrolls a control below the fold (or behind the tab bar) up to about a third of the way down", () => {
+    expect(scroll_needed({ x: 0, y: 1500, width: 350, height: 200 }, height, "tabs")).toBe(1500 - 300);
+    // Its top peeks out above the tab bar, but the rest is hidden behind it and below the screen.
+    expect(scroll_needed({ x: 0, y: 780, width: 350, height: 240 }, height, "tabs")).toBe(780 - 300);
+  });
+  it("scrolls back up to a control above the screen", () => {
+    expect(scroll_needed({ x: 0, y: -400, width: 350, height: 80 }, height, "tabs")).toBe(-400 - 300);
   });
 });
 

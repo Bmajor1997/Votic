@@ -716,6 +716,73 @@ describe("Reader walkthrough", () => {
   });
 });
 
+/** Stands in for a screen whose preferences card starts below the fold; it may or may not be able to scroll. */
+function OffscreenTarget({ canScroll, scrolls }: { canScroll: boolean; scrolls: number[] }) {
+  const { registerTarget, registerScroller, request, hydrated } = useWalkthrough();
+  const [scrolled, setScrolled] = useState(0);
+  useEffect(() => {
+    registerTarget("settings.preferences", async () => ({
+      x: 20,
+      y: 2000 - scrolled,
+      width: 350,
+      height: 300,
+    }));
+  }, [registerTarget, scrolled]);
+  useEffect(() => {
+    registerScroller(
+      canScroll
+        ? (by) => {
+            scrolls.push(by);
+            setScrolled((value) => value + by);
+          }
+        : null,
+    );
+  }, [registerScroller, canScroll, scrolls]);
+  useEffect(() => {
+    // Like a screen's trigger, it asks once the walkthrough has loaded and the screen has settled.
+    if (!hydrated) return;
+    const timer = setTimeout(() => request("settings"), TRIGGER_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [hydrated, request]);
+  return null;
+}
+
+describe("A control below the fold", () => {
+  async function show(canScroll: boolean, scrolls: number[]) {
+    await render_with_providers(
+      <>
+        <OffscreenTarget canScroll={canScroll} scrolls={scrolls} />
+        <WalkthroughOverlay host="tabs" />
+      </>,
+      { walkthrough: "fresh" },
+    );
+    // Request, measure, scroll, then measure again once the scroll has landed.
+    for (let i = 0; i < 3; i += 1) {
+      await settle();
+      await act(async () => jest.advanceTimersByTime(500));
+    }
+    await settle();
+  }
+
+  it("is scrolled into view before its card shows", async () => {
+    const scrolls: number[] = [];
+    await show(true, scrolls);
+    expect(scrolls).toHaveLength(1);
+    expect(scrolls[0]).toBeGreaterThan(0);
+    expect(in_card("Make Votic yours")).toBeTruthy();
+    expect(screen.getAllByTestId("walkthrough-dim", { includeHiddenElements: true }).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("is skipped when the screen can't scroll, instead of dimming the screen with no card", async () => {
+    await show(false, []);
+    expect(screen.queryByText("Make Votic yours")).toBeNull();
+    // The next step, which needs no control, shows instead.
+    expect(in_card("Replay any walkthrough")).toBeTruthy();
+  });
+});
+
 describe("Settings walkthrough", () => {
   it("points at the preferences, then says where to replay walkthroughs", async () => {
     await render_tab(<Settings />);

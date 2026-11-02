@@ -14,11 +14,13 @@ import {
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { Rect, card_placement, dim_regions, spotlight_rect } from "./placement";
+import { Rect, card_placement, dim_regions, scroll_needed, spotlight_rect } from "./placement";
 import { copy_for, FLOWS, WalkthroughHost } from "./walkthroughFlows";
 import { useWalkthrough } from "./WalkthroughProvider";
 
 const GUTTER = 16;
+/** How long a scroll is given to land before measuring again. */
+const SCROLL_SETTLE_MS = 250;
 
 /**
  * Draws the current walkthrough step over its host screen: a dim layer with a clear "hole" around the
@@ -29,7 +31,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const walkthrough = useWalkthrough();
-  const { active, measureTarget, measureNode, next, skip } = walkthrough;
+  const { active, measureTarget, measureNode, next, skip, scrollBy } = walkthrough;
   const window = useWindowDimensions();
   const rootRef = useRef<View>(null);
   const titleRef = useRef<Text>(null);
@@ -52,18 +54,32 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   useEffect(() => {
     if (!step) return;
     let current = true;
+    let scrolled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     async function locate() {
       if (!step?.target) return setRect(null);
       const [target, origin] = await Promise.all([measureTarget(step.target), measureNode(rootRef.current)]);
       if (!current) return;
       if (!target) return next();
-      setRect({ ...target, x: target.x - (origin?.x ?? 0), y: target.y - (origin?.y ?? 0) });
+      const local = { ...target, x: target.x - (origin?.x ?? 0), y: target.y - (origin?.y ?? 0) };
+      const by = scroll_needed(local, window.height, host);
+      if (by) {
+        // Below (or above) the visible part of the screen: scroll it into view once, then measure again.
+        // If the screen can't scroll, or it's still out of view, skip this step rather than dim the screen
+        // around a card that can't be seen.
+        if (scrolled || !scrollBy(by)) return next();
+        scrolled = true;
+        setRect(null);
+        timer = setTimeout(() => void locate(), SCROLL_SETTLE_MS);
+        return;
+      }
+      setRect(local);
     }
     void locate();
-    const timer = setTimeout(() => void locate(), 300);
+    timer = setTimeout(() => void locate(), 300);
     return () => {
       current = false;
-      clearTimeout(timer);
+      if (timer) clearTimeout(timer);
     };
     // Measure per step and when the screen size changes (rotation, split screen).
   }, [stepKey, window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps

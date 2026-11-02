@@ -42,6 +42,8 @@ function EdgeFade({
 type Props = Omit<ComponentProps<typeof Animated.ScrollView>, "onScroll" | "scrollEventThrottle"> & {
   /** The color content fades into; the screen's background by default. */
   fadeColor?: string;
+  /** Called with the scroll position as it changes. */
+  onOffset?: (y: number) => void;
 };
 
 /**
@@ -49,7 +51,7 @@ type Props = Omit<ComponentProps<typeof Animated.ScrollView>, "onScroll" | "scro
  * and the bottom fade leaves at the end of the page. The fades follow the scroll on the native thread.
  */
 export const FadingScrollView = forwardRef<ScrollView, Props>(function FadingScrollView(
-  { fadeColor, onLayout, onContentSizeChange, style, children, ...props },
+  { fadeColor, onOffset, onLayout, onContentSizeChange, style, children, ...props },
   ref,
 ) {
   const { theme } = useVoticTheme();
@@ -88,6 +90,10 @@ export const FadingScrollView = forwardRef<ScrollView, Props>(function FadingScr
         }}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,
+          listener: onOffset
+            ? (event: { nativeEvent: { contentOffset: { y: number } } }) =>
+                onOffset(event.nativeEvent.contentOffset.y)
+            : undefined,
         })}
       >
         {children}

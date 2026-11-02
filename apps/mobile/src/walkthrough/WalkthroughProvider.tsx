@@ -30,6 +30,7 @@ import {
 import { useAuth } from "../auth/AuthProvider";
 
 type Measure = () => Promise<Rect | null>;
+type Scroller = (by: number) => void;
 export type MeasureNode = (node: unknown) => Promise<Rect | null>;
 export type ActiveFlow = { id: FlowId; context: FlowContext; steps: WalkthroughStep[]; index: number };
 
@@ -49,6 +50,10 @@ type WalkthroughContextValue = {
   /** Replay: forgets one section, or every walkthrough and tip. */
   reset: (id: SectionId | "all") => void;
   registerTarget: (id: TargetId, measure: Measure | null) => void;
+  /** The screen showing now registers how to scroll itself, so a control below the fold can be brought into view. */
+  registerScroller: (scroll: Scroller | null) => void;
+  /** Scrolls the current screen by this many points; false when it can't scroll. */
+  scrollBy: (by: number) => boolean;
   measureTarget: (id: TargetId) => Promise<Rect | null>;
   measureNode: MeasureNode;
 };
@@ -243,6 +248,15 @@ export function WalkthroughProvider({
     },
     [set_active, set_state],
   );
+  const scroller = useRef<Scroller | null>(null);
+  const register_scroller = useCallback((scroll: Scroller | null) => {
+    scroller.current = scroll;
+  }, []);
+  const scroll_by = useCallback((by: number) => {
+    if (!scroller.current) return false;
+    scroller.current(by);
+    return true;
+  }, []);
   const register_target = useCallback((id: TargetId, measure: Measure | null) => {
     if (measure) targets.current.set(id, measure);
     else targets.current.delete(id);
@@ -265,6 +279,8 @@ export function WalkthroughProvider({
       isDone: (id) => Boolean(state.flows[id]),
       reset,
       registerTarget: register_target,
+      registerScroller: register_scroller,
+      scrollBy: scroll_by,
       measureTarget: measure_target,
       measureNode,
     }),
@@ -279,11 +295,18 @@ export function WalkthroughProvider({
       pressed,
       reset,
       register_target,
+      register_scroller,
+      scroll_by,
       measure_target,
       measureNode,
     ],
   );
   return <WalkthroughContext.Provider value={value}>{children}</WalkthroughContext.Provider>;
+}
+
+/** For components that also show outside Votic's main screens (where there is no walkthrough). */
+export function useOptionalWalkthrough() {
+  return useContext(WalkthroughContext);
 }
 
 export function useWalkthrough() {

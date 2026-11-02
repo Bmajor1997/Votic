@@ -1,9 +1,11 @@
 import { editorial } from "../design/editorial";
 import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { MotionFeedbackNotice } from "../motion/MotionFeedback";
-import { PropsWithChildren, ReactNode } from "react";
+import { PropsWithChildren, ReactNode, useCallback, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { useOptionalWalkthrough } from "../walkthrough/WalkthroughProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { FadingScrollView } from "./FadingScrollView";
@@ -21,6 +23,19 @@ export function Screen({
   const { theme } = useVoticTheme();
   const { persistenceError } = useDocumentLibrary();
   const transition = useDocumentTransition();
+  const scrollRef = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  // While this screen is showing, the walkthrough can scroll it to bring a control below the fold into view.
+  const registerScroller = useOptionalWalkthrough()?.registerScroller;
+  useFocusEffect(
+    useCallback(() => {
+      if (!registerScroller) return;
+      registerScroller((by) =>
+        scrollRef.current?.scrollTo({ y: Math.max(0, offset.current + by), animated: false }),
+      );
+      return () => registerScroller(null);
+    }, [registerScroller]),
+  );
   const screenOpacity = transition.progress.interpolate({
     inputRange: [0, 0.7, 1],
     outputRange: [1, 0.88, 0.04],
@@ -30,6 +45,10 @@ export function Screen({
     <SafeAreaView edges={["top", "left", "right"]} style={[s.safe, { backgroundColor: theme.background }]}>
       <Animated.View style={[s.safe, { opacity: transition.transitioning ? screenOpacity : 1 }]}>
         <FadingScrollView
+          ref={scrollRef}
+          onOffset={(y) => {
+            offset.current = y;
+          }}
           contentContainerStyle={s.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

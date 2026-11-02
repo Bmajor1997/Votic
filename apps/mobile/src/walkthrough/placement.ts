@@ -46,3 +46,19 @@ export function dim_regions(spotlight: Rect, screen: { width: number; height: nu
     { x: right, y: spotlight.y, width: screen.width - right, height: spotlight.height },
   ].filter((region) => region.width > 0 && region.height > 0);
 }
+
+/** Room kept clear at the bottom for the tab bar (Votic's tabs) or the Reader's dock. */
+const BOTTOM_RESERVE = { tabs: 96, reader: 0 } as const;
+/**
+ * How far to scroll so the control's top part is in view with room for the card, or 0 when it already is.
+ * Large areas (a list, the document) only need their top in view.
+ */
+export function scroll_needed(target: Rect, screenHeight: number, host: "tabs" | "reader") {
+  // Entirely on screen (the tab bar itself included) needs no scrolling.
+  if (target.y >= 0 && target.y + target.height <= screenHeight) return 0;
+  const visibleBottom = screenHeight - BOTTOM_RESERVE[host];
+  const shown = Math.min(target.height, 120);
+  if (target.y >= 0 && target.y + shown <= visibleBottom) return 0;
+  // Leave the control about a third of the way down, so the card fits above or below it.
+  return Math.round(target.y - screenHeight / 3);
+}
