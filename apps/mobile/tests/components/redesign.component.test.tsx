@@ -295,7 +295,7 @@ describe("Notes", () => {
     expect(screen.getByText("No notes yet")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Select notes" })).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: "Open q3 board report FINAL notebook" }));
-    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "No notes in this notebook yet" })).toBeTruthy();
     // A document exists, so Quick Note is offered even before the first note.
     expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
   });

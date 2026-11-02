@@ -5,7 +5,6 @@ import { useAuth } from "../auth/AuthProvider";
 import { account_storage_key } from "../storage/accountStorage";
 import { write_account_data } from "../storage/accountDeletion";
 import { AI_CONSENT_VERSION } from "../api/aiConsent";
-import { DiagnosticsSettings } from "./DiagnosticsSettings";
 import { PolicyLinks } from "./PolicyLinks";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
@@ -31,8 +30,8 @@ export function PrivacySettings() {
   return (
     <>
       <Text style={{ color: theme.mutedText, fontSize: 15, lineHeight: 23 }}>
-        Read Votic&apos;s policies and choose whether to share optional failure counts. Account deletion is
-        available in Account &amp; Membership.
+        Read Votic&apos;s policies and manage AI sharing. Account deletion is available in Account &amp;
+        Membership.
       </Text>
       <PolicyLinks />
       <Pressable
@@ -43,7 +42,6 @@ export function PrivacySettings() {
         <Text style={{ color: theme.accentText }}>Withdraw AI sharing consent</Text>
       </Pressable>
       {notice ? <Text style={{ color: theme.text }}>{notice}</Text> : null}
-      <DiagnosticsSettings />
     </>
   );
 }

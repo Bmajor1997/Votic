@@ -7,6 +7,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { FeedbackSubmitError, submit_feedback } from "../api/voticApi";
 import { radii, spacing, typography } from "../design/tokens";
 import { PrimaryButton } from "../onboarding/components";
+import { DiagnosticsSettings } from "../settings/DiagnosticsSettings";
 import { SettingsGroup, SettingsPage, SettingsRow } from "../settings/SettingsNavigation";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
@@ -29,6 +30,9 @@ export function FeedbackScreen() {
           separated
           onPress={() => router.push("/feedback/bug")}
         />
+      </SettingsGroup>
+      <SettingsGroup title="AUTOMATIC REPORTS">
+        <DiagnosticsSettings />
       </SettingsGroup>
     </SettingsPage>
   );

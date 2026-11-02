@@ -11,7 +11,14 @@ import {
   word_at_speech_offset,
   word_matches,
 } from "./readerText";
-import { unique_english_voices, votic_voice_names, votic_voice_preview, device_voice_gender } from "./voices";
+import {
+  unique_english_voices,
+  voice_shortlist,
+  VOICES_PER_ACCENT,
+  votic_voice_names,
+  votic_voice_preview,
+  device_voice_gender,
+} from "./voices";
 import { ACCESSIBLE_FONT } from "./readerFontNames";
 
 // 3 + 2 + 5 = 10 words.
@@ -271,4 +278,43 @@ it("makes the spoken word a quarter larger than the text around it", async () =>
   expect(spoken_word_size(18)).toBe(23);
   expect(spoken_word_size(21)).toBe(26);
   expect(spoken_word_size(25)).toBe(31);
+});
+
+describe("voice shortlist", () => {
+  const v = (identifier: string, language: string, quality?: string) => ({
+    identifier,
+    name: identifier,
+    language,
+    ...(quality ? { quality } : {}),
+  });
+  const us = [
+    "en-us-x-iob-local",
+    "en-us-x-iog-local",
+    "en-us-x-iol-local",
+    "en-us-x-iom-local",
+    "en-us-x-sfg-local",
+  ];
+  const voices = [
+    v("en-US-language", "en-US"),
+    ...us.map((id) => v(id, "en-US")),
+    v("en-gb-x-gba-local", "en-GB"),
+    v("en-NG-language", "en-NG"),
+  ];
+  it("offers at most three voices per accent and skips the generic default when named voices exist", () => {
+    const kept = voice_shortlist(voices).map((voice) => voice.identifier);
+    expect(kept.filter((id) => id.startsWith("en-us") || id === "en-US-language")).toHaveLength(
+      VOICES_PER_ACCENT,
+    );
+    expect(kept).not.toContain("en-US-language");
+    expect(kept).toContain("en-gb-x-gba-local");
+    // An accent with only its generic voice keeps it.
+    expect(kept).toContain("en-NG-language");
+  });
+  it("always keeps the chosen voice and prefers high-quality ones", () => {
+    expect(voice_shortlist(voices, "en-us-x-sfg-local").map((voice) => voice.identifier)).toContain(
+      "en-us-x-sfg-local",
+    );
+    const enhanced = [...voices, v("en-us-x-tpf-local", "en-US", "Enhanced")];
+    expect(voice_shortlist(enhanced).map((voice) => voice.identifier)).toContain("en-us-x-tpf-local");
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { Alert, Linking } from "react-native";
+import { FeedbackScreen } from "../../src/feedback/FeedbackScreens";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { create_document_store } from "../../src/documents/documentStorage";
 import { render_with_providers, test_document } from "../renderWithProviders";
@@ -34,7 +35,13 @@ describe("Settings support and library tools", () => {
     await fireEvent.press(screen.getByRole("link", { name: "Terms of Service" }));
     expect(open).toHaveBeenCalledWith("https://example.com/privacy");
     expect(open).toHaveBeenCalledWith("https://example.com/terms");
-    expect(screen.getByRole("switch", { name: "Share failure counts" })).toBeTruthy();
+    // Problem reports moved to Feedback, in plain words.
+    expect(screen.queryByRole("switch", { name: /failure counts|problem reports/i })).toBeNull();
+  });
+  it("offers optional automatic problem reports in Feedback, explained in plain words", async () => {
+    await render_with_providers(<FeedbackScreen />);
+    expect(screen.getByRole("switch", { name: "Send automatic problem reports" })).toBeTruthy();
+    expect(screen.getByText(/never your documents, notes, recordings or anything you type/)).toBeTruthy();
   });
   it.each([
     ["Library backup & restore", "/library-backup"],

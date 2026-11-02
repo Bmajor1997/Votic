@@ -21,6 +21,7 @@ import { NoteType } from "../../src/documents/types";
 import { new_quick_note_item, note_from_draft } from "../../src/notes/noteDraft";
 import { note_selection_id } from "../../src/notes/askVoticNotesContext";
 import { NotebookCard } from "../../src/notes/components/NotebookCard";
+import { NotebookEmptyState } from "../../src/notes/components/NotebookEmptyState";
 import { NotebookHeader } from "../../src/notes/components/NotebookHeader";
 import { NoteDraft, NoteEditor } from "../../src/notes/components/NoteEditor";
 import { NoteGroupCard } from "../../src/notes/components/NoteGroupCard";
@@ -68,6 +69,7 @@ export default function Notes() {
   const [menuItem, setMenuItem] = useState<NoteItem | null>(null);
   const notebook = notebookId ? documents.find((document) => document.id === notebookId) : undefined;
   const activeFilterCount = advanced_filter_count({ filter, dateFilter, tagFilter });
+  const emptyNotebook = Boolean(notebook && !notebook.savedPassages?.length);
   const tags = useMemo(() => available_tags(documents), [documents]);
   const groups = useMemo(
     () => note_groups(documents, { query, filter, dateFilter, tagFilter, notebookId }),
@@ -325,7 +327,7 @@ export default function Notes() {
                 </Pressable>
               </SelectionBar>
             </View>
-          ) : groups.length || !browsing ? (
+          ) : groups.length || (!browsing && !emptyNotebook) ? (
             <View style={s.summaryRow}>
               <Text style={[s.summary, { color: theme.mutedText }]}>{notes_summary(groups)}</Text>
               {groups.length ? (
@@ -383,6 +385,14 @@ export default function Notes() {
           <Text style={[s.emptyTitle, { color: theme.text }]}>No matches</Text>
           <Text style={[s.emptyCopy, { color: theme.mutedText }]}>Try another search or filter.</Text>
         </View>
+      ) : notebook ? (
+        <NotebookEmptyState
+          notebook={notebook}
+          onOpenDocument={() => {
+            openDocument(notebook.id);
+            router.push("/reader");
+          }}
+        />
       ) : (
         <View ref={emptyTarget} collapsable={false} style={s.empty}>
           <NotesEmptyAnimation />

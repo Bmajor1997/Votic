@@ -1,9 +1,19 @@
 import * as Speech from "expo-speech";
 import { useEffect, useMemo, useState } from "react";
-import { unique_english_voices, votic_voice_names, type DeviceVoice } from "../reader/voices";
+import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
+import {
+  unique_english_voices,
+  voice_shortlist,
+  votic_voice_names,
+  type DeviceVoice,
+} from "../reader/voices";
 
-/** The device's English voices, one per sound, with the friendly names Votic shows everywhere. */
+/**
+ * A short list of the device's English voices (see voice_shortlist), with the friendly names Votic shows
+ * everywhere. Names come from the full list, so trimming it never renames a voice.
+ */
 export function useDeviceVoices() {
+  const { voiceIdentifier } = useAccessibilityPreferences();
   const [voices, setVoices] = useState<DeviceVoice[] | null>(null);
   useEffect(() => {
     let current = true;
@@ -19,7 +29,8 @@ export function useDeviceVoices() {
     };
   }, []);
   const names = useMemo(() => votic_voice_names(voices ?? []), [voices]);
-  return { voices: voices ?? [], loaded: voices !== null, names };
+  const shortlist = useMemo(() => voice_shortlist(voices ?? [], voiceIdentifier), [voices, voiceIdentifier]);
+  return { voices: shortlist, loaded: voices !== null, names };
 }
 
 /** The name of the voice in use: the chosen one, or "Device voice" when none is chosen or it's unavailable. */

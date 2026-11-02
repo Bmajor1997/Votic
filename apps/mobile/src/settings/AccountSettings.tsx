@@ -1,7 +1,6 @@
 import Constants from "expo-constants";
 import { useAccountData } from "../storage/AccountDataProvider";
 import { router } from "expo-router";
-import { DiagnosticsSettings } from "./DiagnosticsSettings";
 import { account_deletion_pending } from "../storage/accountDeletion";
 import { Ionicons } from "@expo/vector-icons";
 import { ComponentProps, Ref, useEffect, useRef, useState } from "react";
@@ -212,7 +211,6 @@ export function AccountSettings() {
             onPress={() => router.push("/library-backup")}
           />
         ) : null}
-        <DiagnosticsSettings />
         {auth.user && accountData.canRecover ? (
           <AccountRow
             label="Recover older device library"

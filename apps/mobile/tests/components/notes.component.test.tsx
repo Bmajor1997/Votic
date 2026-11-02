@@ -278,11 +278,15 @@ describe("Quick Notes", () => {
     await render_with_providers(<Notes />, { documents: [test_document("empty-doc", "My Document")] });
     expect(screen.getByRole("button", { name: "Quick Note" })).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Open My Document notebook" }));
-    expect(screen.getByRole("header", { name: "Your notes will appear here" })).toBeTruthy();
+    // Inside an empty notebook: about this notebook, not the app-wide welcome or a "No matching notes" count.
+    expect(screen.getByRole("header", { name: "No notes in this notebook yet" })).toBeTruthy();
+    expect(screen.queryByRole("header", { name: "Your notes will appear here" })).toBeNull();
+    expect(screen.queryByText("No matching notes")).toBeNull();
     expect(
-      screen.getByText("Open a document from Documents, then save a passage or add a note while reading."),
+      screen.getByText(/Open My Document, then save a passage or add a note while reading/),
     ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Open a document" })).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: "Open document" }));
+    expect(router.push).toHaveBeenCalledWith("/reader");
   });
   it("creates standalone Quick Notes once notes exist and keeps them in one notebook", async () => {
     await render_with_providers(<Notes />, { documents: [documents[0]] });

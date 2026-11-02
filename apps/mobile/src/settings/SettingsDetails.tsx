@@ -255,7 +255,7 @@ function ReadingSettings() {
         />
         <Toggle
           label="Emphasize current word"
-          detail="Make the spoken word slightly larger and bolder."
+          detail="Make the spoken word larger and bolder."
           value={a.wordEmphasis}
           onChange={a.setWordEmphasis}
         />

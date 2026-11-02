@@ -95,12 +95,7 @@ export default function Settings() {
         {category("help", "Walkthroughs, getting started, and activity insights", "help-circle-outline")}
         {category("support", "Email Votic for account, billing, or app help", "mail-outline", true)}
         <FeedbackRow separated />
-        {category(
-          "privacy",
-          "Privacy Policy, Terms, and diagnostic sharing",
-          "shield-checkmark-outline",
-          true,
-        )}
+        {category("privacy", "Privacy Policy, Terms, and AI sharing", "shield-checkmark-outline", true)}
       </SettingsGroup>
     </Screen>
   );

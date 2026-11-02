@@ -112,7 +112,6 @@ export function votic_voice_preview(name: string) {
   return `Hi, I'm ${name}. I'm here to make reading feel clear, comfortable, and easy to follow.`;
 }
 
-/** Keep one English voice per display name so platform variants do not create duplicate choices. */
 /**
  * One English voice per sound. Android lists most voices twice, an offline copy ("…-local") and an online copy
  * ("…-network") that sound the same, so only one is kept, preferring the offline copy that works without internet.
@@ -136,4 +135,37 @@ export function unique_english_voices<T extends DeviceVoice>(available: T[]) {
   }
   // Keep the device's own order for the voices that remain.
   return english.filter((voice) => kept.has(voice));
+}
+
+/** The most voices offered for one accent (US, British, Australian…); more than this mostly sound alike. */
+export const VOICES_PER_ACCENT = 3;
+
+/**
+ * A short, varied list from the device's unique English voices: at most three per accent, skipping each accent's
+ * generic "…-language" default (it repeats one of that accent's named voices). High-quality voices come first.
+ * The voice someone already chose always stays, so nobody loses the voice they picked.
+ */
+export function voice_shortlist<T extends DeviceVoice>(voices: T[], keep: string | null = null) {
+  const accent = (voice: T) => voice.language.toLowerCase().replace("_", "-");
+  const generic = (voice: T) => /-language$/i.test(voice.identifier) || /-language$/i.test(voice.name);
+  const named = new Set(voices.filter((voice) => !generic(voice)).map(accent));
+  const candidates = voices.filter(
+    (voice) => voice.identifier === keep || !generic(voice) || !named.has(accent(voice)),
+  );
+  const ranked = [...candidates].sort(
+    (a, b) =>
+      Number(b.identifier === keep) - Number(a.identifier === keep) ||
+      Number(b.quality === "Enhanced") - Number(a.quality === "Enhanced") ||
+      (a.identifier < b.identifier ? -1 : a.identifier > b.identifier ? 1 : 0),
+  );
+  const counts = new Map<string, number>();
+  const kept = new Set<T>();
+  for (const voice of ranked) {
+    const count = counts.get(accent(voice)) ?? 0;
+    if (count >= VOICES_PER_ACCENT && voice.identifier !== keep) continue;
+    counts.set(accent(voice), count + 1);
+    kept.add(voice);
+  }
+  // Keep the device's own order for the voices that remain.
+  return voices.filter((voice) => kept.has(voice));
 }
