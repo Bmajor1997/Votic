@@ -4,7 +4,7 @@ import { AI_USAGE_PATHS, AiUsage, notify_ai_usage_changed, parse_ai_usage } from
 import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
-import { notify_remote_account_deletion } from "../storage/accountDeletion";
+import { remote_account_deletion_notifier } from "../storage/accountDeletion";
 
 import { assert_help_request_size, help_request_body, type ExplanationStyle } from "./helpRequest";
 export type { ExplanationStyle } from "./helpRequest";
@@ -40,6 +40,7 @@ async function api_fetch(
   if (AI_CONTENT_PATHS.includes(path)) await require_ai_consent(signal);
   const signInMessage = typeof requireSignIn === "string" ? requireSignIn : "Sign in to use voice questions.";
   const notify_allowance = allowance_notifier();
+  const notify_deletion = remote_account_deletion_notifier();
   const url = votic_api_url() + path;
   const controller = new AbortController();
   let reject_cancellation: (error: Error) => void = () => {};
@@ -75,7 +76,7 @@ async function api_fetch(
       signal: controller.signal,
     });
     const result = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-    if (response.status === 403 && result.code === "ACCOUNT_DELETED") notify_remote_account_deletion();
+    if (response.status === 403 && result.code === "ACCOUNT_DELETED") notify_deletion();
     if (!response.ok) notify_allowance(result);
     if (AI_USAGE_PATHS.includes(path)) notify_ai_usage_changed();
     return { ok: response.ok, result };

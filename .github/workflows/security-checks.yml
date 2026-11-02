@@ -30,7 +30,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
-          languages: javascript-typescript
+          languages: javascript-typescript, actions
       - name: Analyze JavaScript and TypeScript with CodeQL
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
 
@@ -49,6 +49,10 @@ jobs:
           cache: npm
       - name: Install Votic dependencies
         run: npm ci
+      - name: Install mobile dependencies for Knip configuration loading
+        run: npm ci --prefix apps/mobile --ignore-scripts
+      - name: Check for unused code and dependencies with Knip
+        run: npx --yes knip@5.69.1 --config knip.config.json --no-exit-code
       - name: Check JavaScript with ESLint
         run: npm run lint
       - name: Validate Votic HTML
@@ -100,12 +104,13 @@ jobs:
         if: always()
         run: docker run --rm -v "$PWD:/src" ghcr.io/google/osv-scanner:v2.6.0 scan --config=/src/osv-scanner.toml -r /src
 
-      - name: Install Semgrep
-        if: always()
-        run: pip install semgrep
       - name: Scan Votic source code with Semgrep
         if: always()
-        run: semgrep scan --config auto . --error
+        # The official image bundles compatible Python dependencies; pin its content as well as its version.
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src
+          semgrep/semgrep:1.140.0@sha256:4372a1de903521f9f10f877b6caf15d150d17e1ca592582682c8d02b77cbd4f6
+          semgrep scan --config auto . --error
       - name: Scan repository for exposed secrets
         if: always()
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
@@ -141,13 +146,12 @@ jobs:
       - name: Install mobile dependencies
         run: npm ci --ignore-scripts
       # Mobile type-checking and Expo validation run in the Reliability workflow.
-      - name: Install Semgrep for mobile security scanning
-        if: always()
-        run: pip install semgrep
-        working-directory: .
       - name: Scan React Native TypeScript with Semgrep
         if: always()
-        run: semgrep scan --config auto apps/mobile --error
+        run: >-
+          docker run --rm -v "$PWD:/src" -w /src
+          semgrep/semgrep:1.140.0@sha256:4372a1de903521f9f10f877b6caf15d150d17e1ca592582682c8d02b77cbd4f6
+          semgrep scan --config auto apps/mobile --error
         working-directory: .
       - name: Audit mobile production dependencies
         if: always()

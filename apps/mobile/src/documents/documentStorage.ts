@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { account_storage_key } from "../storage/accountStorage";
 import { write_account_data } from "../storage/accountDeletion";
 import { VoticDocument } from "./types";
+import { commit_document_save, recover_document_save } from "./documentSaveJournal";
 const LEGACY_KEY = "votic.mobile.documents.v1",
   COLLECTIONS_KEY = "votic.mobile.collections.v1";
 // Metadata changes constantly (progress, notes); document text almost never does, so they are stored apart.
@@ -22,6 +23,18 @@ function chunk_count(text: string) {
 }
 // `textChunks` is omitted for single-chunk texts, which keeps their stored form unchanged.
 type StoredDocument = Omit<VoticDocument, "plainText"> & { textChunks?: number };
+/** External IDs must not alias another document's chunk namespace. */
+export function unique_document_text_keys(documents: readonly { id: string; textChunks?: number }[]) {
+  const keys = new Set<string>();
+  for (const document of documents) {
+    for (let chunk = 0; chunk < (document.textChunks ?? 1); chunk++) {
+      const key = document_text_key(document.id, chunk);
+      if (keys.has(key)) return false;
+      keys.add(key);
+    }
+  }
+  return true;
+}
 function metadata({ plainText, ...document }: VoticDocument): StoredDocument {
   const chunks = chunk_count(plainText);
   return chunks > 1 ? { ...document, textChunks: chunks } : document;
@@ -63,7 +76,8 @@ export function create_document_store(uid?: string) {
   async function migrate_legacy_documents() {
     const value = parse_array(await AsyncStorage.getItem(legacyKey), "document");
     const documents = value.filter(valid);
-    if (documents.length !== value.length) throw new Error("Some saved document data is invalid.");
+    if (documents.length !== value.length || !unique_document_text_keys(documents.map(metadata)))
+      throw new Error("Some saved document data is invalid.");
     if (!documents.length) return [];
     // Texts first, then metadata, then drop the legacy copy, so an interrupted migration never loses data.
     await AsyncStorage.multiSet(documents.flatMap(text_entries));
@@ -73,6 +87,7 @@ export function create_document_store(uid?: string) {
   }
 
   async function load_documents(): Promise<VoticDocument[]> {
+    await recover_document_save(uid);
     const raw = await AsyncStorage.getItem(libraryKey);
     unavailable = [];
     const documents = raw === null ? await migrate_legacy_documents() : await load_split_documents(raw);
@@ -102,7 +117,7 @@ export function create_document_store(uid?: string) {
     if (new TextEncoder().encode(raw).byteLength > MAX_METADATA_BYTES)
       throw new Error("Saved document metadata exceeds safe limits. Its data has been kept.");
     const value = parse_array(raw, "document");
-    if (!value.every(valid_metadata) || new Set(value.map((doc) => doc.id)).size !== value.length)
+    if (!value.every(valid_metadata) || !unique_document_text_keys(value as StoredDocument[]))
       throw new Error("Some saved document data is invalid.");
     const stored = value as StoredDocument[];
     let values: Map<string, string | null> | null = null;
@@ -145,17 +160,18 @@ export function create_document_store(uid?: string) {
   }
 
   async function save_documents(documents: VoticDocument[]) {
+    if (await recover_document_save(uid)) await load_documents();
     if (
       documents.length + unavailable.length > MAX_STORED_DOCUMENTS ||
       !documents.every(valid) ||
       new Set(documents.map((doc) => doc.id)).size !== documents.length
     )
       throw new Error("The document library exceeds safe limits or contains invalid data.");
-    const serialized = JSON.stringify(
-      documents
-        .map(metadata)
-        .concat(unavailable.filter((stored) => !documents.some((document) => document.id === stored.id))),
-    );
+    const rows = documents
+      .map(metadata)
+      .concat(unavailable.filter((stored) => !documents.some((document) => document.id === stored.id)));
+    if (!unique_document_text_keys(rows)) throw new Error("Document storage identifiers overlap.");
+    const serialized = JSON.stringify(rows);
     if (new TextEncoder().encode(serialized).byteLength > MAX_METADATA_BYTES)
       throw new Error(
         "The document library metadata exceeds safe limits. Remove some notes or documents and retry.",
@@ -169,17 +185,17 @@ export function create_document_store(uid?: string) {
         : [{ id: document.id, from: chunk_count(previous), to: chunk_count(document.plainText) }];
     });
     if (changed.length) {
-      await AsyncStorage.multiSet(changed.flatMap(text_entries));
+      await commit_document_save(uid, changed.flatMap(text_entries), libraryKey, serialized);
       for (const document of changed) persistedTexts.set(document.id, document.plainText);
-    }
-    await AsyncStorage.setItem(libraryKey, serialized);
+    } else await AsyncStorage.setItem(libraryKey, serialized);
     const ids = new Set(documents.map((document) => document.id));
     const removed = [...persistedTexts.entries()].filter(([id]) => !ids.has(id));
+    const retainedKeys = new Set(rows.flatMap((row) => text_chunk_keys(row.id, row.textChunks ?? 1)));
     const staleKeys = [
       ...removed.flatMap(([id, text]) => text_chunk_keys(id, chunk_count(text))),
       // A text that got shorter leaves its extra chunks behind.
       ...replaced.flatMap(({ id, from, to }) => text_chunk_keys(id, from).slice(to)),
-    ];
+    ].filter((key) => !retainedKeys.has(key));
     if (staleKeys.length) {
       await AsyncStorage.multiRemove(staleKeys);
       for (const [id] of removed) persistedTexts.delete(id);

@@ -62,6 +62,67 @@ beforeEach(() => {
 });
 
 describe("document storage", () => {
+  it("recovers partially applied chunks before a retry restores the original text", async () => {
+    const store = create_document_store("owner");
+    const original = doc("a", "Original text.");
+    await store.saveDocuments([original]);
+    const multiSet = vi.mocked(AsyncStorage.multiSet).getMockImplementation()!;
+    let failText = true;
+    vi.mocked(AsyncStorage.multiSet).mockImplementation(async (pairs) => {
+      if (failText && pairs[0]?.[0] === document_text_key("a", 0, "owner")) {
+        failText = false;
+        memory.set(pairs[0][0], pairs[0][1]);
+        throw new Error("interrupted write");
+      }
+      return multiSet(pairs);
+    });
+    try {
+      await expect(
+        store.saveDocuments([doc("a", "N".repeat(TEXT_CHUNK_CHARS) + "new tail")]),
+      ).rejects.toThrow("interrupted write");
+      await store.saveDocuments([original]);
+      expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe(original.plainText);
+    } finally {
+      vi.mocked(AsyncStorage.multiSet).mockImplementation(multiSet);
+    }
+  });
+  it("keeps replacement text when its ID reuses a removed document chunk key", async () => {
+    const store = create_document_store("owner");
+    await store.saveDocuments([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
+    await store.saveDocuments([doc("x:1", "Replacement text.")]);
+    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Replacement text.");
+  });
+  it("replays the complete staged save after a metadata failure instead of mixing text chunks", async () => {
+    const store = create_document_store("owner");
+    await store.saveDocuments([doc("a", "A".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
+    const setItem = vi.mocked(AsyncStorage.setItem).getMockImplementation()!;
+    let failMetadata = true;
+    vi.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {
+      if (failMetadata && key === account_storage_key(LIBRARY_KEY, "owner")) throw new Error("disk full");
+      return setItem(key, value);
+    });
+    await expect(store.saveDocuments([doc("a", "New text.")])).rejects.toThrow("disk full");
+    failMetadata = false;
+    const reopened = await create_document_store("owner").loadDocuments();
+    expect(reopened[0].plainText).toBe("New text.");
+    expect(memory.has(account_storage_key("votic.mobile.document-save.v1", "owner"))).toBe(false);
+    vi.mocked(AsyncStorage.setItem).mockImplementation(setItem);
+  });
+  it("preserves the old library when staging a replacement fails", async () => {
+    const store = create_document_store("owner");
+    await store.saveDocuments([doc("a", "Original text.")]);
+    vi.mocked(AsyncStorage.multiSet).mockRejectedValueOnce(new Error("disk full"));
+    await expect(store.saveDocuments([doc("a", "Replacement text.")])).rejects.toThrow("disk full");
+    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Original text.");
+  });
+  it("rejects colliding chunk IDs before touching the existing library", async () => {
+    const store = create_document_store("owner");
+    await store.saveDocuments([doc("a", "Original text.")]);
+    await expect(
+      store.saveDocuments([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "tail"), doc("x:1", "Other document")]),
+    ).rejects.toThrow("identifiers overlap");
+    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Original text.");
+  });
   it("finishes delayed orphan cleanup before exposing a library that can be saved", async () => {
     await create_document_store().saveDocuments([doc("a", "Alpha text.")]);
     let release!: (keys: string[]) => void;

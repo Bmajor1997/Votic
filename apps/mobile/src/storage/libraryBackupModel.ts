@@ -1,6 +1,11 @@
 import { safe_source_url } from "../documents/sourceInformation";
 import { ActivityLog, clean_native_checkpoints, empty_log, parse_log } from "../activity/activityModel";
-import { MAX_DOCUMENT_CHARS, MAX_STORED_DOCUMENTS } from "../documents/documentStorage";
+import {
+  MAX_DOCUMENT_CHARS,
+  MAX_STORED_DOCUMENTS,
+  TEXT_CHUNK_CHARS,
+  unique_document_text_keys,
+} from "../documents/documentStorage";
 import { SavedPassage, VoticDocument } from "../documents/types";
 import { SavedAccountPreferences } from "../onboarding/accountPreferences";
 import { PronunciationEntry } from "../reader/pronunciationDictionary";
@@ -111,6 +116,17 @@ function reject_unsafe_keys(value: unknown) {
     reject_unsafe_keys(child);
   }
 }
+function valid_document_ids(documents: VoticDocument[]) {
+  return (
+    new Set(documents.map((d) => d.id)).size === documents.length &&
+    unique_document_text_keys(
+      documents.map((d) => ({
+        id: d.id,
+        textChunks: Math.max(1, Math.ceil(d.plainText.length / TEXT_CHUNK_CHARS)),
+      })),
+    )
+  );
+}
 export function parse_library_backup(raw: string): LibraryBackup {
   if (new TextEncoder().encode(raw).byteLength > MAX_BACKUP_BYTES) throw new Error("Backup limit is 25 MB.");
   let value: any;
@@ -132,7 +148,7 @@ export function parse_library_backup(raw: string): LibraryBackup {
   if (b.format !== "votic-library" || ![1, 2].includes(b.version) || !/^[a-zA-Z0-9-]{1,80}$/.test(b.id))
     return fail();
   const documents = list(b.documents, MAX_LIBRARY_DOCUMENTS).map(document);
-  if (new Set(documents.map((d) => d.id)).size !== documents.length) return fail();
+  if (!valid_document_ids(documents)) return fail();
   for (const d of documents)
     if (new Set(d.savedPassages?.map((n) => n.id)).size !== d.savedPassages?.length) return fail();
   const a = object(b.activity);

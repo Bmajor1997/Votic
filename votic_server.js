@@ -532,7 +532,9 @@ export function create_votic_handler(options = {}) {
    if (path.startsWith("/api/")) throw new HttpError(404, "Not found.");
    await serve_public_file(request,response,path,env,options);
 
-  } catch (error) { send_error(response, error, logger); }
+  } catch (error) {
+    send_request_error(request, response, error, logger);
+  }
  };
  handler.close = () => { if (!options.usageStore) usage_store.close(); if (!options.creditWallet) credit_wallet?.close(); };
  return handler;
@@ -643,9 +645,17 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
  });
 }
 
+function send_request_error(request, response, error, logger) {
+  if (error instanceof HttpError && error.status === 408) {
+    // Finish the error response, then stop the timed-out body reader and its socket.
+    response.once("finish", () => request.destroy());
+    response.once("close", () => request.destroy());
+  }
+  send_error(response, error, logger);
+}
 async function read_body(request, limit, timeout_ms) {
   const chunks = []; let size = 0, timer;
-  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new HttpError(408, "The request body took too long to upload.")), timeout_ms); });
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new HttpError(408, "The request body took too long to upload.", { Connection: "close" })), timeout_ms); });
   const reading = (async () => { for await (const chunk of request) { size += chunk.length; if (size > limit) throw new HttpError(413, "The request body is too large."); chunks.push(chunk); } return Buffer.concat(chunks); })();
   try { return await Promise.race([reading, timeout]); } finally { clearTimeout(timer); }
 }

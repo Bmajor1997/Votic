@@ -21,6 +21,7 @@ vi.mock("react-native-purchases", () => ({
     PRODUCT_CATEGORY: { SUBSCRIPTION: "SUBS", NON_SUBSCRIPTION: "NON_SUBSCRIPTION" },
     purchasePackage: vi.fn(),
     purchaseStoreProduct: vi.fn(),
+    purchaseSubscriptionOption: vi.fn(),
     STORE_REPLACEMENT_MODE: { WITH_TIME_PRORATION: "WITH_TIME_PRORATION", DEFERRED: "DEFERRED" },
     checkTrialOrIntroductoryPriceEligibility: vi.fn(),
     INTRO_ELIGIBILITY_STATUS: { INTRO_ELIGIBILITY_STATUS_ELIGIBLE: 2 },
@@ -56,6 +57,43 @@ beforeEach(() => {
   Object.assign(Platform, { OS: "android" });
   sdk.isAnonymous.mockResolvedValue(false);
   sdk.logOut.mockResolvedValue(info(false));
+});
+
+it.each(["identify", "reset", "refresh"])("discards cached retention eligibility on %s", async (change) => {
+  let owner = "a";
+  sdk.logIn.mockImplementation(async (uid) => {
+    owner = uid;
+    return { customerInfo: info(false), created: false };
+  });
+  sdk.getAppUserID.mockImplementation(async () => owner);
+  const regular = { price: { amountMicros: 9990000, formatted: "$9.99" }, billingPeriod: { iso8601: "P1M" } };
+  const option = {
+    id: "monthly:stay",
+    tags: ["votic-retention"],
+    fullPricePhase: regular,
+    pricingPhases: [
+      {
+        recurrenceMode: 2,
+        billingCycleCount: 2,
+        price: { amountMicros: 7990000, formatted: "$7.99" },
+        billingPeriod: { iso8601: "P1M" },
+      },
+    ],
+  };
+  sdk.getOfferings.mockResolvedValue({
+    current: { availablePackages: [{ product: { identifier: "plus", subscriptionOptions: [option] } }] },
+  } as never);
+  const service = create_revenue_cat_service("public-key", "pro");
+  await service.identify("a");
+  expect(await service.getRetentionOffer?.()).toMatchObject({ id: "monthly:stay" });
+  if (change === "reset") await service.reset();
+  if (change !== "refresh") await service.identify("b");
+  else {
+    sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [] } } as never);
+    expect(await service.getRetentionOffer?.()).toBeNull();
+  }
+  expect(await service.claimRetentionOffer?.("monthly:stay", null)).toMatchObject({ kind: "failed" });
+  expect(sdk.purchaseSubscriptionOption).not.toHaveBeenCalled();
 });
 
 it.each(["refresh", "restore"] as const)(

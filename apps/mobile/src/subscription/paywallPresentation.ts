@@ -1,41 +1,4 @@
-import type { VoticPurpose } from "../personalization/PurposeProvider";
 import type { SubscriptionPlan } from "./subscriptionTypes";
-
-export const PAYWALL_GOALS: Record<VoticPurpose | "default", { title: string; detail: string }> = {
-  default: {
-    title: "Make more of\nwhat you read.",
-    detail: "Turn your documents into listening, answers, and ideas that stay with you.",
-  },
-  learning: {
-    title: "Make your next\nstudy session click.",
-    detail: "Listen to your material, ask questions, and revisit the ideas that matter.",
-  },
-  work: {
-    title: "Less reading backlog.\nMore clarity.",
-    detail: "Listen to reports and find the answers you need in your documents.",
-  },
-  personal: {
-    title: "Your reading.\nAt your rhythm.",
-    detail: "Make room for your articles and books, with listening that fits your day.",
-  },
-};
-
-export { PREVIEW_SAMPLES } from "../onboarding/sampleDocument";
-export type { PreviewSample } from "../onboarding/sampleDocument";
-
-/** Longest text a visitor can paste into the preview: about a paragraph, enough to hear the difference. */
-export const MAX_TRY_TEXT = 500;
-
-export type PreviewWord = { text: string; start: number };
-export function preview_words(text: string): PreviewWord[] {
-  return Array.from(text.matchAll(/\S+/g), (match) => ({ text: match[0], start: match.index }));
-}
-
-/** The word a speech-engine boundary (a character offset into the spoken text) falls in. */
-export function preview_word_at(words: PreviewWord[], charIndex: number) {
-  if (!Number.isFinite(charIndex) || charIndex < 0) return -1;
-  return words.findLastIndex((word) => word.start <= charIndex);
-}
 
 /** No parsing "$9.99": localized display strings are not safe arithmetic inputs. */
 export function annual_value(plan: SubscriptionPlan, plans: SubscriptionPlan[]) {
