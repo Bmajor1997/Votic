@@ -30,7 +30,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
-          languages: javascript-typescript
+          languages: javascript-typescript, actions
       - name: Analyze JavaScript and TypeScript with CodeQL
         uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
 
@@ -49,6 +49,8 @@ jobs:
           cache: npm
       - name: Install Votic dependencies
         run: npm ci
+      - name: Check for unused code and dependencies with Knip
+        run: npx --yes knip@5.69.1 --config knip.config.json --no-exit-code
       - name: Check JavaScript with ESLint
         run: npm run lint
       - name: Validate Votic HTML
@@ -102,7 +104,7 @@ jobs:
 
       - name: Install Semgrep
         if: always()
-        run: pip install semgrep
+        run: pip install semgrep==1.140.0
       - name: Scan Votic source code with Semgrep
         if: always()
         run: semgrep scan --config auto . --error
