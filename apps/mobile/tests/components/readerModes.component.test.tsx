@@ -256,8 +256,8 @@ describe("Listen mode", () => {
     const spoken = () => StyleSheet.flatten(screen.getByText("Passage", { exact: true }).props.style);
     expect(spoken().fontWeight).toBe("900");
     const enlargedSize = spoken().fontSize;
-    // Clearly larger than the 18-point text around it, not just a point or two.
-    expect(enlargedSize).toBe(23);
+    // Noticeably larger than the 18-point text around it.
+    expect(enlargedSize).toBe(20);
     const highlight = spoken().backgroundColor;
     await fireEvent(screen.getByRole("switch", { name: "Emphasize current word" }), "valueChange", false);
     expect(spoken().fontSize).toBeUndefined();

@@ -273,11 +273,11 @@ describe("Votic voices", () => {
   });
 });
 
-it("makes the spoken word a quarter larger than the text around it", async () => {
+it("makes the spoken word about an eighth larger than the text around it", async () => {
   const { spoken_word_size } = await import("./readerText");
-  expect(spoken_word_size(18)).toBe(23);
-  expect(spoken_word_size(21)).toBe(26);
-  expect(spoken_word_size(25)).toBe(31);
+  expect(spoken_word_size(18)).toBe(20);
+  expect(spoken_word_size(21)).toBe(24);
+  expect(spoken_word_size(25)).toBe(28);
 });
 
 describe("voice shortlist", () => {

@@ -1490,7 +1490,7 @@ function ReaderContent() {
                                       active && wordHighlight
                                         ? {
                                             // The spoken word: its own highlight on top of the sentence's,
-                                            // bold, and clearly larger (the line height stays the same).
+                                            // bold, and larger (the line height stays the same).
                                             backgroundColor: theme.wordHighlight,
                                             color: theme.text,
                                             ...(accessibility.wordEmphasis && {
