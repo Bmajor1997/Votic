@@ -291,7 +291,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         when: (c) => Boolean(c.listening),
         title: "Voice and sleep timer",
         message:
-          "Tap the voice name to choose another voice. Sleep timer, next to it, stops playback after the time you pick.",
+          "Tap the voice name to choose another voice. Sleep timer, at the top of the Reader, stops playback after the time you pick.",
       },
       {
         target: "reader.play",
