@@ -1,0 +1,39 @@
+{
+  "workspaces": {
+    ".": {
+      "entry": [
+        "votic_server.js",
+        "browser_check_settings.js",
+        "code_checks/**/*.test.js",
+        "app_parts/**/*.test.js"
+      ],
+      "project": [
+        "app_parts/**/*.js",
+        "code_checks/**/*.js",
+        "security/**/*.cjs",
+        "*.js"
+      ]
+    },
+    "apps/mobile": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "src/**/*.test.{ts,tsx}",
+        "src/**/*.spec.{ts,tsx}",
+        "plugins/**/*.{js,ts}"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "app/**/*.{ts,tsx}"
+      ]
+    }
+  },
+  "ignore": [
+    "**/coverage/**",
+    "**/vendor/**",
+    "**/android/**",
+    "**/ios/**"
+  ],
+  "ignoreDependencies": [
+    "@types/*"
+  ]
+}
