@@ -2,14 +2,16 @@
  * Everything the contextual walkthrough says, and which real control each step points at.
  * Sections teach an area the first time someone reaches it; tips explain one feature the first time it's used.
  */
-export type SectionId = "home" | "documents" | "notes" | "reader";
+export type SectionId = "home" | "documents" | "notes" | "reader" | "settings";
 export type TipId =
   | "home.documentOptions"
   | "documents.collections"
+  | "documents.select"
   | "notes.pinned"
   | "notes.askSelected"
   | "reader.saved"
-  | "reader.ask";
+  | "reader.ask"
+  | "reader.answer";
 /**
  * "intro" is the one-time "Let's show you around" card before Home coaching; "allSet" is the one-time card after
  * the Reader walkthrough is completed. Each is tracked on its own, like every other flow.
@@ -36,10 +38,15 @@ export type TargetId =
   | "documents.newCollection"
   | "documents.documentOptions"
   | "documents.filters"
+  | "documents.select"
   | "notes.list"
   | "notes.empty"
   | "notes.search"
   | "notes.select"
+  | "notes.quickNote"
+  | "reader.mode"
+  | "reader.find"
+  | "reader.voice"
   | "reader.document"
   | "reader.progress"
   | "reader.ask"
@@ -48,7 +55,9 @@ export type TargetId =
   | "reader.tools"
   | "reader.close"
   | "reader.bookmark"
-  | "reader.askComposer";
+  | "reader.askComposer"
+  | "reader.answerSource"
+  | "settings.preferences";
 
 /** Facts about the screen when a flow starts, so steps can match what's actually on it. */
 export type FlowContext = {
@@ -61,6 +70,8 @@ export type FlowContext = {
   hasRecent?: boolean;
   /** The Reader was opened to listen (audio controls) rather than to read. */
   listening?: boolean;
+  /** Notes shows Quick Note (once the library has something in it). */
+  canQuickNote?: boolean;
 };
 
 export type WalkthroughStep = {
@@ -86,12 +97,13 @@ export type WalkthroughFlow = {
   steps: WalkthroughStep[];
 };
 
-export const SECTIONS: SectionId[] = ["home", "documents", "notes", "reader"];
+export const SECTIONS: SectionId[] = ["home", "documents", "notes", "reader", "settings"];
 export const SECTION_LABELS: Record<SectionId, string> = {
   home: "Home",
   documents: "Documents",
   notes: "Notes",
   reader: "Reader",
+  settings: "Settings",
 };
 
 export const FLOWS: Record<FlowId, WalkthroughFlow> = {
@@ -130,7 +142,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         when: (c) => Boolean(c.hasContinue),
         title: "Welcome to Home",
         message:
-          "Pick up where you left off. Listen plays from your spot, and Read opens it without audio controls.",
+          "Pick up where you left off. Continue Listening plays from your spot, and Continue Reading opens it to read on your own.",
       },
       {
         target: "home.start",
@@ -196,20 +208,21 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         title: (c) => (c.hasDocuments ? "Add documents" : "Add your first document"),
         message: (c) =>
           c.hasDocuments
-            ? "Tap Add anytime to bring in another document from your files, cloud storage, or the camera."
-            : "Tap Add to choose a file, browse cloud storage, or scan a printed page. Votic opens it in the Reader.",
+            ? "Tap Add anytime to bring in a file, paste a web link, or scan a printed page with your camera."
+            : "Tap Add to choose a file, paste a web link, or scan a printed page with your camera. Votic opens it in the Reader.",
+      },
+      {
+        target: "documents.newCollection",
+        when: (c) => Boolean(c.hasDocuments),
+        title: "Organize with collections",
+        message: "The folder button makes a collection, like a folder for related reading.",
       },
       {
         target: "documents.search",
         when: (c) => Boolean(c.hasDocuments),
-        title: "Find documents",
-        message: "Search finds any document by its title.",
-      },
-      {
-        target: "documents.filters",
-        when: (c) => Boolean(c.hasDocuments),
-        title: "Sort and filter",
-        message: "Sort your documents, or show just one collection at a time.",
+        title: "Find and filter",
+        message:
+          "Search finds any document by its title. The filter button sorts your library or shows one collection.",
       },
     ],
   },
@@ -221,16 +234,22 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "notes.list",
         when: (c) => Boolean(c.hasNotes),
-        title: "Notes stay with their source",
+        title: "Your notebooks",
         message:
-          "Each note is grouped under the document it came from. Open a note to read it or jump back to that spot in the document.",
+          "Each document gets its own notebook of saved passages and notes. Open one to read a note or jump back to that spot in the document.",
       },
       {
         target: "notes.empty",
         when: (c) => !c.hasNotes,
         title: "Notes start in the Reader",
         message:
-          "While reading, tap the bookmark to save a passage and add a note if you like. It appears here, linked to your document.",
+          "While reading, tap the bookmark at the top to save a passage and add a note if you like. It appears here, linked to your document.",
+      },
+      {
+        target: "notes.quickNote",
+        when: (c) => Boolean(c.canQuickNote),
+        title: "Quick Note",
+        message: "Write down a thought that isn't tied to a document. Quick Notes keep their own notebook.",
       },
       {
         target: "notes.search",
@@ -247,6 +266,11 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     host: "reader",
     steps: [
       {
+        target: "reader.mode",
+        title: "Read or Listen",
+        message: "Switch anytime between reading on your own and having Votic read aloud to you.",
+      },
+      {
         target: "reader.document",
         title: "Your document",
         message:
@@ -258,17 +282,35 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message: "See how far you've read. Drag the bar to jump to any part of the document.",
       },
       {
-        target: "reader.ask",
-        title: "Ask Votic",
+        target: "reader.find",
+        title: "Find",
+        message: "Search for any word or phrase in this document and jump straight to it.",
+      },
+      {
+        target: "reader.voice",
+        when: (c) => Boolean(c.listening),
+        title: "Voice and sleep timer",
         message:
-          "Ask about what you're reading. Answers appear in a small panel, so your document stays in view.",
+          "Tap the voice name to choose another voice. Sleep timer, next to it, stops playback after the time you pick.",
       },
       {
         target: "reader.play",
         when: (c) => Boolean(c.listening),
         title: "Listen",
         message:
-          "Tap Play and Votic reads aloud from where you are, highlighting as it goes. Tap again to pause.",
+          "Tap Play and Votic reads aloud from where you are. It highlights each sentence and makes the spoken word bigger, so you can follow along.",
+      },
+      {
+        target: "reader.bookmark",
+        title: "Save a passage",
+        message:
+          "The bookmark saves this passage to Notes, with a note if you like, so you can come back to it.",
+      },
+      {
+        target: "reader.ask",
+        title: "Ask Votic",
+        message:
+          "Type or speak a question about what you're reading. Answers show where they came from, and your document stays in view.",
       },
       {
         target: "reader.more",
@@ -284,13 +326,30 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         title: "Make it yours",
         message: (c) =>
           c.listening
-            ? "Text and Color adjust size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens word or sentence highlighting."
+            ? "Text and Color set size, font, spacing, and theme. Listen sets voice and speed. The ••• button at the end opens Reading focus: word or sentence highlighting."
             : "Text and Color adjust size, font, spacing, and theme, and Bookmark saves this passage to Notes.",
       },
       {
         target: "reader.close",
         title: "Done reading?",
         message: "Tap here to close the document. Votic keeps your place.",
+      },
+    ],
+  },
+  settings: {
+    id: "settings",
+    kind: "section",
+    host: "tabs",
+    steps: [
+      {
+        target: "settings.preferences",
+        title: "Make Votic yours",
+        message:
+          "Change how Votic looks, reads, and sounds here: text size, colors, voices, highlighting, and contrast.",
+      },
+      {
+        title: "Replay any walkthrough",
+        message: "To see any of these walkthroughs again, open Help, then Learn Votic.",
       },
     ],
   },
@@ -312,11 +371,6 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     host: "tabs",
     steps: [
       {
-        target: "documents.newCollection",
-        title: "Organize with collections",
-        message: "Collections work like folders. Tap the folder button to create one.",
-      },
-      {
         target: "documents.documentOptions",
         title: "Move a document",
         message: "Tap ••• on any document, then Move to collection.",
@@ -325,6 +379,19 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "documents.filters",
         title: "Browse by collection",
         message: "Open Sort and filter to show just one collection.",
+      },
+    ],
+  },
+  "documents.select": {
+    id: "documents.select",
+    kind: "tip",
+    host: "tabs",
+    steps: [
+      {
+        target: "documents.select",
+        title: "Select documents",
+        message:
+          "Choose one or more documents, or Select all, then Delete. Deleted documents stay in Recently Deleted for 30 days.",
       },
     ],
   },
@@ -375,7 +442,20 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "reader.askComposer",
         title: "Ask about this document",
         message:
-          "Type a question like “What's the main point here?” Close the panel anytime to keep reading.",
+          "Type a question, or tap the mic to ask out loud. Try “What's the main point here?” Close the panel anytime to keep reading.",
+      },
+    ],
+  },
+  "reader.answer": {
+    id: "reader.answer",
+    kind: "tip",
+    host: "reader",
+    steps: [
+      {
+        target: "reader.answerSource",
+        title: "Where this answer came from",
+        message:
+          "Tap here to jump to the passage Votic used. Under the answer, the speaker reads it aloud and the bookmark saves it to Notes.",
       },
     ],
   },

@@ -55,27 +55,49 @@ describe("walkthrough steps", () => {
     expect(applicable_steps(FLOWS.notes, { hasNotes: false }).map((step) => step.target)).toEqual([
       "notes.empty",
     ]);
+    // Quick Note shows once the library has something in it, notes or not.
+    expect(
+      applicable_steps(FLOWS.notes, { hasNotes: false, canQuickNote: true }).map((step) => step.target),
+    ).toEqual(["notes.empty", "notes.quickNote"]);
+    expect(
+      applicable_steps(FLOWS.notes, { hasNotes: true, canQuickNote: true }).map((step) => step.target),
+    ).toEqual(["notes.list", "notes.quickNote", "notes.search"]);
     expect(applicable_steps(FLOWS.documents, {}).map((step) => step.target)).toEqual(["documents.upload"]);
+    expect(applicable_steps(FLOWS.documents, { hasDocuments: true }).map((step) => step.target)).toEqual([
+      "documents.document",
+      "documents.upload",
+      "documents.newCollection",
+      "documents.search",
+    ]);
   });
   it("words the upload step for first-time and returning use", () => {
     const step = FLOWS.documents.steps.find((item) => item.target === "documents.upload")!;
     expect(copy_for(step, { hasDocuments: false }).title).toBe("Add your first document");
     expect(copy_for(step, { hasDocuments: true }).title).toBe("Add documents");
   });
-  it("teaches the Reader dock in the order it appears: Ask Votic, Play, More", () => {
+  it("teaches the Reader top to bottom: header, document, then the dock (Ask Votic, More)", () => {
     expect(FLOWS.reader.steps.map((step) => step.target)).toEqual([
+      "reader.mode",
       "reader.document",
       "reader.progress",
-      "reader.ask",
+      "reader.find",
+      "reader.voice",
       "reader.play",
+      "reader.bookmark",
+      "reader.ask",
       "reader.more",
       "reader.tools",
       "reader.close",
     ]);
+    // Voice, sleep timer, and Play exist only while listening.
+    const reading = applicable_steps(FLOWS.reader, { listening: false }).map((step) => step.target);
+    expect(reading).not.toContain("reader.voice");
+    expect(reading).not.toContain("reader.play");
   });
   it("tells the two Reader 'More' controls apart", () => {
+    const more = FLOWS.reader.steps.findIndex((step) => step.target === "reader.more");
     const listening = FLOWS.reader.steps
-      .slice(4, 6)
+      .slice(more, more + 2)
       .map((step) => copy_for(step, { listening: true }).message);
     expect(listening[0]).toBe(
       "Tap More to skip between passages, change the speed, and adjust how the Reader looks.",
@@ -83,9 +105,10 @@ describe("walkthrough steps", () => {
     // The second control is described by its icon and purpose, never just as "More".
     expect(listening[1]).not.toMatch(/\bMore\b/);
     expect(listening[1]).toMatch(/••• button .* word or sentence highlighting/);
+    expect(listening[1]).toMatch(/Reading focus/);
     // Read mode has no audio controls, so its More opens the reading tools.
     const reading = FLOWS.reader.steps
-      .slice(4, 6)
+      .slice(more, more + 2)
       .map((step) => copy_for(step, { listening: false }).message);
     expect(reading[0]).toBe("Tap More for reading tools: text, color, and bookmarks.");
     expect(reading[1]).not.toMatch(/•••/);

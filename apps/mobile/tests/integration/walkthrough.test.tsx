@@ -7,6 +7,8 @@ import { AccessibilityInfo } from "react-native";
 import Documents from "../../app/(tabs)/documents";
 import Home from "../../app/(tabs)/index";
 import Notes from "../../app/(tabs)/notes";
+import Settings from "../../app/(tabs)/settings";
+import { ask_votic } from "../../src/api/voticApi";
 import Reader from "../../app/reader";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { DEVICE_HISTORY_KEY } from "../../src/onboarding/OnboardingProvider";
@@ -25,6 +27,7 @@ import { router, searchParams } from "../mocks/expoRouter";
 import { render_with_providers, test_document } from "../renderWithProviders";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn(async () => ({ canceled: true })) }));
+jest.mock("../../src/api/voticApi", () => ({ ask_votic: jest.fn() }));
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
   stop: jest.fn(async () => {}),
@@ -247,7 +250,7 @@ describe("Home walkthrough", () => {
     });
     expect(
       screen.getByText(
-        "Pick up where you left off. Listen plays from your spot, and Read opens it without audio controls.",
+        "Pick up where you left off. Continue Listening plays from your spot, and Continue Reading opens it to read on your own.",
       ),
     ).toBeTruthy();
     await press("Next");
@@ -324,21 +327,22 @@ describe("Documents walkthrough", () => {
     expect((await saved()).documents?.status).toBe("completed");
   });
 
-  it("shows search and sorting once there are documents", async () => {
+  it("shows adding, collections, and search once there are documents", async () => {
     await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
     // It starts with the person's own document.
     expect(screen.getByText("Your library")).toBeTruthy();
     await press("Next");
     expect(screen.getByText("Add documents")).toBeTruthy();
+    expect(screen.getByText(/paste a web link, or scan a printed page/)).toBeTruthy();
     await press("Next");
-    expect(screen.getByText("Find documents")).toBeTruthy();
+    expect(screen.getByText("Organize with collections")).toBeTruthy();
+    expect(measured).toContain("New collection");
     // Other steps only explain; the control can't be pressed by accident.
     expect(
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
     ).toBe("auto");
     await press("Next");
-    expect(screen.getByText("Sort and filter")).toBeTruthy();
-    expect(measured).toContain("Sort and filter");
+    expect(screen.getByText("Find and filter")).toBeTruthy();
     await press("Got it");
     expect((await saved()).documents?.status).toBe("completed");
   });
@@ -362,15 +366,34 @@ describe("Documents walkthrough", () => {
     expect(screen.getByText("Your library")).toBeTruthy();
   });
 
+  it("explains choosing documents the first time Select is used", async () => {
+    await AsyncStorage.setItem(
+      ACCOUNT_KEY,
+      JSON.stringify({
+        version: 1,
+        flows: {
+          documents: { status: "completed", at: 1 },
+          "documents.collections": { status: "completed", at: 1 },
+        },
+      }),
+    );
+    await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
+    expect(card()).toBeNull();
+    await press("Select documents");
+    await wait_for_walkthrough();
+    expect(in_card("Select documents")).toBeTruthy();
+    expect(screen.getByText(/Deleted documents stay in Recently Deleted for 30 days/)).toBeTruthy();
+    await press("Got it");
+    expect((await saved())["documents.select"]?.status).toBe("completed");
+  });
+
   it("teaches collections on a later visit, once there are documents", async () => {
     await AsyncStorage.setItem(
       ACCOUNT_KEY,
       JSON.stringify({ version: 1, flows: { documents: { status: "completed", at: 1 } } }),
     );
     await render_tab(<Documents />, { documents: [test_document("d1", "Biology")] });
-    expect(screen.getByText("Organize with collections")).toBeTruthy();
-    expect(measured).toContain("New collection");
-    await press("Next");
+    // Creating a collection is covered by the Documents walkthrough; this tip moves documents into one.
     expect(screen.getByText("Move a document")).toBeTruthy();
     expect(measured).toContain("More options for Biology");
     await press("Next");
@@ -387,6 +410,7 @@ describe("Notes walkthrough", () => {
     screen.unmount();
     await render_tab(<Notes />);
     expect(screen.getByText("Notes start in the Reader")).toBeTruthy();
+    // An empty library has no Quick Note yet, so this is the only step.
     await press("Got it");
     expect(Object.keys(await saved()).sort()).toEqual(["intro", "notes"]);
   });
@@ -400,7 +424,10 @@ describe("Notes walkthrough", () => {
       }),
     ];
     await render_tab(<Notes />, { documents });
-    expect(screen.getByText("Notes stay with their source")).toBeTruthy();
+    expect(in_card("Your notebooks")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Quick Note")).toBeTruthy();
+    expect(measured).toContain("Quick Note");
     await press("Next");
     expect(screen.getByText("Find a note")).toBeTruthy();
     await press("Got it");
@@ -503,6 +530,9 @@ async function render_reader(
   await wait_for_walkthrough();
 }
 
+/** "Next" presses from "Read or Listen" to "Done reading?" while listening, when More isn't opened. */
+const READER_STEPS_BEFORE_CLOSE = 9;
+
 describe("Reader walkthrough", () => {
   it("waits until a document is opened", async () => {
     await render_tab(<Home />);
@@ -510,25 +540,42 @@ describe("Reader walkthrough", () => {
     expect((await saved()).reader).toBeUndefined();
   });
 
-  it("follows the real Reader: document, progress, Ask Votic, Play, More, tools, Close", async () => {
+  it("follows the real Reader: header, document, voice, Play, bookmark, Ask Votic, More, tools, Close", async () => {
     await render_reader();
     const titles: string[] = [];
-    titles.push(screen.getByRole("header").props.children);
-    for (let step = 0; step < 4; step += 1) {
+    titles.push(screen.getAllByRole("header").at(-1)!.props.children);
+    for (let step = 0; step < 8; step += 1) {
       if (titles.at(-1) === "Ask Votic")
         // The compact panel, not a separate chat screen.
         expect(
           screen.getByText(
-            "Ask about what you're reading. Answers appear in a small panel, so your document stays in view.",
+            "Type or speak a question about what you're reading. Answers show where they came from, and your document stays in view.",
           ),
         ).toBeTruthy();
       await press("Next");
       titles.push(screen.getAllByRole("header").at(-1)!.props.children);
     }
-    expect(titles).toEqual(["Your document", "Your progress", "Ask Votic", "Listen", "More controls"]);
+    expect(titles).toEqual([
+      "Read or Listen",
+      "Your document",
+      "Your progress",
+      "Find",
+      "Voice and sleep timer",
+      "Listen",
+      "Save a passage",
+      "Ask Votic",
+      "More controls",
+    ]);
     expect(measured).toEqual(
-      expect.arrayContaining(["Ask Votic about this page", "Play", "Expand listening controls"]),
+      expect.arrayContaining([
+        "Find within document",
+        "Save current passage",
+        "Ask Votic about this page",
+        "Play",
+        "Expand listening controls",
+      ]),
     );
+    expect(measured.some((label) => label.startsWith("Voice: "))).toBe(true);
     // Using More for real opens the extra controls and moves on to them.
     await press("Expand listening controls");
     await act(async () => jest.advanceTimersByTime(200));
@@ -543,12 +590,21 @@ describe("Reader walkthrough", () => {
 
   it("matches Read mode, which has no Play button until listening is chosen", async () => {
     await render_reader({}, "read");
-    const titles: string[] = [screen.getByRole("header").props.children];
-    for (let step = 0; step < 3; step += 1) {
+    const titles: string[] = [screen.getAllByRole("header").at(-1)!.props.children];
+    for (let step = 0; step < 6; step += 1) {
       await press("Next");
       titles.push(screen.getAllByRole("header").at(-1)!.props.children);
     }
-    expect(titles).toEqual(["Your document", "Your progress", "Ask Votic", "More controls"]);
+    // No voice, sleep timer, or Play step until listening is chosen.
+    expect(titles).toEqual([
+      "Read or Listen",
+      "Your document",
+      "Your progress",
+      "Find",
+      "Save a passage",
+      "Ask Votic",
+      "More controls",
+    ]);
     expect(screen.getByText("Tap More for reading tools: text, color, and bookmarks.")).toBeTruthy();
     await press("Show reading tools");
     await act(async () => jest.advanceTimersByTime(200));
@@ -562,7 +618,7 @@ describe("Reader walkthrough", () => {
 
   it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
     await render_reader({ intro: { status: "completed", at: 1 }, home: { status: "completed", at: 1 } });
-    for (let i = 0; i < 5; i += 1) await press("Next");
+    for (let i = 0; i < READER_STEPS_BEFORE_CLOSE; i += 1) await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
     await press("Got it");
     expect(screen.queryByText("You're all set")).toBeNull();
@@ -586,7 +642,7 @@ describe("Reader walkthrough", () => {
   it("waits to say 'You're all set' until Home has been covered too", async () => {
     // The first document was opened straight from "Votic is ready for you", before the Home tour.
     await render_reader({});
-    for (let i = 0; i < 5; i += 1) await press("Next");
+    for (let i = 0; i < READER_STEPS_BEFORE_CLOSE; i += 1) await press("Next");
     await press("Got it");
     await act(async () => jest.advanceTimersByTime(ALL_SET_DELAY_MS));
     await wait_for_walkthrough();
@@ -613,7 +669,7 @@ describe("Reader walkthrough", () => {
 
   it("skips the tools step when More wasn't opened", async () => {
     await render_reader();
-    for (let i = 0; i < 5; i += 1) await press("Next");
+    for (let i = 0; i < READER_STEPS_BEFORE_CLOSE; i += 1) await press("Next");
     expect(screen.getByText("Done reading?")).toBeTruthy();
   });
 
@@ -627,6 +683,29 @@ describe("Reader walkthrough", () => {
     expect(measured).toContain("Edit saved passage");
   });
 
+  it("explains where the first answer came from once it has finished writing", async () => {
+    jest.mocked(ask_votic).mockResolvedValueOnce({
+      answer: "The guide is about the field.",
+      mode: "document-ai",
+      sectionIndex: 0,
+      sectionTitle: "Field Guide · 1/1",
+    } as Awaited<ReturnType<typeof ask_votic>>);
+    await render_reader({
+      reader: { status: "completed", at: 1 },
+      "reader.ask": { status: "completed", at: 1 },
+    });
+    await press("Ask Votic about this page");
+    await act(async () => jest.advanceTimersByTime(1000));
+    await fireEvent.changeText(screen.getByLabelText("Ask Votic a question"), "What is this about?");
+    await press("Send question");
+    // Let the answer write out, "Writing" melt away, and the source chip appear.
+    for (let i = 0; i < 20; i += 1) await act(async () => jest.advanceTimersByTime(500));
+    await wait_for_walkthrough();
+    expect(in_card("Where this answer came from")).toBeTruthy();
+    await press("Got it");
+    expect((await saved())["reader.answer"]?.status).toBe("completed");
+  });
+
   it("coaches the compact Ask Votic panel the first time it opens", async () => {
     await render_reader({ reader: { status: "completed", at: 1 } });
     await press("Ask Votic about this page");
@@ -637,7 +716,28 @@ describe("Reader walkthrough", () => {
   });
 });
 
+describe("Settings walkthrough", () => {
+  it("points at the preferences, then says where to replay walkthroughs", async () => {
+    await render_tab(<Settings />);
+    expect(in_card("Make Votic yours")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Replay any walkthrough")).toBeTruthy();
+    expect(
+      screen.getByText("To see any of these walkthroughs again, open Help, then Learn Votic."),
+    ).toBeTruthy();
+    await press("Got it");
+    expect((await saved()).settings?.status).toBe("completed");
+  });
+});
+
 describe("Replay and accessibility", () => {
+  it("lists Settings in Learn Votic and replays it there", async () => {
+    await render_with_providers(<LearnVoticSettings />, { walkthrough: "fresh" });
+    await settle();
+    await press("Replay the Settings walkthrough");
+    expect(router.push).toHaveBeenCalledWith("/settings");
+  });
+
   it("replays one walkthrough from Settings without resetting the others", async () => {
     // Progress this phone saved before it was kept per account.
     await AsyncStorage.removeItem(ACCOUNT_KEY);

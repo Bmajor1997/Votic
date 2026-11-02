@@ -9,16 +9,18 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { SECTION_LABELS, SECTIONS, SectionId } from "./walkthroughFlows";
 import { useWalkthrough } from "./WalkthroughProvider";
 
-const ROUTES: Record<Exclude<SectionId, "reader">, "/" | "/documents" | "/notes"> = {
+const ROUTES: Record<Exclude<SectionId, "reader">, "/" | "/documents" | "/notes" | "/settings"> = {
   home: "/",
   documents: "/documents",
   notes: "/notes",
+  settings: "/settings",
 };
 const ICONS: Record<SectionId, ComponentProps<typeof Ionicons>["name"]> = {
   home: "home-outline",
   documents: "documents-outline",
   notes: "create-outline",
   reader: "book-outline",
+  settings: "settings-outline",
 };
 
 /** Settings → Help → Learn Votic: replays one walkthrough by taking the person to that part of Votic. */

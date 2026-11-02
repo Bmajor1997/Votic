@@ -2,7 +2,7 @@ import { FeedbackRow } from "../../src/feedback/FeedbackRow";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { ComponentProps } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
 import { useAuth } from "../../src/auth/AuthProvider";
 import { Screen } from "../../src/components/Screen";
@@ -15,12 +15,15 @@ import {
   SettingsRow,
 } from "../../src/settings/SettingsNavigation";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
+import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrough/WalkthroughProvider";
 
 export default function Settings() {
   const { theme, appearanceMode, accentName } = useVoticTheme();
   const preferences = useAccessibilityPreferences();
   const personalization = useVoticPurpose();
   const auth = useAuth();
+  const preferencesTarget = useWalkthroughTarget("settings.preferences");
+  useWalkthroughTrigger([{ id: "settings" }]);
   const explanation = EXPLANATION_STYLES.find(
     (item) => item.value === personalization.explanationStyle,
   )?.label;
@@ -53,31 +56,33 @@ export default function Settings() {
           "person-outline",
         )}
       </SettingsGroup>
-      <SettingsGroup title="YOUR PREFERENCES">
-        {category(
-          "appearance",
-          `${appearanceMode[0].toUpperCase() + appearanceMode.slice(1)} mode · ${accentName[0].toUpperCase() + accentName.slice(1)} accent`,
-          "color-palette-outline",
-        )}
-        {category(
-          "reading",
-          `${preferences.textSize === "extra-large" ? "Extra large" : preferences.textSize[0].toUpperCase() + preferences.textSize.slice(1)} text · Reading layout and spoken words`,
-          "book-outline",
-          true,
-        )}
-        {category(
-          "accessibility",
-          [
-            preferences.highContrast ? "High contrast" : null,
-            preferences.reduceMotion ? "Reduce motion" : null,
-          ]
-            .filter(Boolean)
-            .join(" · ") || "Contrast, text size, and motion",
-          "accessibility-outline",
-          true,
-        )}
-        {category("personalization", `Your answers · ${explanation}`, "options-outline", true)}
-      </SettingsGroup>
+      <View ref={preferencesTarget} collapsable={false}>
+        <SettingsGroup title="YOUR PREFERENCES">
+          {category(
+            "appearance",
+            `${appearanceMode[0].toUpperCase() + appearanceMode.slice(1)} mode · ${accentName[0].toUpperCase() + accentName.slice(1)} accent`,
+            "color-palette-outline",
+          )}
+          {category(
+            "reading",
+            `${preferences.textSize === "extra-large" ? "Extra large" : preferences.textSize[0].toUpperCase() + preferences.textSize.slice(1)} text · Reading layout and spoken words`,
+            "book-outline",
+            true,
+          )}
+          {category(
+            "accessibility",
+            [
+              preferences.highContrast ? "High contrast" : null,
+              preferences.reduceMotion ? "Reduce motion" : null,
+            ]
+              .filter(Boolean)
+              .join(" · ") || "Contrast, text size, and motion",
+            "accessibility-outline",
+            true,
+          )}
+          {category("personalization", `Your answers · ${explanation}`, "options-outline", true)}
+        </SettingsGroup>
+      </View>
       <SettingsGroup title="LIBRARY & STORAGE">
         {category("library", "Backups, Recently Deleted, drafts, and scans", "folder-open-outline")}
         {category("storage", "Device usage and temporary files", "server-outline", true)}

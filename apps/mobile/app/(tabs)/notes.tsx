@@ -85,7 +85,8 @@ export default function Notes() {
   const emptyTarget = useWalkthroughTarget("notes.empty");
   const searchTarget = useWalkthroughTarget("notes.search");
   const selectTarget = useWalkthroughTarget("notes.select");
-  useWalkthroughTrigger([{ id: "notes" }], { hasNotes });
+  const quickNoteTarget = useWalkthroughTarget("notes.quickNote");
+  useWalkthroughTrigger([{ id: "notes" }], { hasNotes, canQuickNote });
   /** The first time someone starts choosing notes, explains what they can do with them. */
   function start_selecting() {
     setSelecting(true);
@@ -208,7 +209,12 @@ export default function Notes() {
   }
 
   return (
-    <Screen title="Notes" titleAction={<QuickNoteAction visible={canQuickNote} onPress={start_quick_note} />}>
+    <Screen
+      title="Notes"
+      titleAction={
+        <QuickNoteAction visible={canQuickNote} onPress={start_quick_note} target={quickNoteTarget} />
+      }
+    >
       <MissingNoteNotice visible={requested.missing} />
       {!notebook ? (
         <View style={{ gap: 6 }}>
@@ -450,11 +456,20 @@ export default function Notes() {
   );
 }
 
-function QuickNoteAction({ visible, onPress }: { visible: boolean; onPress: () => void }) {
+function QuickNoteAction({
+  visible,
+  onPress,
+  target,
+}: {
+  visible: boolean;
+  onPress: () => void;
+  target: (node: View | null) => void;
+}) {
   const { theme } = useVoticTheme();
   if (!visible) return null;
   return (
     <Pressable
+      ref={target}
       accessibilityRole="button"
       accessibilityLabel="Quick Note"
       onPress={onPress}

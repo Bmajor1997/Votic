@@ -119,6 +119,7 @@ import {
   useWalkthrough,
   useWalkthroughTarget,
   useWalkthroughTrigger,
+  useAnswerSourceTip,
 } from "../src/walkthrough/WalkthroughProvider";
 import { ACCESSIBLE_FONT_BOLD } from "../src/reader/readerFontNames";
 
@@ -226,6 +227,7 @@ function ReaderContent() {
   const closeTarget = useWalkthroughTarget("reader.close");
   const bookmarkTarget = useWalkthroughTarget("reader.bookmark");
   const askComposerTarget = useWalkthroughTarget("reader.askComposer");
+  const answerSourceRef = useAnswerSourceTip();
   const [sheet, setSheet] = useState<ReaderSheet>(null);
   const [completionOpen, setCompletionOpen] = useState(false);
   const [finishSummary, setFinishSummary] = useState<FinishSummary>({ status: "idle" });
@@ -670,7 +672,11 @@ function ReaderContent() {
           animate={!message.fallback && !message.revealed}
           style={[s.askAnswerText, { color: theme.text }]}
           header={
-            <View style={s.askAnswerSourceInResponse}>
+            <View
+              ref={messageIndex === askMessages.length - 1 && !message.fallback ? answerSourceRef : undefined}
+              collapsable={false}
+              style={s.askAnswerSourceInResponse}
+            >
               <AskAnswerSourceChip
                 kind={message.fallback ? "help" : message.link ? "passage" : "document"}
                 passage={message.link ? message.link.sentenceIndex + 1 : undefined}
@@ -1226,6 +1232,7 @@ function ReaderContent() {
   useEffect(() => {
     if (askPhase === "open") requestWalkthrough("reader.ask");
   }, [askPhase, requestWalkthrough]);
+
   function confirm_save_passage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();

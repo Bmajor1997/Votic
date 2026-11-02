@@ -301,6 +301,25 @@ export function useWalkthroughTarget(id: TargetId) {
   );
 }
 
+/** Lets an answer's source chip finish fading in before the first-answer tip points at it. */
+export const ANSWER_TIP_DELAY_MS = 500;
+
+/**
+ * For the newest answer's source chip, which appears once the answer has finished writing. The first time
+ * one appears, it explains the chip and the answer's buttons.
+ */
+export function useAnswerSourceTip() {
+  const { request } = useWalkthrough();
+  const target = useWalkthroughTarget("reader.answerSource");
+  return useCallback(
+    (node: unknown) => {
+      target(node);
+      if (node) setTimeout(() => request("reader.answer"), ANSWER_TIP_DELAY_MS);
+    },
+    [target, request],
+  );
+}
+
 /** Waits for layout and screen transitions to settle before pointing at anything. */
 export const TRIGGER_DELAY_MS = 450;
 /** A short pause between the Reader walkthrough's last card and "You're all set". */

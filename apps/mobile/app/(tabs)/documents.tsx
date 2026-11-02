@@ -81,6 +81,7 @@ export default function Documents() {
   const optionsTarget = useWalkthroughTarget("documents.documentOptions");
   const documentTarget = useWalkthroughTarget("documents.document");
   const filtersTarget = useWalkthroughTarget("documents.filters");
+  const selectTarget = useWalkthroughTarget("documents.select");
   useWalkthroughTrigger([{ id: "documents" }, { id: "documents.collections", when: documents.length > 0 }], {
     hasDocuments: documents.length > 0,
   });
@@ -104,7 +105,15 @@ export default function Documents() {
     return sort_documents(matching, sort);
   }, [documents, collection, finishedOnly, query, sort]);
   const visibleIds = useMemo(() => visible.map((document) => document.id), [visible]);
-  const selection = useDocumentSelection(visibleIds, library.removeDocument);
+  const choosing = useDocumentSelection(visibleIds, library.removeDocument);
+  // The first time someone starts choosing documents, explain what they can do with them.
+  const selection = {
+    ...choosing,
+    start() {
+      choosing.start();
+      setTimeout(() => walkthrough.request("documents.select"), 300);
+    },
+  };
   const { filterCount, collectionLabel } = collection_summary(collection, sort, finishedOnly);
 
   function open(document: VoticDocument, mode: "read" | "listen") {
@@ -286,7 +295,9 @@ export default function Documents() {
             ) : null}
             <DocumentSelectButton selection={selection} count={visible.length} />
           </View>
-          <DocumentSelectionBar selection={selection} total={visibleIds.length} />
+          <View ref={selection.selecting ? selectTarget : undefined} collapsable={false}>
+            <DocumentSelectionBar selection={selection} total={visibleIds.length} />
+          </View>
           {visible.length ? (
             <View style={s.libraryCards}>
               {visible.map((document, index) => {

@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { Animated, Pressable, Text, TextInput, View } from "react-native";
 import { useVoticTheme } from "../../theme/ThemeProvider";
 import type { useReaderFind } from "../useReaderFind";
+import { useWalkthroughTarget } from "../../walkthrough/WalkthroughProvider";
 import { SleepTimerControl } from "./SleepTimerControl";
 
 export function ReaderTools({
@@ -24,10 +25,17 @@ export function ReaderTools({
   const { theme } = useVoticTheme();
   const modeProgress = useMotionValue(listening ? 1 : 0, MOTION.mode.duration);
   const button = { minHeight: 48, paddingHorizontal: 12, justifyContent: "center" as const };
+  const modeTarget = useWalkthroughTarget("reader.mode");
+  const findTarget = useWalkthroughTarget("reader.find");
+  const voiceTarget = useWalkthroughTarget("reader.voice");
   return (
     <View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}>
-        <View style={{ flexDirection: "row", borderRadius: 24, backgroundColor: theme.surfaceMuted }}>
+        <View
+          ref={modeTarget}
+          collapsable={false}
+          style={{ flexDirection: "row", borderRadius: 24, backgroundColor: theme.surfaceMuted }}
+        >
           <Animated.View
             pointerEvents="none"
             style={{
@@ -72,6 +80,7 @@ export function ReaderTools({
           ))}
         </View>
         <Pressable
+          ref={findTarget}
           accessibilityRole="button"
           accessibilityLabel="Find within document"
           onPress={find.show}
@@ -81,6 +90,7 @@ export function ReaderTools({
         </Pressable>
         {listening ? (
           <Pressable
+            ref={voiceTarget}
             accessibilityRole="button"
             accessibilityLabel={`Voice: ${voiceName}. Change voice`}
             onPress={onVoice}
