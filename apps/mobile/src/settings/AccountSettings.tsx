@@ -7,6 +7,7 @@ import { ComponentProps, Ref, useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
   ActivityIndicator,
+  Alert,
   findNodeHandle,
   Linking,
   Modal,
@@ -31,6 +32,9 @@ import { RetentionOffer } from "../subscription/subscriptionTypes";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { useAccountSetup } from "../onboarding/AccountSetupProvider";
+import { useOnboarding } from "../onboarding/OnboardingProvider";
+import { useWalkthrough } from "../walkthrough/WalkthroughProvider";
 
 type Step = "sign-out" | "keep-offer" | "deletion-info" | "deletion-final" | "recover-library";
 
@@ -221,6 +225,7 @@ export function AccountSettings() {
           />
         ) : null}
         {auth.user ? <PremiumRows key={auth.user.uid} /> : null}
+        {auth.user ? <RunSetupAgainRow /> : null}
         {auth.user ? (
           <>
             <Text accessibilityRole="header" style={[s.label, { color: theme.mutedText }]}>
@@ -540,6 +545,50 @@ function confirmation_eyebrow(signingOut: boolean, recovering: boolean, final: b
   if (signingOut) return null;
   if (recovering) return "OLDER LIBRARY";
   return final ? "FINAL CONFIRMATION · STEP 2 OF 2" : "ACCOUNT DELETION · STEP 1 OF 2";
+}
+/**
+ * Test builds only (never the store build): runs this account through setup again, from the first
+ * personalization question through "Votic is ready for you" and the paywall, with first-run tips and
+ * walkthroughs reset. An existing account otherwise never sees setup again, which made it untestable.
+ */
+export function RunSetupAgainRow() {
+  // Read when shown (not once at load) so the store build can never show it.
+  return Constants.expoConfig?.extra?.previewTesting === true ? <RunSetupAgain /> : null;
+}
+function RunSetupAgain() {
+  const { theme } = useVoticTheme();
+  const setup = useAccountSetup();
+  const onboarding = useOnboarding();
+  const walkthrough = useWalkthrough();
+  function run() {
+    walkthrough.reset("all");
+    onboarding.showTipsAgain();
+    // Setup no longer counts as done, so the app moves straight to the first question.
+    setup.restartSetup();
+  }
+  return (
+    <>
+      <Text accessibilityRole="header" style={[s.label, { color: theme.mutedText }]}>
+        TESTING
+      </Text>
+      <AccountRow
+        label="Run setup again"
+        detail="Test build only. Go through personalization, widgets, “Votic is ready for you”, and the paywall again with this account."
+        hint="Asks first. Your documents, notes, and membership are not changed"
+        icon="refresh-outline"
+        onPress={() =>
+          Alert.alert(
+            "Run setup again?",
+            "This account goes back to the first setup question, and first-run tips show again. Your documents, notes, and membership stay as they are.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Run setup again", onPress: run },
+            ],
+          )
+        }
+      />
+    </>
+  );
 }
 function AccountRow({
   label,

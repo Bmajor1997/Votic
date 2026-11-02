@@ -47,6 +47,8 @@ type AccountSetupValue = {
   completeHandoff: () => void;
   /** After the Home Screen widgets screen: setup moves on to "Votic is ready for you". */
   completeWidgetsIntro: () => void;
+  /** Test builds only: this account starts setup over from the first question, as if it were new. */
+  restartSetup: () => void;
 };
 
 const AccountSetupContext = createContext<AccountSetupValue | null>(null);
@@ -191,6 +193,9 @@ export function AccountSetupProvider({
     },
     completeWidgetsIntro() {
       update((state) => ({ ...state, widgetsIntroducedAt: state.widgetsIntroducedAt ?? now() }));
+    },
+    restartSetup() {
+      update(() => new_onboarding_state());
     },
   };
   return (

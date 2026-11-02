@@ -1,8 +1,10 @@
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { describe, expect, it, jest } from "@jest/globals";
+import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { AccessibilityInfo, Linking, Text } from "react-native";
+import Constants from "expo-constants";
+import { AccessibilityInfo, Alert, Linking, Text } from "react-native";
+import { load_account_setup } from "../../src/onboarding/onboardingStorage";
 import { router } from "expo-router";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import * as billing from "../mocks/subscriptionService";
@@ -329,6 +331,42 @@ it("offers Delete account wherever Votic sign-in is configured", async () => {
   await render_with_providers(<Settings />);
   expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
   expect(screen.queryByText(/isn't connected to Votic accounts/)).toBeNull();
+});
+
+describe("Run setup again (test builds only)", () => {
+  const extra = () => {
+    const config = (Constants.expoConfig ?? {}) as { extra?: Record<string, unknown> };
+    config.extra = config.extra ?? {};
+    return config.extra;
+  };
+  afterEach(() => {
+    extra().previewTesting = false;
+  });
+
+  it("never appears in the store build", async () => {
+    extra().previewTesting = false;
+    await render_with_providers(<Settings />);
+    expect(screen.queryByRole("button", { name: "Run setup again" })).toBeNull();
+  });
+
+  it("asks first, then sends this account back to the first setup question", async () => {
+    extra().previewTesting = true;
+    const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Run setup again" }));
+    expect(alert).toHaveBeenCalledTimes(1);
+    // Nothing changes until the tester confirms.
+    expect((await load_account_setup("test-user"))?.completedAt).not.toBeNull();
+    const buttons = alert.mock.calls[0][2] as { text: string; onPress?: () => void }[];
+    await act(async () => buttons.find((button) => button.text === "Run setup again")?.onPress?.());
+    await waitFor(async () =>
+      expect(await load_account_setup("test-user")).toMatchObject({
+        currentStep: 0,
+        personalizationCompletedAt: null,
+        completedAt: null,
+      }),
+    );
+  });
 });
 
 describe("switching Votic Plus billing", () => {
