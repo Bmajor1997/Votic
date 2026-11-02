@@ -1,0 +1,129 @@
+name: Play upload-signed AAB (internal testing)
+
+# Builds the Android App Bundle that Google Play needs, signed with Votic's private upload key. Run it by hand
+# from the Actions tab. The upload key lives only in GitHub repository secrets (never in this file or the repo):
+#   VOTIC_UPLOAD_KEYSTORE_BASE64  the .jks/.keystore file, base64-encoded
+#   VOTIC_UPLOAD_STORE_PASSWORD   keystore password
+#   VOTIC_UPLOAD_KEY_ALIAS        key alias (not androiddebugkey)
+#   VOTIC_UPLOAD_KEY_PASSWORD     key password
+# All EXPO_PUBLIC_* values are public client identifiers that ship inside the app. Never add secret keys here.
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: "Android versionCode. Must be higher than any bundle already uploaded to Play (first upload: 1)."
+        required: true
+        default: "1"
+      version_name:
+        description: "Version shown to testers"
+        required: true
+        default: "0.1.0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-play-aab
+  cancel-in-progress: false
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      # Turns on the release configuration checks in app.config.js and the private-signing guard.
+      EAS_BUILD_PROFILE: production
+      # Firebase's public project identifier, bundled in the app; never an Admin SDK credential.
+      # https://firebase.google.com/docs/projects/api-keys
+      # nosemgrep: generic.secrets.security.detected-generic-api-key.detected-generic-api-key
+      EXPO_PUBLIC_FIREBASE_API_KEY: AIzaSyAxlf77We41rIP0x3CylHE24kqBjcAD8yc
+      EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: votic-da5c4.firebaseapp.com
+      EXPO_PUBLIC_FIREBASE_PROJECT_ID: votic-da5c4
+      EXPO_PUBLIC_FIREBASE_APP_ID: "1:562186959755:web:d73025f437c45490b14d8e"
+      EXPO_PUBLIC_VOTIC_CLIENT_KEY: 0d8fe5ded3d05f8c97f2353531fe890e48e909dd8b1af158
+      EXPO_PUBLIC_VOTIC_API_URL: https://136-72-31-77.sslip.io
+      EXPO_PUBLIC_VOTIC_TERMS_URL: https://136-72-31-77.sslip.io/terms
+      EXPO_PUBLIC_VOTIC_PRIVACY_URL: https://136-72-31-77.sslip.io/privacy
+      EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: 562186959755-g37j6f6gjmg7gdsihouk00dkjgrvtekl.apps.googleusercontent.com
+      # RevenueCat public Android SDK key (Play app app713897a509) and the existing entitlement.
+      EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY: goog_TiurUfaynPFCRbnABgRbJmivPBt
+      EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: premium
+    steps:
+      - name: Check the upload-key secrets are set
+        working-directory: .
+        env:
+          KEYSTORE: ${{ secrets.VOTIC_UPLOAD_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.VOTIC_UPLOAD_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.VOTIC_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.VOTIC_UPLOAD_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.version_code }}
+        run: |
+          missing=""
+          [ -n "$KEYSTORE" ] || missing="$missing VOTIC_UPLOAD_KEYSTORE_BASE64"
+          [ -n "$STORE_PASSWORD" ] || missing="$missing VOTIC_UPLOAD_STORE_PASSWORD"
+          [ -n "$KEY_ALIAS" ] || missing="$missing VOTIC_UPLOAD_KEY_ALIAS"
+          [ -n "$KEY_PASSWORD" ] || missing="$missing VOTIC_UPLOAD_KEY_PASSWORD"
+          if [ -n "$missing" ]; then echo "::error::Add these repository secrets first:$missing"; exit 1; fi
+          case "$VERSION_CODE" in ''|*[!0-9]*) echo "::error::version_code must be a whole number"; exit 1;; esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 24
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install app dependencies
+        run: npm ci --ignore-scripts
+      - name: Install and validate Android NDK
+        run: bash ../../security/install-android-ndk.sh
+      - name: Configure Maven Central mirror for Android builds
+        run: install -Dm644 ../../security/maven-central-mirror.init.gradle "${GRADLE_USER_HOME:-$HOME/.gradle}/init.d/votic-maven-central.gradle"
+      - name: Set this build's version
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const app = JSON.parse(fs.readFileSync("app.json", "utf8"));
+            app.expo.version = process.env.VERSION_NAME;
+            app.expo.android = { ...app.expo.android, versionCode: Number(process.env.VERSION_CODE) };
+            fs.writeFileSync("app.json", JSON.stringify(app, null, 2) + "\n");
+            console.log("versionCode", app.expo.android.versionCode, "version", app.expo.version);
+          '
+      - name: Generate native Android project
+        run: npx expo prebuild --platform android --no-install
+      - name: Restore the upload keystore
+        env:
+          KEYSTORE: ${{ secrets.VOTIC_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          umask 077
+          printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/votic-upload.jks"
+          test -s "$RUNNER_TEMP/votic-upload.jks"
+      - name: Build the signed App Bundle (all phone architectures)
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:bundleRelease --no-daemon --max-workers=2
+        env:
+          NODE_ENV: production
+          VOTIC_UPLOAD_STORE_FILE: ${{ runner.temp }}/votic-upload.jks
+          VOTIC_UPLOAD_STORE_PASSWORD: ${{ secrets.VOTIC_UPLOAD_STORE_PASSWORD }}
+          VOTIC_UPLOAD_KEY_ALIAS: ${{ secrets.VOTIC_UPLOAD_KEY_ALIAS }}
+          VOTIC_UPLOAD_KEY_PASSWORD: ${{ secrets.VOTIC_UPLOAD_KEY_PASSWORD }}
+      - name: Show the upload certificate fingerprints (public)
+        working-directory: apps/mobile/android
+        run: keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab | grep -E "Owner|SHA1|SHA256"
+      - name: Remove the keystore from the runner
+        if: always()
+        working-directory: .
+        run: rm -f "$RUNNER_TEMP/votic-upload.jks"
+      - name: Upload the App Bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: votic-play-aab-v${{ inputs.version_code }}
+          path: apps/mobile/android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 14
