@@ -119,7 +119,7 @@ customer instead of assigning an old customer's payload to a new account.
 
 Before the deletion steps, a subscriber is offered a discount for staying, **on the plan they're on**: a monthly
 subscriber sees the monthly discount (for example $7.99/month for 2 months, then $9.99/month), an annual subscriber
-the annual one (for example $47.99 for the next year, then $59.99/year). Someone on a plan with no discount set up
+the annual one (for example $39.99 for the next year, then $59.99/year). Someone on a plan with no discount set up
 goes straight to the deletion steps; they're never shown another plan's discount. Google Play only for now.
 
 Set up in Play Console, on **each** base plan you want a discount for: add a "Developer determined" offer with the

@@ -449,7 +449,7 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   const annual = {
     product: {
       identifier: "votic_plus:annual",
-      subscriptionOptions: [option("annual:stay", [59990000, "$59.99", "P1Y"], [47990000, "$47.99"])],
+      subscriptionOptions: [option("annual:stay", [59990000, "$59.99", "P1Y"], [39990000, "$39.99"])],
     },
   };
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
@@ -457,7 +457,7 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   await service.identify("a");
   expect(await service.getRetentionOffer?.("votic_plus:annual")).toMatchObject({
     id: "annual:stay",
-    offerPrice: "$47.99",
+    offerPrice: "$39.99",
     offerPeriod: { count: 1, unit: "year" },
     regularPrice: "$59.99",
   });
