@@ -90,7 +90,9 @@ text is never added to the AI instructions.
   plain message. Raw store or RevenueCat errors are never shown.
 - Restore Purchases, Terms, and Privacy stay pinned at the bottom. Manage account and Sign out are at the end of the page.
 - The screen can't be dismissed: Votic requires Premium.
-- Access: trial, active, cancelled-but-paid-through, and billing grace period. "Unknown" never grants access.
+- Beta testers may also see the founder lifetime offer ($79.99 once) above the plans, while the server offers
+  it. See [Founder lifetime offer](../../../docs/founder-lifetime-offer.md).
+- Access: trial, active, cancelled-but-paid-through, billing grace period, and founder lifetime. "Unknown" never grants access.
 - Expo Go and builds without RevenueCat keys say purchases aren't available. Only development builds also offer
   "Continue without a subscription (development build)".
 

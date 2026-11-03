@@ -3,6 +3,8 @@ import {
   CreditProduct,
   CreditPurchaseOutcome,
   Entitlement,
+  FounderOffer,
+  FounderProduct,
   PurchaseOutcome,
   RetentionOffer,
   SubscriptionPlan,
@@ -56,6 +58,9 @@ export const fakeSubscriptions = {
   /** More discounts for staying, one per plan, e.g. a monthly and an annual offer. */
   retentionOffers: [] as RetentionOffer[],
   nextCreditPurchase: { kind: "purchased" } as CreditPurchaseOutcome,
+  /** The founder lifetime offer Votic's server reports for the signed-in account, and the store's product. */
+  founderOffer: null as FounderOffer | null,
+  founderProduct: null as FounderProduct | null,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
     server.clear();
@@ -73,6 +78,8 @@ export const fakeSubscriptions = {
     fakeSubscriptions.retentionOffer = null;
     fakeSubscriptions.retentionOffers = [];
     fakeSubscriptions.nextCreditPurchase = { kind: "purchased" };
+    fakeSubscriptions.founderOffer = null;
+    fakeSubscriptions.founderProduct = null;
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
   setEntitlement(userId: string, entitlement: Entitlement) {
@@ -107,6 +114,21 @@ export function create_subscription_service(): SubscriptionService {
     },
     async refresh() {
       return read();
+    },
+    async getFounderProduct(productId) {
+      fakeSubscriptions.calls.push("getFounderProduct:" + productId);
+      const product = fakeSubscriptions.founderProduct;
+      return product?.productId === productId ? product : null;
+    },
+    async purchaseFounder(productId) {
+      fakeSubscriptions.calls.push("purchaseFounder:" + productId);
+      const outcome = fakeSubscriptions.nextPurchase ?? {
+        kind: "purchased",
+        entitlement: entitlement_of("lifetime"),
+      };
+      fakeSubscriptions.nextPurchase = null;
+      if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
+      return outcome;
     },
     async getPlans() {
       fakeSubscriptions.calls.push("getPlans");

@@ -21,6 +21,8 @@ export function subscription_status(entitlement: Entitlement) {
       return until ? `Active · renews ${until}` : "Active";
     case "cancelled-active":
       return until ? `Cancelled · access until ${until}` : "Cancelled · access until the end of this period";
+    case "lifetime":
+      return "Founder lifetime · yours for good";
     case "billing-issue":
       return "There's a problem with your payment. Update it in your store account to keep Votic Plus.";
     case "expired":

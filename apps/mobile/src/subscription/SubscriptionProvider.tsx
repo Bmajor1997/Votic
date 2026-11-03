@@ -19,7 +19,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { LegalLinks } from "../config/appConfig";
 import { has_access } from "./entitlement";
 import { create_subscription_service, legal_links } from "./subscriptionService";
-import { Entitlement, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
+import { Entitlement, FounderOffer, SubscriptionService, UNKNOWN_ENTITLEMENT } from "./subscriptionTypes";
 
 /** Development and marked preview builds only: lets testers past the paywall when the build can't make real purchases. */
 const DEVELOPMENT_BYPASS_KEY = "votic.mobile.development-paywall-bypass.v1";
@@ -34,6 +34,8 @@ type SubscriptionValue = {
   recoveryError: string | null;
   /** Whether the paid part of Votic is open to this account. */
   access: boolean;
+  /** The founder lifetime offer the server says this account may see, or null. */
+  founderOffer: FounderOffer | null;
   /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
   canBypass: boolean;
   bypass: () => void;
@@ -75,7 +77,11 @@ export function SubscriptionProvider({
   const { user } = useAuth();
   const uid = user?.uid ?? null;
   // Stored with the account it belongs to, so one account's subscription is never shown for another.
-  const [serverAccess, setServerAccess] = useState<{ uid: string; allowed: boolean } | null>(null);
+  const [serverAccess, setServerAccess] = useState<{
+    uid: string;
+    allowed: boolean;
+    founderOffer?: FounderOffer | null;
+  } | null>(null);
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
   const [recoveryError, setRecoveryError] = useState<string | null>(null);
   const [bypassState, setBypassState] = useState<{ uid: string; bypassed: boolean } | null>(null);
@@ -96,7 +102,8 @@ export function SubscriptionProvider({
     if (!uid) return;
     try {
       const result = await checkAccess();
-      if (result.uid === uid && uidRef.current === uid) setServerAccess({ uid, allowed: result.allowed });
+      if (result.uid === uid && uidRef.current === uid)
+        setServerAccess({ uid, allowed: result.allowed, founderOffer: result.founderOffer ?? null });
     } catch {
       if (uidRef.current === uid) setServerAccess({ uid, allowed: false });
     }
@@ -107,7 +114,8 @@ export function SubscriptionProvider({
       void Promise.resolve()
         .then(checkAccess)
         .then((result) => {
-          if (active && result.uid === uid) setServerAccess({ uid, allowed: result.allowed });
+          if (active && result.uid === uid)
+            setServerAccess({ uid, allowed: result.allowed, founderOffer: result.founderOffer ?? null });
         })
         .catch(() => {
           if (active) setServerAccess({ uid, allowed: false });
@@ -217,6 +225,7 @@ export function SubscriptionProvider({
       server_access_for(uid, serverAccess) ||
       has_access(entitlement.status) ||
       (canBypass && Boolean(uid && bypassState?.uid === uid && bypassState.bypassed)),
+    founderOffer: (uid && serverAccess?.uid === uid && serverAccess.founderOffer) || null,
     canBypass,
     bypass() {
       if (!canBypass || !uid || uidRef.current !== uid || !account_writable(uid)) return;

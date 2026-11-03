@@ -31,6 +31,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
   let sdkPromise: Promise<Sdk> | null = null;
   const packages = new Map<string, PurchasesPackage>();
   const creditProducts = new Map<string, PurchasesStoreProduct>();
+  const founderProducts = new Map<string, PurchasesStoreProduct>();
   const retentionOptions = new Map<string, SubscriptionOption>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
   let generation = 0;
@@ -295,6 +296,37 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
             }
           : null;
         const { customerInfo } = await sdk.purchaseSubscriptionOption(option, change);
+        if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
+        return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
+      } catch (error) {
+        return purchase_outcome_from_error(error);
+      }
+    },
+    async getFounderProduct(productId) {
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser || !productId) return null;
+      const sdk = await load();
+      if ((await sdk.getAppUserID()) !== owner) return null;
+      const products = await sdk.getProducts([productId], sdk.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+      if (token !== generation || owner !== identifiedUser) return null;
+      const product = products.find((item) => item.identifier === productId && Boolean(item.priceString));
+      if (!product) return null;
+      founderProducts.set(product.identifier, product);
+      return { productId: product.identifier, title: product.title, priceString: product.priceString };
+    },
+    async purchaseFounder(productId) {
+      const token = generation;
+      const owner = identifiedUser;
+      const product = founderProducts.get(productId);
+      if (!product || !owner)
+        return { kind: "failed", message: "This offer isn't available right now. Please try again." };
+      try {
+        await identityQueue;
+        const sdk = await load();
+        if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
+        const { customerInfo } = await sdk.purchaseStoreProduct(product);
         if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
         return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
       } catch (error) {

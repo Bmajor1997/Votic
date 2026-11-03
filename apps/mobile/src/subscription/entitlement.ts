@@ -30,7 +30,15 @@ export function entitlement_from_customer_info(info: CustomerInfoLike, entitleme
   const any = active || info.entitlements.all[entitlementId];
   let status: EntitlementStatus;
   if (active?.isActive) {
-    if (active.billingIssueDetectedAt) status = "billing-issue";
+    // RevenueCat reports a one-time (lifetime) unlock as active, not renewing, with no expiry date.
+    if (
+      active.expirationDateMillis === null &&
+      !active.willRenew &&
+      !active.billingIssueDetectedAt &&
+      active.periodType !== "TRIAL"
+    )
+      status = "lifetime";
+    else if (active.billingIssueDetectedAt) status = "billing-issue";
     else if (active.periodType === "TRIAL") status = "trial";
     else if (!active.willRenew) status = "cancelled-active";
     else status = "active";
@@ -52,7 +60,11 @@ export function entitlement_from_customer_info(info: CustomerInfoLike, entitleme
 /** Only these states let someone into paid Votic. "unknown" never does. */
 export function has_access(status: EntitlementStatus) {
   return (
-    status === "trial" || status === "active" || status === "cancelled-active" || status === "billing-issue"
+    status === "trial" ||
+    status === "active" ||
+    status === "cancelled-active" ||
+    status === "billing-issue" ||
+    status === "lifetime"
   );
 }
 
