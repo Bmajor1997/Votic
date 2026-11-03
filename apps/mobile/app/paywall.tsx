@@ -60,6 +60,40 @@ function format_long_date(date: Date) {
 
 type Message = { icon?: IconName; text: string };
 
+function useFounderProduct(subscription: ReturnType<typeof useSubscription>, attempt: number) {
+  const { service, founderOffer } = subscription;
+  const unavailable = service.unavailableReason;
+  const productId = founderOffer?.productId ?? null;
+  const [product, setProduct] = useState<FounderProduct | null>(null);
+
+  useEffect(() => {
+    if (unavailable || !productId || !service.getFounderProduct) return;
+    let current = true;
+    store_deadline(service.getFounderProduct(productId)).then(
+      (found) => {
+        if (current) setProduct(found);
+      },
+      () => {
+        if (current) setProduct(null);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [service, unavailable, productId, attempt]);
+
+  return product?.productId === productId ? product : null;
+}
+
+function subscriptionNotice(subscription: ReturnType<typeof useSubscription>) {
+  const { entitlement, checking, service } = subscription;
+  if (entitlement.status === "expired")
+    return "Your Votic Plus subscription has ended. Subscribe again to keep reading with Votic.";
+  if (entitlement.status === "unknown" && !service.unavailableReason && !checking)
+    return "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases.";
+  return null;
+}
+
 /**
  * Votic Plus. Nothing on this screen grants access by itself: access starts only when RevenueCat confirms
  * an active entitlement (a free trial counts) from the App Store or Google Play.
@@ -77,9 +111,9 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [purchasing, setPurchasing] = useState(false);
-  const [founderProduct, setFounderProduct] = useState<FounderProduct | null>(null);
   const [buyingFounder, setBuyingFounder] = useState(false);
   const founderOffer = subscription.founderOffer;
+  const founder = useFounderProduct(subscription, attempt);
   const [restoring, setRestoring] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const busy = useRef(false);
@@ -109,25 +143,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       current = false;
     };
   }, [service, unavailable, attempt]);
-  // The founder lifetime offer appears only when the server offers it and the store lists the product.
-  const founderProductId = founderOffer?.productId ?? null;
-  useEffect(() => {
-    if (unavailable || !founderProductId || !service.getFounderProduct) return;
-    let current = true;
-    store_deadline(service.getFounderProduct(founderProductId)).then(
-      (found) => {
-        if (current) setFounderProduct(found);
-      },
-      () => {
-        if (current) setFounderProduct(null);
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [service, unavailable, founderProductId, attempt]);
-  // Only the product the server is offering right now; a stale lookup for another product never shows.
-  const founder = founderProduct?.productId === founderProductId ? founderProduct : null;
   function retry() {
     setLoadFailed(false);
     setPlans(null);
@@ -240,12 +255,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     }
   }
 
-  const statusNotice =
-    entitlement.status === "expired"
-      ? "Your Votic Plus subscription has ended. Subscribe again to keep reading with Votic."
-      : entitlement.status === "unknown" && !unavailable && !subscription.checking
-        ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
-        : null;
+  const statusNotice = subscriptionNotice(subscription);
 
   const checkout = (
     <SafeAreaView
