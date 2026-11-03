@@ -1,6 +1,7 @@
 import { beta_access_config } from "./app_parts/beta_access.js";
+import { founder_offer_config, founder_offer_for, is_founder_product } from "./app_parts/founder_offer.js";
 import { create_credit_wallet, authorized_revenuecat_webhook } from "./app_parts/credit_wallet.js";
-import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
+import { subscription_tiers, verified_tier, upgrade_options, top_tier } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
@@ -112,6 +113,7 @@ export function create_votic_handler(options = {}) {
  const env = options.env || process.env, config = { ...load_server_config(env), ...options.config };
  validate_production_security(env);
  const beta = beta_access_config(env);
+ const founder = founder_offer_config(env);
  const tiers = subscription_tiers(env);
  const usage_store = options.usageStore || create_usage_store(env);
  const credit_wallet = env.VOTIC_CREDIT_PRODUCTS_JSON ? (options.creditWallet || create_credit_wallet(env)) : null;
@@ -195,7 +197,7 @@ export function create_votic_handler(options = {}) {
     rate_limit(`${ai_client}:subscription-options`, 10);
     await read_body(request, 1024, config.body_timeout_ms);
     const profile = tiers.length && authorize_premium.subscription ? await authorize_premium.subscription(identity.uid) : null;
-    const current = verified_tier(tiers, profile);
+    const current = plan_tier(profile);
     send_json(response, 200, { current: current ? { name: current.name, productId: current.productId, store: current.store, monthlyCredits: current.monthlyCredits ?? null } : null,
       upgrades: upgrade_options(tiers, current) });
  };
@@ -208,11 +210,16 @@ export function create_votic_handler(options = {}) {
  };
  // The verified subscription's monthly AI credits, in its verified billing period. Null means credits are not
  // enforced (no verifier that reports subscriptions, e.g. local development), and the token limits still apply.
+ // Founders (the lifetime purchase) get every future upgrade free: always the highest plan in the catalog, with
+ // its AI allowance. Without a catalog that is Votic Plus.
+ const plan_tier = (profile) => profile?.allowed && is_founder_product(founder, profile.productId)
+    ? top_tier(tiers) : verified_tier(tiers, profile);
  const credit_plan = (uid, profile) => {
     if (!profile?.allowed) return null;
-    const tier = verified_tier(tiers, profile);
+    const tier = plan_tier(profile);
     const allowance = tier ? tier.monthlyCredits ?? null : config.monthly_credits;
-    return { uid, tier, profile, period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
+    return { uid, tier, profile, founder: is_founder_product(founder, profile.productId),
+      period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
  };
  // Beta uses the same durable account credit ledger, not a client-granted balance. Paid access takes priority.
  const effective_plan = async (identity) => {
@@ -221,10 +228,16 @@ export function create_votic_handler(options = {}) {
     try {
       if (authorize_premium.subscription) {
         const profile = await authorize_premium.subscription(identity.uid);
-        if (profile.allowed) return credit_plan(identity.uid, profile);
+        if (profile.allowed) {
+          // A verified founder lifetime purchase takes one of the limited founder spots.
+          if (is_founder_product(founder, profile.productId)) usage_store.founder?.recordPurchase(identity.uid, founder.productId);
+          return credit_plan(identity.uid, profile);
+        }
       } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
     } catch (error) { if (!beta_allowed) throw error; }
     if (!beta_allowed) return null;
+    // Beta testers stay eligible for the founder offer after beta access is switched off.
+    usage_store.founder?.rememberBetaTester(identity.uid);
     return { uid: identity.uid, beta: true, tier: null,
       period: usage_store.credits.period(identity.uid, {}, config.monthly_credits) };
  };
@@ -233,10 +246,12 @@ export function create_votic_handler(options = {}) {
     rate_limit(`${ai_client}:access`, 30);
     await read_body(request, 1024, config.body_timeout_ms);
     const plan = await effective_plan(identity);
-    send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan), beta: Boolean(plan?.beta) });
+    // Only someone without access sees the paywall, so only they are offered the founder purchase.
+    const founderOffer = plan ? null : founder_offer_for(founder, usage_store.founder, { uid: identity.uid, betaAllowed: beta.allows(identity.uid) });
+    send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan), beta: Boolean(plan?.beta), ...(founderOffer ? { founderOffer } : {}) });
  };
  const usage_configured = (identity) => beta.allows(identity.uid) || (premium_required && Boolean(authorize_premium.subscription));
- const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.tier?.name ?? "Votic Plus";
+ const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.founder ? "Votic Founder" : plan.tier?.name ?? "Votic Plus";
  const handle_ai_usage = async (request, response, identity, ai_client) => {
     if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to see your AI usage.");
     rate_limit(`${ai_client}:ai-usage`, 30);
@@ -629,6 +644,10 @@ export function capability_report(env = process.env) {
     : "  Voice questions: off (needs OPENAI_API_KEY, FIREBASE_PROJECT_ID and VOTIC_VOICE_QUESTIONS_ENABLED=true).");
   lines.push(`  Subscription entitlement: ${String(env.REVENUECAT_ENTITLEMENT_ID ?? "premium").trim()} (must match RevenueCat; HTTP success cannot verify identifier spelling).`);
   lines.push(`  Beta access: ${beta_access_config(env).mode}; monthly credits use VOTIC_MONTHLY_CREDITS and the persistent account ledger.`);
+  const founder = founder_offer_config(env);
+  lines.push(founder
+    ? `  Founder lifetime offer: on for beta testers (${founder.productId}, first ${founder.limit}, until ${new Date(founder.endsAt).toISOString()}).`
+    : "  Founder lifetime offer: off (set VOTIC_FOUNDER_PRODUCT_ID and VOTIC_FOUNDER_ENDS_AT).");
   const keys = String(env.VOTIC_CLIENT_KEYS || "").split(",").filter((key) => key.trim()).length;
   lines.push(keys
     ? `  App client keys: required (${keys} configured). Apps must set EXPO_PUBLIC_VOTIC_CLIENT_KEY to one of them.`

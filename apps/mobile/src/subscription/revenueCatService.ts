@@ -31,6 +31,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
   let sdkPromise: Promise<Sdk> | null = null;
   const packages = new Map<string, PurchasesPackage>();
   const creditProducts = new Map<string, PurchasesStoreProduct>();
+  const founderProducts = new Map<string, PurchasesStoreProduct>();
   const retentionOptions = new Map<string, SubscriptionOption>();
   const listeners = new Set<(entitlement: Entitlement, userId: string) => void>();
   let generation = 0;
@@ -262,10 +263,18 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       const sdk = await load();
       const offerings = await sdk.getOfferings();
       if (token !== generation || owner !== identifiedUser) return null;
-      for (const item of offerings.current?.availablePackages || []) {
-        // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
-        // subscriber is only offered the discount on the plan they're on, never another plan's.
-        if (currentProductId && !same_plan(item.product.identifier, currentProductId)) continue;
+      const available = offerings.current?.availablePackages || [];
+      // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
+      // subscriber is only offered the discount on the plan they're on, never another plan's. Access that isn't
+      // one of these plans (a RevenueCat promotional grant, say) gets the first discount, as before.
+      const subscription = (id: string) => id.split(":")[0];
+      const onListedPlan =
+        Boolean(currentProductId) &&
+        available.some(
+          (item) => subscription(item.product.identifier) === subscription(currentProductId as string),
+        );
+      for (const item of available) {
+        if (onListedPlan && !same_plan(item.product.identifier, currentProductId as string)) continue;
         const option = item.product.subscriptionOptions?.find((candidate) =>
           candidate.tags.includes(RETENTION_OFFER_TAG),
         );
@@ -295,6 +304,37 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
             }
           : null;
         const { customerInfo } = await sdk.purchaseSubscriptionOption(option, change);
+        if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
+        return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
+      } catch (error) {
+        return purchase_outcome_from_error(error);
+      }
+    },
+    async getFounderProduct(productId) {
+      const token = generation;
+      const owner = intendedUser;
+      await identityQueue;
+      if (!owner || owner !== identifiedUser || !productId) return null;
+      const sdk = await load();
+      if ((await sdk.getAppUserID()) !== owner) return null;
+      const products = await sdk.getProducts([productId], sdk.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+      if (token !== generation || owner !== identifiedUser) return null;
+      const product = products.find((item) => item.identifier === productId && Boolean(item.priceString));
+      if (!product) return null;
+      founderProducts.set(product.identifier, product);
+      return { productId: product.identifier, title: product.title, priceString: product.priceString };
+    },
+    async purchaseFounder(productId) {
+      const token = generation;
+      const owner = identifiedUser;
+      const product = founderProducts.get(productId);
+      if (!product || !owner)
+        return { kind: "failed", message: "This offer isn't available right now. Please try again." };
+      try {
+        await identityQueue;
+        const sdk = await load();
+        if (token !== generation || (await sdk.getAppUserID()) !== owner) return { kind: "cancelled" };
+        const { customerInfo } = await sdk.purchaseStoreProduct(product);
         if (token !== generation || owner !== identifiedUser) return { kind: "cancelled" };
         return { kind: "purchased", entitlement: to_entitlement(customerInfo) };
       } catch (error) {

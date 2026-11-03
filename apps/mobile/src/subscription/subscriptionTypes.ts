@@ -8,6 +8,7 @@ export type EntitlementStatus =
   | "trial" // free trial running
   | "active" // paid and renewing
   | "cancelled-active" // cancelled, but paid through the end of the current period
+  | "lifetime" // a one-time purchase (the founder lifetime offer) that never expires
   | "billing-issue" // renewal payment failed; the store's grace period still grants access
   | "expired"; // had a trial or subscription that has ended
 
@@ -66,6 +67,13 @@ export type RetentionOffer = {
   regularPeriod: Period | null;
 };
 
+/**
+ * The founder lifetime purchase: Votic Plus for good, for one payment. Votic's server decides who may see it
+ * (beta testers, until the end date or the founder cap); the price and title come from the store.
+ */
+export type FounderOffer = { productId: string; endsAt: string; remaining: number };
+export type FounderProduct = { productId: string; title: string; priceString: string };
+
 /** A one-time purchase of additional AI usage, described entirely by the store's product data. */
 export type CreditProduct = { productId: string; title: string; priceString: string };
 
@@ -103,6 +111,10 @@ export interface SubscriptionService {
    * onto the discounted price at their next renewal, so nobody pays twice for the same period.
    */
   claimRetentionOffer?(offerId: string, fromProductId: string | null): Promise<PurchaseOutcome>;
+  /** The founder lifetime product from the store, or null when the store doesn't list it. */
+  getFounderProduct?(productId: string): Promise<FounderProduct | null>;
+  /** Buys the founder lifetime product; access follows the store's confirmed entitlement, like a subscription. */
+  purchaseFounder?(productId: string): Promise<PurchaseOutcome>;
   /** Store products for additional AI usage, limited to the IDs Votic's server is configured to credit. */
   getCreditProducts?(productIds: string[]): Promise<CreditProduct[]>;
   purchaseCredits?(productId: string): Promise<CreditPurchaseOutcome>;

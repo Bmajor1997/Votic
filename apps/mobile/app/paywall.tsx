@@ -18,6 +18,7 @@ import { PaywallBenefits, PaywallIntro, PaywallQuestions } from "../src/subscrip
 import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
 import { annual_value, default_plan, plus_plans } from "../src/subscription/paywallPresentation";
 import { BillingSelector } from "../src/subscription/BillingSelector";
+import { FounderOfferCard } from "../src/subscription/FounderOfferCard";
 import { paywallStyles as p } from "../src/subscription/paywallStyles";
 import { controlSizes, spacing } from "../src/design/tokens";
 import { FormMessage } from "../src/onboarding/accountForms";
@@ -35,7 +36,11 @@ import {
 import { useSubscription } from "../src/subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL } from "../src/subscription/subscriptionStatus";
 import { store_deadline } from "../src/subscription/storeDeadline";
-import { SubscriptionPlan, SubscriptionUnavailableReason } from "../src/subscription/subscriptionTypes";
+import {
+  FounderProduct,
+  SubscriptionPlan,
+  SubscriptionUnavailableReason,
+} from "../src/subscription/subscriptionTypes";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
@@ -55,6 +60,40 @@ function format_long_date(date: Date) {
 
 type Message = { icon?: IconName; text: string };
 
+function useFounderProduct(subscription: ReturnType<typeof useSubscription>, attempt: number) {
+  const { service, founderOffer } = subscription;
+  const unavailable = service.unavailableReason;
+  const productId = founderOffer?.productId ?? null;
+  const [product, setProduct] = useState<FounderProduct | null>(null);
+
+  useEffect(() => {
+    if (unavailable || !productId || !service.getFounderProduct) return;
+    let current = true;
+    store_deadline(service.getFounderProduct(productId)).then(
+      (found) => {
+        if (current) setProduct(found);
+      },
+      () => {
+        if (current) setProduct(null);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [service, unavailable, productId, attempt]);
+
+  return product?.productId === productId ? product : null;
+}
+
+function subscriptionNotice(subscription: ReturnType<typeof useSubscription>) {
+  const { entitlement, checking, service } = subscription;
+  if (entitlement.status === "expired")
+    return "Your Votic Plus subscription has ended. Subscribe again to keep reading with Votic.";
+  if (entitlement.status === "unknown" && !service.unavailableReason && !checking)
+    return "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases.";
+  return null;
+}
+
 /**
  * Votic Plus. Nothing on this screen grants access by itself: access starts only when RevenueCat confirms
  * an active entitlement (a free trial counts) from the App Store or Google Play.
@@ -72,6 +111,9 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const [loadFailed, setLoadFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [purchasing, setPurchasing] = useState(false);
+  const [buyingFounder, setBuyingFounder] = useState(false);
+  const founderOffer = subscription.founderOffer;
+  const founder = useFounderProduct(subscription, attempt);
   const [restoring, setRestoring] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
   const busy = useRef(false);
@@ -112,7 +154,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   // Eligibility comes from the store; an expired paid subscription does not prove a trial was used.
   const shown = plus_plans(plans || []);
   const selected = shown.find((plan) => plan.id === selectedId) ?? default_plan(shown);
-  const working = purchasing || restoring;
+  const working = purchasing || restoring || buyingFounder;
 
   async function purchase() {
     if (!selected || busy.current) return;
@@ -148,6 +190,41 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
       setPurchasing(false);
     }
   }
+  async function buy_founder() {
+    if (!founder || !service.purchaseFounder || busy.current) return;
+    busy.current = true;
+    setBuyingFounder(true);
+    setMessage(null);
+    try {
+      const outcome = await service.purchaseFounder(founder.productId);
+      if (outcome.kind === "purchased") {
+        if (has_access(outcome.entitlement.status)) {
+          await celebration.celebrate({
+            title: "Welcome, founder.",
+            detail: "Votic Plus is yours for good. Thank you for helping build Votic.",
+          });
+          subscription.setEntitlement(outcome.entitlement);
+          // Lets Votic's server confirm the purchase with the store and count the founder spot.
+          void subscription.refresh().catch(() => {});
+        } else
+          setMessage({
+            text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
+          });
+      } else if (outcome.kind === "pending")
+        setMessage({
+          icon: "time-outline",
+          text: "Your purchase is waiting for approval, for example from a parent or your bank. Votic opens as soon as it's approved.",
+        });
+      else if (outcome.kind === "failed") setMessage({ text: outcome.message });
+    } catch {
+      setMessage({
+        text: "Votic couldn't confirm your purchase. Check your connection and use Restore Purchases before trying again.",
+      });
+    } finally {
+      busy.current = false;
+      setBuyingFounder(false);
+    }
+  }
   async function restore() {
     if (busy.current) return;
     busy.current = true;
@@ -178,12 +255,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     }
   }
 
-  const statusNotice =
-    entitlement.status === "expired"
-      ? "Your Votic Plus subscription has ended. Subscribe again to keep reading with Votic."
-      : entitlement.status === "unknown" && !unavailable && !subscription.checking
-        ? "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases."
-        : null;
+  const statusNotice = subscriptionNotice(subscription);
 
   const checkout = (
     <SafeAreaView
@@ -225,7 +297,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           <PrimaryButton
             label={primary_action_label(selected)}
             busy={purchasing}
-            disabled={!selected || restoring}
+            disabled={!selected || restoring || buyingFounder}
             accessibilityHint={selected ? billing_summary(selected, STORE) : undefined}
             onPress={() => void purchase()}
           />
@@ -243,6 +315,15 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         showsVerticalScrollIndicator={false}
       >
         <PaywallIntro />
+        {founderOffer && founder && !unavailable ? (
+          <FounderOfferCard
+            offer={founderOffer}
+            product={founder}
+            busy={buyingFounder}
+            disabled={purchasing || restoring}
+            onBuy={() => void buy_founder()}
+          />
+        ) : null}
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Votic Plus
         </Text>

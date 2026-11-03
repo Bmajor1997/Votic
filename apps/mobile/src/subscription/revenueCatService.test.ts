@@ -465,6 +465,10 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   // An annual subscriber with no annual discount set up isn't shown the monthly one.
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly] } } as never);
   expect(await service.getRetentionOffer?.("votic_plus:annual")).toBeNull();
+  // Access that isn't one of the listed plans (a RevenueCat promotional grant) gets the first discount, as before.
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
+  expect(await service.getRetentionOffer?.("rc_promo_premium_monthly")).toMatchObject({ id: "monthly:stay" });
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly] } } as never);
   // Without a known plan, the first discount set up is offered, as before.
   expect(await service.getRetentionOffer?.(null)).toMatchObject({ id: "monthly:stay" });
 });

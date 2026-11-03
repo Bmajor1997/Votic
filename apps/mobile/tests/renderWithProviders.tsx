@@ -35,8 +35,14 @@ import { FLOWS } from "../src/walkthrough/walkthroughFlows";
 import { MeasureNode, WalkthroughProvider } from "../src/walkthrough/WalkthroughProvider";
 import { walkthrough_key } from "../src/walkthrough/walkthroughState";
 import { fakeAuth } from "./mocks/authBackend";
+import { fakeSubscriptions } from "./mocks/subscriptionService";
 
-const test_access = async () => ({ uid: fakeAuth.user?.uid ?? "", allowed: false, beta: false });
+const test_access = async () => ({
+  uid: fakeAuth.user?.uid ?? "",
+  allowed: false,
+  beta: false,
+  founderOffer: fakeSubscriptions.founderOffer,
+});
 
 const metrics = {
   frame: { x: 0, y: 0, width: 390, height: 844 },

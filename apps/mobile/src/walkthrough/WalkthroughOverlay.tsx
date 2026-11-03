@@ -22,6 +22,21 @@ const GUTTER = 16;
 /** How long a scroll is given to land before measuring again. */
 const SCROLL_SETTLE_MS = 250;
 
+type StepLike = { target?: string };
+
+/** The step's key once its card can be drawn: it needs no control, or its control has been measured. */
+function shown_key(step: StepLike | undefined, rect: Rect | null, key: string | null) {
+  return step && (!step.target || rect) ? key : null;
+}
+
+/** Steps whose control isn't on this screen are skipped, so they aren't counted either: the count never jumps. */
+function step_count<T>(steps: T[], index: number, canShow: (step: T) => boolean) {
+  return {
+    position: steps.slice(0, index + 1).filter(canShow).length,
+    total: steps.filter(canShow).length,
+  };
+}
+
 /**
  * Draws the current walkthrough step over its host screen: a dim layer with a clear "hole" around the
  * real control, and a small coaching card beside it. Only interactive steps let the control be used
@@ -84,8 +99,11 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     // Measure per step and when the screen size changes (rotation, split screen).
   }, [stepKey, window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The card fades in when it's actually on screen. A step that first scrolls its control into view shows the
+  // card only after the scroll; starting the fade while the card wasn't drawn left it stuck nearly invisible.
+  const shownKey = shown_key(step, rect, stepKey);
   useEffect(() => {
-    if (!step || !flow) return;
+    if (!shownKey || !step || !flow) return;
     const copy = copy_for(step, flow.context);
     AccessibilityInfo.announceForAccessibility(`${copy.title}. ${copy.message}`);
     // Moves screen reader focus to the card. The web has no native view handles (and no setAccessibilityFocus).
@@ -94,7 +112,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     if (reduceMotion) return entrance.setValue(1);
     entrance.setValue(0);
     Animated.timing(entrance, { toValue: 1, duration: 180, useNativeDriver: true }).start();
-  }, [stepKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [shownKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Android's back button closes the walkthrough rather than the screen beneath it.
   useEffect(() => {
@@ -113,7 +131,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const placement = spotlight ? card_placement(spotlight, screen, GUTTER) : null;
   const last = flow.index === flow.steps.length - 1;
   const primaryLabel = step.primaryLabel ?? (last ? "Got it" : "Next");
-  const total = flow.steps.length;
+  const { position, total } = step_count(flow.steps, flow.index, walkthrough.canShow);
   const dim = theme.isDark ? "rgba(0,0,0,0.55)" : "rgba(17,24,39,0.38)";
   const blocking = !screenReader;
   const cardPosition = placement
@@ -208,10 +226,10 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
         <View style={s.footer}>
           {total > 1 ? (
             <Text
-              accessibilityLabel={`Step ${flow.index + 1} of ${total}`}
+              accessibilityLabel={`Step ${position} of ${total}`}
               style={[s.count, { color: theme.mutedText }]}
             >
-              {flow.index + 1} of {total}
+              {position} of {total}
             </Text>
           ) : null}
           <View style={s.spacer} />

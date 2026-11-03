@@ -1,6 +1,8 @@
 import { AI_CONTENT_PATHS, AI_CONSENT_VERSION, require_ai_consent } from "./aiConsent";
 import { allowance_notifier } from "../subscription/allowanceNotice";
 import { AI_USAGE_PATHS, AiUsage, notify_ai_usage_changed, parse_ai_usage } from "../subscription/aiUsage";
+import type { FounderOffer } from "../subscription/subscriptionTypes";
+import { founder_offer_from } from "../subscription/founderText";
 import Constants from "expo-constants";
 import { client_headers, resolve_api_url } from "./apiConfig";
 import { auth_headers } from "./authToken";
@@ -126,7 +128,14 @@ export async function account_deletion_request(phase: "prepare" | "complete", to
     throw new Error("Votic could not confirm account deletion. Please retry.");
 }
 
-export async function check_server_access() {
+export type ServerAccess = {
+  uid: string;
+  allowed: boolean;
+  beta: boolean;
+  founderOffer?: FounderOffer | null;
+};
+
+export async function check_server_access(): Promise<ServerAccess> {
   const response = await api_fetch("/api/access", { method: "POST" }, API_TIMEOUT_MS, undefined, true);
   if (!response.ok) throw new Error(server_error(response.result, "Access could not be checked."));
   if (
@@ -135,7 +144,12 @@ export async function check_server_access() {
     typeof response.result.beta !== "boolean"
   )
     throw new Error("Access could not be checked.");
-  return { uid: response.result.uid, allowed: response.result.allowed, beta: response.result.beta };
+  return {
+    uid: response.result.uid,
+    allowed: response.result.allowed,
+    beta: response.result.beta,
+    founderOffer: founder_offer_from(response.result.founderOffer),
+  };
 }
 
 export async function check_account_status() {
