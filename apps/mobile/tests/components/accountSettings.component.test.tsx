@@ -508,6 +508,36 @@ describe("Retention offer before account deletion", () => {
     expect(backend.fakeAuth.calls).not.toContain("deleteAccount");
   });
 
+  it("offers an annual subscriber the annual discount, not the monthly one", async () => {
+    fakeSubscriptions.reset({
+      defaultEntitlement: entitlement_of("active", { productId: "votic_plus:annual" }),
+    });
+    fakeSubscriptions.retentionOffers = [
+      { ...OFFER, productId: "votic_plus:monthly" },
+      {
+        id: "annual:stay-one-year",
+        productId: "votic_plus:annual",
+        offerPrice: "$47.99",
+        offerPeriod: { count: 1, unit: "year" as const },
+        offerCycles: 1,
+        regularPrice: "$59.99",
+        regularPeriod: { count: 1, unit: "year" as const },
+      },
+    ];
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(await screen.findByRole("header", { name: "Are you sure you want to leave?" })).toBeTruthy();
+    expect(fakeSubscriptions.calls).toContain("getRetentionOffer:votic_plus:annual");
+    expect(screen.getByText("$47.99/year")).toBeTruthy();
+    expect(screen.getByText("for your next year")).toBeTruthy();
+    expect(screen.getByText("$59.99/year")).toBeTruthy();
+    expect(screen.queryByText("$7.99/month")).toBeNull();
+    await fireEvent.press(screen.getByRole("button", { name: /^Claim offer/ }));
+    expect(fakeSubscriptions.calls).toContain(
+      "claimRetentionOffer:annual:stay-one-year:from:votic_plus:annual",
+    );
+  });
+
   it("goes straight to the deletion steps when the store has no offer", async () => {
     fakeSubscriptions.reset();
     await render_with_providers(<Settings />);

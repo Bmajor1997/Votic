@@ -92,8 +92,12 @@ export interface SubscriptionService {
    * flow (never a second subscription). The store shows the final price, proration and timing first.
    */
   changePlan?(planId: string, fromProductId: string): Promise<PurchaseOutcome>;
-  /** The store's discount for staying, if one is set up and this account is eligible; otherwise null. */
-  getRetentionOffer?(): Promise<RetentionOffer | null>;
+  /**
+   * The store's discount for staying on the person's current plan (a monthly subscriber gets the monthly
+   * discount, an annual subscriber the annual one), if one is set up and this account is eligible; otherwise
+   * null. Without a current plan, the first discount set up is offered.
+   */
+  getRetentionOffer?(currentProductId?: string | null): Promise<RetentionOffer | null>;
   /**
    * Claims the discount through the store's own purchase sheet. A current subscriber keeps their plan and moves
    * onto the discounted price at their next renewal, so nobody pays twice for the same period.

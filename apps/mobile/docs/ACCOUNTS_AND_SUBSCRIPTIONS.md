@@ -115,6 +115,16 @@ The SDK's login/logout operations are serialized. Subscription callbacks and pur
 are tied to their initiating account; queued native events trigger a fresh read of the currently identified
 customer instead of assigning an old customer's payload to a new account.
 
+## Stay-and-save offer before deleting an account
+
+Before the deletion steps, a subscriber is offered a discount for staying, **on the plan they're on**: a monthly
+subscriber sees the monthly discount (for example $7.99/month for 2 months, then $9.99/month), an annual subscriber
+the annual one (for example $47.99 for the next year, then $59.99/year). Someone on a plan with no discount set up
+goes straight to the deletion steps; they're never shown another plan's discount. Google Play only for now.
+
+Set up in Play Console, on **each** base plan you want a discount for: add a "Developer determined" offer with the
+discounted phase, and tag it both `votic-retention` and `rc-ignore-offer` (so the paywall never picks it).
+
 ## Terms of Service and Privacy Policy
 
 Not written yet, and both stores require them for subscriptions and accounts. Host them on HTTPS and set

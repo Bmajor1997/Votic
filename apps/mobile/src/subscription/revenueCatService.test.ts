@@ -420,3 +420,51 @@ it("reads the retention discount and the regular price from the store's tagged o
     retention_offer_from("votic_plus", { ...option, pricingPhases: [regular] } as unknown as typeof option),
   ).toBeNull();
 });
+
+it("offers each subscriber the discount on their own plan, never another plan's", async () => {
+  sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
+  sdk.getAppUserID.mockResolvedValue("a");
+  const option = (id: string, regular: [number, string, string], offer: [number, string]) => ({
+    id,
+    tags: ["votic-retention"],
+    fullPricePhase: {
+      price: { amountMicros: regular[0], formatted: regular[1] },
+      billingPeriod: { iso8601: regular[2] },
+    },
+    pricingPhases: [
+      {
+        recurrenceMode: 2,
+        billingCycleCount: 1,
+        price: { amountMicros: offer[0], formatted: offer[1] },
+        billingPeriod: { iso8601: regular[2] },
+      },
+    ],
+  });
+  const monthly = {
+    product: {
+      identifier: "votic_plus:monthly",
+      subscriptionOptions: [option("monthly:stay", [9990000, "$9.99", "P1M"], [7990000, "$7.99"])],
+    },
+  };
+  const annual = {
+    product: {
+      identifier: "votic_plus:annual",
+      subscriptionOptions: [option("annual:stay", [59990000, "$59.99", "P1Y"], [47990000, "$47.99"])],
+    },
+  };
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
+  const service = create_revenue_cat_service("public-key", "pro");
+  await service.identify("a");
+  expect(await service.getRetentionOffer?.("votic_plus:annual")).toMatchObject({
+    id: "annual:stay",
+    offerPrice: "$47.99",
+    offerPeriod: { count: 1, unit: "year" },
+    regularPrice: "$59.99",
+  });
+  expect(await service.getRetentionOffer?.("votic_plus:monthly")).toMatchObject({ id: "monthly:stay" });
+  // An annual subscriber with no annual discount set up isn't shown the monthly one.
+  sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly] } } as never);
+  expect(await service.getRetentionOffer?.("votic_plus:annual")).toBeNull();
+  // Without a known plan, the first discount set up is offered, as before.
+  expect(await service.getRetentionOffer?.(null)).toMatchObject({ id: "monthly:stay" });
+});

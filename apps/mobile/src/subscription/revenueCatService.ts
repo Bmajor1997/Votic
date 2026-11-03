@@ -250,7 +250,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async getRetentionOffer() {
+    async getRetentionOffer(currentProductId) {
       retentionOptions.clear();
       // Google Play only: the App Store needs signed promotional offers, which Votic doesn't issue yet.
       if (Platform.OS !== "android") return null;
@@ -262,6 +262,9 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       const offerings = await sdk.getOfferings();
       if (token !== generation || owner !== identifiedUser) return null;
       for (const item of offerings.current?.availablePackages || []) {
+        // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
+        // subscriber is only offered the discount on the plan they're on, never another plan's.
+        if (currentProductId && !same_plan(item.product.identifier, currentProductId)) continue;
         const option = item.product.subscriptionOptions?.find((candidate) =>
           candidate.tags.includes(RETENTION_OFFER_TAG),
         );
@@ -344,6 +347,11 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       return () => listeners.delete(listener);
     },
   };
+}
+
+/** Whether two store product IDs name the same plan; Google Play adds the base plan as "sku:base-plan". */
+export function same_plan(a: string, b: string) {
+  return a === b || (a.includes(":") && b.includes(":") ? false : a.split(":")[0] === b.split(":")[0]);
 }
 
 /** The discounted phase (finite, paid) and the regular price after it, straight from the store's option. */

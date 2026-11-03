@@ -39,10 +39,10 @@ export const PREVIEW_RETENTION_OFFER: RetentionOffer = {
 export function retention_offer_text(offer: RetentionOffer, store: "App Store" | "Google Play") {
   const per = billing_period_label(offer.offerPeriod);
   const regularPer = billing_period_label(offer.regularPeriod);
-  const length = period_length({
-    count: offer.offerPeriod.count * offer.offerCycles,
-    unit: offer.offerPeriod.unit,
-  });
+  const count = offer.offerPeriod.count * offer.offerCycles;
+  // "for your next year", not "for your next 1 year".
+  const length =
+    count === 1 ? offer.offerPeriod.unit : period_length({ count, unit: offer.offerPeriod.unit });
   return {
     price: `${offer.offerPrice}/${per}`,
     regular: regularPer ? `${offer.regularPrice}/${regularPer}` : offer.regularPrice,
