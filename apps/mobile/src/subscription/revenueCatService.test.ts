@@ -1,7 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 import { Platform } from "react-native";
 import Purchases, { CustomerInfo, PurchasesPackage } from "react-native-purchases";
-import { create_revenue_cat_service } from "./revenueCatService";
+import { create_revenue_cat_service, retention_offer_from } from "./revenueCatService";
 
 vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
 
@@ -467,4 +467,36 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   expect(await service.getRetentionOffer?.("votic_plus:annual")).toBeNull();
   // Without a known plan, the first discount set up is offered, as before.
   expect(await service.getRetentionOffer?.(null)).toMatchObject({ id: "monthly:stay" });
+});
+
+it("reads a single-payment stay-and-save offer, like $39.99 for 12 months, as one discounted year", () => {
+  const offer = retention_offer_from("votic_plus:votic-plus-annual", {
+    id: "votic-plus-annual:stay-annual",
+    tags: ["votic-retention", "rc-ignore-offer"],
+    fullPricePhase: {
+      price: { amountMicros: 59990000, formatted: "$59.99" },
+      billingPeriod: { iso8601: "P1Y" },
+    },
+    pricingPhases: [
+      {
+        recurrenceMode: 3,
+        billingCycleCount: null,
+        price: { amountMicros: 39990000, formatted: "$39.99" },
+        billingPeriod: { iso8601: "P12M" },
+      },
+      {
+        recurrenceMode: 1,
+        billingCycleCount: null,
+        price: { amountMicros: 59990000, formatted: "$59.99" },
+        billingPeriod: { iso8601: "P1Y" },
+      },
+    ],
+  } as never);
+  expect(offer).toMatchObject({
+    offerPrice: "$39.99",
+    offerPeriod: { count: 1, unit: "year" },
+    offerCycles: 1,
+    regularPrice: "$59.99",
+    regularPeriod: { count: 1, unit: "year" },
+  });
 });
