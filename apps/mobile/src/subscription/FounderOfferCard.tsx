@@ -42,10 +42,10 @@ export function FounderOfferCard({
         <Text style={s.once}> once</Text>
       </Text>
       <Text style={[p.detail, { color: theme.text }]}>
-        Votic Plus for good, with one payment and no subscription. A thank-you for helping test Votic.
+        Votic for good, with one payment and no subscription. A thank-you for helping test Votic.
       </Text>
       <Text style={[p.detail, { color: theme.mutedText }]}>
-        Includes the same monthly AI allowance as Votic Plus.
+        Every future update and upgrade is included free, with the top plan&rsquo;s monthly AI allowance.
       </Text>
       <Text accessibilityLiveRegion="polite" style={[p.detail, { color: theme.text, fontWeight: "700" }]}>
         {availability}

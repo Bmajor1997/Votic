@@ -1,7 +1,7 @@
 import { beta_access_config } from "./app_parts/beta_access.js";
 import { founder_offer_config, founder_offer_for, is_founder_product } from "./app_parts/founder_offer.js";
 import { create_credit_wallet, authorized_revenuecat_webhook } from "./app_parts/credit_wallet.js";
-import { subscription_tiers, verified_tier, upgrade_options } from "./app_parts/subscription_tiers.js";
+import { subscription_tiers, verified_tier, upgrade_options, top_tier } from "./app_parts/subscription_tiers.js";
 import { NOT_TEXT_ERROR, TEXT_ENCODING_ERROR } from "./apps/mobile/src/documents/textEncoding.js";
 import { FeedbackError } from "./app_parts/feedback.js";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
@@ -197,7 +197,7 @@ export function create_votic_handler(options = {}) {
     rate_limit(`${ai_client}:subscription-options`, 10);
     await read_body(request, 1024, config.body_timeout_ms);
     const profile = tiers.length && authorize_premium.subscription ? await authorize_premium.subscription(identity.uid) : null;
-    const current = verified_tier(tiers, profile);
+    const current = plan_tier(profile);
     send_json(response, 200, { current: current ? { name: current.name, productId: current.productId, store: current.store, monthlyCredits: current.monthlyCredits ?? null } : null,
       upgrades: upgrade_options(tiers, current) });
  };
@@ -210,11 +210,16 @@ export function create_votic_handler(options = {}) {
  };
  // The verified subscription's monthly AI credits, in its verified billing period. Null means credits are not
  // enforced (no verifier that reports subscriptions, e.g. local development), and the token limits still apply.
+ // Founders (the lifetime purchase) get every future upgrade free: always the highest plan in the catalog, with
+ // its AI allowance. Without a catalog that is Votic Plus.
+ const plan_tier = (profile) => profile?.allowed && is_founder_product(founder, profile.productId)
+    ? top_tier(tiers) : verified_tier(tiers, profile);
  const credit_plan = (uid, profile) => {
     if (!profile?.allowed) return null;
-    const tier = verified_tier(tiers, profile);
+    const tier = plan_tier(profile);
     const allowance = tier ? tier.monthlyCredits ?? null : config.monthly_credits;
-    return { uid, tier, profile, period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
+    return { uid, tier, profile, founder: is_founder_product(founder, profile.productId),
+      period: allowance ? usage_store.credits.period(uid, profile, allowance) : null };
  };
  // Beta uses the same durable account credit ledger, not a client-granted balance. Paid access takes priority.
  const effective_plan = async (identity) => {
@@ -246,7 +251,7 @@ export function create_votic_handler(options = {}) {
     send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan), beta: Boolean(plan?.beta), ...(founderOffer ? { founderOffer } : {}) });
  };
  const usage_configured = (identity) => beta.allows(identity.uid) || (premium_required && Boolean(authorize_premium.subscription));
- const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.tier?.name ?? "Votic Plus";
+ const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.founder ? "Votic Founder" : plan.tier?.name ?? "Votic Plus";
  const handle_ai_usage = async (request, response, identity, ai_client) => {
     if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to see your AI usage.");
     rate_limit(`${ai_client}:ai-usage`, 30);

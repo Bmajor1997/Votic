@@ -9,8 +9,12 @@ A one-time purchase of **$79.99** that unlocks Votic Plus for good. It's a thank
   days after launch).
 - **Where it shows:** at the top of the paywall, above the monthly and annual plans, which stay available. A
   beta tester only reaches the paywall once beta access is off, so during the beta nobody sees it.
-- **What founders get:** Votic Plus with no expiry and the same monthly AI allowance as Votic Plus (the server's
-  calendar-month allowance for lifetime grants). Settings shows "Founder lifetime · yours for good".
+- **What founders get:** Votic with no expiry, and **every future update and upgrade free**. Founders are always
+  on the highest plan in `VOTIC_SUBSCRIPTION_TIERS_JSON`, with that plan's monthly AI allowance and limits (renewed
+  each calendar month), and are never shown an upgrade. Until there's a higher plan, that is Votic Plus. The AI
+  usage screen calls the plan "Votic Founder"; Settings shows "Founder lifetime · every update and upgrade included".
+  Each founder on the top plan costs its AI allowance every month with no further payment, so price future plans
+  with that in mind.
 
 Nothing on the phone decides any of this. The server tells the app whether to show the offer, the store sets the
 price, and access starts only when RevenueCat confirms the purchase.

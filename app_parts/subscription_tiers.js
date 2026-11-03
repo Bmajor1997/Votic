@@ -24,6 +24,11 @@ export function verified_tier(catalog, profile) {
   if (!profile?.allowed) return null;
   return catalog.find(tier => tier.productId === profile.productId && tier.store === profile.store) ?? null;
 }
+/** The highest plan in the catalog (most monthly AI capacity), or null when there is no catalog. */
+export function top_tier(catalog) {
+  return catalog.reduce((best, tier) => !best || tier.monthlyTokens > best.monthlyTokens ||
+    (tier.monthlyTokens === best.monthlyTokens && (tier.monthlyCredits ?? 0) > (best.monthlyCredits ?? 0)) ? tier : best, null);
+}
 export function upgrade_options(catalog, current) {
   if (!current) return [];
   return catalog.filter(tier => tier.store === current.store && tier.monthlyTokens > current.monthlyTokens &&
