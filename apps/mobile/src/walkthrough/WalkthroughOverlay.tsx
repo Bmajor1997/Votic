@@ -22,6 +22,21 @@ const GUTTER = 16;
 /** How long a scroll is given to land before measuring again. */
 const SCROLL_SETTLE_MS = 250;
 
+type StepLike = { target?: string };
+
+/** The step's key once its card can be drawn: it needs no control, or its control has been measured. */
+function shown_key(step: StepLike | undefined, rect: Rect | null, key: string | null) {
+  return step && (!step.target || rect) ? key : null;
+}
+
+/** Steps whose control isn't on this screen are skipped, so they aren't counted either: the count never jumps. */
+function step_count<T>(steps: T[], index: number, canShow: (step: T) => boolean) {
+  return {
+    position: steps.slice(0, index + 1).filter(canShow).length,
+    total: steps.filter(canShow).length,
+  };
+}
+
 /**
  * Draws the current walkthrough step over its host screen: a dim layer with a clear "hole" around the
  * real control, and a small coaching card beside it. Only interactive steps let the control be used
@@ -86,7 +101,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
 
   // The card fades in when it's actually on screen. A step that first scrolls its control into view shows the
   // card only after the scroll; starting the fade while the card wasn't drawn left it stuck nearly invisible.
-  const shownKey = step && (!step.target || rect) ? stepKey : null;
+  const shownKey = shown_key(step, rect, stepKey);
   useEffect(() => {
     if (!shownKey || !step || !flow) return;
     const copy = copy_for(step, flow.context);
@@ -116,9 +131,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const placement = spotlight ? card_placement(spotlight, screen, GUTTER) : null;
   const last = flow.index === flow.steps.length - 1;
   const primaryLabel = step.primaryLabel ?? (last ? "Got it" : "Next");
-  // Steps whose control isn't on this screen are skipped, so they aren't counted either: the count never jumps.
-  const total = flow.steps.filter(walkthrough.canShow).length;
-  const position = flow.steps.slice(0, flow.index + 1).filter(walkthrough.canShow).length;
+  const { position, total } = step_count(flow.steps, flow.index, walkthrough.canShow);
   const dim = theme.isDark ? "rgba(0,0,0,0.55)" : "rgba(17,24,39,0.38)";
   const blocking = !screenReader;
   const cardPosition = placement
