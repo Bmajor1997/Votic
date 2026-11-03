@@ -26,6 +26,10 @@ jest.mock("expo-audio", () => ({
     },
   })),
 }));
+jest.mock("expo-store-review", () => ({
+  isAvailableAsync: jest.fn(async () => true),
+  requestReview: jest.fn(async () => {}),
+}));
 jest.mock("../src/auth/authBackend", () => require("./mocks/authBackend"));
 jest.mock("../src/subscription/subscriptionService", () => require("./mocks/subscriptionService"));
 /* eslint-enable @typescript-eslint/no-require-imports */

@@ -2,12 +2,13 @@ import { remember_feedback_form, take_feedback_draft } from "./feedbackNavigatio
 import { router } from "expo-router";
 import { randomUUID } from "expo-crypto";
 import { useEffect, useRef, useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, View } from "react-native";
+import { KeyboardAvoidingView, Linking, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 import { useAuth } from "../auth/AuthProvider";
 import { FeedbackSubmitError, submit_feedback } from "../api/voticApi";
 import { radii, spacing, typography } from "../design/tokens";
 import { PrimaryButton } from "../onboarding/components";
 import { DiagnosticsSettings } from "../settings/DiagnosticsSettings";
+import { PLAY_STORE_APP, PLAY_STORE_WEB } from "../review/storeReview";
 import { SettingsGroup, SettingsPage, SettingsRow } from "../settings/SettingsNavigation";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
@@ -31,6 +32,21 @@ export function FeedbackScreen() {
           onPress={() => router.push("/feedback/bug")}
         />
       </SettingsGroup>
+      {Platform.OS === "android" ? (
+        <SettingsGroup title="REVIEWS">
+          <SettingsRow
+            label="Rate Votic on Google Play"
+            detail="Leave a public rating or review on Votic's Google Play page."
+            icon="star-outline"
+            hint="Opens Votic in Google Play"
+            onPress={() =>
+              void Linking.openURL(PLAY_STORE_APP).catch(() =>
+                Linking.openURL(PLAY_STORE_WEB).catch(() => {}),
+              )
+            }
+          />
+        </SettingsGroup>
+      ) : null}
       <SettingsGroup title="AUTOMATIC REPORTS">
         <DiagnosticsSettings />
       </SettingsGroup>
