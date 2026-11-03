@@ -313,3 +313,39 @@ it("shows the whole paywall at once without Reduce Motion too, with no entrance 
   );
   expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
 });
+
+it("offers beta testers the founder lifetime purchase, and welcomes a new founder", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  fakeSubscriptions.founderOffer = {
+    productId: "votic_founder_lifetime",
+    endsAt: new Date(2027, 0, 31, 12).toISOString(),
+    remaining: 12,
+  };
+  fakeSubscriptions.founderProduct = {
+    productId: "votic_founder_lifetime",
+    title: "Votic Founder Lifetime",
+    priceString: "$79.99",
+  };
+  await render_with_providers(<Paywall />);
+  expect(await screen.findByRole("header", { name: "Founder lifetime" })).toBeTruthy();
+  expect(screen.getByText("For beta testers")).toBeTruthy();
+  expect(screen.getByText(/12 founder spots left/)).toBeTruthy();
+  expect(screen.getByText(/Every future update and upgrade is included free/)).toBeTruthy();
+  // The regular plans are still offered beside it.
+  expect(screen.getByRole("button", { name: "Start free trial" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Become a founder for $79.99" }));
+  expect(fakeSubscriptions.calls).toContain("purchaseFounder:votic_founder_lifetime");
+  expect(screen.getByRole("header", { name: "Welcome, founder." })).toBeTruthy();
+});
+
+it("shows no founder offer to someone the server doesn't offer it to, or when the store doesn't list it", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  fakeSubscriptions.founderProduct = {
+    productId: "votic_founder_lifetime",
+    title: "Founder",
+    priceString: "$79.99",
+  };
+  await render_with_providers(<Paywall />);
+  expect(screen.queryByTestId("founder-offer")).toBeNull();
+  expect(fakeSubscriptions.calls.some((call) => call.startsWith("getFounderProduct"))).toBe(false);
+});

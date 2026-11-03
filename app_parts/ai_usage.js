@@ -7,6 +7,7 @@ import { setInterval, clearInterval } from "node:timers";
 import { AiLimitError } from "./ai_errors.js";
 import { create_credit_ledger } from "./ai_credits.js";
 import { account_deletion_key } from "./credit_wallet.js";
+import { create_founder_store } from "./founder_offer.js";
 export const AI_EXECUTION_TIMEOUT_MS = 60_000;
 export const AI_EXECUTION_LEASE_MS = 90_000;
 const deletion_key = account_deletion_key;
@@ -78,6 +79,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       day TEXT NOT NULL, code TEXT NOT NULL, count INTEGER NOT NULL, PRIMARY KEY(day,code)
     );`);
   const credits = create_credit_ledger(db, { now });
+  const founder = create_founder_store(db, { now });
   const feedback = create_feedback_store(db, { now, accountDeleted: uid => Boolean(db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid))) });
   // Keep only the bounded financial-control window for anonymized deleted-account rows.
   const prune = () => {
@@ -104,6 +106,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
   return {
     feedback,
     credits,
+    founder,
     /** Floor for provider safeguards when credits are the person's allowance. */
     defaultLimits: { monthlyTokens: limits.user_tokens, monthlyBudgetUsd: limits.user_cost },
     reserve({ user_id, feature, model, input_bound, output_bound, rates, allowance }) {
@@ -200,6 +203,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
         db.prepare("DELETE FROM ai_reports WHERE user_id=?").run(uid);
         feedback.remove_user(uid);
         credits.remove_user(uid);
+        founder.remove_user(uid);
         // Preserve global spending limits, without the original account identifier or provider linkage.
         db.prepare("UPDATE ai_usage SET user_id=?,provider_request_id=NULL,response_id=NULL WHERE user_id IN (?,?)")
           .run(row.anonymous_id, uid, "user:" + uid);
