@@ -57,7 +57,8 @@ export type TargetId =
   | "reader.bookmark"
   | "reader.askComposer"
   | "reader.answerSource"
-  | "settings.preferences";
+  | "settings.preferences"
+  | "settings.help";
 
 /** Facts about the screen when a flow starts, so steps can match what's actually on it. */
 export type FlowContext = {
@@ -348,6 +349,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
           "Change how Votic looks, reads, and sounds here: text size, colors, voices, highlighting, and contrast.",
       },
       {
+        target: "settings.help",
         title: "Replay any walkthrough",
         message: "To see any of these walkthroughs again, open Help, then Learn Votic.",
       },

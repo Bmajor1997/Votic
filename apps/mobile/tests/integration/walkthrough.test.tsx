@@ -616,6 +616,51 @@ describe("Reader walkthrough", () => {
     ).toBeTruthy();
   });
 
+  it("starts once the Reader is ready, even when it's still loading after the usual wait", async () => {
+    searchParams.current = { mode: "read" };
+    await AsyncStorage.setItem(ACCOUNT_KEY, JSON.stringify({ version: 1, flows: {} }));
+    await render_with_providers(<OpenedReader />, {
+      walkthrough: "fresh",
+      measureNode: measure_node,
+      documents: [
+        test_document("doc-book", "Field Guide", { plainText: "First passage here. Second passage there." }),
+      ],
+    });
+    // A slow first open: the usual wait passes before the pages have been laid out.
+    await wait_for_walkthrough();
+    await act(async () => jest.advanceTimersByTime(2_000));
+    expect(card()).toBeNull();
+    await fireEvent(screen.getByTestId("reading-pages"), "layout", {
+      nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 600 } },
+    });
+    await fireEvent(
+      screen.getByTestId("reading-measurement", { includeHiddenElements: true }),
+      "textLayout",
+      {
+        nativeEvent: {
+          lines: [
+            { text: "First passage here.\n\n", height: 40 },
+            { text: "Second passage there.", height: 40 },
+          ],
+        },
+      },
+    );
+    await act(async () => jest.advanceTimersByTime(50));
+    await wait_for_walkthrough();
+    expect(in_card("Read or Listen")).toBeTruthy();
+  });
+
+  it("counts only the steps that can show, so the count never skips a number", async () => {
+    await render_reader({}, "read");
+    for (let step = 0; step < 6; step += 1) await press("Next");
+    // "More controls": its tools step only counts once More is opened, so Close is step 8 of 8.
+    expect(in_card("More controls")).toBeTruthy();
+    expect(within(card()!).getByText("7 of 8")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Done reading?")).toBeTruthy();
+    expect(within(card()!).getByText("8 of 8")).toBeTruthy();
+  });
+
   it("ends with a one-time 'You're all set' that doesn't stop later tips", async () => {
     await render_reader({ intro: { status: "completed", at: 1 }, home: { status: "completed", at: 1 } });
     for (let i = 0; i < READER_STEPS_BEFORE_CLOSE; i += 1) await press("Next");
@@ -778,8 +823,9 @@ describe("A control below the fold", () => {
   it("is skipped when the screen can't scroll, instead of dimming the screen with no card", async () => {
     await show(false, []);
     expect(screen.queryByText("Make Votic yours")).toBeNull();
-    // The next step, which needs no control, shows instead.
-    expect(in_card("Replay any walkthrough")).toBeTruthy();
+    // Help is below the fold too, so that step is skipped as well: nothing is left dimmed without a card.
+    expect(card()).toBeNull();
+    expect(screen.queryAllByTestId("walkthrough-dim", { includeHiddenElements: true })).toHaveLength(0);
   });
 });
 
@@ -789,6 +835,8 @@ describe("Settings walkthrough", () => {
     expect(in_card("Make Votic yours")).toBeTruthy();
     await press("Next");
     expect(in_card("Replay any walkthrough")).toBeTruthy();
+    // It highlights the Help row instead of floating over the screen.
+    expect(screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true })).toBeTruthy();
     expect(
       screen.getByText("To see any of these walkthroughs again, open Help, then Learn Votic."),
     ).toBeTruthy();

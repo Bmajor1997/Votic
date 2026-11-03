@@ -27,7 +27,7 @@ import { controlSizes, radii, spacing, typography } from "../design/tokens";
 import { store_deadline } from "../subscription/storeDeadline";
 import { has_access } from "../subscription/entitlement";
 import { BillingSwitch } from "../subscription/BillingSwitch";
-import { PREVIEW_RETENTION_OFFER, RetentionOfferSheet } from "../subscription/RetentionOffer";
+import { preview_retention_offer, RetentionOfferSheet } from "../subscription/RetentionOffer";
 import { RetentionOffer } from "../subscription/subscriptionTypes";
 import { useSubscription } from "../subscription/SubscriptionProvider";
 import { STORE_SUBSCRIPTIONS_URL, subscription_status } from "../subscription/subscriptionStatus";
@@ -43,6 +43,8 @@ const PREVIEW_TESTING = Constants.expoConfig?.extra?.previewTesting === true;
 const STORE = Platform.OS === "ios" ? "App Store" : "Google Play";
 /** The longest Delete account waits for the store's offer; after that it goes straight to the deletion steps. */
 export const OFFER_WAIT_MS = 2_000;
+/** How long "Review paywall" waits for the paywall to open before explaining why it didn't. */
+const REVIEW_PAYWALL_WAIT_MS = 1_500;
 
 /** Account deletion coordinates local erasure, private backend data, billing profile and Firebase. */
 export function AccountSettings() {
@@ -97,12 +99,13 @@ export function AccountSettings() {
     pending.current = true;
     setCheckingOffer(true);
     let found: RetentionOffer | null = null;
+    // The discount matches the plan the person is on: monthly gets the monthly offer, annual the annual one.
+    const current = subscription.entitlement;
+    const currentPlan = has_access(current.status) ? (current.productId ?? null) : null;
+    // Testing builds, and development builds that can't reach the store, still show the sheet with example prices.
+    const showExample = PREVIEW_TESTING || subscription.canBypass;
     try {
-      // The discount matches the plan the person is on: monthly gets the monthly offer, annual the annual one.
-      const current = subscription.entitlement;
-      const lookup = subscription.service.getRetentionOffer?.(
-        has_access(current.status) ? (current.productId ?? null) : null,
-      );
+      const lookup = subscription.service.getRetentionOffer?.(currentPlan);
       found = lookup ? await store_deadline(lookup, OFFER_WAIT_MS) : null;
     } catch {
       found = null; // Never let the offer stand in the way of deleting an account.
@@ -113,9 +116,9 @@ export function AccountSettings() {
     setOfferMessage(null);
     setStayed(null);
     if (found) setOffer({ value: found, preview: false });
-    else if (PREVIEW_TESTING) setOffer({ value: PREVIEW_RETENTION_OFFER, preview: true });
+    else if (showExample) setOffer({ value: preview_retention_offer(currentPlan), preview: true });
     else setOffer(null);
-    open(found || PREVIEW_TESTING ? "keep-offer" : "deletion-info");
+    open(found || showExample ? "keep-offer" : "deletion-info");
   }
   async function claim() {
     const claimOffer = subscription.service.claimRetentionOffer;
@@ -470,6 +473,15 @@ function PremiumRows() {
           onPress={() =>
             void subscription
               .resetBypass()
+              .then(() =>
+                // If the paywall opened, this screen is gone. Still here means access comes from elsewhere.
+                setTimeout(() => {
+                  if (alive.current)
+                    setRestoreMessage(
+                      "The paywall didn't open because this account still has access another way, such as beta access from Votic's server.",
+                    );
+                }, REVIEW_PAYWALL_WAIT_MS),
+              )
               .catch(() => setRestoreMessage("Could not reopen the paywall. Please try again."))
           }
         />

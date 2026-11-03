@@ -56,6 +56,8 @@ type WalkthroughContextValue = {
   scrollBy: (by: number) => boolean;
   measureTarget: (id: TargetId) => Promise<Rect | null>;
   measureNode: MeasureNode;
+  /** Whether a step can show on the current screen: it needs no control, or its control is there. */
+  canShow: (step: WalkthroughStep) => boolean;
 };
 
 const WalkthroughContext = createContext<WalkthroughContextValue | null>(null);
@@ -283,6 +285,7 @@ export function WalkthroughProvider({
       scrollBy: scroll_by,
       measureTarget: measure_target,
       measureNode,
+      canShow: (step: WalkthroughStep) => !step.target || targets.current.has(step.target),
     }),
     [
       hydrated,
@@ -387,6 +390,12 @@ export function useWalkthroughTrigger(
       };
     }, [hydrated, show_next, dismiss]),
   );
+  // A screen that isn't ready when it's focused (a slow first open of the Reader) gets one more look once it is,
+  // as long as nothing has been shown during this visit yet.
+  const readiness = candidates.map((candidate) => candidate.when !== false).join();
+  useEffect(() => {
+    if (focused.current && !shown.current) show_next();
+  }, [readiness, show_next]);
   // "Show me around" leads straight into the coaching for the screen the person is on (Home).
   const introStatus = state.flows.intro?.status;
   const previousIntro = useRef(introStatus);

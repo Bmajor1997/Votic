@@ -262,10 +262,18 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       const sdk = await load();
       const offerings = await sdk.getOfferings();
       if (token !== generation || owner !== identifiedUser) return null;
-      for (const item of offerings.current?.availablePackages || []) {
-        // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
-        // subscriber is only offered the discount on the plan they're on, never another plan's.
-        if (currentProductId && !same_plan(item.product.identifier, currentProductId)) continue;
+      const available = offerings.current?.availablePackages || [];
+      // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
+      // subscriber is only offered the discount on the plan they're on, never another plan's. Access that isn't
+      // one of these plans (a RevenueCat promotional grant, say) gets the first discount, as before.
+      const subscription = (id: string) => id.split(":")[0];
+      const onListedPlan =
+        Boolean(currentProductId) &&
+        available.some(
+          (item) => subscription(item.product.identifier) === subscription(currentProductId as string),
+        );
+      for (const item of available) {
+        if (onListedPlan && !same_plan(item.product.identifier, currentProductId as string)) continue;
         const option = item.product.subscriptionOptions?.find((candidate) =>
           candidate.tags.includes(RETENTION_OFFER_TAG),
         );

@@ -35,6 +35,24 @@ export const PREVIEW_RETENTION_OFFER: RetentionOffer = {
   regularPeriod: { count: 1, unit: "month" },
 };
 
+/** The annual example: $39.99 for the next year, then $59.99/year. Never claimable. */
+export const PREVIEW_ANNUAL_RETENTION_OFFER: RetentionOffer = {
+  id: "preview-annual",
+  productId: "preview-annual",
+  offerPrice: "$39.99",
+  offerPeriod: { count: 1, unit: "year" },
+  offerCycles: 1,
+  regularPrice: "$59.99",
+  regularPeriod: { count: 1, unit: "year" },
+};
+
+/** The example offer for the plan the person is on, when the store has none to show (testing builds). */
+export function preview_retention_offer(currentProductId: string | null | undefined) {
+  return /annual|year/i.test(currentProductId ?? "")
+    ? PREVIEW_ANNUAL_RETENTION_OFFER
+    : PREVIEW_RETENTION_OFFER;
+}
+
 /** "$7.99/month", "for your next 2 months", "Then $9.99/month. Cancel anytime in Google Play." */
 export function retention_offer_text(offer: RetentionOffer, store: "App Store" | "Google Play") {
   const per = billing_period_label(offer.offerPeriod);

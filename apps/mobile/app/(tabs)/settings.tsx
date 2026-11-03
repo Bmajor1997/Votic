@@ -23,6 +23,7 @@ export default function Settings() {
   const personalization = useVoticPurpose();
   const auth = useAuth();
   const preferencesTarget = useWalkthroughTarget("settings.preferences");
+  const helpTarget = useWalkthroughTarget("settings.help");
   useWalkthroughTrigger([{ id: "settings" }]);
   const explanation = EXPLANATION_STYLES.find(
     (item) => item.value === personalization.explanationStyle,
@@ -97,7 +98,9 @@ export default function Settings() {
         />
       </SettingsGroup>
       <SettingsGroup title="SUPPORT & ACTIVITY">
-        {category("help", "Walkthroughs, getting started, and activity insights", "help-circle-outline")}
+        <View ref={helpTarget} collapsable={false}>
+          {category("help", "Walkthroughs, getting started, and activity insights", "help-circle-outline")}
+        </View>
         {category("support", "Email Votic for account, billing, or app help", "mail-outline", true)}
         <FeedbackRow separated />
         {category("privacy", "Privacy Policy, Terms, and AI sharing", "shield-checkmark-outline", true)}

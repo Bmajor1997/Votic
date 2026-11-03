@@ -1,4 +1,5 @@
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
+import { preview_retention_offer } from "../../src/subscription/RetentionOffer";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { afterEach, describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
@@ -536,6 +537,28 @@ describe("Retention offer before account deletion", () => {
     expect(fakeSubscriptions.calls).toContain(
       "claimRetentionOffer:annual:stay-one-year:from:votic_plus:annual",
     );
+  });
+
+  it("shows the slide-up offer with example prices in a development build that can't reach the store", async () => {
+    fakeSubscriptions.reset({ unavailableReason: "not-configured" });
+    await render_with_providers(<Settings />);
+    await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
+    expect(await screen.findByRole("header", { name: "Are you sure you want to leave?" })).toBeTruthy();
+    expect(screen.getByText("$7.99/month")).toBeTruthy();
+    expect(screen.getByText("for your next 2 months")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue to delete account" }));
+    expect(screen.getByRole("header", { name: "Before you delete your account" })).toBeTruthy();
+    expect(backend.fakeAuth.calls).not.toContain("deleteAccount");
+  });
+
+  it("uses the annual example price for an annual plan when the store has none to show", () => {
+    expect(preview_retention_offer("votic_plus:votic-plus-annual")).toMatchObject({
+      offerPrice: "$39.99",
+      offerPeriod: { count: 1, unit: "year" },
+      regularPrice: "$59.99",
+    });
+    expect(preview_retention_offer("votic_plus:votic-plus-monthly").offerPrice).toBe("$7.99");
+    expect(preview_retention_offer(null).offerPrice).toBe("$7.99");
   });
 
   it("goes straight to the deletion steps when the store has no offer", async () => {
