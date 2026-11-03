@@ -98,7 +98,11 @@ export function AccountSettings() {
     setCheckingOffer(true);
     let found: RetentionOffer | null = null;
     try {
-      const lookup = subscription.service.getRetentionOffer?.();
+      // The discount matches the plan the person is on: monthly gets the monthly offer, annual the annual one.
+      const current = subscription.entitlement;
+      const lookup = subscription.service.getRetentionOffer?.(
+        has_access(current.status) ? (current.productId ?? null) : null,
+      );
       found = lookup ? await store_deadline(lookup, OFFER_WAIT_MS) : null;
     } catch {
       found = null; // Never let the offer stand in the way of deleting an account.

@@ -53,6 +53,8 @@ export const fakeSubscriptions = {
   creditProducts: [] as CreditProduct[],
   /** The store's discount for staying; null when none is set up. */
   retentionOffer: null as RetentionOffer | null,
+  /** More discounts for staying, one per plan, e.g. a monthly and an annual offer. */
+  retentionOffers: [] as RetentionOffer[],
   nextCreditPurchase: { kind: "purchased" } as CreditPurchaseOutcome,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
@@ -69,6 +71,7 @@ export const fakeSubscriptions = {
     fakeSubscriptions.throwNext = null;
     fakeSubscriptions.creditProducts = [];
     fakeSubscriptions.retentionOffer = null;
+    fakeSubscriptions.retentionOffers = [];
     fakeSubscriptions.nextCreditPurchase = { kind: "purchased" };
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
@@ -127,9 +130,21 @@ export function create_subscription_service(): SubscriptionService {
       fakeSubscriptions.nextPurchase = null;
       return outcome;
     },
-    async getRetentionOffer() {
-      fakeSubscriptions.calls.push("getRetentionOffer");
-      return fakeSubscriptions.retentionOffer;
+    async getRetentionOffer(currentProductId) {
+      fakeSubscriptions.calls.push(
+        currentProductId ? `getRetentionOffer:${currentProductId}` : "getRetentionOffer",
+      );
+      const offers = [fakeSubscriptions.retentionOffer, ...fakeSubscriptions.retentionOffers].filter(
+        (offer): offer is RetentionOffer => Boolean(offer),
+      );
+      return (
+        offers.find(
+          (offer) =>
+            !currentProductId ||
+            offer.productId === currentProductId.split(":")[0] ||
+            offer.productId === currentProductId,
+        ) ?? null
+      );
     },
     async claimRetentionOffer(offerId, fromProductId) {
       fakeSubscriptions.calls.push(`claimRetentionOffer:${offerId}:from:${fromProductId}`);

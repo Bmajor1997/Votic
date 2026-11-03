@@ -12,6 +12,7 @@ import {
   purchase_outcome_from_error,
 } from "./entitlement";
 import {
+  Period,
   Entitlement,
   RETENTION_OFFER_TAG,
   RetentionOffer,
@@ -250,7 +251,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async getRetentionOffer() {
+    async getRetentionOffer(currentProductId) {
       retentionOptions.clear();
       // Google Play only: the App Store needs signed promotional offers, which Votic doesn't issue yet.
       if (Platform.OS !== "android") return null;
@@ -262,6 +263,9 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       const offerings = await sdk.getOfferings();
       if (token !== generation || owner !== identifiedUser) return null;
       for (const item of offerings.current?.availablePackages || []) {
+        // Google Play lists each base plan as its own product ("votic_plus:monthly", "votic_plus:annual"), so a
+        // subscriber is only offered the discount on the plan they're on, never another plan's.
+        if (currentProductId && !same_plan(item.product.identifier, currentProductId)) continue;
         const option = item.product.subscriptionOptions?.find((candidate) =>
           candidate.tags.includes(RETENTION_OFFER_TAG),
         );
@@ -346,14 +350,29 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
   };
 }
 
+/** "12 months" reads as "year", so a one-year discount says "for your next year". */
+function as_years(period: Period | null): Period | null {
+  return period?.unit === "month" && period.count % 12 === 0
+    ? { count: period.count / 12, unit: "year" }
+    : period;
+}
+
+/** Whether two store product IDs name the same plan; Google Play adds the base plan as "sku:base-plan". */
+export function same_plan(a: string, b: string) {
+  return a === b || (a.includes(":") && b.includes(":") ? false : a.split(":")[0] === b.split(":")[0]);
+}
+
 /** The discounted phase (finite, paid) and the regular price after it, straight from the store's option. */
 export function retention_offer_from(productId: string, option: SubscriptionOption): RetentionOffer | null {
+  // Play Console's "Discounted recurring payment" (a set number of discounted periods) or "Single payment" (one
+  // discounted charge up front, e.g. $39.99 for 12 months), both followed by the regular price.
   const discounted = option.pricingPhases.find(
     (phase) =>
-      phase.recurrenceMode === 2 && phase.price.amountMicros > 0 && (phase.billingCycleCount ?? 0) > 0,
+      phase.price.amountMicros > 0 &&
+      ((phase.recurrenceMode === 2 && (phase.billingCycleCount ?? 0) > 0) || phase.recurrenceMode === 3),
   );
   const regular = option.fullPricePhase;
-  const period = discounted && parse_iso_period(discounted.billingPeriod.iso8601);
+  const period = discounted && as_years(parse_iso_period(discounted.billingPeriod.iso8601));
   if (!discounted || !regular || !period || regular.price.amountMicros <= discounted.price.amountMicros)
     return null;
   return {
@@ -361,7 +380,7 @@ export function retention_offer_from(productId: string, option: SubscriptionOpti
     productId,
     offerPrice: discounted.price.formatted,
     offerPeriod: period,
-    offerCycles: discounted.billingCycleCount ?? 1,
+    offerCycles: discounted.recurrenceMode === 3 ? 1 : (discounted.billingCycleCount ?? 1),
     regularPrice: regular.price.formatted,
     regularPeriod: parse_iso_period(regular.billingPeriod.iso8601),
   };

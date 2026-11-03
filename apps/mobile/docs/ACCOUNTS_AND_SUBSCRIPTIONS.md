@@ -115,6 +115,29 @@ The SDK's login/logout operations are serialized. Subscription callbacks and pur
 are tied to their initiating account; queued native events trigger a fresh read of the currently identified
 customer instead of assigning an old customer's payload to a new account.
 
+## Stay-and-save offer before deleting an account
+
+Before the deletion steps, a subscriber is offered a discount for staying, **on the plan they're on**: a monthly
+subscriber sees the monthly discount (for example $7.99/month for 2 months, then $9.99/month), an annual subscriber
+the annual one (for example $39.99 for the next year, then $59.99/year). Someone on a plan with no discount set up
+goes straight to the deletion steps; they're never shown another plan's discount. Google Play only for now.
+
+Set up in Play Console, on **each** base plan you want a discount for: add a "Developer determined" offer with the
+discounted phase ("Discounted recurring payment" or "Single payment"), and tag it both `votic-retention` and
+`rc-ignore-offer` (so the paywall never picks it).
+
+Current Play Console setup (November 3, 2026), subscription `votic_plus`:
+
+| Base plan            | Offer                    | Who gets it                      | Price                                |
+| -------------------- | ------------------------ | -------------------------------- | ------------------------------------ |
+| `votic-plus-monthly` | `monthly-free-trial`     | New subscribers                  | 2 weeks free, then $9.99/month       |
+| `votic-plus-monthly` | `votic-monthly-discount` | Stay-and-save (deleting account) | $7.99/month for 2 months             |
+| `votic-plus-annual`  | `annual-free-trial`      | New subscribers                  | 2 weeks free, then $59.99/year       |
+| `votic-plus-annual`  | `stay-annual`            | Stay-and-save (deleting account) | $39.99 for 12 months                 |
+| `votic-plus-annual`  | `votic-upgrade`          | Monthly subscribers switching    | $47.99 for 12 months (20% off), once |
+
+`votic-annual-discount`, the annual plan's `votic-monthly-discount` and the prepaid `votic-plus` plan are inactive.
+
 ## Terms of Service and Privacy Policy
 
 Not written yet, and both stores require them for subscriptions and accounts. Host them on HTTPS and set
