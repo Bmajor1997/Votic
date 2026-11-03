@@ -2,6 +2,7 @@ import { notification_player } from "../playback/notificationPlayback";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
+import { useStoreReviewPrompt } from "../review/useStoreReviewPrompt";
 import { useActivity } from "./ActivityProvider";
 import { TICK_MS, create_session_tracker } from "./sessionTracker";
 
@@ -20,6 +21,8 @@ export function useReaderActivity(documentId: string | null | undefined, playing
     recorders.current = { recordTime, recordActivity };
   });
   const tracker = useRef<Tracker | null>(null);
+  // Closing the Reader is a natural moment to ask for a store review, when it's due (see storeReview.ts).
+  const afterReading = useStoreReviewPrompt();
 
   // Declared first so the tracker exists before the effects below send it state.
   useEffect(() => {
@@ -43,8 +46,9 @@ export function useReaderActivity(documentId: string | null | undefined, playing
       subscription.remove();
       created.stop();
       tracker.current = null;
+      afterReading();
     };
-  }, []);
+  }, [afterReading]);
   useEffect(() => {
     tracker.current?.update({
       documentId: documentId ?? null,
