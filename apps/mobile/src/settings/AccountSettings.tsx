@@ -40,6 +40,9 @@ type Step = "sign-out" | "keep-offer" | "deletion-info" | "deletion-final" | "re
 
 /** Testing builds show the retention offer's design with example prices when the store has none yet. */
 const PREVIEW_TESTING = Constants.expoConfig?.extra?.previewTesting === true;
+/** A development build can show it for any account (e.g. one with no active subscription) by setting
+ * EXPO_PUBLIC_VOTIC_PREVIEW_OFFERS=true in .env. Ignored outside development builds. */
+const PREVIEW_IN_DEVELOPMENT = __DEV__ && process.env.EXPO_PUBLIC_VOTIC_PREVIEW_OFFERS === "true";
 const STORE = Platform.OS === "ios" ? "App Store" : "Google Play";
 /** The longest Delete account waits for the store's offer; after that it goes straight to the deletion steps. */
 export const OFFER_WAIT_MS = 2_000;
@@ -102,8 +105,9 @@ export function AccountSettings() {
     // The discount matches the plan the person is on: monthly gets the monthly offer, annual the annual one.
     const current = subscription.entitlement;
     const currentPlan = has_access(current.status) ? (current.productId ?? null) : null;
-    // Testing builds, and development builds that can't reach the store, still show the sheet with example prices.
-    const showExample = PREVIEW_TESTING || subscription.canBypass;
+    // Testing builds, development builds that can't reach the store, and development builds that opt in still show the
+    // sheet with example prices. Store builds show it only when the store has a real offer for this account.
+    const showExample = PREVIEW_TESTING || PREVIEW_IN_DEVELOPMENT || subscription.canBypass;
     try {
       const lookup = subscription.service.getRetentionOffer?.(currentPlan);
       found = lookup ? await store_deadline(lookup, OFFER_WAIT_MS) : null;
