@@ -98,13 +98,14 @@ describe("Explore without an account", () => {
 });
 
 describe("Create account", () => {
-  it("offers Apple and Google above email", async () => {
+  it("is email only: Google and Apple are offered on Welcome, not here", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<CreateAccount />);
-    expect(screen.getByText("or continue with email")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
-    expect(fakeAuth.calls).toContain("signInWithGoogle");
-    expect(fakeAuth.user?.uid).toBe("google");
+    expect(screen.getByRole("header", { name: "Create your account" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue with Google" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Apple/ })).toBeNull();
+    expect(screen.queryByText("or continue with email")).toBeNull();
+    expect(screen.getByLabelText("Email")).toBeTruthy();
   });
 
   it("checks the email and password before creating an account", async () => {
