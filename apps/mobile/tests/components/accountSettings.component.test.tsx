@@ -592,3 +592,15 @@ describe("Delete account while the store is slow", () => {
     release(null);
   });
 });
+
+describe("Beta testers", () => {
+  it("see that Votic is free, with no prices, plans or purchases", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("expired") });
+    fakeSubscriptions.beta = true;
+    await render_with_providers(<Settings />);
+    expect(await screen.findByText(/Votic beta: free while you.re testing/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Votic Plus" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Restore purchases" })).toBeNull();
+    expect(screen.queryByText(/\$\d/)).toBeNull();
+  });
+});
