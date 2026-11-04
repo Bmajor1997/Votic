@@ -39,8 +39,8 @@ import { fakeSubscriptions } from "./mocks/subscriptionService";
 
 const test_access = async () => ({
   uid: fakeAuth.user?.uid ?? "",
-  allowed: false,
-  beta: false,
+  allowed: fakeSubscriptions.beta,
+  beta: fakeSubscriptions.beta,
   founderOffer: fakeSubscriptions.founderOffer,
 });
 

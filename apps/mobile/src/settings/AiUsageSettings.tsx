@@ -209,17 +209,20 @@ function BuyMore({
 
 function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void }) {
   const { theme } = useVoticTheme();
-  const { entitlement } = useSubscription();
+  const { entitlement, beta } = useSubscription();
   if (usage.status === "active" && usage.monthly)
     return (
       <>
         <AllowanceCard monthly={usage.monthly} />
         {usage.purchased ? <PurchasedCard remaining={usage.purchased.remaining} /> : null}
-        <BuyMore
-          productIds={usage.purchaseProducts}
-          exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
-          onPurchased={refresh}
-        />
+        {/* Beta testers are never asked to pay, so no extra-usage prices for them. */}
+        {beta ? null : (
+          <BuyMore
+            productIds={usage.purchaseProducts}
+            exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
+            onPurchased={refresh}
+          />
+        )}
       </>
     );
   const message =

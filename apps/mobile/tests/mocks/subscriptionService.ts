@@ -60,6 +60,8 @@ export const fakeSubscriptions = {
   nextCreditPurchase: { kind: "purchased" } as CreditPurchaseOutcome,
   /** The founder lifetime offer Votic's server reports for the signed-in account, and the store's product. */
   founderOffer: null as FounderOffer | null,
+  /** Votic's server lets this account in free as a beta tester. */
+  beta: false,
   founderProduct: null as FounderProduct | null,
   calls: [] as string[],
   reset(options: ResetOptions = {}) {
@@ -79,6 +81,7 @@ export const fakeSubscriptions = {
     fakeSubscriptions.retentionOffers = [];
     fakeSubscriptions.nextCreditPurchase = { kind: "purchased" };
     fakeSubscriptions.founderOffer = null;
+    fakeSubscriptions.beta = false;
     fakeSubscriptions.founderProduct = null;
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */

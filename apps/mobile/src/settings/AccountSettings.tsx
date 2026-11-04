@@ -461,6 +461,13 @@ function PremiumRows() {
       alive.current = false;
     };
   }, []);
+  // Beta testers use Votic free: no prices, plans or purchases, unless they already have a store subscription to manage.
+  if (subscription.beta && !has_access(subscription.entitlement.status))
+    return (
+      <Text style={[s.detail, { color: theme.text }]}>
+        Votic beta: free while you’re testing. There’s nothing to pay.
+      </Text>
+    );
   // Builds that can't reach the store (Expo Go, missing keys) have nothing to manage or restore.
   if (subscription.service.unavailableReason)
     return subscription.canBypass ? (

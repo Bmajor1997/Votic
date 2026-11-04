@@ -1,4 +1,4 @@
-import { check_server_access } from "../api/voticApi";
+import { check_server_access, ServerAccess } from "../api/voticApi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 import { AppState } from "react-native";
@@ -36,6 +36,8 @@ type SubscriptionValue = {
   access: boolean;
   /** The founder lifetime offer the server says this account may see, or null. */
   founderOffer: FounderOffer | null;
+  /** True while Votic's server lets this account in free as a beta tester. Prices and plans are hidden then. */
+  beta: boolean;
   /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
   canBypass: boolean;
   bypass: () => void;
@@ -47,6 +49,9 @@ type SubscriptionValue = {
 
 const SubscriptionContext = createContext<SubscriptionValue | null>(null);
 
+function server_beta_for(uid: string | null, result: { uid: string; beta?: boolean } | null) {
+  return Boolean(uid && result?.uid === uid && result.beta);
+}
 function server_access_for(uid: string | null, result: { uid: string; allowed: boolean } | null) {
   return Boolean(uid && result?.uid === uid && result.allowed);
 }
@@ -65,6 +70,16 @@ function access_check_pending(
   );
 }
 
+/** What the server said about this account, kept with the account it belongs to. */
+function access_record(uid: string, result: ServerAccess) {
+  return {
+    uid,
+    allowed: result.allowed,
+    beta: result.allowed && result.beta,
+    founderOffer: result.founderOffer ?? null,
+  };
+}
+
 export function SubscriptionProvider({
   children,
   // The same builds that may be explored without an account (see AuthProvider): local development, and EAS
@@ -80,6 +95,7 @@ export function SubscriptionProvider({
   const [serverAccess, setServerAccess] = useState<{
     uid: string;
     allowed: boolean;
+    beta?: boolean;
     founderOffer?: FounderOffer | null;
   } | null>(null);
   const [checked, setChecked] = useState<{ uid: string; entitlement: Entitlement } | null>(null);
@@ -102,8 +118,7 @@ export function SubscriptionProvider({
     if (!uid) return;
     try {
       const result = await checkAccess();
-      if (result.uid === uid && uidRef.current === uid)
-        setServerAccess({ uid, allowed: result.allowed, founderOffer: result.founderOffer ?? null });
+      if (result.uid === uid && uidRef.current === uid) setServerAccess(access_record(uid, result));
     } catch {
       if (uidRef.current === uid) setServerAccess({ uid, allowed: false });
     }
@@ -114,8 +129,7 @@ export function SubscriptionProvider({
       void Promise.resolve()
         .then(checkAccess)
         .then((result) => {
-          if (active && result.uid === uid)
-            setServerAccess({ uid, allowed: result.allowed, founderOffer: result.founderOffer ?? null });
+          if (active && result.uid === uid) setServerAccess(access_record(uid, result));
         })
         .catch(() => {
           if (active) setServerAccess({ uid, allowed: false });
@@ -226,6 +240,7 @@ export function SubscriptionProvider({
       has_access(entitlement.status) ||
       (canBypass && Boolean(uid && bypassState?.uid === uid && bypassState.bypassed)),
     founderOffer: (uid && serverAccess?.uid === uid && serverAccess.founderOffer) || null,
+    beta: server_beta_for(uid, serverAccess),
     canBypass,
     bypass() {
       if (!canBypass || !uid || uidRef.current !== uid || !account_writable(uid)) return;
