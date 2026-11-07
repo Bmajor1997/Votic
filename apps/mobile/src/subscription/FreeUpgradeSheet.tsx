@@ -7,7 +7,7 @@ import { BrandMark } from "../onboarding/WelcomeMotion";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
-type Props = { visible: boolean; reason: "documents" | "credits"; resetsAt?: string; onClose: () => void };
+type Props = { visible: boolean; reason: "documents" | "notes" | "credits" | "summaries" | "scans" | "pdf"; resetsAt?: string; onClose: () => void };
 
 /** An upgrade invitation; the next screen displays the store's plans and confirms the purchase. */
 export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) {
@@ -29,11 +29,15 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
             <View style={s.mark}><BrandMark size={72} arrive /></View>
             <Text style={[s.eyebrow, { color: theme.accentText }]}>DISCOVER VOTIC PLUS</Text>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              {reason === "documents" ? "Make room for more reading" : "Keep asking Votic"}
+              {reason === "documents" ? "Make room for more reading" : reason === "notes" ? "Keep more notes and bookmarks" : reason === "summaries" ? "Keep summarizing" : reason === "scans" ? "Keep scanning" : reason === "pdf" ? "Read your scanned PDF" : "Keep asking Votic"}
             </Text>
             <Text style={[s.body, { color: theme.mutedText }]}>
               {reason === "documents"
                 ? "You've reached the five saved documents included with Votic Free. Upgrade to save more, or remove a document to make room."
+                : reason === "notes" ? "You've reached the 25 notes and bookmarks included with Votic Free. Upgrade to save more, or remove one to make room."
+                : reason === "pdf" ? "Scanned PDF reading is available with Votic Plus."
+                : reason === "summaries" ? `You've used your five Free summaries this month.${reset ? ` They reset ${reset}.` : ""}`
+                : reason === "scans" ? `You've used your five Free camera scan pages this month.${reset ? ` They reset ${reset}.` : ""}`
                 : `You've used your Free monthly AI credits.${reset ? ` They reset ${reset}.` : ""} Upgrade for a larger monthly allowance.`}
             </Text>
             <View style={[s.card, { backgroundColor: theme.brandTint, borderColor: theme.accent }]}>

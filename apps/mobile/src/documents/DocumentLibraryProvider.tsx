@@ -48,6 +48,7 @@ type Library = {
   persistenceError: string | null;
   /** False until the saved library has been read (or failed to read), so screens can show loading. */
   loaded: boolean;
+  ensureCanAddDocument: () => void;
   renameDocument: (id: string, title: string) => void;
   addTextDocument: (
     sourceName: string,
@@ -64,8 +65,8 @@ type Library = {
   addCollection: (name: string) => string;
   setDocumentCollection: (id: string, collection?: string) => void;
   removeDocument: (id: string) => void;
-  addQuickNote: (passage: SavedPassage) => void;
-  savePassage: (documentId: string, passage: SavedPassage) => void;
+  addQuickNote: (passage: SavedPassage) => boolean;
+  savePassage: (documentId: string, passage: SavedPassage) => boolean;
   removePassage: (documentId: string, passageId: string) => void;
   updateProgress: (id: string, progress: number, sentenceIndex?: number, wordIndex?: number) => void;
   recordNativeActivity: (events: NativeActivityEvent[]) => Promise<void>;
@@ -90,8 +91,7 @@ function title_from(sourceName: string, text: string) {
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
   const { access, checking } = useSubscription();
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  useEffect(() => setShowUpgrade(false), [uid]);
+  const [showUpgrade, setShowUpgrade] = useState<{ uid: string | null; reason: "documents" | "notes" } | null>(null);
   const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
   const setDocuments = useCallback(
@@ -223,6 +223,14 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     [documents, activeId],
   );
 
+  function ensure_can_add_document() {
+    if (!access && latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5) {
+      setShowUpgrade({ uid, reason: "documents" });
+      throw new FreeDocumentLimitError("Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.");
+    }
+    if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
+  }
+
   function add_text_document(
     sourceName: string,
     text: string,
@@ -235,11 +243,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     if (existing?.deletedAt)
       throw new Error("This scan was already saved and deleted. Restore it from Recently Deleted.");
     if (existing) return existing;
-    if (!access && latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5) {
-      setShowUpgrade(true);
-      throw new FreeDocumentLimitError("Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.");
-    }
-    if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
+    ensure_can_add_document();
     const now = Date.now();
     const document: VoticDocument = {
       id: options.importId || "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
@@ -336,7 +340,17 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     setActiveId((current) => (current === id ? null : current));
   }
 
+  function allow_note(documentId: string | undefined, passage: SavedPassage) {
+    const live = latestDocuments.current.filter((document) => !document.deletedAt);
+    const existing = live.find((document) => document.id === documentId)?.savedPassages?.some((saved) => saved.id === passage.id && !saved.deletedAt);
+    const count = live.reduce((sum, document) => sum + (document.savedPassages || []).filter((saved) => !saved.deletedAt).length, 0);
+    if (!access && !existing && count >= 25) { setShowUpgrade({ uid, reason: "notes" }); return false; }
+    return true;
+  }
+
   function add_quick_note(passage: SavedPassage) {
+    const notebook = latestDocuments.current.find((document) => !document.deletedAt && document.notebookKind === "quick-notes");
+    if (!allow_note(notebook?.id, passage)) return false;
     setDocuments((current) => {
       const existing = current.find(
         (document) => !document.deletedAt && document.notebookKind === "quick-notes",
@@ -377,9 +391,11 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         ...current,
       ];
     });
+    return true;
   }
 
   function save_passage(documentId: string, passage: SavedPassage) {
+    if (!allow_note(documentId, passage)) return false;
     setDocuments((current) =>
       current.map((document) =>
         document.id === documentId
@@ -405,6 +421,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
           : document,
       ),
     );
+    return true;
   }
 
   function remove_passage(documentId: string, passageId: string) {
@@ -524,6 +541,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         activeDocument,
         persistenceError,
         loaded,
+        ensureCanAddDocument: ensure_can_add_document,
         renameDocument: rename_document,
         addTextDocument: add_text_document,
         addTextDocumentDurably: add_text_document_durably,
@@ -550,7 +568,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       }}
     >
       {children}
-      <FreeUpgradeSheet visible={showUpgrade} reason="documents" onClose={() => setShowUpgrade(false)} />
+      {showUpgrade && showUpgrade.uid === uid ? <FreeUpgradeSheet visible reason={showUpgrade.reason} onClose={() => setShowUpgrade(null)} /> : null}
     </C.Provider>
   );
 }

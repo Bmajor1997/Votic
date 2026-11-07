@@ -11,8 +11,10 @@ import { ScanSaveError, useScanDraft } from "./useScanDraft";
 import { MAX_SCAN_PAGES, move_scan_page } from "./scanDraftModel";
 import { recognize_scan_pages, ScanPageError } from "./scanRecognition";
 import { rotate_scan_photo } from "./scanPhoto";
+import { FreeDocumentLimitError, useDocumentLibrary } from "./DocumentLibraryProvider";
 export function useScanner() {
   const { theme } = useVoticTheme();
+  const { ensureCanAddDocument } = useDocumentLibrary();
   const { review, resume, ensureAvailable } = useOcrReview();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [permission, requestPermission] = useCameraPermissions();
@@ -33,6 +35,7 @@ export function useScanner() {
   const current = cameraMode ? undefined : (pages.find((page) => page.id === selected) ?? pages.at(-1));
   const busy = working || draft.saving;
   function show_problem(error: unknown) {
+    if (error instanceof FreeDocumentLimitError) return;
     if (error instanceof UnfinishedScanError) {
       Alert.alert("Finish your saved scan first", error.message, [
         { text: "Not now", style: "cancel" },
@@ -147,6 +150,7 @@ export function useScanner() {
   async function finish_scan() {
     if (!pages.length) return;
     await run(async () => {
+      ensureCanAddDocument();
       ensureAvailable();
       const snapshot = draft.latest.current;
       await draft.commit(snapshot);

@@ -236,7 +236,7 @@ export function create_votic_handler(options = {}) {
       } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
     } catch (error) { if (!beta_allowed) throw error; }
     if (!beta_allowed) return { uid: identity.uid, free: true, tier: null,
-      period: usage_store.credits.period(identity.uid, {}, 100) };
+      period: usage_store.credits.period(identity.uid, {}, 100, { free: true }) };
     // Beta testers stay eligible for the founder offer after beta access is switched off.
     usage_store.founder?.rememberBetaTester(identity.uid);
     return { uid: identity.uid, beta: true, tier: null,
@@ -328,11 +328,17 @@ export function create_votic_handler(options = {}) {
    const with_credits = async (plan, feature, price, operation) => {
     if (!plan?.period) return operation(paid_fetch(feature, plan?.tier ?? null));
     const request_id = randomUUID(), credits = usage_store.credits;
-    credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period });
+    const summaryFeatures = ["summary", "catch-me-up", "document-review"];
+    const freeLimit = plan.free && (summaryFeatures.includes(feature)
+      ? { features: summaryFeatures, maximum: 5, code: "FREE_SUMMARIES_EXHAUSTED", message: "You've used your five Free summaries this month." }
+      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: 5, code: "FREE_SCANS_EXHAUSTED", message: "You've used your five Free camera scans this month." } : null);
+    credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period, freeLimit });
     try {
       // An explicitly configured plan keeps its own safeguards; otherwise they follow the credits spent.
       const safeguards = plan.tier ?? credits.safeguards(plan.uid, usage_store.defaultLimits);
       const result = await operation(paid_fetch(feature, safeguards));
+      if (request.aborted || response.destroyed || response.writableEnded)
+        throw new HttpError(499, "The request was canceled.");
       credits.charge(request_id);
       return result;
     } catch (error) { credits.release(request_id); throw error; }
@@ -414,6 +420,11 @@ export function create_votic_handler(options = {}) {
       catch (error) {
         rethrow_parser_failure(error, signal, name, logger);
         if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;
+        if (plan?.free) {
+          const denied = new HttpError(403, "Scanned PDF reading is available with Votic Plus.");
+          denied.code = "FREE_PDF_PLUS_REQUIRED";
+          throw denied;
+        }
         if (!env.OPENAI_API_KEY) throw new HttpError(503, "Reading scanned PDFs is temporarily unavailable. Try again later, or import a PDF with selectable text.");
         if (body.length > 12_000_000) throw new HttpError(413, "Scanned PDF limit is 12 MB.");
         const limit = take_ai_call(ai_client);
@@ -502,7 +513,7 @@ export function create_votic_handler(options = {}) {
    if (request.method === "POST" && path === "/api/help") {
       rate_limit(`${client}:help`, config.help_rate_limit);
       const { question, document, history, explanationStyle, feature, client: app } = await read_json_body(request, config.max_json_bytes, config.body_timeout_ms);
-      if (feature != null && !["ask-votic", "catch-me-up"].includes(feature)) throw new HttpError(400, "Invalid AI feature.");
+      if (feature != null && !["ask-votic", "catch-me-up", "summary"].includes(feature)) throw new HttpError(400, "Invalid AI feature.");
       // The phone app gets help about the phone app; anything else (the web prototype, older apps) keeps the web guide.
       const help_client = app === "mobile" ? "mobile" : "web";
       const feature_name = feature || "ask-votic";
@@ -698,7 +709,7 @@ async function read_json_body(request, limit, timeout_ms) {
 function safe_request_path(request) { try { return decodeURIComponent(new URL(request.url, "http://localhost").pathname); } catch { throw new HttpError(400, "The request URL is malformed."); } }
 function set_security_headers(response, extra = {}) { for (const [key, value] of Object.entries({ ...security_headers, ...extra })) response.setHeader(key, value); }
 function send_json(response, status, body, headers = {}) { if (response.destroyed || response.writableEnded) return; set_security_headers(response, { "Content-Type": "application/json; charset=utf-8", ...headers }); response.writeHead(status).end(JSON.stringify(body)); }
-function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(error instanceof AiLimitError && ["AI_MONTHLY_ALLOWANCE", "AI_CREDITS_EXHAUSTED"].includes(error.code) ? { code: error.code, resetsAt: error.resetsAt } : {}), ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
+function send_error(response, error, logger) { const known = error instanceof HttpError || error instanceof AiLimitError || error instanceof PremiumVerificationError || error instanceof AccountDeletionError || error instanceof FeedbackError; if (!known) logger.error?.("Unexpected Votic request failure", { name: error?.name }); send_json(response, known ? error.status : 500, { error: known ? error.message : "Votic could not complete that request.", ...(error instanceof AiLimitError && ["AI_MONTHLY_ALLOWANCE", "AI_CREDITS_EXHAUSTED", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED"].includes(error.code) ? { code: error.code, resetsAt: error.resetsAt } : {}), ...(["ACCOUNT_DELETED", "REAUTH_REQUIRED", "AUTH_REQUIRED", "AUTH_EXPIRED", "AUTH_UNAVAILABLE", "FREE_PDF_PLUS_REQUIRED"].includes(error.code) ? { code: error.code } : {}) }, known ? error.headers : {}); }
 function require_content_type(request, expected) { const actual = String(request.headers["content-type"] || "").split(";", 1)[0].trim().toLowerCase(); if (actual !== expected) throw new HttpError(415, `Content-Type must be ${expected}.`); }
 function safe_filename(request) { const encoded = request.headers["x-votic-filename"]; if (typeof encoded !== "string" || encoded.length > 1000) throw new HttpError(400, "A document filename is required."); let name; try { name = decodeURIComponent(encoded); } catch { throw new HttpError(400, "The document filename is malformed."); } name = name.split(/[\\/]/).at(-1); if (!name || !/\.(pdf|docx|pptx|ppt|epub|rtf|odt|html|htm)$/i.test(name)) throw new HttpError(415, "Choose a PDF, DOCX, PPTX, PPT, EPUB, RTF, ODT, or HTML document."); return name; }
 function safe_scan_filename(request) {

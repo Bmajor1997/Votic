@@ -48,7 +48,7 @@ export function progress_label(document: VoticDocument) {
 
 export type Sort = "type" | "recent" | "added" | "title" | "progress";
 export const SORTS: { value: Sort; label: string }[] = [
-  { value: "type", label: "File type · A–Z" },
+  { value: "type", label: "File type · Newest first" },
   { value: "recent", label: "Recently opened" },
   { value: "added", label: "Recently added" },
   { value: "title", label: "Title" },
@@ -65,6 +65,7 @@ export function sort_documents(documents: VoticDocument[], sort: Sort) {
       return (
         rank(aType) - rank(bType) ||
         aType.localeCompare(bType) ||
+        (b.importedAt || 0) - (a.importedAt || 0) ||
         a.sourceName.localeCompare(b.sourceName, undefined, { sensitivity: "base", numeric: true }) ||
         a.id.localeCompare(b.id)
       );

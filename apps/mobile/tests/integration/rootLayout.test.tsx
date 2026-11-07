@@ -28,6 +28,7 @@ async function after_change(change: () => void | Promise<void>) {
 }
 const APP = [
   "(tabs)",
+  "paywall",
   "reader",
   "assistant",
   "settings/[category]",
@@ -97,65 +98,26 @@ describe("root navigation", () => {
     expect(setup?.personalizationCompletedAt).toBeNull();
   });
 
-  it("keeps completed setup on the final paywall until the store confirms a subscription", async () => {
+  it("lets Free users enter the app and view the paywall", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await seed_storage({});
-    expect(await render_layout()).toEqual([
-      "paywall",
-      "support",
-      "subscription",
-      "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
-      "feedback/index",
-      "feedback/feature",
-      "feedback/bug",
-    ]);
-    // Restarting while unpaid stays on the final paywall rather than repeating the recap.
+    expect(await render_layout()).toEqual(APP);
     await screen.unmount();
     stackScreens.length = 0;
-    expect((await render_layout())[0]).toBe("paywall");
-    // A trial or restore goes directly to Home, with no remaining onboarding screens.
-    expect(
-      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
-    ).toEqual(APP);
+    expect((await render_layout())[0]).toBe("(tabs)");
+    expect(await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial")))).toEqual(APP);
   });
 
-  it("returns to the paywall when a subscription ends while Votic is open", async () => {
+  it("keeps library screens accessible when Plus expires", async () => {
     await seed_storage({});
     expect(await render_layout()).toEqual(APP);
-    expect(
-      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired"))),
-    ).toEqual([
-      "paywall",
-      "support",
-      "subscription",
-      "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
-      "feedback/index",
-      "feedback/feature",
-      "feedback/bug",
-    ]);
+    expect(await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired")))).toEqual(APP);
   });
 
-  it("never treats an unconfirmed subscription as paid", async () => {
+  it("allows Free access when a subscription cannot be confirmed", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("unknown") });
     await seed_storage({});
-    expect(await render_layout()).toEqual([
-      "paywall",
-      "support",
-      "subscription",
-      "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
-      "feedback/index",
-      "feedback/feature",
-      "feedback/bug",
-    ]);
+    expect(await render_layout()).toEqual(APP);
   });
 
   it("introduces widgets before requesting a subscription", async () => {

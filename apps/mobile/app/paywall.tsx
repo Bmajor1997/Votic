@@ -318,6 +318,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         showsVerticalScrollIndicator={false}
       >
         <PaywallIntro />
+        <PaywallBenefits />
         {founderOffer && founder && !unavailable ? (
           <FounderOfferCard
             offer={founderOffer}
@@ -359,7 +360,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         {inlineCheckout ? checkout : null}
         <SecondaryButton label={subscription.access ? "Continue to Votic" : "Continue with Votic Free"} disabled={working} onPress={() => router.replace("/(tabs)")} />
 
-        <PaywallBenefits />
         {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
 
         <PaywallQuestions store={STORE} />

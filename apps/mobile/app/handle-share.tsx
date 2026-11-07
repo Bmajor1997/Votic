@@ -19,6 +19,7 @@ import { useImportSession } from "../src/documents/useImportSession";
 import { remove_import_temp } from "../src/documents/importCache";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 
 function fallback_name(mimeType: string | null) {
   return `Shared document.${IMPORT_TYPES[mimeType || ""] || "file"}`;
@@ -27,6 +28,9 @@ function fallback_name(mimeType: string | null) {
 export default function HandleShare() {
   const { theme } = useVoticTheme();
   const saveImported = useImportSave();
+  const { ensureCanAddDocument } = useDocumentLibrary();
+  const checkLimit = useRef(ensureCanAddDocument);
+  useEffect(() => { checkLimit.current = ensureCanAddDocument; }, [ensureCanAddDocument]);
   const { ensureAvailable } = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
@@ -55,6 +59,7 @@ export default function HandleShare() {
 
         if (!uri) throw new Error("Votic could not access the shared document.");
         if (!supported_document(name)) throw new Error(UNSUPPORTED_TYPE_MESSAGE);
+        checkLimit.current();
 
         setStatus(`Importing ${name}…`);
         check_shared_import(

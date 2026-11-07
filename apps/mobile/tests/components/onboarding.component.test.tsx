@@ -301,10 +301,10 @@ describe("Votic Plus", () => {
   it("shows the store's trial and price and what's included", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await render_paywall();
-    expect(screen.getByRole("header", { name: "Make more of every document." })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Find your reading rhythm" })).toBeTruthy();
     expect(screen.getByText("Try Votic Plus free for 2 weeks")).toBeTruthy();
     expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
-    expect(screen.getByText("Monthly AI credits")).toBeTruthy();
+    expect(screen.getByText("AI credits")).toBeTruthy();
     expect(
       screen.getByText(
         /2 weeks free, then \$9.99\/month. Auto-renews. Cancel anytime in (App Store|Google Play)/,

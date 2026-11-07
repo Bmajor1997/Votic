@@ -10,7 +10,7 @@ export function help_request_body(
   document?: HelpDocument,
   history: HelpHistory = [],
   explanationStyle: ExplanationStyle = "adaptive",
-  feature: "ask-votic" | "catch-me-up" = "ask-votic",
+  feature: "ask-votic" | "catch-me-up" | "summary" = "ask-votic",
 ) {
   return JSON.stringify({
     question,

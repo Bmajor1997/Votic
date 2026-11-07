@@ -239,7 +239,7 @@ export async function ask_votic(
   document?: { title: string; sections: { heading: string; text: string }[] },
   history: { role: "user" | "assistant"; text: string }[] = [],
   explanationStyle: ExplanationStyle = "adaptive",
-  feature: "ask-votic" | "catch-me-up" = "ask-votic",
+  feature: "ask-votic" | "catch-me-up" | "summary" = "ask-votic",
 ): Promise<VoticAnswer> {
   const body = help_request_body(question, document, history, explanationStyle, feature);
   assert_help_request_size(body);

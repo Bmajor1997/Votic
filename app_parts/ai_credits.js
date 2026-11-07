@@ -24,7 +24,7 @@ export const MAX_USD_PER_CREDIT = 0.005, MAX_TOKENS_PER_CREDIT = 40_000;
 const RENEWAL_TOLERANCE_MS = 24 * 3600_000;
 
 export function credit_cost(feature, bytes = 0) {
-  if (feature === "ask-votic" || feature === "catch-me-up" || feature === "document-review")
+  if (feature === "ask-votic" || feature === "catch-me-up" || feature === "summary" || feature === "document-review")
     return CREDIT_COSTS[bytes > DOCUMENT_SMALL_BYTES ? "document-large" : "document-small"];
   if (feature === "pdf-ocr") return CREDIT_COSTS[bytes <= 3_000_000 ? "pdf-ocr-small" : bytes <= 8_000_000 ? "pdf-ocr-medium" : "pdf-ocr-large"];
   const cost = CREDIT_COSTS[feature];
@@ -111,7 +111,7 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
      * plan, the current monthly cycle of an annual one. Renewal (or the next monthly cycle) starts a fresh allowance;
      * repeated verification, delayed or stale data, early-reported renewals and mid-cycle plan switches never do.
      */
-    period(uid, profile, allowance) {
+    period(uid, profile, allowance, { free = false } = {}) {
       if (!Number.isSafeInteger(allowance) || allowance <= 0) throw new Error("Invalid monthly credit allowance.");
       let start = Date.parse(profile?.periodStart ?? ""), end = profile?.periodEnd == null ? NaN : Date.parse(profile.periodEnd);
       const verified = Number.isFinite(start) && Number.isFinite(end) && end > start;
@@ -123,12 +123,12 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
         if (latest && latest.period_start !== iso(start)) {
           const latest_start = Date.parse(latest.period_start), latest_end = Date.parse(latest.period_end);
           // Older data (a cached profile) or an overlapping restart stays in the period already granted.
-          if (start < latest_start || start < latest_end - RENEWAL_TOLERANCE_MS) {
-            if (end > latest_end) db.prepare("UPDATE credit_periods SET period_end=? WHERE uid=? AND period_start=?").run(iso(end), uid, latest.period_start);
+          if ((start < latest_start || start < latest_end - RENEWAL_TOLERANCE_MS) && !(free && start > latest_start)) {
+            if (!free && end > latest_end) db.prepare("UPDATE credit_periods SET period_end=? WHERE uid=? AND period_start=?").run(iso(end), uid, latest.period_start);
             if (allowance === 100 || latest.allowance === 100)
               db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, latest.period_start);
             const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, latest.period_start);
-            return { start: row.period_start, end: row.period_end, allowance: row.allowance, verified: Boolean(row.verified) };
+            return { start: row.period_start, end: free ? iso(end) : row.period_end, allowance: row.allowance, verified: free ? false : Boolean(row.verified) };
           }
         }
         db.prepare("INSERT OR IGNORE INTO credit_periods(uid,period_start,period_end,allowance,verified,created_at) VALUES(?,?,?,?,?,?)")
@@ -138,14 +138,14 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, iso(start));
           row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
         }
-        return { start: row.period_start, end: row.period_end, allowance: row.allowance, verified: Boolean(row.verified) };
+        return { start: row.period_start, end: free ? iso(end) : row.period_end, allowance: row.allowance, verified: free ? false : Boolean(row.verified) };
       });
     },
     /**
      * Holds the cost before any AI work. Monthly credits are used first (they expire at renewal); purchased
      * credits cover the rest. One request_id is held at most once. Throws when the person cannot afford it.
      */
-    reserve({ uid, request_id, feature, credits, period }) {
+    reserve({ uid, request_id, feature, credits, period, freeLimit = null }) {
       if (!Number.isSafeInteger(credits) || credits <= 0) throw new Error("Invalid credit cost.");
       return transaction(() => {
         const existing = db.prepare("SELECT * FROM credit_charges WHERE request_id=?").get(request_id);
@@ -154,6 +154,13 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           return { request_id, status: existing.status };
         }
         release_stale(uid);
+        if (freeLimit) {
+          const cycle = calendar_month(now().getTime());
+          const count = db.prepare(`SELECT COUNT(*) AS n FROM credit_charges WHERE uid=? AND created_at>=? AND created_at<? AND status IN ('reserved','charged') AND feature IN (SELECT value FROM json_each(?))`)
+            .get(uid, iso(cycle.start), iso(cycle.end), JSON.stringify(freeLimit.features)).n;
+          if (count >= freeLimit.maximum)
+            throw new AiLimitError(freeLimit.message, freeLimit.code, iso(cycle.end));
+        }
         const monthly = Math.max(0, period.allowance - used(uid, period.start));
         const from_monthly = Math.min(monthly, credits), from_purchased = credits - from_monthly;
         if (from_purchased > purchased(uid)) {

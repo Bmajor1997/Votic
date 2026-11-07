@@ -96,7 +96,7 @@ describe("filesystem route access using Expo Router", () => {
         expect(actual).not.toContain(route);
       expect(actual.includes("library-backup")).toBe(state[0]);
     });
-  it("places widgets and the ready recap before the paywall without granting paid access", () => {
+  it("places widgets and the ready recap before the Free app and paywall", () => {
     for (const subscribed of [false, true]) {
       const widgets = eligible(true, true, subscribed, false, false);
       expect(widgets).toContain("widgets-intro");
@@ -106,12 +106,13 @@ describe("filesystem route access using Expo Router", () => {
       expect(ready).toContain("ready");
       expect(ready).not.toContain("paywall");
       expect(ready).not.toContain("(tabs)");
-      const completed = eligible(true, true, subscribed, true, true);
-      expect(completed.includes("paywall")).toBe(!subscribed);
-      expect(completed.includes("(tabs)")).toBe(subscribed);
-      expect(completed).not.toContain("ready");
-      expect(completed).not.toContain("widgets-intro");
     }
+    // app_stage sets the navigation guard from completed personalization for Free and Plus users.
+    const completed = eligible(true, true, true, true, true);
+    expect(completed).toContain("paywall");
+    expect(completed).toContain("(tabs)");
+    expect(completed).not.toContain("ready");
+    expect(completed).not.toContain("widgets-intro");
   });
   it("allows paid routes only after setup and entitlement confirmation", () => {
     expect(eligible(true, true, true)).toEqual(

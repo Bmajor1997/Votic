@@ -133,3 +133,17 @@ it("offers Free users Plus when credits run out and opens the comparison only on
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
   expect(router.push).toHaveBeenCalledWith("/paywall");
 });
+
+it.each([
+  ["FREE_SUMMARIES_EXHAUSTED", "Keep summarizing"],
+  ["FREE_SCANS_EXHAUSTED", "Keep scanning"],
+  ["FREE_PDF_PLUS_REQUIRED", "Read your scanned PDF"],
+])("shows the relevant upgrade offer for %s", async (code, heading) => {
+  setup();
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Feature />);
+  await act(async () => allowance_notifier()({ code, resetsAt: "2026-11-01T00:00:00Z" }));
+  expect(screen.getByRole("header", { name: heading })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
+  expect(router.push).toHaveBeenCalledWith("/paywall");
+});

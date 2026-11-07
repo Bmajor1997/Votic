@@ -29,7 +29,7 @@ export function useUsageLimitNotice() {
       const stop = subscribe_allowance_notice((next) => {
         if (
           homeEntrance.key() === generation &&
-          ((!access && next.code === "AI_CREDITS_EXHAUSTED") ||
+          ((!access && ["AI_CREDITS_EXHAUSTED", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED", "FREE_PDF_PLUS_REQUIRED"].includes(next.code ?? "")) ||
             claim_allowance_notice(homeEntrance, generation, next.resetsAt))
         )
           setState({ owner: homeEntrance, generation, notice: next });
@@ -66,10 +66,11 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
   const { theme } = useVoticTheme();
   const { access, checking } = useSubscription();
   if (!notice) return null;
-  const offer = !access && !checking && notice.code === "AI_CREDITS_EXHAUSTED";
+  const offer = !access && !checking && ["AI_CREDITS_EXHAUSTED", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED", "FREE_PDF_PLUS_REQUIRED"].includes(notice.code ?? "");
+  const reason = notice.code === "FREE_SUMMARIES_EXHAUSTED" ? "summaries" : notice.code === "FREE_SCANS_EXHAUSTED" ? "scans" : notice.code === "FREE_PDF_PLUS_REQUIRED" ? "pdf" : "credits";
   return (
     <>
-    <FreeUpgradeSheet visible={offer} reason="credits" resetsAt={notice.resetsAt} onClose={dismiss} />
+    {offer ? <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} onClose={dismiss} /> : null}
     <View
       testID="ai-usage-notice"
       style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}

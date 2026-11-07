@@ -108,8 +108,8 @@ export default function NoteDraftsScreen() {
         onClose={() => setEditing(null)}
         onSave={(item, draft) => {
           const passage = note_from_draft(item.passage, draft);
-          if (item.document.id === "new-quick-note") library.addQuickNote(passage);
-          else library.savePassage(item.document.id, passage);
+          const saved = item.document.id === "new-quick-note" ? library.addQuickNote(passage) : library.savePassage(item.document.id, passage);
+          if (!saved) throw new Error("Free note limit reached");
           setEditing(null);
         }}
       />

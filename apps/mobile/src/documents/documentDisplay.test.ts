@@ -50,23 +50,34 @@ describe("document_type_label", () => {
 });
 
 describe("file type order", () => {
-  it("groups PDF then HTML then remaining types and sorts filenames without case", () => {
+  it("groups by type and shows recently added files first within each group", () => {
     const names = ["z.txt", "b.PDF", "c.html", "a.pdf", "A.html", "B.txt"];
     const documents = names.map((sourceName, index) => ({
       id: String(index),
       sourceName,
       title: "Renamed title",
+      importedAt: names.length - index,
     })) as import("./types").VoticDocument[];
     expect(sort_documents(documents, "type").map((d) => d.sourceName)).toEqual([
-      "a.pdf",
       "b.PDF",
-      "A.html",
+      "a.pdf",
       "c.html",
-      "B.txt",
+      "A.html",
       "z.txt",
+      "B.txt",
     ]);
     expect(documents.map((d) => d.sourceName)).toEqual(names);
     expect(sort_documents([], "type")).toEqual([]);
+  });
+
+  it("breaks equal timestamps by filename and leaves separate sorting choices intact", () => {
+    const documents = [
+      { id: "a", title: "A", sourceName: "A.pdf", importedAt: 4 },
+      { id: "z", title: "Z", sourceName: "z.pdf", importedAt: 4 },
+      { id: "old", title: "Old", sourceName: "old.pdf", importedAt: 1 },
+    ] as import("./types").VoticDocument[];
+    expect(sort_documents(documents, "type").map((d) => d.id)).toEqual(["a", "z", "old"]);
+    expect(sort_documents(documents, "title").map((d) => d.id)).toEqual(["a", "old", "z"]);
   });
 });
 

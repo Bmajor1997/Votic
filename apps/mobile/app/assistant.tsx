@@ -352,6 +352,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
         request.document,
         request.history,
         explanationStyle,
+        "summary",
       );
       if (askGeneration !== generation.current) return;
       if (!answered_from_context(request, answer)) {
@@ -397,7 +398,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     if (!message || message.role !== "votic" || message.saved) return;
     const { now, id } = answer_note_stamp();
     if (message.summary && !message.source) {
-      addQuickNote({
+      if (!addQuickNote({
         id,
         sentenceIndex: 0,
         text: "",
@@ -407,14 +408,14 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
         tags: ["votic", "summary"],
         createdAt: now,
         updatedAt: now,
-      });
+      })) return;
       setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
       return;
     }
     if (!message.source) return;
     const note = answer_note_for_source(documents, message.source, message.text, now, id);
     if (!note) return;
-    savePassage(note.documentId, note.passage);
+    if (!savePassage(note.documentId, note.passage)) return;
     setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
   }
   function animate_retry(toValue: number) {

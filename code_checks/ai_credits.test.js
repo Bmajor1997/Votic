@@ -266,3 +266,51 @@ test("switching billing periods mid-cycle never grants a second allowance", () =
   assert.equal(credits.period("u", monthly, 1000).start, "2027-05-20T00:00:00.000Z");
   assert.equal(credits.period("u", monthly, 1000).start, "2027-05-20T00:00:00.000Z");
 });
+
+test("Free monthly feature caps count reservations atomically, release failures, and reset in UTC", () => {
+  const now = clock("2026-11-10T00:00:00Z"), credits = ledger(now);
+  const period = credits.period("free", {}, 100);
+  const cap = { features: ["summary", "catch-me-up", "document-review"], maximum: 5, code: "FREE_SUMMARIES_EXHAUSTED", message: "Summary limit" };
+  for (let i = 0; i < 5; i++) credits.reserve({ uid: "free", request_id: `summary-${i}`, feature: "summary", credits: 2, period, freeLimit: cap });
+  assert.throws(() => credits.reserve({ uid: "free", request_id: "sixth", feature: "summary", credits: 2, period, freeLimit: cap }), e => e.code === cap.code);
+  credits.release("summary-0");
+  credits.reserve({ uid: "free", request_id: "retry", feature: "summary", credits: 2, period, freeLimit: cap });
+  credits.charge("retry");
+  now.set("2026-12-01T00:00:00Z");
+  const next = credits.period("free", {}, 100);
+  credits.reserve({ uid: "free", request_id: "next-month", feature: "summary", credits: 2, period: next, freeLimit: cap });
+});
+
+test("Free credits reset on the UTC month after Plus ends mid-cycle", () => {
+  const now = clock("2026-11-20T00:00:00Z"), credits = ledger(now);
+  const paid = credits.period("u", subscriber("2026-11-15T00:00:00Z", "2026-12-15T00:00:00Z"), 1000);
+  credits.reserve({ uid: "u", request_id: "paid-spend", feature: "help", credits: 10, period: paid });
+  credits.charge("paid-spend");
+  now.set("2026-11-25T00:00:00Z");
+  const free = credits.period("u", {}, 100, { free: true });
+  assert.equal(free.end, "2026-12-01T00:00:00.000Z");
+  assert.equal(free.verified, false);
+  assert.equal(credits.summary("u", free).remaining, 90);
+  now.set("2026-12-01T00:00:00Z");
+  const december = credits.period("u", {}, 100, { free: true });
+  assert.equal(december.start, "2026-12-01T00:00:00.000Z");
+  assert.equal(december.end, "2027-01-01T00:00:00.000Z");
+  assert.equal(credits.summary("u", december).remaining, 100);
+});
+
+test("upgrading and returning to Free keeps usage and the Free month-end reset", () => {
+  const now = clock("2026-11-02T00:00:00Z"), credits = ledger(now);
+  const first = credits.period("u", {}, 100, { free: true });
+  credits.reserve({ uid: "u", request_id: "used", feature: "help", credits: 20, period: first });
+  credits.charge("used");
+  now.set("2026-11-10T00:00:00Z");
+  const plus = credits.period("u", subscriber("2026-11-10T00:00:00Z", "2026-12-10T00:00:00Z"), 1000);
+  assert.equal(credits.summary("u", plus).remaining, 980);
+  now.set("2026-11-20T00:00:00Z");
+  const free = credits.period("u", {}, 100, { free: true });
+  assert.equal(free.end, "2026-12-01T00:00:00.000Z");
+  assert.equal(credits.summary("u", free).remaining, 80);
+  now.set("2026-12-01T00:00:00Z");
+  const next = credits.period("u", {}, 100, { free: true });
+  assert.equal(credits.summary("u", next).remaining, 100);
+});

@@ -53,9 +53,9 @@ export function PaywallIntro() {
           accessibilityRole="header"
           style={[s.title, { color: theme.text }, width < 360 && { fontSize: 22, lineHeight: 28 }]}
         >
-          Make more of every document.
+          Find your reading rhythm
         </Text>
-        <Text style={[s.supporting, { color: theme.text }]}>Your AI-powered reading companion.</Text>
+        <Text style={[s.supporting, { color: theme.text }]}>Choose the plan that fits you.</Text>
       </View>
       <View testID="paywall-brand-mark" style={s.art}>
         <BrandMark size={width < 360 ? 88 : 112} arrive />
@@ -70,20 +70,29 @@ export function PaywallBenefits() {
   const rows = [
     ["Read and listen", "✓ No time limit", "✓ No time limit"],
     ["Saved documents", "✓ Up to 5", "✓ Up to 2,000"],
-    ["Notes and bookmarks", "✓ Included", "✓ Included"],
-    ["Monthly AI credits", "✓ 100", "✓ Plus allowance"],
-    ["AI credit costs", "✓ Same as Plus", "✓ Same as Free"],
+    ["Notes and bookmarks", "✓ Up to 25 combined", "✓ More notes and bookmarks"],
+    ["AI credits", "✓ 100 per month", "✓ Plus monthly allowance"],
+    ["AI questions", "✓ Uses shared credits", "✓ Uses shared credits"],
+    ["AI summaries", "✓ 5 per month; uses credits", "✓ Uses Plus credits"],
+    ["Camera scans", "✓ 5 pages per month; uses credits", "✓ Uses Plus credits"],
+    ["Scanned PDF reading", "− Plus feature", "✓ Uses Plus credits"],
+    ["No ads", "✓ Included", "✓ Included"],
   ];
   return (
-    <View accessibilityLabel="Compare Votic Free and Votic Plus" style={s.card}>
+    <View accessibilityLabel="Compare Votic Free and Votic Plus" style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}>
       <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
         Compare Free and Plus
       </Text>
+      <View style={s.comparisonRow}>
+        <Text style={s.labelColumn} />
+        <Text style={[s.valueColumn, s.columnHeading, { color: theme.text }]}>Free</Text>
+        <Text style={[s.valueColumn, s.columnHeading, { color: theme.accentText, backgroundColor: theme.brandTint }]}>Plus</Text>
+      </View>
       {rows.map(([label, free, plus]) => (
-        <View key={label} accessible accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`} style={s.row}>
-          <Text style={[p.benefitTitle, { color: theme.text }]}>{label}</Text>
-          <Text style={[p.detail, { color: theme.mutedText }]}>Free: {free}</Text>
-          <Text style={[p.detail, { color: theme.accentText }]}>Plus: {plus}</Text>
+        <View key={label} accessible accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`} style={[s.comparisonRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
+          <Text style={[p.benefitTitle, s.labelColumn, { color: theme.text }]}>{label}</Text>
+          <Text style={[p.detail, s.valueColumn, { color: theme.text }]}>{free}</Text>
+          <Text style={[p.detail, s.valueColumn, { color: theme.accentText, backgroundColor: theme.brandTint }]}>{plus}</Text>
         </View>
       ))}
     </View>
@@ -143,8 +152,12 @@ const s = StyleSheet.create({
   supporting: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
   art: { alignItems: "center", justifyContent: "center" },
   subtitle: { fontSize: 16, lineHeight: 24 },
-  card: { width: "100%", maxWidth: 420, alignSelf: "center" },
+  card: { width: "100%", maxWidth: 420, alignSelf: "center", borderWidth: 1, borderRadius: 18, overflow: "hidden" },
   cardTitle: { paddingTop: 12, paddingBottom: 8, textAlign: "center" },
+  comparisonRow: { flexDirection: "row", alignItems: "stretch" },
+  labelColumn: { flex: 1.5, padding: 8 },
+  valueColumn: { flex: 1, padding: 8, textAlign: "center", textAlignVertical: "center" },
+  columnHeading: { fontWeight: "800" },
   row: { paddingVertical: 8 },
   // The check sits beside the benefit's title, even when its description wraps.
   benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },

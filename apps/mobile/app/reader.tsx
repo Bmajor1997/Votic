@@ -765,7 +765,7 @@ function ReaderContent() {
       `votic-note-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    savePassage(note.documentId, note.passage);
+    if (!savePassage(note.documentId, note.passage)) return;
     setAskMessages((current) =>
       current.map((item, index) => (index === messageIndex ? { ...item, saved: true } : item)),
     );
@@ -790,6 +790,7 @@ function ReaderContent() {
         request.document,
         request.history,
         explanationStyle,
+        "summary",
       );
       if (generation !== askGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as an error instead of as notes.
@@ -824,12 +825,12 @@ function ReaderContent() {
       `votic-summary-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    savePassage(note.documentId, {
+    if (!savePassage(note.documentId, {
       ...note.passage,
       title: "Ask Votic conversation summary",
       noteType: "key-point",
       tags: ["votic", "summary"],
-    });
+    })) return;
     setConversationSummary((current) => (current ? { ...current, saved: true } : current));
   }
 
@@ -851,12 +852,12 @@ function ReaderContent() {
       `votic-conversation-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    savePassage(note.documentId, {
+    if (!savePassage(note.documentId, {
       ...note.passage,
       title: "Ask Votic conversation",
       noteType: "note",
       tags: ["votic", "conversation"],
-    });
+    })) return;
     setConversationSaved(true);
   }
 
@@ -1157,6 +1158,7 @@ function ReaderContent() {
         request.document,
         request.history,
         explanationStyle,
+        "summary",
       );
       if (generation !== finishGeneration.current) return;
       // A notice (such as a daily limit) is not a summary, so it is shown as a message with Try again.
@@ -1181,12 +1183,12 @@ function ReaderContent() {
     const now = Date.now();
     const note = answer_note_for_source(documents, source, finishSummary.text, now, `votic-summary-${now}`);
     if (!note) return;
-    savePassage(note.documentId, {
+    if (!savePassage(note.documentId, {
       ...note.passage,
       noteType: "key-point",
       tags: ["votic", "summary"],
       title: "Summary",
-    });
+    })) return;
     setFinishSummary({ ...finishSummary, saved: true });
   }
 
@@ -1236,7 +1238,7 @@ function ReaderContent() {
   function confirm_save_passage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
-    savePassage(activeDocument.id, {
+    if (!savePassage(activeDocument.id, {
       id: passageId,
       sentenceIndex: index,
       text: passages[index],
@@ -1247,7 +1249,7 @@ function ReaderContent() {
       pinned: savedPassage?.pinned,
       createdAt: savedPassage?.createdAt || now,
       updatedAt: now,
-    });
+    })) return;
     setSaveOpen(false);
     void flush()
       .then(() => showSaved("bookmark", activeDocument.title))

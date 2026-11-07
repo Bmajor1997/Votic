@@ -81,7 +81,7 @@ function BillingOption({
       ]}
     >
       <View style={s.top}>
-        <Text style={[p.benefitTitle, { color: theme.text }]}>{plan_name(plan)}</Text>
+        <Text style={[p.benefitTitle, { color: theme.text }]}>Votic Plus {plan_name(plan)}</Text>
         <Ionicons
           name={active ? "radio-button-on" : "radio-button-off"}
           size={22}

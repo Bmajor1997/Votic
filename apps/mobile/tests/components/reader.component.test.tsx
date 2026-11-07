@@ -346,6 +346,7 @@ describe("Reader", () => {
         expect.objectContaining({ title: "Bee Notes" }),
         [],
         "adaptive",
+        "summary",
       );
       speak.mockClear();
       await fireEvent.press(screen.getByRole("button", { name: "Read summary aloud" }));

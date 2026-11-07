@@ -19,7 +19,7 @@ export function useQuickNoteEditor() {
         onClose={() => setItem(null)}
         onSave={({ passage }, draft) => {
           if (!draft.note.trim()) return;
-          addQuickNote(note_from_draft(passage, draft));
+          if (!addQuickNote(note_from_draft(passage, draft))) throw new Error("Free note limit reached");
           setItem(null);
         }}
       />

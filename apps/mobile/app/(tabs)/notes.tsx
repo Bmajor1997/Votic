@@ -147,13 +147,13 @@ export default function Notes() {
   function save_note({ document, passage }: NoteItem, draft: NoteDraft) {
     if (!passage.text && !draft.note.trim()) return;
     if (document.id === "new-quick-note") {
-      addQuickNote(note_from_draft(passage, draft));
+      if (!addQuickNote(note_from_draft(passage, draft))) throw new Error("Free note limit reached");
       setEditing(null);
       setQuery("");
       clear_filters();
       return;
     }
-    savePassage(document.id, note_from_draft(passage, draft));
+    if (!savePassage(document.id, note_from_draft(passage, draft))) throw new Error("Free note limit reached");
     setEditing(null);
   }
   function toggle_pin({ document, passage }: NoteItem) {

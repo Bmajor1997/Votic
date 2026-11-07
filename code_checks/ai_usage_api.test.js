@@ -209,3 +209,57 @@ test("an expired or refunded annual subscription moves to the Free allowance", a
     assert.equal(calls, 1);
   }
 });
+
+test("Free dedicated summaries have a five-per-month limit", async () => {
+  let calls = 0;
+  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async (_url, init) => {
+    calls++;
+    const body = JSON.parse(init.body);
+    return provider(body.input?.some?.(m => Array.isArray(m.content) && m.content.some?.(c => c.type === "input_image")) ? answer("Page text") : document_answer);
+  } }, async ({ base, post }) => {
+    for (let i = 0; i < 5; i++) assert.equal((await post("/api/help", { question: "Summarize", document, feature: "summary" })).status, 200);
+    const blocked = await post("/api/help", { question: "Summarize", document, feature: "summary" });
+    assert.equal(blocked.status, 429);
+    assert.equal((await blocked.json()).code, "FREE_SUMMARIES_EXHAUSTED");
+    assert.equal(calls, 5, "the sixth summary never calls the provider");
+  });
+});
+
+test("Free accounts cannot send a scanned PDF to paid OCR", async () => {
+  let calls = 0;
+  const extractDocument = async () => { const error = new Error("scanned pdf"); error.code = "PDF_OCR_REQUIRED"; throw error; };
+  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), extractDocument, ai: async () => { calls++; return provider(answer("text")); } }, async ({ base }) => {
+    const response = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan.pdf" }, body: Buffer.from("%PDF-1.4\nscan") });
+    assert.equal(response.status, 403);
+    assert.equal((await response.json()).code, "FREE_PDF_PLUS_REQUIRED");
+    assert.equal(calls, 0);
+  });
+});
+
+test("Free camera scanning blocks the sixth readable page before provider work", async () => {
+  let calls = 0;
+  const photo = Buffer.alloc(2000); photo.set([255, 216, 255]);
+  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; return provider(answer("Page text")); } }, async ({ base, post }) => {
+    const scan = () => fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
+    for (let i = 0; i < 5; i++) assert.equal((await scan()).status, 200);
+    const response = await scan();
+    assert.equal(response.status, 429);
+    assert.equal((await response.json()).code, "FREE_SCANS_EXHAUSTED");
+    assert.equal(calls, 5);
+    assert.equal((await ai_usage(post)).body.monthly.used, 15);
+  });
+});
+
+test("concurrent Free summaries cannot exceed five reservations", async () => {
+  let release, calls = 0;
+  const gate = new Promise(resolve => { release = resolve; });
+  await with_server({ env: { VOTIC_AI_USER_CONCURRENCY: "10" }, revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; await gate; return provider(document_answer); } }, async ({ post }) => {
+    const requests = Array.from({ length: 7 }, (_, i) => post("/api/help", { question: `Summary ${i}`, document, feature: "summary" }));
+    await new Promise(resolve => setTimeout(resolve, 100));
+    release();
+    const statuses = (await Promise.all(requests)).map(response => response.status).sort();
+    assert.deepEqual(statuses, [200, 200, 200, 200, 200, 429, 429]);
+    assert.equal(calls, 5);
+    assert.equal((await ai_usage(post)).body.monthly.used, 10);
+  });
+});

@@ -31,8 +31,8 @@ it("compares Free and Plus with credit limits, checks, and the Plus trial", asyn
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
-  expect(screen.getByText("Free: ✓ 100")).toBeTruthy();
-  expect(screen.getByText("Free: ✓ Up to 5")).toBeTruthy();
+  expect(screen.getByLabelText(/AI credits\. Free: ✓ 100 per month/)).toBeTruthy();
+  expect(screen.getByLabelText(/Saved documents\. Free: ✓ Up to 5/)).toBeTruthy();
   expect(screen.queryByText("Free: − Not included")).toBeNull();
   expect(screen.queryByText("Plus: ✓ Store offer")).toBeNull();
   expect(screen.getByRole("button", { name: "Continue with Votic Free" })).toBeTruthy();
@@ -105,7 +105,7 @@ it("shows the full annual charge once annual is chosen, and buys exactly that pl
   expect(screen.getByText(/^Equivalent to \$5\.00\/month, billed yearly\. Save 49% compared/)).toBeTruthy();
   expect(screen.getByText(/renews automatically at \$59\.99 per year/)).toBeTruthy();
   expect(screen.getByText("Same Votic Plus features on either plan.")).toBeTruthy();
-  expect(screen.getByText("Monthly AI credits")).toBeTruthy();
+  expect(screen.getByText("AI credits")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $59.99/year" }));
   expect(fakeSubscriptions.calls).toContain("purchase:$rc_annual");
   expect(fakeSubscriptions.calls).not.toContain("purchase:$rc_monthly");
@@ -164,7 +164,7 @@ it("says plainly when the store fails unexpectedly, without showing the technica
   expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
 });
 
-it("shows billing before the checklist, without a preview, and keeps renewal terms visible", async () => {
+it("shows comparison before billing, without a preview, and keeps renewal terms visible", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   // No numbered sections, no jump button and no extra "make it yours" block.
@@ -177,8 +177,8 @@ it("shows billing before the checklist, without a preview, and keeps renewal ter
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
   const headers = screen.getAllByRole("header");
-  expect(headers.indexOf(screen.getByRole("header", { name: "Votic Plus" }))).toBeLessThan(
-    headers.indexOf(screen.getByRole("header", { name: "Compare Free and Plus" })),
+  expect(headers.indexOf(screen.getByRole("header", { name: "Compare Free and Plus" }))).toBeLessThan(
+    headers.indexOf(screen.getByRole("header", { name: "Votic Plus" })),
   );
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
   // The full "then $9.99/month" sentence appears once, above the button.
@@ -288,19 +288,19 @@ function visible_opacity(element: { parent: unknown; props: { style?: unknown } 
 it("shows the whole paywall at once with Reduce Motion", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />, { reduceMotion: true });
-  expect(visible_opacity(screen.getByRole("header", { name: "Make more of every document." }) as never)).toBe(
+  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(
     1,
   );
-  expect(visible_opacity(screen.getByText("Monthly AI credits") as never)).toBe(1);
+  expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
 });
 
 it("shows the whole paywall at once without Reduce Motion too, with no entrance animation", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  expect(visible_opacity(screen.getByRole("header", { name: "Make more of every document." }) as never)).toBe(
+  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(
     1,
   );
-  expect(visible_opacity(screen.getByText("Monthly AI credits") as never)).toBe(1);
+  expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
 });
 
 it("offers beta testers the founder lifetime purchase, and welcomes a new founder", async () => {
