@@ -330,6 +330,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Votic Plus
         </Text>
+        {shown.length > 1 && selected?.trial ? (
+          <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.accentText }]}>
+            {offer_title(selected)}
+          </Text>
+        ) : null}
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
         ) : null}
@@ -413,7 +418,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
       {plan.trial ? (
         <View style={[s.timeline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
-            {offer_title(plan)}
+            {plans.length > 1 ? "Your trial" : offer_title(plan)}
           </Text>
           {trial_timeline(plan, { now, formatDate: format_long_date }).map((item, index) => (
             <View key={item.when} style={s.timelineRow}>

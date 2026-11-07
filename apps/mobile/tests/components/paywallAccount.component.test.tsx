@@ -33,8 +33,8 @@ it("compares Free and Plus with credit limits, checks, and the Plus trial", asyn
   expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
   expect(screen.getByText("Free: ✓ 100")).toBeTruthy();
   expect(screen.getByText("Free: ✓ Up to 5")).toBeTruthy();
-  expect(screen.getByText("Free: − Not included")).toBeTruthy();
-  expect(screen.getByText("Plus: ✓ Store offer")).toBeTruthy();
+  expect(screen.queryByText("Free: − Not included")).toBeNull();
+  expect(screen.queryByText("Plus: ✓ Store offer")).toBeNull();
   expect(screen.getByRole("button", { name: "Continue with Votic Free" })).toBeTruthy();
 });
 
@@ -86,6 +86,14 @@ it("offers monthly and annual billing side by side, starting on monthly, and hid
   expect(within(annual).getByText("Save 49%")).toBeTruthy();
   expect(within(annual).getByText("About $5.00/month")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
+});
+
+it("promotes the trial only for the store-eligible selected Plus plan", async () => {
+  fakeSubscriptions.reset({ plans: [{ ...MONTH, trial: { count: 2, unit: "week" } }, YEAR], defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />);
+  expect(screen.getByRole("header", { name: "Try Votic Plus free for 2 weeks" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
+  expect(screen.queryByRole("header", { name: "Try Votic Plus free for 2 weeks" })).toBeNull();
 });
 
 it("shows the full annual charge once annual is chosen, and buys exactly that plan", async () => {
@@ -165,7 +173,7 @@ it("shows billing before the checklist, without a preview, and keeps renewal ter
   expect(
     screen.getByText(/Choose Votic Free or upgrade to Votic Plus/),
   ).toBeTruthy();
-  expect(screen.getByText("Read, listen, and keep notes")).toBeTruthy();
+  expect(screen.getByText("Read and listen")).toBeTruthy();
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
   const headers = screen.getAllByRole("header");

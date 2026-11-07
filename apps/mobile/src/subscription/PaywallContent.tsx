@@ -68,12 +68,11 @@ export function PaywallIntro() {
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
   const rows = [
-    ["Read, listen, and keep notes", "✓ Included", "✓ Included"],
-    ["Saved documents", "✓ Up to 5", "✓ More than 5"],
+    ["Read and listen", "✓ No time limit", "✓ No time limit"],
+    ["Saved documents", "✓ Up to 5", "✓ Up to 2,000"],
+    ["Notes and bookmarks", "✓ Included", "✓ Included"],
     ["Monthly AI credits", "✓ 100", "✓ Plus allowance"],
     ["AI credit costs", "✓ Same as Plus", "✓ Same as Free"],
-    ["Plus trial, if eligible", "− Not included", "✓ Store offer"],
-    ["Ads", "− No ads", "− No ads"],
   ];
   return (
     <View accessibilityLabel="Compare Votic Free and Votic Plus" style={s.card}>
