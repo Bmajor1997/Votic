@@ -14,9 +14,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState, Modal, Pressable, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
-import { useVoticTheme } from "../theme/ThemeProvider";
+import { AppState } from "react-native";
+import { FreeUpgradeSheet } from "../subscription/FreeUpgradeSheet";
 import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
@@ -91,8 +90,8 @@ function title_from(sourceName: string, text: string) {
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
   const { access, checking } = useSubscription();
-  const { theme } = useVoticTheme();
   const [showUpgrade, setShowUpgrade] = useState(false);
+  useEffect(() => setShowUpgrade(false), [uid]);
   const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
   const setDocuments = useCallback(
@@ -551,32 +550,10 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       }}
     >
       {children}
-      <Modal visible={showUpgrade} transparent animationType="fade" onRequestClose={() => setShowUpgrade(false)}>
-        <View style={upgradeStyles.backdrop}>
-          <View accessibilityViewIsModal style={[upgradeStyles.card, { backgroundColor: theme.surface }]}>
-            <Text accessibilityRole="header" style={[upgradeStyles.title, { color: theme.text }]}>Your Free library is full</Text>
-            <Text style={[upgradeStyles.body, { color: theme.text }]}>Votic Free includes five saved documents. Upgrade to Votic Plus to add more, or remove a document to make room. Your existing documents and notes remain available.</Text>
-            <Pressable accessibilityRole="button" onPress={() => { setShowUpgrade(false); router.push("/paywall"); }} style={[upgradeStyles.button, { backgroundColor: theme.accent }]}>
-              <Text style={upgradeStyles.buttonText}>Compare Votic Plus</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setShowUpgrade(false)} style={upgradeStyles.button}>
-              <Text style={{ color: theme.text }}>Not now</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <FreeUpgradeSheet visible={showUpgrade} reason="documents" onClose={() => setShowUpgrade(false)} />
     </C.Provider>
   );
 }
-
-const upgradeStyles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 24 },
-  card: { width: "100%", maxWidth: 460, alignSelf: "center", borderRadius: 20, padding: 24, gap: 16 },
-  title: { fontSize: 21, fontWeight: "700" },
-  body: { fontSize: 16, lineHeight: 24 },
-  button: { minHeight: 48, justifyContent: "center", alignItems: "center", padding: 12, borderRadius: 12 },
-  buttonText: { color: "white", fontWeight: "700" },
-});
 
 export function useDocumentLibrary() {
   const context = useContext(C);

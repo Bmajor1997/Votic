@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { AllowanceNotice, claim_allowance_notice, subscribe_allowance_notice } from "./allowanceNotice";
 import { useSubscription } from "./SubscriptionProvider";
+import { FreeUpgradeSheet } from "./FreeUpgradeSheet";
 
 /** A quiet, dismissible notice inside the affected screen; never opens a modal, store, or checkout. */
 export function UsageLimitNotice() {
@@ -65,7 +66,10 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
   const { theme } = useVoticTheme();
   const { access, checking } = useSubscription();
   if (!notice) return null;
+  const offer = !access && !checking && notice.code === "AI_CREDITS_EXHAUSTED";
   return (
+    <>
+    <FreeUpgradeSheet visible={offer} reason="credits" resetsAt={notice.resetsAt} onClose={dismiss} />
     <View
       testID="ai-usage-notice"
       style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
@@ -92,11 +96,6 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
       <Text style={[s.detail, { color: theme.mutedText }]}>
         Reading, listening, and your notes keep working as usual.
       </Text>
-      {!access && !checking && notice.code === "AI_CREDITS_EXHAUSTED" ? (
-        <Pressable accessibilityRole="button" accessibilityLabel="Compare Votic Plus" onPress={() => router.push("/paywall")} style={s.link}>
-          <Text style={[s.linkText, { color: theme.accentText }]}>See Votic Plus for more monthly credits</Text>
-        </Pressable>
-      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="AI Usage"
@@ -107,6 +106,7 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
         <Text style={[s.linkText, { color: theme.accentText }]}>See AI Usage</Text>
       </Pressable>
     </View>
+    </>
   );
 }
 const s = StyleSheet.create({

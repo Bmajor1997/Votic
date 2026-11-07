@@ -22,8 +22,8 @@ it("allows five new Free documents and rejects a sixth", async () => {
   await act(() => {
     expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/five saved documents/i);
   });
-  expect(screen.getByText("Your Free library is full")).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Compare Votic Plus" }));
+  expect(screen.getByText("Make room for more reading")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
   expect(router.push).toHaveBeenCalledWith("/paywall");
   expect(screen.getByText("Documents: 5")).toBeTruthy();
 });

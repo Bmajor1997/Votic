@@ -129,6 +129,7 @@ it("offers Free users Plus when credits run out and opens the comparison only on
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Feature />);
   await act(async () => allowance_notifier()(limit));
-  await fireEvent.press(screen.getByRole("button", { name: "Compare Votic Plus" }));
+  expect(screen.getByRole("header", { name: "Keep asking Votic" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
   expect(router.push).toHaveBeenCalledWith("/paywall");
 });
