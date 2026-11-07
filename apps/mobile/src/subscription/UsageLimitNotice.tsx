@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { AppState, Pressable, StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../auth/AuthProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
-import { useSubscription } from "./SubscriptionProvider";
 import { AllowanceNotice, claim_allowance_notice, subscribe_allowance_notice } from "./allowanceNotice";
+import { useSubscription } from "./SubscriptionProvider";
 
 /** A quiet, dismissible notice inside the affected screen; never opens a modal, store, or checkout. */
 export function UsageLimitNotice() {
@@ -15,9 +15,9 @@ export function UsageLimitNotice() {
 /** Subscribe before a feature starts its request, even when its result panel opens afterward. */
 export function useUsageLimitNotice() {
   const { user, homeEntrance } = useAuth();
-  const { access, checking } = useSubscription();
+  const { access } = useSubscription();
   const generation = homeEntrance.key();
-  const enabled = Boolean(user && access && !checking);
+  const enabled = Boolean(user);
   const [state, setState] = useState<{ owner: object; generation: number; notice: AllowanceNotice } | null>(
     null,
   );
@@ -28,7 +28,8 @@ export function useUsageLimitNotice() {
       const stop = subscribe_allowance_notice((next) => {
         if (
           homeEntrance.key() === generation &&
-          claim_allowance_notice(homeEntrance, generation, next.resetsAt)
+          ((!access && next.code === "AI_CREDITS_EXHAUSTED") ||
+            claim_allowance_notice(homeEntrance, generation, next.resetsAt))
         )
           setState({ owner: homeEntrance, generation, notice: next });
       });
@@ -36,7 +37,7 @@ export function useUsageLimitNotice() {
         stop();
         setState(null);
       };
-    }, [enabled, homeEntrance, generation]),
+    }, [enabled, homeEntrance, generation, access]),
   );
   const setNotice = useCallback(() => setState(null), []);
   useEffect(() => {
@@ -62,6 +63,7 @@ export function useUsageLimitNotice() {
 
 export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useUsageLimitNotice>) {
   const { theme } = useVoticTheme();
+  const { access, checking } = useSubscription();
   if (!notice) return null;
   return (
     <View
@@ -90,6 +92,11 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
       <Text style={[s.detail, { color: theme.mutedText }]}>
         Reading, listening, and your notes keep working as usual.
       </Text>
+      {!access && !checking && notice.code === "AI_CREDITS_EXHAUSTED" ? (
+        <Pressable accessibilityRole="button" accessibilityLabel="Compare Votic Plus" onPress={() => router.push("/paywall")} style={s.link}>
+          <Text style={[s.linkText, { color: theme.accentText }]}>See Votic Plus for more monthly credits</Text>
+        </Pressable>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="AI Usage"

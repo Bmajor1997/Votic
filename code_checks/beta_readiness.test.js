@@ -41,8 +41,9 @@ test("beta uses verified UID, gates all feature routes, and preserves paid prior
     await server({ env, usageStore: store, authorize: () => ({ uid }), authorizePremium: unpaid }, async base => {
       assert.equal((await post(base + "/api/access", { uid: "tester", beta: true })).status, 200);
       assert.equal((await (await post(base + "/api/access")).json()).allowed, false);
-      for (const path of ["extract", "scan", "import-url", "help", "review", "transcribe-question", "voice-question-status"])
-        assert.equal((await post(base + "/api/" + path, { uid: "tester", beta: true })).status, 403, path);
+      const free = await (await post(base + "/api/ai-usage", { uid: "tester", beta: true })).json();
+      assert.equal(free.plan.name, "Votic Free");
+      assert.equal(free.monthly.allowance, 100);
       uid = "tester";
       const access = await post(base + "/api/access");
       assert.equal(access.headers.get("cache-control"), "no-store");

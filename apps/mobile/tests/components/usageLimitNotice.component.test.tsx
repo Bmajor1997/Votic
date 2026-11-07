@@ -6,6 +6,7 @@ import { router } from "expo-router";
 import * as api from "../../src/api/voticApi";
 import { UsageLimitNotice } from "../../src/subscription/UsageLimitNotice";
 import { allowance_notifier } from "../../src/subscription/allowanceNotice";
+import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 import { render_with_providers } from "../renderWithProviders";
 
 jest.mock("expo-router", () => {
@@ -121,4 +122,13 @@ it("removes expired reset information without reopening plans or requiring an up
   expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
   expect(plans).not.toHaveBeenCalled();
   expect(router.push).not.toHaveBeenCalled();
+});
+
+it("offers Free users Plus when credits run out and opens the comparison only on request", async () => {
+  setup();
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Feature />);
+  await act(async () => allowance_notifier()(limit));
+  await fireEvent.press(screen.getByRole("button", { name: "Compare Votic Plus" }));
+  expect(router.push).toHaveBeenCalledWith("/paywall");
 });

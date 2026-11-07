@@ -67,30 +67,24 @@ export function PaywallIntro() {
 /** All six Votic Plus benefits. */
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
+  const rows = [
+    ["Read, listen, and keep notes", "✓ Included", "✓ Included"],
+    ["Saved documents", "✓ Up to 5", "✓ More than 5"],
+    ["Monthly AI credits", "✓ 100", "✓ Plus allowance"],
+    ["AI credit costs", "✓ Same as Plus", "✓ Same as Free"],
+    ["Plus trial, if eligible", "− Not included", "✓ Store offer"],
+    ["Ads", "− No ads", "− No ads"],
+  ];
   return (
-    <View accessibilityLabel="Included with Votic Plus" style={s.card}>
+    <View accessibilityLabel="Compare Votic Free and Votic Plus" style={s.card}>
       <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
-        Included with Votic Plus
+        Compare Free and Plus
       </Text>
-      {PLUS_BENEFITS.map((benefit) => (
-        <View key={benefit.title} style={s.row}>
-          <View
-            accessible
-            accessibilityLabel={`${benefit.title}. ${benefit.detail} Included.`}
-            style={s.benefitRow}
-          >
-            <Ionicons
-              testID="benefit-check"
-              name="checkmark-circle"
-              size={24}
-              color={theme.accentText}
-              style={s.check}
-            />
-            <View style={s.benefitCopy}>
-              <Text style={[p.benefitTitle, { color: theme.text }]}>{benefit.title}</Text>
-              <Text style={[p.detail, { color: theme.mutedText }]}>{benefit.detail}</Text>
-            </View>
-          </View>
+      {rows.map(([label, free, plus]) => (
+        <View key={label} accessible accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`} style={s.row}>
+          <Text style={[p.benefitTitle, { color: theme.text }]}>{label}</Text>
+          <Text style={[p.detail, { color: theme.mutedText }]}>Free: {free}</Text>
+          <Text style={[p.detail, { color: theme.accentText }]}>Plus: {plus}</Text>
         </View>
       ))}
     </View>

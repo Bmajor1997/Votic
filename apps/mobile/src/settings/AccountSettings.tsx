@@ -541,9 +541,9 @@ function PremiumRows() {
       <AccountRow
         label="Votic Plus"
         detail={subscription_status(subscription.entitlement)}
-        hint="Opens your store account to manage the subscription"
+        hint={has_access(subscription.entitlement.status) ? "Opens your store account to manage the subscription" : "Compare Free and Plus"}
         icon="sparkles-outline"
-        onPress={() => void manage()}
+        onPress={() => has_access(subscription.entitlement.status) ? void manage() : router.push("/paywall")}
       />
       <BillingSwitch />
       <AccountRow

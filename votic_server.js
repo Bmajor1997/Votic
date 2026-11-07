@@ -235,7 +235,8 @@ export function create_votic_handler(options = {}) {
         }
       } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
     } catch (error) { if (!beta_allowed) throw error; }
-    if (!beta_allowed) return null;
+    if (!beta_allowed) return { uid: identity.uid, free: true, tier: null,
+      period: usage_store.credits.period(identity.uid, {}, 100) };
     // Beta testers stay eligible for the founder offer after beta access is switched off.
     usage_store.founder?.rememberBetaTester(identity.uid);
     return { uid: identity.uid, beta: true, tier: null,
@@ -247,11 +248,11 @@ export function create_votic_handler(options = {}) {
     await read_body(request, 1024, config.body_timeout_ms);
     const plan = await effective_plan(identity);
     // Only someone without access sees the paywall, so only they are offered the founder purchase.
-    const founderOffer = plan ? null : founder_offer_for(founder, usage_store.founder, { uid: identity.uid, betaAllowed: beta.allows(identity.uid) });
-    send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan), beta: Boolean(plan?.beta), ...(founderOffer ? { founderOffer } : {}) });
+    const founderOffer = !plan || plan.free ? founder_offer_for(founder, usage_store.founder, { uid: identity.uid, betaAllowed: beta.allows(identity.uid) }) : null;
+    send_json(response, 200, { uid: identity.uid, allowed: Boolean(plan && !plan.free), beta: Boolean(plan?.beta), ...(founderOffer ? { founderOffer } : {}) });
  };
  const usage_configured = (identity) => beta.allows(identity.uid) || (premium_required && Boolean(authorize_premium.subscription));
- const usage_plan_name = plan => plan.beta ? "Votic Beta" : plan.founder ? "Votic Founder" : plan.tier?.name ?? "Votic Plus";
+ const usage_plan_name = plan => plan.free ? "Votic Free" : plan.beta ? "Votic Beta" : plan.founder ? "Votic Founder" : plan.tier?.name ?? "Votic Plus";
  const handle_ai_usage = async (request, response, identity, ai_client) => {
     if (!identity?.uid || !sign_in_verified) throw new HttpError(401, "Sign in to see your AI usage.");
     rate_limit(`${ai_client}:ai-usage`, 30);

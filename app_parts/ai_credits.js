@@ -125,13 +125,19 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           // Older data (a cached profile) or an overlapping restart stays in the period already granted.
           if (start < latest_start || start < latest_end - RENEWAL_TOLERANCE_MS) {
             if (end > latest_end) db.prepare("UPDATE credit_periods SET period_end=? WHERE uid=? AND period_start=?").run(iso(end), uid, latest.period_start);
+            if (allowance === 100 || latest.allowance === 100)
+              db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, latest.period_start);
             const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, latest.period_start);
             return { start: row.period_start, end: row.period_end, allowance: row.allowance, verified: Boolean(row.verified) };
           }
         }
         db.prepare("INSERT OR IGNORE INTO credit_periods(uid,period_start,period_end,allowance,verified,created_at) VALUES(?,?,?,?,?,?)")
           .run(uid, iso(start), iso(end), allowance, verified ? 1 : 0, now().toISOString());
-        const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
+        let row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
+        if (row.allowance !== allowance && (allowance === 100 || row.allowance === 100)) {
+          db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, iso(start));
+          row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
+        }
         return { start: row.period_start, end: row.period_end, allowance: row.allowance, verified: Boolean(row.verified) };
       });
     },

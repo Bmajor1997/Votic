@@ -47,7 +47,7 @@ function app_stage(
 ) {
   const personalized = signedIn && setupDone;
   // Signing in, finishing setup, and subscribing are separate facts. Only the store grants access.
-  const subscribed = personalized && subscription.access;
+  const subscribed = personalized;
   // Wait for this account's setup, and for a returning subscriber's status, rather than flash the wrong screen.
   const waiting = (signedIn && loading) || (personalized && !subscription.access && subscription.checking);
   return { signedIn, personalized, subscribed, waiting };
@@ -114,9 +114,6 @@ function ThemedStack() {
                   <Stack.Protected guard={signedIn && !personalized}>
                     <Stack.Screen name="personalize" options={fade} />
                   </Stack.Protected>
-                  <Stack.Protected guard={personalized && setup.handedOff && !subscribed}>
-                    <Stack.Screen name="paywall" options={fade} />
-                  </Stack.Protected>
                   <Stack.Protected guard={personalized && !setup.handedOff && !setup.widgetsIntroduced}>
                     <Stack.Screen name="widgets-intro" options={fade} />
                   </Stack.Protected>
@@ -125,6 +122,7 @@ function ThemedStack() {
                   </Stack.Protected>
                   <Stack.Protected guard={subscribed && setup.handedOff}>
                     <Stack.Screen name="(tabs)" options={fade} />
+                    <Stack.Screen name="paywall" options={fade} />
                     <Stack.Screen
                       name="reader"
                       options={{

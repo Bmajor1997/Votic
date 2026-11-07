@@ -5,7 +5,7 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { import_web_page } from "../src/api/voticApi";
-import { useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
+import { FreeDocumentLimitError, useDocumentLibrary } from "../src/documents/DocumentLibraryProvider";
 import { useVoticPurpose } from "../src/personalization/PurposeProvider";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 import { useImportSession } from "../src/documents/useImportSession";
@@ -38,7 +38,8 @@ export default function ImportWebScreen() {
       }
     } catch (error) {
       if (!job.current()) return;
-      Alert.alert("Could not import webpage", error instanceof Error ? error.message : "Try another link.");
+      if (!(error instanceof FreeDocumentLimitError))
+        Alert.alert("Could not import webpage", error instanceof Error ? error.message : "Try another link.");
     } finally {
       job.finish();
       setBusy(false);

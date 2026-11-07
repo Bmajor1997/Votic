@@ -2,7 +2,6 @@ import { it, expect, jest } from "@jest/globals";
 import { act, fireEvent, screen, within } from "@testing-library/react-native";
 import { AccessibilityInfo, Dimensions, StyleSheet, ViewStyle } from "react-native";
 import Paywall from "../../app/paywall";
-import { PLUS_BENEFITS } from "../../src/subscription/PaywallContent";
 import AccountManagement from "../../app/account";
 import { fakeAuth } from "../mocks/authBackend";
 import { entitlement_of, fakeSubscriptions, TWO_WEEK_TRIAL_PLAN } from "../mocks/subscriptionService";
@@ -28,30 +27,15 @@ it("an expired subscriber can reach account management from the paywall and dele
   expect(await load_account_preferences("test-user")).toBeNull();
 });
 
-it("shows all six Votic Plus benefits and markets AI usage without credit counts", async () => {
-  expect(PLUS_BENEFITS).toHaveLength(6);
-  for (const feature of PLUS_BENEFITS) expect(feature.detail.length).toBeLessThanOrEqual(80);
+it("compares Free and Plus with credit limits, checks, and the Plus trial", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  expect(screen.getByRole("header", { name: "Make more of every document." })).toBeTruthy();
-  expect(screen.getByText("Your AI-powered reading companion.")).toBeTruthy();
-  for (const title of [
-    "Read and listen to your documents",
-    "Ask AI about your documents",
-    "AI-powered summaries",
-    "Save notes and bookmarks",
-    "Import almost anything",
-    "Generous monthly AI usage",
-  ])
-    expect(screen.getByText(title)).toBeTruthy();
-  // Each benefit starts with a check mark, and screen readers hear that it's included.
-  const benefits = screen.getByLabelText("Included with Votic Plus");
-  expect(within(benefits).getAllByTestId("benefit-check", { includeHiddenElements: true })).toHaveLength(6);
-  for (const benefit of PLUS_BENEFITS)
-    expect(screen.getByLabelText(`${benefit.title}. ${benefit.detail} Included.`)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Play voice preview" })).toBeNull();
-  expect(screen.queryByText(/credit/i)).toBeNull();
-  expect(screen.queryByText(/1,000|1000/)).toBeNull();
-  expect(screen.queryByText(/Pro\b/)).toBeNull();
+  expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
+  expect(screen.getByText("Free: ✓ 100")).toBeTruthy();
+  expect(screen.getByText("Free: ✓ Up to 5")).toBeTruthy();
+  expect(screen.getByText("Free: − Not included")).toBeTruthy();
+  expect(screen.getByText("Plus: ✓ Store offer")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Continue with Votic Free" })).toBeTruthy();
 });
 
 it("shows the store's localized price and billing period, never a hardcoded one", async () => {
@@ -113,8 +97,7 @@ it("shows the full annual charge once annual is chosen, and buys exactly that pl
   expect(screen.getByText(/^Equivalent to \$5\.00\/month, billed yearly\. Save 49% compared/)).toBeTruthy();
   expect(screen.getByText(/renews automatically at \$59\.99 per year/)).toBeTruthy();
   expect(screen.getByText("Same Votic Plus features on either plan.")).toBeTruthy();
-  for (const title of ["Ask AI about your documents", "Generous monthly AI usage"])
-    expect(screen.getByText(title)).toBeTruthy();
+  expect(screen.getByText("Monthly AI credits")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $59.99/year" }));
   expect(fakeSubscriptions.calls).toContain("purchase:$rc_annual");
   expect(fakeSubscriptions.calls).not.toContain("purchase:$rc_monthly");
@@ -180,16 +163,14 @@ it("shows billing before the checklist, without a preview, and keeps renewal ter
   expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
   expect(
-    screen.getByText(
-      "A subscription is required to read, listen to, and ask questions about your documents.",
-    ),
+    screen.getByText(/Choose Votic Free or upgrade to Votic Plus/),
   ).toBeTruthy();
-  expect(screen.getByText("Get answers grounded in what you're reading, typed or spoken.")).toBeTruthy();
+  expect(screen.getByText("Read, listen, and keep notes")).toBeTruthy();
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
   const headers = screen.getAllByRole("header");
   expect(headers.indexOf(screen.getByRole("header", { name: "Votic Plus" }))).toBeLessThan(
-    headers.indexOf(screen.getByRole("header", { name: "Included with Votic Plus" })),
+    headers.indexOf(screen.getByRole("header", { name: "Compare Free and Plus" })),
   );
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
   // The full "then $9.99/month" sentence appears once, above the button.
@@ -302,7 +283,7 @@ it("shows the whole paywall at once with Reduce Motion", async () => {
   expect(visible_opacity(screen.getByRole("header", { name: "Make more of every document." }) as never)).toBe(
     1,
   );
-  expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
+  expect(visible_opacity(screen.getByText("Monthly AI credits") as never)).toBe(1);
 });
 
 it("shows the whole paywall at once without Reduce Motion too, with no entrance animation", async () => {
@@ -311,7 +292,7 @@ it("shows the whole paywall at once without Reduce Motion too, with no entrance 
   expect(visible_opacity(screen.getByRole("header", { name: "Make more of every document." }) as never)).toBe(
     1,
   );
-  expect(visible_opacity(screen.getByText("Generous monthly AI usage") as never)).toBe(1);
+  expect(visible_opacity(screen.getByText("Monthly AI credits") as never)).toBe(1);
 });
 
 it("offers beta testers the founder lifetime purchase, and welcomes a new founder", async () => {

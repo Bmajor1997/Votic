@@ -14,7 +14,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { AppState } from "react-native";
+import { AppState, Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { useVoticTheme } from "../theme/ThemeProvider";
 import { DocumentOrigin, SavedPassage, VoticDocument } from "./types";
 import { create_document_store, load_collections, save_collections } from "./documentStorage";
 import { create_throttled_saver } from "./throttledSaver";
@@ -22,8 +24,10 @@ import { strip_file_extension } from "./fileTypes";
 import { split_passages } from "./passages";
 import { progress_for_location } from "../reader/readerText";
 import { account_writable } from "../storage/accountDeletion";
+import { useSubscription } from "../subscription/SubscriptionProvider";
 
 const LIBRARY_SAVE_INTERVAL_MS = 1000;
+export class FreeDocumentLimitError extends Error {}
 const LIBRARY_SAVE_ERROR =
   "Votic could not save your library changes. Keep Votic open and try the change again.";
 const COLLECTIONS_SAVE_ERROR =
@@ -86,6 +90,9 @@ function title_from(sourceName: string, text: string) {
 
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
+  const { access, checking } = useSubscription();
+  const { theme } = useVoticTheme();
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
   const setDocuments = useCallback(
@@ -229,6 +236,11 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     if (existing?.deletedAt)
       throw new Error("This scan was already saved and deleted. Restore it from Recently Deleted.");
     if (existing) return existing;
+    if (!access && latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5) {
+      setShowUpgrade(true);
+      throw new FreeDocumentLimitError("Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.");
+    }
+    if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
     const now = Date.now();
     const document: VoticDocument = {
       id: options.importId || "doc-" + now + "-" + Math.random().toString(36).slice(2, 8),
@@ -539,9 +551,32 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       }}
     >
       {children}
+      <Modal visible={showUpgrade} transparent animationType="fade" onRequestClose={() => setShowUpgrade(false)}>
+        <View style={upgradeStyles.backdrop}>
+          <View accessibilityViewIsModal style={[upgradeStyles.card, { backgroundColor: theme.surface }]}>
+            <Text accessibilityRole="header" style={[upgradeStyles.title, { color: theme.text }]}>Your Free library is full</Text>
+            <Text style={[upgradeStyles.body, { color: theme.text }]}>Votic Free includes five saved documents. Upgrade to Votic Plus to add more, or remove a document to make room. Your existing documents and notes remain available.</Text>
+            <Pressable accessibilityRole="button" onPress={() => { setShowUpgrade(false); router.push("/paywall"); }} style={[upgradeStyles.button, { backgroundColor: theme.accent }]}>
+              <Text style={upgradeStyles.buttonText}>Compare Votic Plus</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setShowUpgrade(false)} style={upgradeStyles.button}>
+              <Text style={{ color: theme.text }}>Not now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </C.Provider>
   );
 }
+
+const upgradeStyles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "center", padding: 24 },
+  card: { width: "100%", maxWidth: 460, alignSelf: "center", borderRadius: 20, padding: 24, gap: 16 },
+  title: { fontSize: 21, fontWeight: "700" },
+  body: { fontSize: 16, lineHeight: 24 },
+  button: { minHeight: 48, justifyContent: "center", alignItems: "center", padding: 12, borderRadius: 12 },
+  buttonText: { color: "white", fontWeight: "700" },
+});
 
 export function useDocumentLibrary() {
   const context = useContext(C);

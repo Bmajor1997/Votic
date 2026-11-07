@@ -1,4 +1,4 @@
-export type AllowanceNotice = { resetsAt: string };
+export type AllowanceNotice = { resetsAt: string; code?: string };
 /** The monthly credit allowance (AI_CREDITS_EXHAUSTED) and the server's provider safeguard share one notice. */
 const ALLOWANCE_CODES = ["AI_CREDITS_EXHAUSTED", "AI_MONTHLY_ALLOWANCE"];
 type Listener = (notice: AllowanceNotice) => void;
@@ -18,7 +18,7 @@ export function allowance_notifier() {
     const date = Date.parse(result.resetsAt);
     if (!Number.isFinite(date)) return;
     for (const listener of started)
-      if (listeners.has(listener)) listener({ resetsAt: new Date(date).toISOString() });
+      if (listeners.has(listener)) listener({ resetsAt: new Date(date).toISOString(), code: String(result.code) });
   };
 }
 

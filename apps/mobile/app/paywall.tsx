@@ -88,7 +88,7 @@ function useFounderProduct(subscription: ReturnType<typeof useSubscription>, att
 function subscriptionNotice(subscription: ReturnType<typeof useSubscription>) {
   const { entitlement, checking, service } = subscription;
   if (entitlement.status === "expired")
-    return "Your Votic Plus subscription has ended. Subscribe again to keep reading with Votic.";
+    return "Your Votic Plus subscription has ended. Your documents and notes are still available with Votic Free.";
   if (entitlement.status === "unknown" && !service.unavailableReason && !checking)
     return "Votic couldn't confirm your subscription. If you already subscribed, tap Restore Purchases.";
   return null;
@@ -170,6 +170,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             detail: "Welcome to Votic Plus. Your library is ready.",
           });
           subscription.setEntitlement(outcome.entitlement);
+          router.replace("/(tabs)");
         } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
@@ -206,6 +207,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           subscription.setEntitlement(outcome.entitlement);
           // Lets Votic's server confirm the purchase with the store and count the founder spot.
           void subscription.refresh().catch(() => {});
+          router.replace("/(tabs)");
         } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
@@ -238,6 +240,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           detail: "Your Votic Plus subscription is restored.",
         });
         subscription.setEntitlement(restored);
+        router.replace("/(tabs)");
       } else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
       else
@@ -346,9 +349,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ) : null}
         {shown.length === 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
         <Text style={[p.detail, { color: theme.text }]}>
-          A subscription is required to read, listen to, and ask questions about your documents.
+          Choose Votic Free or upgrade to Votic Plus. The trial, when offered by your store, applies to Plus only.
         </Text>
         {inlineCheckout ? checkout : null}
+        <SecondaryButton label={subscription.access ? "Continue to Votic" : "Continue with Votic Free"} disabled={working} onPress={() => router.replace("/(tabs)")} />
 
         <PaywallBenefits />
         {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}

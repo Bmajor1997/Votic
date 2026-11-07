@@ -303,8 +303,8 @@ describe("Votic Plus", () => {
     await render_paywall();
     expect(screen.getByRole("header", { name: "Make more of every document." })).toBeTruthy();
     expect(screen.getByText("Try Votic Plus free for 2 weeks")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "Included with Votic Plus" })).toBeTruthy();
-    expect(screen.getByLabelText(/^Ask AI about your documents\. /)).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
+    expect(screen.getByText("Monthly AI credits")).toBeTruthy();
     expect(
       screen.getByText(
         /2 weeks free, then \$9.99\/month. Auto-renews. Cancel anytime in (App Store|Google Play)/,
@@ -424,8 +424,7 @@ describe("Votic is ready for you", () => {
       </>,
       NOT_HANDED_OFF,
     );
-    expect(screen.queryByRole("button", { name: "Start using Votic" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "See Votic Plus" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
     expect(screen.getByTestId("handoff").props.children).toBe("true");
     expect(screen.getByTestId("access").props.children).toBe("false:none");
     await waitFor(async () => expect((await load_account_setup("test-user"))?.completedAt).toBeTruthy());
@@ -551,7 +550,7 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByLabelText("Your reading. Large text · system font")).toBeTruthy();
   expect(screen.getByLabelText("Your listening. Device voice · 1.5× · no highlighting")).toBeTruthy();
   expect(screen.getByLabelText("Your explanations. Simple")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "See Votic Plus" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Start using Votic" })).toBeTruthy();
 });
 
 it("goes straight to email sign-in, without repeating Continue with Google from Welcome", async () => {

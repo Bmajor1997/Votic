@@ -15,6 +15,20 @@ const purchase = (db, uid, transaction, credits, revoked = 0) => db.prepare("INS
   .run(`evt-${transaction}`, uid, transaction, "credits", credits, new Date().toISOString(), revoked);
 const exhausted = (error) => error instanceof AiLimitError && error.code === "AI_CREDITS_EXHAUSTED" && error.status === 429;
 
+test("free and Plus transitions preserve spent credits and change the allowance without a second grant", () => {
+  const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
+  const free = credits.period("u", {}, 100);
+  credits.reserve({ uid: "u", request_id: "free-use", feature: "help", credits: 40, period: free });
+  credits.charge("free-use");
+  const plus = credits.period("u", subscriber("2026-11-05T00:00:00Z", "2026-12-05T00:00:00Z"), 1000);
+  assert.equal(credits.summary("u", plus).remaining, 960);
+  const downgraded = credits.period("u", {}, 100);
+  assert.equal(credits.summary("u", downgraded).remaining, 60);
+  credits.reserve({ uid: "u", request_id: "remaining", feature: "help", credits: 60, period: downgraded });
+  credits.charge("remaining");
+  assert.throws(() => credits.reserve({ uid: "u", request_id: "excess", feature: "help", credits: 1, period: downgraded }), exhausted);
+});
+
 test("percent remaining rounds down, never exceeds 100 and never goes below 0", () => {
   assert.equal(percent_remaining(1000, 0), 100);
   assert.equal(percent_remaining(1000, 10), 99);

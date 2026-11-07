@@ -61,13 +61,16 @@ test("unauthenticated and unverifiable requests never get a percentage", async (
   });
 });
 
-test("expired or absent subscriptions report not-subscribed and can't spend AI", async () => {
+test("expired or absent subscriptions receive the Free allowance and pay the standard credit cost", async () => {
   for (const entitlement of [{ purchase_date: "2026-01-01T00:00:00Z", expires_date: "2026-02-01T00:00:00Z" }, null]) {
     let calls = 0;
-    await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(answer("x")); } }, async ({ post }) => {
-      assert.deepEqual((await ai_usage(post)).body, { status: "not-subscribed", plan: null, monthly: null, purchased: { remaining: 0 }, purchaseProducts: [] });
-      assert.equal((await post("/api/help", { question: "How?", document })).status, 403);
-      assert.equal(calls, 0);
+    await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
+      const initial = (await ai_usage(post)).body;
+      assert.equal(initial.plan.name, "Votic Free");
+      assert.equal(initial.monthly.allowance, 100);
+      assert.equal((await post("/api/help", { question: "How?", document })).status, 200);
+      assert.equal((await ai_usage(post)).body.monthly.used, 2);
+      assert.equal(calls, 1);
     });
   }
 });
@@ -191,15 +194,18 @@ test("annual subscribers see this month's allowance and its monthly reset, not t
   });
 });
 
-test("an expired or refunded annual subscription stops AI and its allowance", async () => {
+test("an expired or refunded annual subscription moves to the Free allowance", async () => {
   // RevenueCat removes the entitlement on refund; expiry passes the end date. Each state is a fresh server so
   // the one-minute confirmed-subscriber cache can't carry the earlier answer over.
   for (const entitlement of [null, { purchase_date: "2025-01-31T10:00:00Z", expires_date: "2026-01-31T10:00:00Z" }]) {
     let calls = 0;
     await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
-      assert.deepEqual((await ai_usage(post)).body, { status: "not-subscribed", plan: null, monthly: null, purchased: { remaining: 0 }, purchaseProducts: [] });
-      assert.equal((await post("/api/help", { question: "Q?", document })).status, 403);
+      const usage = (await ai_usage(post)).body;
+      assert.equal(usage.plan.name, "Votic Free");
+      assert.equal(usage.monthly.allowance, 100);
+      assert.equal((await post("/api/help", { question: "Q?", document })).status, 200);
+      assert.equal((await ai_usage(post)).body.monthly.used, 2);
     });
-    assert.equal(calls, 0);
+    assert.equal(calls, 1);
   }
 });

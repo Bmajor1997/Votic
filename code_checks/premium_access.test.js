@@ -68,18 +68,14 @@ async function with_server(options, run) {
   finally { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); }
 }
 
-test("every Premium endpoint denies an authenticated unpaid account before processing or spending AI", async () => {
-  let work = 0;
-  await with_server({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(undefined) }),
-    fetchImpl: async () => { work++; throw new Error("must not send AI"); },
-    extractDocument: async () => { work++; return "must not extract"; },
-  }, async (base) => {
-    for (const path of ["extract", "import-url", "scan", "voice-question-status", "transcribe-question", "help", "review"]) {
-      const response = await fetch(`${base}/api/${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "Help", uid: "paid-account", premium: true }) });
-      assert.equal(response.status, 403, path);
-      assert.match((await response.json()).error, /Votic Plus subscription is required/);
-    }
-    assert.equal(work, 0);
+test("an unpaid signed-in account receives Free access without a Plus entitlement", async () => {
+  await with_server({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(undefined) }) }, async (base) => {
+    const access = await fetch(`${base}/api/access`, { method: "POST" });
+    assert.equal((await access.json()).allowed, false);
+    const response = await fetch(`${base}/api/ai-usage`, { method: "POST" });
+    const usage = await response.json();
+    assert.equal(usage.plan.name, "Votic Free");
+    assert.equal(usage.monthly.allowance, 100);
   });
 });
 
