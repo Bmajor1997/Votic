@@ -35,7 +35,19 @@ it("compares Free and Plus with credit limits, checks, and the Plus trial", asyn
   expect(screen.getByLabelText(/Saved documents\. Free: ✓ Up to 5/)).toBeTruthy();
   expect(screen.queryByText("Free: − Not included")).toBeNull();
   expect(screen.queryByText("Plus: ✓ Store offer")).toBeNull();
-  expect(screen.getByRole("button", { name: "Continue with Votic Free" })).toBeTruthy();
+  expect(
+    screen.getByLabelText(/Notes and bookmarks\. Free: ✓ Up to 25 combined\. Plus: ✓ No set limit/),
+  ).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Votic Free" }));
+  expect(router.back).toHaveBeenCalled();
+});
+
+it("continuing with Votic Free opens the app when the paywall is the first screen", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  router.canGoBack.mockReturnValue(false);
+  await render_with_providers(<Paywall />);
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Votic Free" }));
+  expect(router.replace).toHaveBeenCalledWith("/(tabs)");
 });
 
 it("shows the store's localized price and billing period, never a hardcoded one", async () => {
@@ -89,7 +101,10 @@ it("offers monthly and annual billing side by side, starting on monthly, and hid
 });
 
 it("promotes the trial only for the store-eligible selected Plus plan", async () => {
-  fakeSubscriptions.reset({ plans: [{ ...MONTH, trial: { count: 2, unit: "week" } }, YEAR], defaultEntitlement: entitlement_of("none") });
+  fakeSubscriptions.reset({
+    plans: [{ ...MONTH, trial: { count: 2, unit: "week" } }, YEAR],
+    defaultEntitlement: entitlement_of("none"),
+  });
   await render_with_providers(<Paywall />);
   expect(screen.getByRole("header", { name: "Try Votic Plus free for 2 weeks" })).toBeTruthy();
   await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
@@ -170,9 +185,7 @@ it("shows comparison before billing, without a preview, and keeps renewal terms 
   // No numbered sections, no jump button and no extra "make it yours" block.
   expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
-  expect(
-    screen.getByText(/Choose Votic Free or upgrade to Votic Plus/),
-  ).toBeTruthy();
+  expect(screen.getByText(/Choose Votic Free or upgrade to Votic Plus/)).toBeTruthy();
   expect(screen.getByText("Read and listen")).toBeTruthy();
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
@@ -185,7 +198,7 @@ it("shows comparison before billing, without a preview, and keeps renewal terms 
   expect(screen.getAllByText(/2 weeks free, then \$9\.99\/month/)).toHaveLength(1);
   // Questions stay closed until asked for, and still explain cancelling.
   expect(screen.queryByText("How do I cancel?")).toBeNull();
-  await fireEvent.press(screen.getByRole("button", { name: "Subscription questions" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Questions about plans" }));
   expect(screen.getByText("How do I cancel?")).toBeTruthy();
   expect(screen.getByText(/unused usage doesn't carry over/)).toBeTruthy();
 });
@@ -288,18 +301,14 @@ function visible_opacity(element: { parent: unknown; props: { style?: unknown } 
 it("shows the whole paywall at once with Reduce Motion", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />, { reduceMotion: true });
-  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(
-    1,
-  );
+  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(1);
   expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
 });
 
 it("shows the whole paywall at once without Reduce Motion too, with no entrance animation", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(
-    1,
-  );
+  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(1);
   expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
 });
 

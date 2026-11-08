@@ -29,7 +29,13 @@ export function useUsageLimitNotice() {
       const stop = subscribe_allowance_notice((next) => {
         if (
           homeEntrance.key() === generation &&
-          ((!access && ["AI_CREDITS_EXHAUSTED", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED", "FREE_PDF_PLUS_REQUIRED"].includes(next.code ?? "")) ||
+          ((!access &&
+            [
+              "AI_CREDITS_EXHAUSTED",
+              "FREE_SUMMARIES_EXHAUSTED",
+              "FREE_SCANS_EXHAUSTED",
+              "FREE_PDF_PLUS_REQUIRED",
+            ].includes(next.code ?? "")) ||
             claim_allowance_notice(homeEntrance, generation, next.resetsAt))
         )
           setState({ owner: homeEntrance, generation, notice: next });
@@ -66,47 +72,64 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
   const { theme } = useVoticTheme();
   const { access, checking } = useSubscription();
   if (!notice) return null;
-  const offer = !access && !checking && ["AI_CREDITS_EXHAUSTED", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED", "FREE_PDF_PLUS_REQUIRED"].includes(notice.code ?? "");
-  const reason = notice.code === "FREE_SUMMARIES_EXHAUSTED" ? "summaries" : notice.code === "FREE_SCANS_EXHAUSTED" ? "scans" : notice.code === "FREE_PDF_PLUS_REQUIRED" ? "pdf" : "credits";
+  const offer =
+    !access &&
+    !checking &&
+    [
+      "AI_CREDITS_EXHAUSTED",
+      "FREE_SUMMARIES_EXHAUSTED",
+      "FREE_SCANS_EXHAUSTED",
+      "FREE_PDF_PLUS_REQUIRED",
+    ].includes(notice.code ?? "");
+  const reason =
+    notice.code === "FREE_SUMMARIES_EXHAUSTED"
+      ? "summaries"
+      : notice.code === "FREE_SCANS_EXHAUSTED"
+        ? "scans"
+        : notice.code === "FREE_PDF_PLUS_REQUIRED"
+          ? "pdf"
+          : "credits";
   return (
     <>
-    {offer ? <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} onClose={dismiss} /> : null}
-    <View
-      testID="ai-usage-notice"
-      style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-    >
-      <View style={s.row}>
-        <Text accessibilityLiveRegion="polite" style={[s.detail, s.copy, s.heading, { color: theme.text }]}>
-          You&apos;ve used this month&apos;s AI usage. It renews{" "}
-          {new Date(notice.resetsAt).toLocaleDateString(undefined, {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
-          .
+      {offer ? (
+        <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} onClose={dismiss} />
+      ) : null}
+      <View
+        testID="ai-usage-notice"
+        style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+      >
+        <View style={s.row}>
+          <Text accessibilityLiveRegion="polite" style={[s.detail, s.copy, s.heading, { color: theme.text }]}>
+            You&apos;ve used this month&apos;s AI usage. It renews{" "}
+            {new Date(notice.resetsAt).toLocaleDateString(undefined, {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+            })}
+            .
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss AI usage notice"
+            onPress={dismiss}
+            style={s.dismiss}
+          >
+            <Ionicons name="close" size={20} color={theme.mutedText} accessible={false} />
+          </Pressable>
+        </View>
+        <Text style={[s.detail, { color: theme.mutedText }]}>
+          Reading, listening, and your notes keep working as usual.
         </Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Dismiss AI usage notice"
-          onPress={dismiss}
-          style={s.dismiss}
+          accessibilityLabel="AI Usage"
+          accessibilityHint="Shows your monthly AI usage and any options for more. Opening it doesn't buy anything."
+          onPress={() => router.push("/ai-usage")}
+          style={s.link}
         >
-          <Ionicons name="close" size={20} color={theme.mutedText} accessible={false} />
+          <Text style={[s.linkText, { color: theme.accentText }]}>See AI Usage</Text>
         </Pressable>
       </View>
-      <Text style={[s.detail, { color: theme.mutedText }]}>
-        Reading, listening, and your notes keep working as usual.
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="AI Usage"
-        accessibilityHint="Shows your monthly AI usage and any options for more. Opening it doesn't buy anything."
-        onPress={() => router.push("/ai-usage")}
-        style={s.link}
-      >
-        <Text style={[s.linkText, { color: theme.accentText }]}>See AI Usage</Text>
-      </Pressable>
-    </View>
     </>
   );
 }

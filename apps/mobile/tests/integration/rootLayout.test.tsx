@@ -105,13 +105,17 @@ describe("root navigation", () => {
     await screen.unmount();
     stackScreens.length = 0;
     expect((await render_layout())[0]).toBe("(tabs)");
-    expect(await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial")))).toEqual(APP);
+    expect(
+      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
+    ).toEqual(APP);
   });
 
   it("keeps library screens accessible when Plus expires", async () => {
     await seed_storage({});
     expect(await render_layout()).toEqual(APP);
-    expect(await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired")))).toEqual(APP);
+    expect(
+      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired"))),
+    ).toEqual(APP);
   });
 
   it("allows Free access when a subscription cannot be confirmed", async () => {

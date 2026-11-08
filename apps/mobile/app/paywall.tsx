@@ -98,6 +98,40 @@ function subscriptionNotice(subscription: ReturnType<typeof useSubscription>) {
  * Votic Plus. Nothing on this screen grants access by itself: access starts only when RevenueCat confirms
  * an active entitlement (a free trial counts) from the App Store or Google Play.
  */
+/** Back to where the person came from (an upgrade prompt or Settings), or into the app when the paywall is the first screen. */
+function leave() {
+  if (router.canGoBack()) router.back();
+  else router.replace("/(tabs)");
+}
+
+/** Names the trial above the billing choices when there is more than one plan to choose from. */
+function TrialHeading({
+  plans,
+  selected,
+}: {
+  plans: SubscriptionPlan[];
+  selected?: SubscriptionPlan | null;
+}) {
+  const { theme } = useVoticTheme();
+  if (plans.length < 2 || !selected?.trial) return null;
+  return (
+    <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.accentText }]}>
+      {offer_title(selected)}
+    </Text>
+  );
+}
+
+/** Leaves the paywall without buying: Free users keep Votic Free, subscribers go back to the app. */
+function ContinueButton({ subscribed, disabled }: { subscribed: boolean; disabled: boolean }) {
+  return (
+    <SecondaryButton
+      label={subscribed ? "Continue to Votic" : "Continue with Votic Free"}
+      disabled={disabled}
+      onPress={leave}
+    />
+  );
+}
+
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
@@ -331,11 +365,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
           Votic Plus
         </Text>
-        {shown.length > 1 && selected?.trial ? (
-          <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.accentText }]}>
-            {offer_title(selected)}
-          </Text>
-        ) : null}
+        <TrialHeading plans={shown} selected={selected} />
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
         ) : null}
@@ -355,10 +385,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         ) : null}
         {shown.length === 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
         <Text style={[p.detail, { color: theme.text }]}>
-          Choose Votic Free or upgrade to Votic Plus. The trial, when offered by your store, applies to Plus only.
+          Choose Votic Free or upgrade to Votic Plus. The trial, when offered by your store, applies to Plus
+          only.
         </Text>
         {inlineCheckout ? checkout : null}
-        <SecondaryButton label={subscription.access ? "Continue to Votic" : "Continue with Votic Free"} disabled={working} onPress={() => router.replace("/(tabs)")} />
+        <ContinueButton subscribed={subscription.access} disabled={working} />
 
         {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
 

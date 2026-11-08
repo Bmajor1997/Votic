@@ -30,7 +30,9 @@ export default function HandleShare() {
   const saveImported = useImportSave();
   const { ensureCanAddDocument } = useDocumentLibrary();
   const checkLimit = useRef(ensureCanAddDocument);
-  useEffect(() => { checkLimit.current = ensureCanAddDocument; }, [ensureCanAddDocument]);
+  useEffect(() => {
+    checkLimit.current = ensureCanAddDocument;
+  }, [ensureCanAddDocument]);
   const { ensureAvailable } = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();

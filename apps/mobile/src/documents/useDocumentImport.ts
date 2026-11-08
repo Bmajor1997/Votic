@@ -30,6 +30,19 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
   const [processingName, setProcessingName] = useState<string | null>(null);
   const [failure, setFailure] = useState<ImportFailure | null>(null);
 
+  /** Tells the person why an import failed; reaching the Free document limit already showed its own sheet. */
+  function report_failure(error: unknown, name: string | null) {
+    if (error instanceof FreeDocumentLimitError) return;
+    const message = error instanceof Error ? error.message : "Votic could not read this document.";
+    if (inlineErrors) setFailure({ name, message });
+    else if (error instanceof UnfinishedScanError)
+      Alert.alert("Finish your saved scan first", message, [
+        { text: "Not now", style: "cancel" },
+        { text: "Resume review", onPress: ocrReview.resume },
+      ]);
+    else Alert.alert("Could not import document", message);
+  }
+
   async function import_document() {
     const job = session.start();
     if (!job) return;
@@ -63,16 +76,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       const saved = await saveImported(asset.name, text, defaultPlaybackRate);
       if (saved && job.current()) open_from(sourceRef, transition);
     } catch (error) {
-      if (!job.current()) return;
-      if (error instanceof FreeDocumentLimitError) return;
-      const message = error instanceof Error ? error.message : "Votic could not read this document.";
-      if (inlineErrors) setFailure({ name, message });
-      else if (error instanceof UnfinishedScanError)
-        Alert.alert("Finish your saved scan first", message, [
-          { text: "Not now", style: "cancel" },
-          { text: "Resume review", onPress: ocrReview.resume },
-        ]);
-      else Alert.alert("Could not import document", message);
+      if (job.current()) report_failure(error, name);
     } finally {
       try {
         remove_import_temp(temporaryUri);

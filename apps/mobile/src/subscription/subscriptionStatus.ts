@@ -28,7 +28,7 @@ export function subscription_status(entitlement: Entitlement) {
     case "expired":
       return "Ended";
     case "none":
-      return "Not subscribed";
+      return "Votic Free";
     default:
       return "Status unavailable right now";
   }

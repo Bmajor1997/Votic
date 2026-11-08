@@ -398,17 +398,20 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     if (!message || message.role !== "votic" || message.saved) return;
     const { now, id } = answer_note_stamp();
     if (message.summary && !message.source) {
-      if (!addQuickNote({
-        id,
-        sentenceIndex: 0,
-        text: "",
-        note: message.text,
-        title: "Ask Votic conversation summary",
-        noteType: "key-point",
-        tags: ["votic", "summary"],
-        createdAt: now,
-        updatedAt: now,
-      })) return;
+      if (
+        !addQuickNote({
+          id,
+          sentenceIndex: 0,
+          text: "",
+          note: message.text,
+          title: "Ask Votic conversation summary",
+          noteType: "key-point",
+          tags: ["votic", "summary"],
+          createdAt: now,
+          updatedAt: now,
+        })
+      )
+        return;
       setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
       return;
     }

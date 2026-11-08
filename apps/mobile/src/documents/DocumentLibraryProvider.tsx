@@ -91,7 +91,10 @@ function title_from(sourceName: string, text: string) {
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const { uid, registerFlush, registerReload } = useAccountData();
   const { access, checking } = useSubscription();
-  const [showUpgrade, setShowUpgrade] = useState<{ uid: string | null; reason: "documents" | "notes" } | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState<{
+    uid: string | null;
+    reason: "documents" | "notes";
+  } | null>(null);
   const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
   const setDocuments = useCallback(
@@ -224,9 +227,14 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   );
 
   function ensure_can_add_document() {
-    if (!access && latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5) {
+    if (
+      !access &&
+      latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5
+    ) {
       setShowUpgrade({ uid, reason: "documents" });
-      throw new FreeDocumentLimitError("Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.");
+      throw new FreeDocumentLimitError(
+        "Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.",
+      );
     }
     if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
   }
@@ -342,14 +350,24 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function allow_note(documentId: string | undefined, passage: SavedPassage) {
     const live = latestDocuments.current.filter((document) => !document.deletedAt);
-    const existing = live.find((document) => document.id === documentId)?.savedPassages?.some((saved) => saved.id === passage.id && !saved.deletedAt);
-    const count = live.reduce((sum, document) => sum + (document.savedPassages || []).filter((saved) => !saved.deletedAt).length, 0);
-    if (!access && !existing && count >= 25) { setShowUpgrade({ uid, reason: "notes" }); return false; }
+    const existing = live
+      .find((document) => document.id === documentId)
+      ?.savedPassages?.some((saved) => saved.id === passage.id && !saved.deletedAt);
+    const count = live.reduce(
+      (sum, document) => sum + (document.savedPassages || []).filter((saved) => !saved.deletedAt).length,
+      0,
+    );
+    if (!access && !existing && count >= 25) {
+      setShowUpgrade({ uid, reason: "notes" });
+      return false;
+    }
     return true;
   }
 
   function add_quick_note(passage: SavedPassage) {
-    const notebook = latestDocuments.current.find((document) => !document.deletedAt && document.notebookKind === "quick-notes");
+    const notebook = latestDocuments.current.find(
+      (document) => !document.deletedAt && document.notebookKind === "quick-notes",
+    );
     if (!allow_note(notebook?.id, passage)) return false;
     setDocuments((current) => {
       const existing = current.find(
@@ -568,7 +586,9 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       }}
     >
       {children}
-      {showUpgrade && showUpgrade.uid === uid ? <FreeUpgradeSheet visible reason={showUpgrade.reason} onClose={() => setShowUpgrade(null)} /> : null}
+      {showUpgrade && showUpgrade.uid === uid ? (
+        <FreeUpgradeSheet visible reason={showUpgrade.reason} onClose={() => setShowUpgrade(null)} />
+      ) : null}
     </C.Provider>
   );
 }
