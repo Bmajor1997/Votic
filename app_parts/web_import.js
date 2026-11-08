@@ -102,7 +102,7 @@ function page_chrome(node) {
     /(?:^|\s)(?:vector-page-toolbar|vector-header|vector-toc|mw-editsection|p-lang-btn|p-personal)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`) ||
     // Things a reader skips: citation lists and [1] markers, review/status boxes, short descriptions, fact boxes,
     // "For other uses…" notes, sidebars, navigation boxes, category links, and anything marked not for print.
-    /(?:^|\s)(?:breadcrumb|breadcrumbs|reflist|references|mw-cite-backlink|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|infobox[\w-]*|hatnote|sidebar[\w-]*|vertical-navbox|ambox[\w-]*|toc|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link|mw-empty-elt)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
+    /(?:^|\s)(?:breadcrumb|breadcrumbs|reflist|references|mw-cite-backlink|mw-references-wrap|mw-fr-[\w-]+|flaggedrevs[\w-]*|mw-indicators|shortdescription|infobox[\w-]*|hatnote|sidebar[\w-]*|vertical-navbox|ambox[\w-]*|toc|navbox[\w-]*|catlinks|printfooter|noprint|metadata|mw-jump-link|mw-empty-elt|pg-boilerplate|skip-link|skiplink|visually-hidden|sr-only|back-to-top|utility-nav|site-header|site-footer)(?:\s|$)/i.test(`${attrs.get("id") || ""} ${attrs.get("class") || ""}`);
 }
 /** Back-matter headings. Everything after one is citations and links, not something to read aloud. */
 const BACK_MATTER = /^(?:references|citations|footnotes|bibliography|works cited|further reading|external links)$/i;
@@ -135,6 +135,36 @@ function find_tags(node, tag, found = []) {
 }
 function find_tag(node, tag) {
   return find_tags(node, tag)[0] || null;
+}
+const attr = (node, name) => (node.attrs || []).find((item) => item.name === name)?.value;
+/** The page's main content when it's marked by role or a conventional id rather than a <main> element. */
+function marked_main(node) {
+  if (attr(node, "role") === "main" || /^(?:main-content|maincontent|main|content|primary)$/i.test(attr(node, "id") || ""))
+    return node;
+  if (page_chrome(node)) return null;
+  for (const child of node.childNodes || []) {
+    const found = marked_main(child);
+    if (found) return found;
+  }
+  return null;
+}
+/**
+ * With no article or main region, a site's header (logo text, utility links, section names) comes before the page
+ * title. Reading starts at the first <h1> when there is one, so the document opens with its title.
+ */
+function from_first_heading(region) {
+  const h1 = find_tag(region, "h1");
+  if (!h1) return region;
+  const path = new Set();
+  for (let node = h1; node && node !== region; node = node.parentNode) path.add(node);
+  // At each level on the way down to the <h1>, keep only what comes from that branch onward.
+  const trim = (node) => {
+    const start = (node.childNodes || []).findIndex((child) => path.has(child));
+    if (start < 0) return node;
+    const children = node.childNodes.slice(start).map((child) => (path.has(child) ? trim(child) : child));
+    return { ...node, childNodes: children };
+  };
+  return trim(region);
 }
 function plain_text(node) {
   if (node.nodeName === "#text") return node.value;
@@ -186,7 +216,8 @@ function readable_text(node, state = { ended: false, chars: 0, run: new Set() },
   if (["td", "th"].includes(node.tagName)) return `${text} `;
   return BLOCK_TAGS.has(node.tagName) ? `${PARAGRAPH}${text}${PARAGRAPH}` : text;
 }
-const CLUTTER = /^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|jump to content)$/i;
+const CLUTTER =
+  /^(cookie|accept all|privacy settings|sign up|subscribe|advertisement|skip to content|skip to main content|skip navigation|jump to content|top|back to top|print|print this page|share|share this page|bookmark\/share)$/i;
 /** Paragraphs separated by a blank line; a single <br> stays a line break inside its paragraph. */
 function structured_text(source) {
   return source
@@ -231,7 +262,8 @@ export function clean_webpage_html(html) {
   // The longest article is the story; teasers and related posts are shorter.
   const articles = find_tags(document, "article").map((node) => [node, readable_text(node).trim().length]);
   const article = articles.sort((a, b) => b[1] - a[1])[0]?.[0];
-  const region = article || find_tag(document, "main") || find_tag(document, "body") || document;
+  const main = find_tag(document, "main") || marked_main(document);
+  const region = article || main || from_first_heading(find_tag(document, "body") || document);
   const text = structured_text(readable_text(region, { ended: false, chars: 0, run: back_matter_run(region) }));
   if (text.length > 400_000) throw new WebImportError("That webpage contains too much text to import completely.");
   return { title, text };
