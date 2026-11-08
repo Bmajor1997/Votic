@@ -33,15 +33,34 @@ it("keeps existing notes editable and blocks a 26th Free note", async () => {
   let library: ReturnType<typeof useDocumentLibrary>;
   function Probe() {
     library = useDocumentLibrary();
-    return <Text>{library.loaded ? `Notes: ${library.documents.flatMap((d) => d.savedPassages || []).length}` : "Loading"}</Text>;
+    return (
+      <Text>
+        {library.loaded
+          ? `Notes: ${library.documents.flatMap((d) => d.savedPassages || []).length}`
+          : "Loading"}
+      </Text>
+    );
   }
   await render_with_providers(<Probe />);
   await waitFor(() => expect(screen.getByText("Notes: 0")).toBeTruthy());
-  const note = (id: string) => ({ id, text: "", note: "A note", sentenceIndex: 0, createdAt: 1, updatedAt: 1 });
-  await act(() => { for (let i = 0; i < 25; i++) expect(library.addQuickNote(note(String(i)))).toBe(true); });
+  const note = (id: string) => ({
+    id,
+    text: "",
+    note: "A note",
+    sentenceIndex: 0,
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await act(() => {
+    for (let i = 0; i < 25; i++) expect(library.addQuickNote(note(String(i)))).toBe(true);
+  });
   expect(screen.getByText("Notes: 25")).toBeTruthy();
-  await act(() => { expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true); });
-  await act(() => { expect(library.addQuickNote(note("26"))).toBe(false); });
+  await act(() => {
+    expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true);
+  });
+  await act(() => {
+    expect(library.addQuickNote(note("26"))).toBe(false);
+  });
   expect(screen.getByRole("header", { name: "Keep more notes and bookmarks" })).toBeTruthy();
   expect(screen.getByText("Notes: 25")).toBeTruthy();
 });
@@ -49,12 +68,24 @@ it("keeps existing notes editable and blocks a 26th Free note", async () => {
 it("lets Plus save more than 25 notes", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("active") });
   let library: ReturnType<typeof useDocumentLibrary>;
-  function Probe() { library = useDocumentLibrary(); return <Text>{library.loaded ? "Ready" : "Loading"}</Text>; }
+  function Probe() {
+    library = useDocumentLibrary();
+    return <Text>{library.loaded ? "Ready" : "Loading"}</Text>;
+  }
   await render_with_providers(<Probe />);
   await waitFor(() => expect(screen.getByText("Ready")).toBeTruthy());
   await act(() => {
     for (let i = 0; i < 26; i++)
-      expect(library.addQuickNote({ id: String(i), text: "", note: "Note", sentenceIndex: 0, createdAt: 1, updatedAt: 1 })).toBe(true);
+      expect(
+        library.addQuickNote({
+          id: String(i),
+          text: "",
+          note: "Note",
+          sentenceIndex: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        }),
+      ).toBe(true);
   });
   expect(screen.queryByRole("header", { name: "Keep more notes and bookmarks" })).toBeNull();
 });
@@ -62,14 +93,36 @@ it("lets Plus save more than 25 notes", async () => {
 it("keeps existing notes after Plus ends and prevents new ones", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("active") });
   let library: ReturnType<typeof useDocumentLibrary>;
-  function Probe() { library = useDocumentLibrary(); return <Text>{library.loaded ? `Notes: ${library.documents.flatMap(d => d.savedPassages || []).length}` : "Loading"}</Text>; }
+  function Probe() {
+    library = useDocumentLibrary();
+    return (
+      <Text>
+        {library.loaded
+          ? `Notes: ${library.documents.flatMap((d) => d.savedPassages || []).length}`
+          : "Loading"}
+      </Text>
+    );
+  }
   await render_with_providers(<Probe />);
   await waitFor(() => expect(screen.getByText("Notes: 0")).toBeTruthy());
-  const note = (id: string) => ({ id, text: "", note: "A note", sentenceIndex: 0, createdAt: 1, updatedAt: 1 });
-  await act(() => { for (let i = 0; i < 26; i++) expect(library.addQuickNote(note(String(i)))).toBe(true); });
+  const note = (id: string) => ({
+    id,
+    text: "",
+    note: "A note",
+    sentenceIndex: 0,
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await act(() => {
+    for (let i = 0; i < 26; i++) expect(library.addQuickNote(note(String(i)))).toBe(true);
+  });
   await act(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired")));
   expect(screen.getByText("Notes: 26")).toBeTruthy();
-  await act(() => { expect(library.addQuickNote(note("new"))).toBe(false); });
+  await act(() => {
+    expect(library.addQuickNote(note("new"))).toBe(false);
+  });
   expect(screen.getByText("Notes: 26")).toBeTruthy();
-  await act(() => { expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true); });
+  await act(() => {
+    expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true);
+  });
 });

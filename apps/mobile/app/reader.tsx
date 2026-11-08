@@ -825,12 +825,15 @@ function ReaderContent() {
       `votic-summary-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    if (!savePassage(note.documentId, {
-      ...note.passage,
-      title: "Ask Votic conversation summary",
-      noteType: "key-point",
-      tags: ["votic", "summary"],
-    })) return;
+    if (
+      !savePassage(note.documentId, {
+        ...note.passage,
+        title: "Ask Votic conversation summary",
+        noteType: "key-point",
+        tags: ["votic", "summary"],
+      })
+    )
+      return;
     setConversationSummary((current) => (current ? { ...current, saved: true } : current));
   }
 
@@ -852,12 +855,15 @@ function ReaderContent() {
       `votic-conversation-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    if (!savePassage(note.documentId, {
-      ...note.passage,
-      title: "Ask Votic conversation",
-      noteType: "note",
-      tags: ["votic", "conversation"],
-    })) return;
+    if (
+      !savePassage(note.documentId, {
+        ...note.passage,
+        title: "Ask Votic conversation",
+        noteType: "note",
+        tags: ["votic", "conversation"],
+      })
+    )
+      return;
     setConversationSaved(true);
   }
 
@@ -1183,12 +1189,15 @@ function ReaderContent() {
     const now = Date.now();
     const note = answer_note_for_source(documents, source, finishSummary.text, now, `votic-summary-${now}`);
     if (!note) return;
-    if (!savePassage(note.documentId, {
-      ...note.passage,
-      noteType: "key-point",
-      tags: ["votic", "summary"],
-      title: "Summary",
-    })) return;
+    if (
+      !savePassage(note.documentId, {
+        ...note.passage,
+        noteType: "key-point",
+        tags: ["votic", "summary"],
+        title: "Summary",
+      })
+    )
+      return;
     setFinishSummary({ ...finishSummary, saved: true });
   }
 
@@ -1238,18 +1247,21 @@ function ReaderContent() {
   function confirm_save_passage(draft: PassageDraft) {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
-    if (!savePassage(activeDocument.id, {
-      id: passageId,
-      sentenceIndex: index,
-      text: passages[index],
-      note: draft.note.trim(),
-      title: draft.title.trim() || undefined,
-      noteType: draft.noteType,
-      tags: clean_tags(draft.tags),
-      pinned: savedPassage?.pinned,
-      createdAt: savedPassage?.createdAt || now,
-      updatedAt: now,
-    })) return;
+    if (
+      !savePassage(activeDocument.id, {
+        id: passageId,
+        sentenceIndex: index,
+        text: passages[index],
+        note: draft.note.trim(),
+        title: draft.title.trim() || undefined,
+        noteType: draft.noteType,
+        tags: clean_tags(draft.tags),
+        pinned: savedPassage?.pinned,
+        createdAt: savedPassage?.createdAt || now,
+        updatedAt: now,
+      })
+    )
+      return;
     setSaveOpen(false);
     void flush()
       .then(() => showSaved("bookmark", activeDocument.title))

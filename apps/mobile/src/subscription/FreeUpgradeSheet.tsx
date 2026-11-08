@@ -7,50 +7,116 @@ import { BrandMark } from "../onboarding/WelcomeMotion";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 
-type Props = { visible: boolean; reason: "documents" | "notes" | "credits" | "summaries" | "scans" | "pdf"; resetsAt?: string; onClose: () => void };
+type Props = {
+  visible: boolean;
+  reason: "documents" | "notes" | "credits" | "summaries" | "scans" | "pdf";
+  resetsAt?: string;
+  onClose: () => void;
+};
+
+function reset_text(resetsAt?: string) {
+  if (!resetsAt) return "";
+  const date = new Date(resetsAt).toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  return ` They reset ${date}.`;
+}
+
+/** What the sheet says for each Free limit. */
+function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string; body: string } {
+  const reset = reset_text(resetsAt);
+  const copy: Record<Props["reason"], { title: string; body: string }> = {
+    documents: {
+      title: "Make room for more reading",
+      body: "You've reached the five saved documents included with Votic Free. Upgrade to save more, or remove a document to make room.",
+    },
+    notes: {
+      title: "Keep more notes and bookmarks",
+      body: "You've reached the 25 notes and bookmarks included with Votic Free. Upgrade to save more, or remove one to make room.",
+    },
+    summaries: {
+      title: "Keep summarizing",
+      body: `You've used your five Free summaries this month.${reset}`,
+    },
+    scans: {
+      title: "Keep scanning",
+      body: `You've used your five Free camera scan pages this month.${reset}`,
+    },
+    pdf: { title: "Read your scanned PDF", body: "Scanned PDF reading is available with Votic Plus." },
+    credits: {
+      title: "Keep asking Votic",
+      body: `You've used your Free monthly AI credits.${reset} Upgrade for a larger monthly allowance.`,
+    },
+  };
+  return copy[reason];
+}
 
 /** An upgrade invitation; the next screen displays the store's plans and confirms the purchase. */
 export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
-  const reset = resetsAt ? new Date(resetsAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : null;
+  const copy = sheet_copy(reason, resetsAt);
   return (
-    <Modal visible={visible} transparent animationType={reduceMotion ? "none" : "slide"} statusBarTranslucent onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType={reduceMotion ? "none" : "slide"}
+      statusBarTranslucent
+      onRequestClose={onClose}
+    >
       <View style={s.backdrop}>
-        <View accessibilityViewIsModal style={[s.sheet, { backgroundColor: theme.background, paddingBottom: insets.bottom }]}>
+        <View
+          accessibilityViewIsModal
+          style={[s.sheet, { backgroundColor: theme.background, paddingBottom: insets.bottom }]}
+        >
           <View style={[s.grabber, { backgroundColor: theme.border }]} />
           <ScrollView contentContainerStyle={s.content}>
             <View style={s.top}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Close upgrade offer" onPress={onClose} style={[s.close, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close upgrade offer"
+                onPress={onClose}
+                style={[s.close, { borderColor: theme.border, backgroundColor: theme.surface }]}
+              >
                 <Ionicons name="close" size={22} color={theme.text} />
               </Pressable>
             </View>
-            <View style={s.mark}><BrandMark size={72} arrive /></View>
+            <View style={s.mark}>
+              <BrandMark size={72} arrive />
+            </View>
             <Text style={[s.eyebrow, { color: theme.accentText }]}>DISCOVER VOTIC PLUS</Text>
             <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              {reason === "documents" ? "Make room for more reading" : reason === "notes" ? "Keep more notes and bookmarks" : reason === "summaries" ? "Keep summarizing" : reason === "scans" ? "Keep scanning" : reason === "pdf" ? "Read your scanned PDF" : "Keep asking Votic"}
+              {copy.title}
             </Text>
-            <Text style={[s.body, { color: theme.mutedText }]}>
-              {reason === "documents"
-                ? "You've reached the five saved documents included with Votic Free. Upgrade to save more, or remove a document to make room."
-                : reason === "notes" ? "You've reached the 25 notes and bookmarks included with Votic Free. Upgrade to save more, or remove one to make room."
-                : reason === "pdf" ? "Scanned PDF reading is available with Votic Plus."
-                : reason === "summaries" ? `You've used your five Free summaries this month.${reset ? ` They reset ${reset}.` : ""}`
-                : reason === "scans" ? `You've used your five Free camera scan pages this month.${reset ? ` They reset ${reset}.` : ""}`
-                : `You've used your Free monthly AI credits.${reset ? ` They reset ${reset}.` : ""} Upgrade for a larger monthly allowance.`}
-            </Text>
+            <Text style={[s.body, { color: theme.mutedText }]}>{copy.body}</Text>
             <View style={[s.card, { backgroundColor: theme.brandTint, borderColor: theme.accent }]}>
               <Text style={[s.cardTitle, { color: theme.text }]}>More with Votic Plus</Text>
               <Text style={[s.cardText, { color: theme.text }]}>✓ Save more than five documents</Text>
               <Text style={[s.cardText, { color: theme.text }]}>✓ More monthly AI credits</Text>
-              <Text style={[s.cardText, { color: theme.text }]}>✓ Read, listen, and keep your notes</Text>
+              <Text style={[s.cardText, { color: theme.text }]}>✓ No set limit on notes and bookmarks</Text>
             </View>
-            <Text style={[s.terms, { color: theme.mutedText }]}>Your documents and notes remain available. See current prices and trial eligibility on the next screen.</Text>
-            <Pressable accessibilityRole="button" onPress={() => { onClose(); router.push("/paywall"); }} style={[s.button, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+            <Text style={[s.terms, { color: theme.mutedText }]}>
+              Your documents and notes remain available. See current prices and trial eligibility on the next
+              screen.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                onClose();
+                router.push("/paywall");
+              }}
+              style={[s.button, { backgroundColor: theme.accent, borderColor: theme.accent }]}
+            >
               <Text style={[s.buttonText, { color: theme.onAccent }]}>Subscribe to Votic Plus</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={onClose} style={[s.button, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose}
+              style={[s.button, { backgroundColor: theme.surface, borderColor: theme.border }]}
+            >
               <Text style={[s.buttonText, { color: theme.text }]}>Continue with Votic Free</Text>
             </Pressable>
           </ScrollView>
@@ -66,7 +132,14 @@ const s = StyleSheet.create({
   grabber: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, marginTop: 10 },
   content: { padding: 20, gap: 16, maxWidth: 560, width: "100%", alignSelf: "center" },
   top: { flexDirection: "row", justifyContent: "flex-end" },
-  close: { width: 48, height: 48, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  close: {
+    width: 48,
+    height: 48,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   mark: { alignItems: "center", marginTop: -16 },
   eyebrow: { fontSize: 13, fontWeight: "800", letterSpacing: 1.2, textAlign: "center" },
   title: { ...editorial, fontSize: 32, lineHeight: 40, textAlign: "center" },
@@ -75,6 +148,13 @@ const s = StyleSheet.create({
   cardTitle: { fontSize: 20, fontWeight: "800", textAlign: "center" },
   cardText: { fontSize: 16, lineHeight: 23 },
   terms: { fontSize: 14, lineHeight: 21, textAlign: "center" },
-  button: { minHeight: 56, borderRadius: 999, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 20 },
+  button: {
+    minHeight: 56,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 20,
+  },
   buttonText: { fontSize: 17, fontWeight: "800", textAlign: "center" },
 });

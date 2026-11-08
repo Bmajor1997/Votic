@@ -7,37 +7,6 @@ import { BrandMark } from "../onboarding/WelcomeMotion";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { paywallStyles as p } from "./paywallStyles";
 
-/**
- * The six Votic Plus benefits. Each one describes something Votic does today; the AI allowance is described as
- * generous monthly usage rather than a number of credits.
- */
-export const PLUS_BENEFITS: { title: string; detail: string }[] = [
-  {
-    title: "Read and listen to your documents",
-    detail: "Natural voices at your pace, with each word highlighted as it's read.",
-  },
-  {
-    title: "Ask AI about your documents",
-    detail: "Get answers grounded in what you're reading, typed or spoken.",
-  },
-  {
-    title: "AI-powered summaries",
-    detail: "Summarize your documents or an Ask Votic conversation.",
-  },
-  {
-    title: "Save notes and bookmarks",
-    detail: "Bookmark passages and add your own notes as you read.",
-  },
-  {
-    title: "Import almost anything",
-    detail: "PDFs, ebooks, Word files, webpages, and scanned documents.",
-  },
-  {
-    title: "Generous monthly AI usage",
-    detail: "Renews with your subscription every month.",
-  },
-];
-
 /** The logo, headline and supporting copy at the top of the paywall. */
 export function PaywallIntro() {
   const { theme } = useVoticTheme();
@@ -64,35 +33,55 @@ export function PaywallIntro() {
   );
 }
 
-/** All six Votic Plus benefits. */
+/** Votic Free next to Votic Plus, row by row. The limits match the ones the app and server enforce. */
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
   const rows = [
     ["Read and listen", "✓ No time limit", "✓ No time limit"],
     ["Saved documents", "✓ Up to 5", "✓ Up to 2,000"],
-    ["Notes and bookmarks", "✓ Up to 25 combined", "✓ More notes and bookmarks"],
-    ["AI credits", "✓ 100 per month", "✓ Plus monthly allowance"],
-    ["AI questions", "✓ Uses shared credits", "✓ Uses shared credits"],
-    ["AI summaries", "✓ 5 per month; uses credits", "✓ Uses Plus credits"],
-    ["Camera scans", "✓ 5 pages per month; uses credits", "✓ Uses Plus credits"],
-    ["Scanned PDF reading", "− Plus feature", "✓ Uses Plus credits"],
+    ["Notes and bookmarks", "✓ Up to 25 combined", "✓ No set limit"],
+    ["AI credits", "✓ 100 per month", "✓ Larger monthly allowance"],
+    ["AI questions", "✓ Uses your 100 credits", "✓ Uses Plus allowance"],
+    ["AI summaries", "✓ 5 per month; uses credits", "✓ Uses Plus allowance"],
+    ["Camera scans", "✓ 5 pages per month; uses credits", "✓ Uses Plus allowance"],
+    ["Scanned PDF reading", "− Plus feature", "✓ Uses Plus allowance"],
     ["No ads", "✓ Included", "✓ Included"],
   ];
   return (
-    <View accessibilityLabel="Compare Votic Free and Votic Plus" style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+    <View
+      accessibilityLabel="Compare Votic Free and Votic Plus"
+      style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
+    >
       <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
         Compare Free and Plus
       </Text>
       <View style={s.comparisonRow}>
         <Text style={s.labelColumn} />
         <Text style={[s.valueColumn, s.columnHeading, { color: theme.text }]}>Free</Text>
-        <Text style={[s.valueColumn, s.columnHeading, { color: theme.accentText, backgroundColor: theme.brandTint }]}>Plus</Text>
+        <Text
+          style={[
+            s.valueColumn,
+            s.columnHeading,
+            { color: theme.accentText, backgroundColor: theme.brandTint },
+          ]}
+        >
+          Plus
+        </Text>
       </View>
       {rows.map(([label, free, plus]) => (
-        <View key={label} accessible accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`} style={[s.comparisonRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}>
+        <View
+          key={label}
+          accessible
+          accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`}
+          style={[s.comparisonRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}
+        >
           <Text style={[p.benefitTitle, s.labelColumn, { color: theme.text }]}>{label}</Text>
           <Text style={[p.detail, s.valueColumn, { color: theme.text }]}>{free}</Text>
-          <Text style={[p.detail, s.valueColumn, { color: theme.accentText, backgroundColor: theme.brandTint }]}>{plus}</Text>
+          <Text
+            style={[p.detail, s.valueColumn, { color: theme.accentText, backgroundColor: theme.brandTint }]}
+          >
+            {plus}
+          </Text>
         </View>
       ))}
     </View>
@@ -107,12 +96,12 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
     <View style={[s.helpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Subscription questions"
+        accessibilityLabel="Questions about plans"
         accessibilityState={{ expanded }}
         onPress={() => setExpanded(!expanded)}
         style={p.disclosure}
       >
-        <Text style={[p.benefitTitle, { color: theme.text }]}>Questions about subscribing</Text>
+        <Text style={[p.benefitTitle, { color: theme.text }]}>Questions about plans</Text>
         <Ionicons name={expanded ? "chevron-up" : "chevron-down"} size={18} color={theme.accentText} />
       </Pressable>
       {expanded ? (
@@ -129,8 +118,9 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
           </Text>
           <Text style={[p.benefitTitle, { color: theme.text }]}>How does AI usage work?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
-            Votic Plus includes a generous monthly allowance for AI answers, summaries, voice questions, and
-            reading scanned pages. It renews with your subscription and unused usage doesn&apos;t carry over.
+            Votic Free includes 100 AI credits a month for questions, with up to 5 summaries and 5 camera-scan
+            pages. Votic Plus includes a larger monthly allowance for AI answers, summaries, voice questions,
+            and reading scanned pages. Allowances renew monthly and unused usage doesn&apos;t carry over.
             Reading, listening, and notes don&apos;t use it. See what&apos;s left anytime in Settings, AI
             Usage.
           </Text>
@@ -152,7 +142,14 @@ const s = StyleSheet.create({
   supporting: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
   art: { alignItems: "center", justifyContent: "center" },
   subtitle: { fontSize: 16, lineHeight: 24 },
-  card: { width: "100%", maxWidth: 420, alignSelf: "center", borderWidth: 1, borderRadius: 18, overflow: "hidden" },
+  card: {
+    width: "100%",
+    maxWidth: 420,
+    alignSelf: "center",
+    borderWidth: 1,
+    borderRadius: 18,
+    overflow: "hidden",
+  },
   cardTitle: { paddingTop: 12, paddingBottom: 8, textAlign: "center" },
   comparisonRow: { flexDirection: "row", alignItems: "stretch" },
   labelColumn: { flex: 1.5, padding: 8 },

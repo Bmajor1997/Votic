@@ -153,7 +153,8 @@ export default function Notes() {
       clear_filters();
       return;
     }
-    if (!savePassage(document.id, note_from_draft(passage, draft))) throw new Error("Free note limit reached");
+    if (!savePassage(document.id, note_from_draft(passage, draft)))
+      throw new Error("Free note limit reached");
     setEditing(null);
   }
   function toggle_pin({ document, passage }: NoteItem) {

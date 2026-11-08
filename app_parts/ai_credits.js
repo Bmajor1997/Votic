@@ -71,6 +71,21 @@ function calendar_month(now) {
   return { start: Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1), end: Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1) };
 }
 
+/**
+ * Moving between Votic Free (100 credits) and Plus changes the allowance of the period already granted; other
+ * allowance changes wait for the next period. Returns the period row as stored afterwards.
+ */
+function sync_free_allowance(db, uid, row, allowance) {
+  if (row.allowance === allowance || (allowance !== 100 && row.allowance !== 100)) return row;
+  db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, row.period_start);
+  return db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, row.period_start);
+}
+
+/** A free period always ends at its calendar month and is never store-verified. */
+function period_result(row, end, free) {
+  return { start: row.period_start, end: free ? iso(end) : row.period_end, allowance: row.allowance, verified: free ? false : Boolean(row.verified) };
+}
+
 /** Shares the AI usage ledger's connection, so credit and token reservations live in one private database. */
 export function create_credit_ledger(db, { now = () => new Date() } = {}) {
   db.exec(`${CREDIT_WALLET_SCHEMA}
@@ -125,20 +140,14 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           // Older data (a cached profile) or an overlapping restart stays in the period already granted.
           if ((start < latest_start || start < latest_end - RENEWAL_TOLERANCE_MS) && !(free && start > latest_start)) {
             if (!free && end > latest_end) db.prepare("UPDATE credit_periods SET period_end=? WHERE uid=? AND period_start=?").run(iso(end), uid, latest.period_start);
-            if (allowance === 100 || latest.allowance === 100)
-              db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, latest.period_start);
             const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, latest.period_start);
-            return { start: row.period_start, end: free ? iso(end) : row.period_end, allowance: row.allowance, verified: free ? false : Boolean(row.verified) };
+            return period_result(sync_free_allowance(db, uid, row, allowance), end, free);
           }
         }
         db.prepare("INSERT OR IGNORE INTO credit_periods(uid,period_start,period_end,allowance,verified,created_at) VALUES(?,?,?,?,?,?)")
           .run(uid, iso(start), iso(end), allowance, verified ? 1 : 0, now().toISOString());
-        let row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
-        if (row.allowance !== allowance && (allowance === 100 || row.allowance === 100)) {
-          db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, iso(start));
-          row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
-        }
-        return { start: row.period_start, end: free ? iso(end) : row.period_end, allowance: row.allowance, verified: free ? false : Boolean(row.verified) };
+        const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
+        return period_result(sync_free_allowance(db, uid, row, allowance), end, free);
       });
     },
     /**

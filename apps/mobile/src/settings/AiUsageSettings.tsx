@@ -228,8 +228,8 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
   const message =
     usage.status === "not-subscribed"
       ? entitlement.status === "expired"
-        ? "Your Votic Plus subscription has ended, so there's no AI allowance this month. Reading and your notes are still here."
-        : "AI usage is included with Votic Plus."
+        ? "Your Votic Plus subscription has ended. Reading and your notes are still here with Votic Free."
+        : "Votic Free includes 100 AI credits a month. Votic Plus includes more."
       : usage.status === "unmetered"
         ? "Your plan doesn't use a monthly AI allowance."
         : "AI usage details aren't available from this Votic server.";

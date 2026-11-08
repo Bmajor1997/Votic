@@ -1,6 +1,12 @@
 export type AllowanceNotice = { resetsAt: string; code?: string };
 /** The monthly credit allowance (AI_CREDITS_EXHAUSTED) and the server's provider safeguard share one notice. */
-const ALLOWANCE_CODES = ["AI_CREDITS_EXHAUSTED", "AI_MONTHLY_ALLOWANCE", "FREE_SUMMARIES_EXHAUSTED", "FREE_SCANS_EXHAUSTED", "FREE_PDF_PLUS_REQUIRED"];
+const ALLOWANCE_CODES = [
+  "AI_CREDITS_EXHAUSTED",
+  "AI_MONTHLY_ALLOWANCE",
+  "FREE_SUMMARIES_EXHAUSTED",
+  "FREE_SCANS_EXHAUSTED",
+  "FREE_PDF_PLUS_REQUIRED",
+];
 type Listener = (notice: AllowanceNotice) => void;
 const listeners = new Set<Listener>();
 
@@ -15,10 +21,12 @@ export function allowance_notifier() {
   const started = [...listeners];
   return (result: Record<string, unknown>) => {
     if (!ALLOWANCE_CODES.includes(String(result.code))) return;
-    const date = result.code === "FREE_PDF_PLUS_REQUIRED" ? Date.now() + 86400_000 : Date.parse(String(result.resetsAt));
+    const date =
+      result.code === "FREE_PDF_PLUS_REQUIRED" ? Date.now() + 86400_000 : Date.parse(String(result.resetsAt));
     if (!Number.isFinite(date)) return;
     for (const listener of started)
-      if (listeners.has(listener)) listener({ resetsAt: new Date(date).toISOString(), code: String(result.code) });
+      if (listeners.has(listener))
+        listener({ resetsAt: new Date(date).toISOString(), code: String(result.code) });
   };
 }
 

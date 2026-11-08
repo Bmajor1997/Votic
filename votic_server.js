@@ -205,7 +205,7 @@ export function create_votic_handler(options = {}) {
     if (!premium_required || !["/api/extract", "/api/import-url", "/api/scan", "/api/voice-question-status", "/api/transcribe-question", "/api/help", "/api/review"].includes(path)) return null;
     if (!identity?.uid) throw new HttpError(401, "Sign in to use Votic Plus.");
     const plan = await effective_plan(identity);
-    if (!plan) throw new HttpError(403, "An active Votic Plus subscription is required.");
+    if (!plan) throw new HttpError(403, "Votic couldn't confirm your plan. Sign in again and try once more.");
     return plan;
  };
  // The verified subscription's monthly AI credits, in its verified billing period. Null means credits are not
