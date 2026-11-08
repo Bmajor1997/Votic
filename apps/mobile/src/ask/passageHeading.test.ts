@@ -46,3 +46,15 @@ describe("passage_heading prose fragments", () => {
     expect(passage_heading(["Off—", "Something happened next in the garden."].join("\n\n"), 1)).toBeNull();
   });
 });
+
+describe("passage_heading website controls", () => {
+  it("skips links like Print This Page that an older webpage import kept", async () => {
+    const { passage_heading } = await import("./passageHeading");
+    const text = [
+      "The Constitution of the United States",
+      "Print This Page",
+      "We the People of the United States, in Order to form a more perfect Union, establish this Constitution.",
+    ].join("\n\n");
+    expect(passage_heading(text, 2)).toBe("The Constitution of the United States");
+  });
+});

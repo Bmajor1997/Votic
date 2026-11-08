@@ -5,6 +5,9 @@ const MAX_HEADING_CHARS = 60;
 const MAX_HEADING_WORDS = 8;
 /** How far past the passage to look when nothing above it is a heading (a title line often comes first). */
 const LOOK_AHEAD = 3;
+/** Website controls that can survive in an older webpage import; they name no part of the document. */
+const PAGE_CONTROLS =
+  /^(?:top|back to top|skip to (?:main )?content|print|print this page|share|share this page|bookmark\/share|menu|search|contact us|home)$/i;
 
 function is_heading(passage: string) {
   const text = passage.trim();
@@ -16,7 +19,8 @@ function is_heading(passage: string) {
     // Broken-off speech ("Off—", "And then…") and quoted lines are prose, not headings.
     !/[—–…-]["')\]’”]*$/.test(text) &&
     !/^["“‘'(]/.test(text) &&
-    !/^\p{Ll}/u.test(text)
+    !/^\p{Ll}/u.test(text) &&
+    !PAGE_CONTROLS.test(text)
   );
 }
 

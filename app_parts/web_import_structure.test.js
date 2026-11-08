@@ -97,3 +97,46 @@ test("webpage breadcrumbs are excluded without removing article paragraphs", () 
   assert.doesNotMatch(text, /Instructions and Guides/);
   assert.match(text, /maintained for documentation/);
 });
+
+// A government-style page: no <article> or <main>, a header of skip links, site name and utility links, then the
+// document. The content area is marked only by id="main-content" on one page and not at all on another.
+const SITE_HEADER = `<div class="header"><a href="#top">Top</a><a class="skip-link" href="#main-content">Skip to main content</a>
+<div><a href="/">The U.S. National Archives Home</a></div>
+<p><a href="/a">Citizen Archivists</a> · <a href="/b">Bookmark/Share</a> · <a href="/c">Contact Us</a></p>
+<p>America's Founding Documents</p></div>`;
+const BODY = `<h1>The Constitution of the United States: A Transcription</h1>
+<p><a href="#">Print This Page</a></p>
+<p>We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic
+Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to
+ourselves and our Posterity, do ordain and establish this Constitution for the United States of America.</p>
+<h2>Article. I.</h2><p>All legislative Powers herein granted shall be vested in a Congress of the United States.</p>`;
+
+test("a page marked only by id=main-content starts at its content, not the site header", () => {
+  const { text } = clean_webpage_html(`<html><body>${SITE_HEADER}<div id="main-content">${BODY}</div></body></html>`);
+  const parts = paragraphs(text);
+  assert.equal(parts[0], "The Constitution of the United States: A Transcription");
+  assert.ok(parts[1].startsWith("We the People"));
+  assert.ok(!/Skip to main content|Print This Page|Citizen Archivists/.test(text));
+});
+
+test("with no content region at all, reading starts at the page's first <h1>", () => {
+  const { text } = clean_webpage_html(`<html><body>${SITE_HEADER}<div class="page"><div class="col">${BODY}</div></div></body></html>`);
+  const parts = paragraphs(text);
+  assert.equal(parts[0], "The Constitution of the United States: A Transcription");
+  assert.ok(!/National Archives Home|America's Founding Documents|Print This Page/.test(text));
+  assert.ok(parts.includes("Article. I."));
+});
+
+test("Project Gutenberg's header and license boilerplate are skipped", () => {
+  const html = `<html><body><section class="pg-boilerplate pgheader" id="pg-header"><h2>The Project Gutenberg eBook of The Gift of the Magi</h2>
+<p>This eBook is for the use of anyone anywhere in the United States and most other parts of the world.</p></section>
+<h1>The Gift of the Magi</h1><p>One dollar and eighty-seven cents. That was all. And sixty cents of it was in pennies.</p>
+<section class="pg-boilerplate pgheader" id="pg-footer"><h2>*** END OF THE PROJECT GUTENBERG EBOOK ***</h2><p>Updated editions will replace the previous one.</p></section></body></html>`;
+  const { text } = clean_webpage_html(html);
+  assert.deepEqual(paragraphs(text), ["The Gift of the Magi", "One dollar and eighty-seven cents. That was all. And sixty cents of it was in pennies."]);
+});
+
+test("a page with no <h1> keeps everything readable from the top", () => {
+  const { text } = clean_webpage_html(`<html><body><p>First paragraph of a plain page.</p><p>Second paragraph.</p></body></html>`);
+  assert.deepEqual(paragraphs(text), ["First paragraph of a plain page.", "Second paragraph."]);
+});
