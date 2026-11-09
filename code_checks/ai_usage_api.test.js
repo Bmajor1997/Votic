@@ -69,7 +69,7 @@ test("expired or absent subscriptions receive the Free allowance and pay the sta
       assert.equal(initial.plan.name, "Votic Free");
       assert.equal(initial.monthly.allowance, 100);
       assert.equal((await post("/api/help", { question: "How?", document })).status, 200);
-      assert.equal((await ai_usage(post)).body.monthly.used, 2);
+      assert.equal((await ai_usage(post)).body.monthly.used, 1);
       assert.equal(calls, 1);
     });
   }
@@ -81,13 +81,13 @@ test("each answered document question is charged once; failures and fallbacks ar
   await with_server({ ai }, async ({ post }) => {
     const first = await post("/api/help", { question: "What changed?", document });
     assert.equal((await first.json()).mode, "document-ai");
-    assert.equal((await ai_usage(post)).body.monthly.used, 2);
-    assert.equal((await ai_usage(post)).body.monthly.percentRemaining, 80);
+    assert.equal((await ai_usage(post)).body.monthly.used, 1);
+    assert.equal((await ai_usage(post)).body.monthly.percentRemaining, 90);
     for (mode of ["rejected", "server-error"]) {
       const failed = await (await post("/api/help", { question: "Again?", document })).json();
       assert.equal(failed.mode, "built-in");
     }
-    assert.equal((await ai_usage(post)).body.monthly.used, 2, "no result, no charge");
+    assert.equal((await ai_usage(post)).body.monthly.used, 1, "no result, no charge");
   });
 });
 
@@ -95,18 +95,20 @@ test("exhausted monthly usage is refused before any AI call, with the renewal da
   let calls = 0;
   await with_server({ env: { VOTIC_MONTHLY_CREDITS: "3" }, ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
     assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
-    const refused = await post("/api/help", { question: "Two?", document });
+    assert.equal((await post("/api/help", { question: "Two?", document })).status, 200);
+    let usage_now = (await ai_usage(post)).body.monthly;
+    assert.deepEqual([usage_now.used, usage_now.percentRemaining], [2, 33]);
+    // One credit left covers a help question; after that AI requests are refused and help is built in, free.
+    assert.equal((await (await post("/api/help", { question: "How do I import?" })).json()).mode, "ai");
+    const refused = await post("/api/help", { question: "Three?", document });
     assert.equal(refused.status, 429);
     assert.deepEqual(await refused.json(), { error: "You've used this month's AI allowance.", code: "AI_CREDITS_EXHAUSTED", resetsAt: period.expires_date });
-    assert.equal(calls, 1);
-    const usage_now = (await ai_usage(post)).body.monthly;
-    assert.deepEqual([usage_now.used, usage_now.percentRemaining], [2, 33]);
-    // One credit left covers a help question; after that the built-in answer is used, free.
-    assert.equal((await (await post("/api/help", { question: "How do I import?" })).json()).mode, "ai");
+    usage_now = (await ai_usage(post)).body.monthly;
+    assert.deepEqual([usage_now.used, usage_now.percentRemaining], [3, 0]);
     const free = await post("/api/help", { question: "How do I import?" });
     assert.equal(free.status, 200);
     assert.equal((await free.json()).mode, "built-in");
-    assert.equal(calls, 2);
+    assert.equal(calls, 3);
     assert.equal((await ai_usage(post)).body.monthly.percentRemaining, 0);
   });
 });
@@ -115,7 +117,7 @@ test("concurrent questions can't overspend the allowance", async () => {
   let release;
   const gate = new Promise((resolve) => { release = resolve; });
   let calls = 0;
-  await with_server({ env: { VOTIC_MONTHLY_CREDITS: "4", VOTIC_AI_USER_CONCURRENCY: "10" }, ai: async () => { calls += 1; await gate; return provider(document_answer); } }, async ({ post }) => {
+  await with_server({ env: { VOTIC_MONTHLY_CREDITS: "2", VOTIC_AI_USER_CONCURRENCY: "10" }, ai: async () => { calls += 1; await gate; return provider(document_answer); } }, async ({ post }) => {
     const requests = Array.from({ length: 5 }, (_, i) => post("/api/help", { question: `Q${i}?`, document }));
     await new Promise((resolve) => setTimeout(resolve, 100));
     release();
@@ -129,7 +131,7 @@ test("concurrent questions can't overspend the allowance", async () => {
 test("purchased credits are spent after the monthly allowance and refunds are honored", async () => {
   const dir = mkdtempSync(join(tmpdir(), "votic-usage-"));
   const secret = "a-very-long-random-webhook-secret-123";
-  const env = { VOTIC_AI_USAGE_DB: join(dir, "ledger.sqlite"), VOTIC_CREDIT_PRODUCTS_JSON: '{"votic_ai_credits_100":100}', REVENUECAT_WEBHOOK_SECRET: secret, VOTIC_MONTHLY_CREDITS: "2" };
+  const env = { VOTIC_AI_USAGE_DB: join(dir, "ledger.sqlite"), VOTIC_CREDIT_PRODUCTS_JSON: '{"votic_ai_credits_100":100}', REVENUECAT_WEBHOOK_SECRET: secret, VOTIC_MONTHLY_CREDITS: "1" };
   const event = { id: "evt-1", type: "NON_RENEWING_PURCHASE", app_user_id: "plus-user", transaction_id: "tx-1", product_id: "votic_ai_credits_100", environment: "PRODUCTION" };
   try {
     await with_server({ env, ai: async () => provider(document_answer) }, async ({ post, base }) => {
@@ -142,7 +144,7 @@ test("purchased credits are spent after the monthly allowance and refunds are ho
       assert.deepEqual([usage_now.monthly.percentRemaining, usage_now.purchased.remaining, usage_now.purchaseProducts], [0, 100, ["votic_ai_credits_100"]]);
       assert.equal((await post("/api/help", { question: "Two?", document })).status, 200);
       usage_now = (await ai_usage(post)).body;
-      assert.deepEqual([usage_now.monthly.used, usage_now.purchased.remaining], [2, 98]);
+      assert.deepEqual([usage_now.monthly.used, usage_now.purchased.remaining], [1, 99]);
       assert.equal((await webhook({ ...event, id: "evt-2", type: "CANCELLATION", cancel_reason: "CUSTOMER_SUPPORT", event_timestamp_ms: 2000 })).status, 200);
       assert.equal((await ai_usage(post)).body.purchased.remaining, 0);
       assert.equal((await post("/api/help", { question: "Three?", document })).status, 429);
@@ -185,7 +187,7 @@ test("annual subscribers see this month's allowance and its monthly reset, not t
   await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(annual) }), ai: async () => provider(document_answer) }, async ({ post }) => {
     assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
     const { monthly } = (await ai_usage(post)).body;
-    assert.deepEqual([monthly.allowance, monthly.used], [10, 2]);
+    assert.deepEqual([monthly.allowance, monthly.used], [10, 1]);
     const start = Date.parse(monthly.periodStart), end = Date.parse(monthly.periodEnd);
     assert.ok(start <= now && now < end, "the current monthly cycle");
     assert.ok(end - start <= 31 * 86400_000, "one month, not the whole year");
@@ -204,7 +206,7 @@ test("an expired or refunded annual subscription moves to the Free allowance", a
       assert.equal(usage.plan.name, "Votic Free");
       assert.equal(usage.monthly.allowance, 100);
       assert.equal((await post("/api/help", { question: "Q?", document })).status, 200);
-      assert.equal((await ai_usage(post)).body.monthly.used, 2);
+      assert.equal((await ai_usage(post)).body.monthly.used, 1);
     });
     assert.equal(calls, 1);
   }

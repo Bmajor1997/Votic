@@ -44,17 +44,84 @@ export const DOCUMENT_TYPE_FILTERS: { value: DocumentTypeFilter; label: string }
   { value: "other", label: "Other" },
 ];
 
+const FILTER_BY_EXTENSION: Record<string, DocumentTypeFilter> = {
+  pdf: "pdf",
+  doc: "word",
+  docx: "word",
+  rtf: "word",
+  odt: "word",
+  epub: "word",
+  html: "web",
+  htm: "web",
+  txt: "text",
+  md: "markdown",
+  jpg: "scan",
+  jpeg: "scan",
+  png: "scan",
+  heic: "scan",
+  heif: "scan",
+  webp: "scan",
+};
+
+/**
+ * Which filter chip a document belongs to. Webpages and camera scans are saved as text, so their origin decides;
+ * scans saved before the origin was recorded still carry the scanner's default name ("Scanned document").
+ */
 export function document_type_filter(
   document: Pick<VoticDocument, "sourceName" | "origin" | "sourceUrl">,
 ): DocumentTypeFilter {
   if (document.origin === "webpage" || (!document.origin && document.sourceUrl)) return "web";
   if (document.origin === "scan") return "scan";
+  if (!document.origin && /^scanned document\b/i.test(document.sourceName.trim())) return "scan";
+  if (/\.markdown$/i.test(document.sourceName.trim())) return "markdown";
   const extension = resolve_file_type({ filename: document.sourceName }).extension;
-  if (extension === "pdf") return "pdf";
-  if (extension === "doc" || extension === "docx") return "word";
-  if (extension === "txt") return "text";
-  if (extension === "md") return "markdown";
-  return "other";
+  return FILTER_BY_EXTENSION[extension] ?? "other";
+}
+
+/** What a filter's documents are called in a sentence: "No webpages match “moon”". */
+const FILTER_NOUNS: Record<DocumentTypeFilter, string> = {
+  all: "documents",
+  pdf: "PDFs",
+  word: "Word or other document files",
+  web: "webpages",
+  text: "text files",
+  markdown: "Markdown files",
+  scan: "scans",
+  other: "other files",
+};
+
+const FILTER_NOUN: Record<DocumentTypeFilter, string> = {
+  all: "document",
+  pdf: "PDF",
+  word: "Word or other document file",
+  web: "webpage",
+  text: "text file",
+  markdown: "Markdown file",
+  scan: "scan",
+  other: "other file",
+};
+
+/** The filter's documents in a sentence, singular for exactly one. */
+export function type_filter_noun(filter: DocumentTypeFilter, count = 2) {
+  return count === 1 ? FILTER_NOUN[filter] : FILTER_NOUNS[filter];
+}
+
+/** The heading shown when the current search, type, shelf and collection leave nothing to show. */
+export function empty_filter_message({
+  query,
+  typeFilter,
+  finishedOnly,
+  collectionLabel,
+}: {
+  query: string;
+  typeFilter: DocumentTypeFilter;
+  finishedOnly: boolean;
+  collectionLabel: string;
+}) {
+  const noun = type_filter_noun(typeFilter);
+  if (query.trim()) return `No ${noun} match “${query.trim()}”`;
+  if (typeFilter !== "all") return `No ${noun} here yet`;
+  return finishedOnly ? "No finished documents yet" : `Nothing in ${collectionLabel} yet`;
 }
 
 /** "Passage 12 of 80" from the saved reading position. */

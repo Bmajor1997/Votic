@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { file_type_label, readable_title, sort_documents } from "./documentDisplay";
+import {
+  document_type_filter,
+  empty_filter_message,
+  file_type_label,
+  readable_title,
+  sort_documents,
+} from "./documentDisplay";
 import { strip_file_extension } from "./fileTypes";
 
 describe("document titles", () => {
@@ -88,4 +94,36 @@ it("groups converted webpages and scans by their displayed identity instead of t
     { id: "s", title: "Scan", sourceName: "B.txt", origin: "scan" },
   ] as import("./types").VoticDocument[];
   expect(sort_documents(documents, "type").map((d) => d.id)).toEqual(["s", "t", "w"]);
+});
+
+describe("document type filters", () => {
+  it.each([
+    ["Report.PDF", undefined, "pdf"],
+    ["Essay.DOCX", undefined, "word"],
+    ["letter.rtf", undefined, "word"],
+    ["book.epub", undefined, "word"],
+    ["page.html", undefined, "web"],
+    ["notes.TXT", "file", "text"],
+    ["README.MD", undefined, "markdown"],
+    ["guide.markdown", undefined, "markdown"],
+    ["Scanned document.txt", undefined, "scan"],
+    ["Scanned document.txt", "file", "text"],
+    ["photo.JPG", undefined, "scan"],
+    ["slides.pptx", undefined, "other"],
+  ] as const)("%s (origin %s) is %s", (sourceName, origin, expected) => {
+    expect(document_type_filter({ sourceName, origin })).toBe(expected);
+  });
+
+  it("names the filter in its empty message", () => {
+    const base = { query: "", finishedOnly: false, collectionLabel: "All documents" };
+    expect(empty_filter_message({ ...base, typeFilter: "word" })).toBe(
+      "No Word or other document files here yet",
+    );
+    expect(empty_filter_message({ ...base, typeFilter: "scan", query: " moon " })).toBe(
+      "No scans match “moon”",
+    );
+    expect(empty_filter_message({ ...base, typeFilter: "all", query: "moon" })).toBe(
+      "No documents match “moon”",
+    );
+  });
 });
