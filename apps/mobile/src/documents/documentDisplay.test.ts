@@ -100,27 +100,22 @@ describe("document type filters", () => {
   it.each([
     ["Report.PDF", undefined, "pdf"],
     ["Essay.DOCX", undefined, "word"],
-    ["letter.rtf", undefined, "word"],
-    ["book.epub", undefined, "word"],
-    ["page.html", undefined, "web"],
+    ["old.doc", undefined, "word"],
     ["notes.TXT", "file", "text"],
-    ["README.MD", undefined, "markdown"],
-    ["guide.markdown", undefined, "markdown"],
-    ["Scanned document.txt", undefined, "scan"],
-    ["Scanned document.txt", "file", "text"],
-    ["photo.JPG", undefined, "scan"],
-    ["slides.pptx", undefined, "other"],
+    ["Moon Facts.txt", "webpage", "other"],
+    ["Scanned document.txt", "scan", "other"],
+    ["README.md", undefined, "other"],
+    ["book.epub", undefined, "other"],
+    ["letter.rtf", undefined, "other"],
   ] as const)("%s (origin %s) is %s", (sourceName, origin, expected) => {
     expect(document_type_filter({ sourceName, origin })).toBe(expected);
   });
 
   it("names the filter in its empty message", () => {
     const base = { query: "", finishedOnly: false, collectionLabel: "All documents" };
-    expect(empty_filter_message({ ...base, typeFilter: "word" })).toBe(
-      "No Word or other document files here yet",
-    );
-    expect(empty_filter_message({ ...base, typeFilter: "scan", query: " moon " })).toBe(
-      "No scans match “moon”",
+    expect(empty_filter_message({ ...base, typeFilter: "word" })).toBe("No DOCX files here yet");
+    expect(empty_filter_message({ ...base, typeFilter: "pdf", query: " moon " })).toBe(
+      "No PDFs match “moon”",
     );
     expect(empty_filter_message({ ...base, typeFilter: "all", query: "moon" })).toBe(
       "No documents match “moon”",

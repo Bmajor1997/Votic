@@ -114,7 +114,7 @@ describe("Home", () => {
 });
 
 describe("Documents", () => {
-  it("filters formats alongside search and identifies saved webpages correctly", async () => {
+  it("filters by file type alongside search, with webpages under Other", async () => {
     const word = test_document("word", "Meeting", { sourceName: "meeting.DOCX" });
     const web = test_document("web", "Article", {
       sourceName: "article.txt",
@@ -122,24 +122,30 @@ describe("Documents", () => {
     });
     const text = test_document("text", "Notes", { sourceName: "notes.txt", origin: "file" });
     await render_with_providers(<Documents />, { documents: [report, word, web, text] });
+    expect(screen.getAllByRole("radio").map((chip) => chip.props.accessibilityLabel)).toEqual([
+      "All filter",
+      "PDF filter",
+      "DOCX filter",
+      "TXT filter",
+      "Other filter",
+    ]);
     await fireEvent.press(screen.getByRole("radio", { name: "PDF filter" }));
     expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Meeting" })).toBeNull();
-    await fireEvent.press(screen.getByRole("radio", { name: "Documents filter" }));
+    await fireEvent.press(screen.getByRole("radio", { name: "DOCX filter" }));
     expect(screen.getByRole("button", { name: "Open Meeting" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Web filter" }));
+    expect(screen.getByText("1 DOCX file · File type · Newest first")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "TXT filter" }));
+    expect(screen.getByRole("button", { name: "Open Notes" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Article" })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: "Other filter" }));
     expect(screen.getByRole("button", { name: "Open Article" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Open Notes" })).toBeNull();
     await fireEvent.changeText(screen.getByLabelText("Search documents"), "missing");
-    expect(screen.getByText("No webpages match “missing”")).toBeTruthy();
+    expect(screen.getByText("No other documents match “missing”")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Show all documents" }));
     expect(screen.getByRole("radio", { name: "All filter", checked: true })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Meeting" })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Markdown filter" }));
-    expect(screen.getByText("No Markdown files here yet")).toBeTruthy();
-    expect(screen.getByText("0 Markdown files · File type · Newest first")).toBeTruthy();
-    await fireEvent.press(screen.getByRole("radio", { name: "Documents filter" }));
-    expect(screen.getByText("1 Word or other document file · File type · Newest first")).toBeTruthy();
   });
 
   it("names the active type filter when a search finds nothing in it", async () => {
@@ -147,7 +153,7 @@ describe("Documents", () => {
     await render_with_providers(<Documents />, { documents: [report, web] });
     await fireEvent.changeText(screen.getByLabelText("Search documents"), "moon");
     await fireEvent.press(screen.getByRole("radio", { name: "TXT filter" }));
-    expect(screen.getByText("No text files match “moon”")).toBeTruthy();
+    expect(screen.getByText("No TXT files match “moon”")).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Show all documents" }));
     expect(screen.getByRole("button", { name: "Open Moon Facts" })).toBeTruthy();
   });
