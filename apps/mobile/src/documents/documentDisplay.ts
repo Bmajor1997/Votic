@@ -32,6 +32,31 @@ export function document_type_label(document: Pick<VoticDocument, "sourceName" |
   return file_type_label(document.sourceName);
 }
 
+export type DocumentTypeFilter = "all" | "pdf" | "word" | "web" | "text" | "markdown" | "scan" | "other";
+export const DOCUMENT_TYPE_FILTERS: { value: DocumentTypeFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "pdf", label: "PDF" },
+  { value: "word", label: "Documents" },
+  { value: "web", label: "Web" },
+  { value: "text", label: "TXT" },
+  { value: "markdown", label: "Markdown" },
+  { value: "scan", label: "Scans" },
+  { value: "other", label: "Other" },
+];
+
+export function document_type_filter(
+  document: Pick<VoticDocument, "sourceName" | "origin" | "sourceUrl">,
+): DocumentTypeFilter {
+  if (document.origin === "webpage" || (!document.origin && document.sourceUrl)) return "web";
+  if (document.origin === "scan") return "scan";
+  const extension = resolve_file_type({ filename: document.sourceName }).extension;
+  if (extension === "pdf") return "pdf";
+  if (extension === "doc" || extension === "docx") return "word";
+  if (extension === "txt") return "text";
+  if (extension === "md") return "markdown";
+  return "other";
+}
+
 /** "Passage 12 of 80" from the saved reading position. */
 export function position_label(document: VoticDocument) {
   const total = split_passages(document.plainText).length;

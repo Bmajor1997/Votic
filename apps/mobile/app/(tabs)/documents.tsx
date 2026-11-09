@@ -25,6 +25,9 @@ import { DocumentOpenSheet } from "../../src/documents/DocumentOpenSheet";
 import { DocumentActionsSheet } from "../../src/documents/DocumentActionsSheet";
 import {
   SORTS,
+  DOCUMENT_TYPE_FILTERS,
+  DocumentTypeFilter,
+  document_type_filter,
   collection_summary,
   Sort,
   document_type_label,
@@ -65,6 +68,7 @@ export default function Documents() {
     },
   );
   const [query, setQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<DocumentTypeFilter>("all");
   const [collection, setCollection] = useState("all");
   const [finishedOnly, setFinishedOnly] = useState(false);
   const [sort, setSort] = useState<Sort>("type");
@@ -93,7 +97,11 @@ export default function Documents() {
         : collection === "unfiled"
           ? documents.filter((document) => !document.collection)
           : documents.filter((document) => document.collection === collection);
-    const shelf = finishedOnly ? scoped.filter(is_finished) : scoped;
+    const typed =
+      typeFilter === "all"
+        ? scoped
+        : scoped.filter((document) => document_type_filter(document) === typeFilter);
+    const shelf = finishedOnly ? typed.filter(is_finished) : typed;
     const search = query.trim().toLowerCase();
     const matching = search
       ? shelf.filter(
@@ -103,7 +111,7 @@ export default function Documents() {
         )
       : shelf;
     return sort_documents(matching, sort);
-  }, [documents, collection, finishedOnly, query, sort]);
+  }, [documents, collection, finishedOnly, query, sort, typeFilter]);
   const visibleIds = useMemo(() => visible.map((document) => document.id), [visible]);
   const choosing = useDocumentSelection(visibleIds, library.removeDocument);
   // The first time someone starts choosing documents, explain what they can do with them.
@@ -150,32 +158,35 @@ export default function Documents() {
       >
         <Ionicons name="folder-open-outline" size={22} color={theme.text} />
       </Pressable>
-      <View ref={uploadRef} collapsable={false}>
-        <Pressable
-          ref={uploadTarget}
-          accessibilityRole="button"
-          accessibilityLabel="Add document"
-          accessibilityState={{ busy: importing }}
-          disabled={importing}
-          onPress={() => {
-            walkthrough.pressed("documents.upload");
-            setAddDocumentOpen(true);
-          }}
-          style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
-        >
-          {importing ? (
-            <ActivityIndicator size="small" color="#FFF" />
-          ) : (
-            <Ionicons name="add" size={20} color="#FFF" />
-          )}
-          <Text style={s.uploadText}>Add</Text>
-        </Pressable>
-      </View>
+    </View>
+  );
+
+  const floatingAction = (
+    <View ref={uploadRef} collapsable={false} style={s.floatingAction}>
+      <Pressable
+        ref={uploadTarget}
+        accessibilityRole="button"
+        accessibilityLabel="Add document"
+        accessibilityHint="Choose a file, scan, or import a webpage"
+        accessibilityState={{ busy: importing }}
+        disabled={importing}
+        onPress={() => {
+          walkthrough.pressed("documents.upload");
+          setAddDocumentOpen(true);
+        }}
+        style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
+      >
+        {importing ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Ionicons name="add" size={30} color="#FFF" />
+        )}
+      </Pressable>
     </View>
   );
 
   return (
-    <Screen title="Documents" titleAction={actions}>
+    <Screen title="Documents" titleAction={actions} floatingAction={floatingAction}>
       {documents.length ? (
         <View
           ref={searchTarget}
@@ -217,6 +228,33 @@ export default function Documents() {
             <Ionicons name="options-outline" size={20} color={filterCount ? theme.accentText : theme.text} />
           </Pressable>
         </View>
+      ) : null}
+
+      {documents.length ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          accessibilityRole="radiogroup"
+          contentContainerStyle={s.typeFilters}
+        >
+          {DOCUMENT_TYPE_FILTERS.map((item) => (
+            <Pressable
+              key={item.value}
+              accessibilityRole="radio"
+              accessibilityLabel={`${item.label} filter`}
+              accessibilityState={{ checked: typeFilter === item.value }}
+              onPress={() => setTypeFilter(item.value)}
+              style={[
+                s.typeFilter,
+                { backgroundColor: typeFilter === item.value ? theme.accent : theme.surfaceMuted },
+              ]}
+            >
+              <Text style={[s.typeFilterText, { color: typeFilter === item.value ? "#FFF" : theme.text }]}>
+                {item.label}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
       ) : null}
 
       {processingName ? (
@@ -420,9 +458,11 @@ export default function Documents() {
               <Text style={[s.emptyTitle, { color: theme.text }]}>
                 {query
                   ? `No documents match “${query.trim()}”`
-                  : finishedOnly
-                    ? "No finished documents yet"
-                    : `Nothing in ${collectionLabel} yet`}
+                  : typeFilter !== "all"
+                    ? `No ${DOCUMENT_TYPE_FILTERS.find((item) => item.value === typeFilter)?.label} documents found`
+                    : finishedOnly
+                      ? "No finished documents yet"
+                      : `Nothing in ${collectionLabel} yet`}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -430,6 +470,7 @@ export default function Documents() {
                   setQuery("");
                   setCollection("all");
                   setFinishedOnly(false);
+                  setTypeFilter("all");
                 }}
                 style={s.textButton}
               >
@@ -801,13 +842,17 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   upload: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    flexDirection: "row",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: "center",
-    gap: 5,
+    justifyContent: "center",
+    elevation: 4,
   },
+  floatingAction: { position: "absolute", right: 20, bottom: 20 },
+  typeFilters: { gap: spacing.sm, alignItems: "center" },
+  typeFilter: { minHeight: 48, borderRadius: 24, paddingHorizontal: spacing.md, justifyContent: "center" },
+  typeFilterText: { fontSize: 14, fontWeight: "700" },
   uploadText: { color: "#FFF", fontSize: 15, fontWeight: "800" },
   search: {
     minHeight: 50,

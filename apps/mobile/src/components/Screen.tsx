@@ -19,7 +19,14 @@ export function Screen({
   hideTitle = false,
   titleAction,
   brand,
-}: PropsWithChildren<{ title: string; hideTitle?: boolean; titleAction?: ReactNode; brand?: ReactNode }>) {
+  floatingAction,
+}: PropsWithChildren<{
+  title: string;
+  hideTitle?: boolean;
+  titleAction?: ReactNode;
+  brand?: ReactNode;
+  floatingAction?: ReactNode;
+}>) {
   const { theme } = useVoticTheme();
   const { persistenceError } = useDocumentLibrary();
   const transition = useDocumentTransition();
@@ -49,7 +56,7 @@ export function Screen({
           onOffset={(y) => {
             offset.current = y;
           }}
-          contentContainerStyle={s.content}
+          contentContainerStyle={[s.content, floatingAction ? s.contentWithFloatingAction : null]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -79,6 +86,7 @@ export function Screen({
           {children}
           <UsageLimitNotice />
         </FadingScrollView>
+        {floatingAction}
       </Animated.View>
       <MotionFeedbackNotice />
     </SafeAreaView>
@@ -86,6 +94,7 @@ export function Screen({
 }
 const s = StyleSheet.create({
   safe: { flex: 1 },
+  contentWithFloatingAction: { paddingBottom: 110 },
   content: {
     paddingHorizontal: 20,
     paddingBottom: 36,

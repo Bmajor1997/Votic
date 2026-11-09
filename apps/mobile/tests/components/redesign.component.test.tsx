@@ -114,6 +114,38 @@ describe("Home", () => {
 });
 
 describe("Documents", () => {
+  it("filters formats alongside search and identifies saved webpages correctly", async () => {
+    const word = test_document("word", "Meeting", { sourceName: "meeting.DOCX" });
+    const web = test_document("web", "Article", {
+      sourceName: "article.txt",
+      sourceUrl: "https://example.com",
+    });
+    const text = test_document("text", "Notes", { sourceName: "notes.txt", origin: "file" });
+    await render_with_providers(<Documents />, { documents: [report, word, web, text] });
+    await fireEvent.press(screen.getByRole("radio", { name: "PDF filter" }));
+    expect(screen.getByRole("button", { name: "Open q3 board report FINAL" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Meeting" })).toBeNull();
+    await fireEvent.press(screen.getByRole("radio", { name: "Documents filter" }));
+    expect(screen.getByRole("button", { name: "Open Meeting" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Web filter" }));
+    expect(screen.getByRole("button", { name: "Open Article" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open Notes" })).toBeNull();
+    await fireEvent.changeText(screen.getByLabelText("Search documents"), "missing");
+    expect(screen.getByText("No documents match “missing”")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Show all documents" }));
+    expect(screen.getByRole("radio", { name: "All filter", checked: true })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Meeting" })).toBeTruthy();
+    await fireEvent.press(screen.getByRole("radio", { name: "Markdown filter" }));
+    expect(screen.getByText("No Markdown documents found")).toBeTruthy();
+  });
+
+  it("opens all import choices from the floating add control", async () => {
+    await render_with_providers(<Documents />);
+    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+    expect(screen.getByRole("button", { name: "Choose file or cloud storage" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Scan with camera" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Import webpage" })).toBeTruthy();
+  });
   it("says the page is empty when there are no documents", async () => {
     await render_with_providers(<Documents />);
     expect(screen.getByRole("header", { name: "Your Documents page is empty" })).toBeTruthy();
