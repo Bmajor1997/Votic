@@ -32,15 +32,13 @@ export function document_type_label(document: Pick<VoticDocument, "sourceName" |
   return file_type_label(document.sourceName);
 }
 
-export type DocumentTypeFilter = "all" | "pdf" | "word" | "web" | "text" | "markdown" | "scan" | "other";
+export type DocumentTypeFilter = "all" | "pdf" | "word" | "text" | "other";
+/** File types only: webpages, scans, Markdown, EPUB and the rest are under Other. */
 export const DOCUMENT_TYPE_FILTERS: { value: DocumentTypeFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "pdf", label: "PDF" },
-  { value: "word", label: "Documents" },
-  { value: "web", label: "Web" },
+  { value: "word", label: "DOCX" },
   { value: "text", label: "TXT" },
-  { value: "markdown", label: "Markdown" },
-  { value: "scan", label: "Scans" },
   { value: "other", label: "Other" },
 ];
 
@@ -48,57 +46,36 @@ const FILTER_BY_EXTENSION: Record<string, DocumentTypeFilter> = {
   pdf: "pdf",
   doc: "word",
   docx: "word",
-  rtf: "word",
-  odt: "word",
-  epub: "word",
-  html: "web",
-  htm: "web",
   txt: "text",
-  md: "markdown",
-  jpg: "scan",
-  jpeg: "scan",
-  png: "scan",
-  heic: "scan",
-  heif: "scan",
-  webp: "scan",
 };
 
 /**
- * Which filter chip a document belongs to. Webpages and camera scans are saved as text, so their origin decides;
- * scans saved before the origin was recorded still carry the scanner's default name ("Scanned document").
+ * Which file type chip a document belongs to. Webpages and camera scans are saved as text files but aren't
+ * files the person chose, so they're under Other.
  */
 export function document_type_filter(
   document: Pick<VoticDocument, "sourceName" | "origin" | "sourceUrl">,
 ): DocumentTypeFilter {
-  if (document.origin === "webpage" || (!document.origin && document.sourceUrl)) return "web";
-  if (document.origin === "scan") return "scan";
-  if (!document.origin && /^scanned document\b/i.test(document.sourceName.trim())) return "scan";
-  if (/\.markdown$/i.test(document.sourceName.trim())) return "markdown";
+  if (document.origin === "webpage" || document.origin === "scan" || (!document.origin && document.sourceUrl))
+    return "other";
   const extension = resolve_file_type({ filename: document.sourceName }).extension;
   return FILTER_BY_EXTENSION[extension] ?? "other";
 }
 
-/** What a filter's documents are called in a sentence: "No webpages match “moon”". */
+/** What a filter's documents are called in a sentence: "No PDFs match “moon”". */
 const FILTER_NOUNS: Record<DocumentTypeFilter, string> = {
   all: "documents",
   pdf: "PDFs",
-  word: "Word or other document files",
-  web: "webpages",
-  text: "text files",
-  markdown: "Markdown files",
-  scan: "scans",
-  other: "other files",
+  word: "DOCX files",
+  text: "TXT files",
+  other: "other documents",
 };
-
 const FILTER_NOUN: Record<DocumentTypeFilter, string> = {
   all: "document",
   pdf: "PDF",
-  word: "Word or other document file",
-  web: "webpage",
-  text: "text file",
-  markdown: "Markdown file",
-  scan: "scan",
-  other: "other file",
+  word: "DOCX file",
+  text: "TXT file",
+  other: "other document",
 };
 
 /** The filter's documents in a sentence, singular for exactly one. */
