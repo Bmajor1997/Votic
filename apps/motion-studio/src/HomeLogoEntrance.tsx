@@ -1,19 +1,18 @@
-import {
-  AbsoluteFill,
-} from "remotion";
-import { RobotWordmark } from "./RobotWordmark";
+import { AbsoluteFill } from "remotion";
+import { RobotWordmark, useEntranceProgress } from "./RobotWordmark";
 
 type Props = {
   dark: boolean;
   reducedMotion: boolean;
   returningSession: boolean;
 };
-/** Study of the existing logo as one rigid unit, at the native header's logical size and position. */
+/** The Home header at the native app's logical size and position, with the robot-carried wordmark. */
 export function HomeLogoEntrance({
   dark,
   reducedMotion,
   returningSession,
 }: Props) {
+  const progress = useEntranceProgress(reducedMotion || returningSession);
   const ink = dark ? "#FAFAF9" : "#292D32";
   const surface = dark ? "#32373D" : "#FFFFFF";
   const accent = dark ? "#87A7F4" : "#2563EB";
@@ -45,7 +44,7 @@ export function HomeLogoEntrance({
             borderBottom: `1px solid ${border}`,
           }}
         >
-          <RobotWordmark dark={dark} settled={reducedMotion || returningSession} />
+          <RobotWordmark dark={dark} progress={progress} />
           <div style={{ width: 44, height: 44 }} />
         </div>
         <h2 style={{ margin: 0, fontSize: 26 }}>Continue</h2>
@@ -116,6 +115,39 @@ export function HomeLogoEntrance({
         <span>Documents</span>
         <span>Notes</span>
         <span>Settings</span>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+/** The same wordmark magnified for inspecting poses frame by frame: contact, feet, placement, turn and exit. */
+export function HomeRobotCloseUp({
+  dark,
+  zoom,
+  guides,
+}: {
+  dark: boolean;
+  zoom: number;
+  guides: boolean;
+}) {
+  const progress = useEntranceProgress(false);
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: dark ? "#292D32" : "#FFFFFF",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 24,
+          top: 150,
+          scale: zoom,
+          transformOrigin: "0 0",
+        }}
+      >
+        <RobotWordmark dark={dark} progress={progress} guides={guides} />
       </div>
     </AbsoluteFill>
   );

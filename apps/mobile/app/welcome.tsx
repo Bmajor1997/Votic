@@ -13,7 +13,8 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
 /**
  * The first screen. Apple and Google create the account or sign in; "Create account with email" creates a new
  * account; the full-width "Sign in" below it is for existing email accounts. The screen stands still until someone
- * taps Sign in, when the V's wings fly off to the right one by one and its stroke flies up and away.
+ * taps Sign in or Continue with Google, when the V's wings fly off to the right one by one and its stroke flies up
+ * and away; then Sign in opens, or Google's account picker.
  */
 export default function Welcome() {
   const { theme } = useVoticTheme();
@@ -41,11 +42,12 @@ export default function Welcome() {
             </Text>
           </View>
           <SocialSignIn
-            onBusyChange={(busy) => {
-              if (busy) mark.cancel();
-              setSocialBusy(busy);
-            }}
+            onBusyChange={setSocialBusy}
             onError={setError}
+            // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
+            // comes back together and the screen is ready again.
+            beforeGoogle={mark.flyAway}
+            afterGoogleStopped={mark.land}
           />
           <Pressable
             accessibilityRole="button"

@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { ActivityIndicator, StatusBar, StyleSheet, View } from "react-native";
 import { SetupAccent, ThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
+import { WordmarkEntranceProvider } from "../src/home/WordmarkEntrance";
 import {
   AccessibilityProvider,
   useAccessibilityPreferences,
@@ -97,67 +98,70 @@ function ThemedStack() {
             <WalkthroughProvider>
               {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}
               <SetupAccent active={!(subscribed && setup.handedOff)}>
-                <Stack
-                  screenOptions={{
-                    headerShown: false,
-                    contentStyle: { backgroundColor: theme.background },
-                    animation: "none",
-                  }}
-                >
-                  {/* Only the screens for the current stage exist, so the router always lands on the right one. */}
-                  <Stack.Protected guard={!signedIn}>
-                    <Stack.Screen name="welcome" />
-                    <Stack.Screen name="create-account" options={slide} />
-                    <Stack.Screen name="sign-in" options={slide} />
-                    <Stack.Screen name="forgot-password" options={slide} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={signedIn && !personalized}>
-                    <Stack.Screen name="personalize" options={fade} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={personalized && !setup.handedOff && !setup.widgetsIntroduced}>
-                    <Stack.Screen name="widgets-intro" options={fade} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={personalized && !setup.handedOff && setup.widgetsIntroduced}>
-                    <Stack.Screen name="ready" options={fade} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={subscribed && setup.handedOff}>
-                    <Stack.Screen name="(tabs)" options={fade} />
-                    <Stack.Screen name="paywall" options={fade} />
-                    <Stack.Screen
-                      name="reader"
-                      options={{
-                        animation: "none",
-                        presentation: "transparentModal",
-                        gestureEnabled: false,
-                        contentStyle: { backgroundColor: "transparent" },
-                      }}
-                    />
-                    <Stack.Screen name="assistant" />
-                    <Stack.Screen name="settings/[category]" options={slide} />
-                    <Stack.Screen name="recap" />
-                    <Stack.Screen name="scan" options={slide} />
-                    <Stack.Screen name="import-web" options={slide} />
-                    <Stack.Screen name="pronunciations" options={slide} />
-                    <Stack.Screen name="voices" options={slide} />
-                    <Stack.Screen name="handle-share" options={fade} />
-                    <Stack.Screen name="statistics" options={slide} />
-                    <Stack.Screen name="ai-usage" options={slide} />
-                    <Stack.Screen name="home-screen-widgets" options={slide} />
-                    {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
-                    <Stack.Screen name="widget" options={{ animation: "none" }} />
-                  </Stack.Protected>
-                  <Stack.Protected guard={signedIn}>
-                    <Stack.Screen name="support" options={slide} />
-                    <Stack.Screen name="subscription" options={slide} />
-                    <Stack.Screen name="account" options={slide} />
-                    <Stack.Screen name="library-backup" options={slide} />
-                    <Stack.Screen name="recently-deleted" options={slide} />
-                    <Stack.Screen name="note-drafts" options={slide} />
-                    <Stack.Screen name="feedback/index" options={slide} />
-                    <Stack.Screen name="feedback/feature" options={slide} />
-                    <Stack.Screen name="feedback/bug" options={slide} />
-                  </Stack.Protected>
-                </Stack>
+                {/* One wordmark entrance after sign-in, shared by every page header so it continues across pages. */}
+                <WordmarkEntranceProvider>
+                  <Stack
+                    screenOptions={{
+                      headerShown: false,
+                      contentStyle: { backgroundColor: theme.background },
+                      animation: "none",
+                    }}
+                  >
+                    {/* Only the screens for the current stage exist, so the router always lands on the right one. */}
+                    <Stack.Protected guard={!signedIn}>
+                      <Stack.Screen name="welcome" />
+                      <Stack.Screen name="create-account" options={slide} />
+                      <Stack.Screen name="sign-in" options={slide} />
+                      <Stack.Screen name="forgot-password" options={slide} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={signedIn && !personalized}>
+                      <Stack.Screen name="personalize" options={fade} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={personalized && !setup.handedOff && !setup.widgetsIntroduced}>
+                      <Stack.Screen name="widgets-intro" options={fade} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={personalized && !setup.handedOff && setup.widgetsIntroduced}>
+                      <Stack.Screen name="ready" options={fade} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={subscribed && setup.handedOff}>
+                      <Stack.Screen name="(tabs)" options={fade} />
+                      <Stack.Screen name="paywall" options={fade} />
+                      <Stack.Screen
+                        name="reader"
+                        options={{
+                          animation: "none",
+                          presentation: "transparentModal",
+                          gestureEnabled: false,
+                          contentStyle: { backgroundColor: "transparent" },
+                        }}
+                      />
+                      <Stack.Screen name="assistant" />
+                      <Stack.Screen name="settings/[category]" options={slide} />
+                      <Stack.Screen name="recap" />
+                      <Stack.Screen name="scan" options={slide} />
+                      <Stack.Screen name="import-web" options={slide} />
+                      <Stack.Screen name="pronunciations" options={slide} />
+                      <Stack.Screen name="voices" options={slide} />
+                      <Stack.Screen name="handle-share" options={fade} />
+                      <Stack.Screen name="statistics" options={slide} />
+                      <Stack.Screen name="ai-usage" options={slide} />
+                      <Stack.Screen name="home-screen-widgets" options={slide} />
+                      {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
+                      <Stack.Screen name="widget" options={{ animation: "none" }} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={signedIn}>
+                      <Stack.Screen name="support" options={slide} />
+                      <Stack.Screen name="subscription" options={slide} />
+                      <Stack.Screen name="account" options={slide} />
+                      <Stack.Screen name="library-backup" options={slide} />
+                      <Stack.Screen name="recently-deleted" options={slide} />
+                      <Stack.Screen name="note-drafts" options={slide} />
+                      <Stack.Screen name="feedback/index" options={slide} />
+                      <Stack.Screen name="feedback/feature" options={slide} />
+                      <Stack.Screen name="feedback/bug" options={slide} />
+                    </Stack.Protected>
+                  </Stack>
+                </WordmarkEntranceProvider>
               </SetupAccent>
             </WalkthroughProvider>
           </DocumentTransitionProvider>

@@ -13,10 +13,16 @@ export const fakeAuth = {
   /** False behaves like a build without Firebase settings, where development builds can be explored. */
   configured: true,
   googleAvailable: true,
+  /** What Continue with Google throws, as the real backend does when it can't finish (null: it succeeds). */
+  googleFailure: null as Error | null,
+  /** Holds Continue with Google open until released, to observe its busy state. */
+  googlePending: null as Promise<void> | null,
   reset(user: VoticUser | null = SIGNED_IN) {
     fakeAuth.user = user;
     fakeAuth.configured = true;
     fakeAuth.googleAvailable = true;
+    fakeAuth.googleFailure = null;
+    fakeAuth.googlePending = null;
     fakeAuth.accounts.clear();
     fakeAuth.calls.length = 0;
     fakeAuth.socialCreatesAccount = true;
@@ -73,6 +79,8 @@ export function create_auth_backend(): AuthBackend {
     },
     async signInWithGoogle() {
       fakeAuth.calls.push("signInWithGoogle");
+      if (fakeAuth.googlePending) await fakeAuth.googlePending;
+      if (fakeAuth.googleFailure) throw fakeAuth.googleFailure;
       fakeAuth.setUser({
         uid: "google",
         email: "g@example.com",

@@ -2,6 +2,7 @@ import { expect, it } from "@jest/globals";
 import { act, screen } from "@testing-library/react-native";
 import { Animated, StyleSheet } from "react-native";
 import { VoticWordmark, WORDMARK_TIMELINE, HOME_ROBOT_TIMELINE } from "../../src/components/VoticWordmark";
+import { ROBOT_BEATS, ROBOT_HANDOFF } from "../../src/motion/robotCarrier";
 import { render_with_providers } from "../renderWithProviders";
 
 const PIECES = [
@@ -66,36 +67,6 @@ it("is the finished, accessible logo when there is no entrance", async () => {
   for (const id of PIECES) expect(opacity(id)).toBe(1);
 });
 
-it("brings each letter and its own robot in from the right after the V, then leaves the finished logo", async () => {
-  const progress = new Animated.Value(0);
-  await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const letters = ["o", "t", "i", "c"] as const;
-  await act(async () => progress.setValue(HOME_ROBOT_TIMELINE.vSettle[1]));
-  for (const letter of letters) expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(0);
-  for (const [index, letter] of letters.entries()) {
-    const range = HOME_ROBOT_TIMELINE.letters[index];
-    await act(async () => progress.setValue(range[0] + (range[1] - range[0]) * 0.3));
-    expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(1);
-    for (const other of letters.slice(index + 1))
-      expect(opacity(`votic-wordmark-robot-${other}`)).toBe(0);
-    const robot = StyleSheet.flatten(
-      screen.getByTestId(`votic-wordmark-robot-${letter}`, { includeHiddenElements: true }).props.style,
-    );
-    const glyph = StyleSheet.flatten(screen.getByTestId(`votic-wordmark-letter-${letter}`).props.style);
-    const x = (style: typeof robot) => {
-      const value = (style.transform as { translateX: number | { __getValue: () => number } }[])[0]
-        .translateX;
-      return typeof value === "number" ? value : value.__getValue();
-    };
-    expect(x(robot)).toBeGreaterThan(0);
-    expect(x(robot)).toBeCloseTo(x(glyph));
-  }
-  await act(async () => progress.setValue(1));
-  for (const letter of letters) {
-    expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(0);
-    expect(opacity(`votic-wordmark-letter-${letter}`)).toBe(1);
-  }
-});
 it("brings in each wing and letter on its own: every piece finishes before the next one starts", () => {
   const t = WORDMARK_TIMELINE;
   const sequence = [t.stroke, ...t.wings, t.vSettle, ...t.letters, t.finish];
@@ -103,92 +74,127 @@ it("brings in each wing and letter on its own: every piece finishes before the n
     expect(sequence[index][0]).toBeGreaterThanOrEqual(sequence[index - 1][1]);
 });
 
-it("starts the next robot when the previous letter is placed", () => {
+/** A transform entry's current value (number or animated value) from an element's flattened style. */
+function transform_value(testID: string, key: string, index = 0) {
+  const style = StyleSheet.flatten(screen.getByTestId(testID, { includeHiddenElements: true }).props.style);
+  const entries = (style.transform as Record<string, unknown>[]).filter((entry) => entry[key] !== undefined);
+  const value = entries[index]?.[key] as number | string | { __getValue: () => number | string };
+  return typeof value === "object" ? value.__getValue() : value;
+}
+const degrees = (testID: string, index = 0) => parseFloat(String(transform_value(testID, "rotate", index)));
+const at_letter = (index: number, fraction: number) => {
+  const [start, end] = HOME_ROBOT_TIMELINE.letters[index];
+  return start + (end - start) * fraction;
+};
+
+it("brings each letter and its own robot in from the right after the V, then leaves the finished logo", async () => {
+  const progress = new Animated.Value(0);
+  await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
+  const letters = ["o", "t", "i", "c"] as const;
+  await act(async () => progress.setValue(HOME_ROBOT_TIMELINE.vSettle[1]));
+  for (const letter of letters) expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(0);
+  for (const [index, letter] of letters.entries()) {
+    await act(async () => progress.setValue(at_letter(index, 0.3)));
+    expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(1);
+    expect(opacity(`votic-robot-legs-${letter}`)).toBe(1);
+    expect(opacity(`votic-robot-arm-${letter}`)).toBe(1);
+    expect(opacity(`votic-wordmark-letter-${letter}`)).toBe(1);
+    for (const other of letters.slice(index + 1)) expect(opacity(`votic-wordmark-robot-${other}`)).toBe(0);
+    // Letter and robot travel together, still to the right of the letter's place.
+    expect(transform_value(`votic-robot-carrier-${letter}`, "translateX")).toBeGreaterThan(0);
+  }
+  await act(async () => progress.setValue(1));
+  for (const letter of letters) {
+    expect(opacity(`votic-wordmark-robot-${letter}`)).toBe(0);
+    expect(opacity(`votic-robot-arm-${letter}`)).toBe(0);
+    expect(opacity(`votic-wordmark-letter-${letter}`)).toBe(1);
+    expect(transform_value(`votic-robot-carrier-${letter}`, "translateX")).toBe(0);
+    expect(transform_value(`votic-robot-letter-${letter}`, "translateX")).toBe(0);
+    expect(transform_value(`votic-robot-letter-${letter}`, "translateY")).toBe(0);
+    expect(degrees(`votic-robot-letter-${letter}`)).toBe(0);
+  }
+  expect(wordmark_scale()).toBe(1);
+});
+
+it("starts the next robot when the previous letter is placed", async () => {
   const t = HOME_ROBOT_TIMELINE;
   expect(t.letters[0][0]).toBeGreaterThanOrEqual(t.vSettle[1]);
   for (let index = 1; index < t.letters.length; index++) {
     const [start, end] = t.letters[index - 1];
-    expect(t.letters[index][0]).toBeCloseTo(start + (end - start) * 0.72);
-    expect(t.letters[index][0]).toBeLessThan(end);
+    expect(t.letters[index][0]).toBeCloseTo(start + (end - start) * ROBOT_HANDOFF);
   }
-});
-
-it("alternates the robot legs while walking and keeps its body leaning back", async () => {
   const progress = new Animated.Value(0);
   await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const [start, end] = HOME_ROBOT_TIMELINE.letters[0];
-  const rotation = (id: string) => {
-    const style = StyleSheet.flatten(screen.getByTestId(id, { includeHiddenElements: true }).props.style);
-    const rotate = (style.transform as { rotate: string | { __getValue: () => string } }[]).find((part) => part.rotate)?.rotate;
-    return typeof rotate === "string" ? rotate : rotate?.__getValue();
-  };
-  await act(async () => progress.setValue(start + (end - start) * 0.16));
-  expect(rotation("votic-robot-leg-o-0")).toBe("-20deg");
-  expect(rotation("votic-robot-leg-o-1")).toBe("20deg");
-  expect(rotation("votic-robot-lean-o")).not.toBe("0deg");
-  await act(async () => progress.setValue(start + (end - start) * 0.32));
-  expect(rotation("votic-robot-leg-o-0")).toBe("20deg");
-  expect(rotation("votic-robot-leg-o-1")).toBe("-20deg");
+  await act(async () => progress.setValue(at_letter(0, ROBOT_HANDOFF)));
+  // o is down, upright and in place, and t's robot is only now appearing.
+  expect(transform_value("votic-robot-carrier-o", "translateX")).toBe(0);
+  expect(transform_value("votic-robot-letter-o", "translateY")).toBeCloseTo(0);
+  expect(degrees("votic-robot-letter-o")).toBeCloseTo(0);
+  expect(opacity("votic-wordmark-robot-t")).toBe(0);
+  await act(async () => progress.setValue(at_letter(1, 0.1)));
+  expect(opacity("votic-wordmark-robot-t")).toBe(1);
+  // The first robot is still visibly leaving while the next one arrives.
+  expect(opacity("votic-wordmark-robot-o")).toBe(1);
 });
 
-it("shows a side-profile carrier while leaving the full letter visible", async () => {
+it("hugs the letter to its chest: raised, leaning back with the body, on a short jointed arm", async () => {
   const progress = new Animated.Value(0);
   await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const [start, end] = HOME_ROBOT_TIMELINE.letters[0];
-  await act(async () => progress.setValue(start + (end - start) * 0.3));
-  expect(screen.getByTestId("votic-robot-profile-o", { includeHiddenElements: true })).toBeTruthy();
+  await act(async () => progress.setValue(at_letter(0, 0.3)));
+  // The body leans back (rotation is the last transform on the body frame), and the letter rides up with it.
+  expect(degrees("votic-wordmark-robot-o")).toBeGreaterThanOrEqual(8);
+  expect(transform_value("votic-robot-letter-o", "translateY")).toBeLessThan(-3);
+  expect(degrees("votic-robot-letter-o")).toBeGreaterThanOrEqual(8);
+  // Upper arm from the shoulder, forearm from the elbow, with the hand at the forearm's end.
+  expect(screen.getByTestId("votic-robot-arm-o", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByTestId("votic-robot-forearm-o", { includeHiddenElements: true })).toBeTruthy();
+  expect(screen.getByTestId("votic-robot-hand-o", { includeHiddenElements: true })).toBeTruthy();
   expect(screen.getByTestId("votic-wordmark-letter-o").props.children).toBe("o");
-  expect(opacity("votic-wordmark-letter-o")).toBeGreaterThan(0);
+  // Facing left: the robot's left side.
+  expect(transform_value("votic-wordmark-robot-o", "scaleX")).toBe(1);
+  // A tall letter stays upright under the chin instead of tipping back into the face.
+  await act(async () => progress.setValue(at_letter(2, 0.3)));
+  expect(Math.abs(degrees("votic-robot-letter-i"))).toBeLessThan(5);
 });
 
- it("keeps the grip aligned with the letter and releases it on placement", async () => {
+it("walks on alternating legs while carrying", async () => {
   const progress = new Animated.Value(0);
   await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const [start, end] = HOME_ROBOT_TIMELINE.letters[0];
-  await act(async () => progress.setValue(start + (end - start) * 0.3));
-  const grip = StyleSheet.flatten(screen.getByTestId("votic-robot-grip-o", { includeHiddenElements: true }).props.style);
-  const glyph = StyleSheet.flatten(screen.getByTestId("votic-wordmark-letter-o").props.style);
-  const x = (style: typeof grip) => {
-    const value = (style.transform as { translateX: number | { __getValue: () => number } }[])[0].translateX;
-    return typeof value === "number" ? value : value.__getValue();
-  };
-  expect(x(grip)).toBeCloseTo(x(glyph));
-  expect(opacity("votic-robot-grip-o")).toBe(1);
-  await act(async () => progress.setValue(start + (end - start) * 0.72));
-  expect(opacity("votic-robot-grip-o")).toBe(0);
+  const thigh = (side: number) => degrees(`votic-robot-leg-o-${side}`);
+  const [walkStart, walkEnd] = ROBOT_BEATS.walk;
+  const step = (walkEnd - walkStart) / 4;
+  const leader: number[] = [];
+  for (const n of [0, 1, 2]) {
+    await act(async () => progress.setValue(at_letter(0, walkStart + n * step)));
+    leader.push(Math.sign(thigh(0) - thigh(1)));
+  }
+  // The leading leg swaps on each step.
+  expect(leader[0]).not.toBe(leader[1]);
+  expect(leader[1]).not.toBe(leader[2]);
 });
 
-it("alternates raised and grounded feet during the carry", async () => {
+it("releases the letter, turns to the right and walks away", async () => {
   const progress = new Animated.Value(0);
   await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const [start, end] = HOME_ROBOT_TIMELINE.letters[0];
-  const lift = (side: number) => {
-    const style = StyleSheet.flatten(screen.getByTestId(`votic-robot-leg-o-${side}`, { includeHiddenElements: true }).props.style);
-    const value = (style.transform as { translateY?: number | { __getValue: () => number } }[]).find((item) => item.translateY !== undefined)?.translateY;
-    return typeof value === "number" ? value : value?.__getValue();
-  };
-  await act(async () => progress.setValue(start + (end - start) * 0.16));
-  expect(lift(0)).toBeCloseTo(0);
-  expect(lift(1)).toBeCloseTo(-4);
-  await act(async () => progress.setValue(start + (end - start) * 0.32));
-  expect(lift(0)).toBeCloseTo(-4);
-  expect(lift(1)).toBeCloseTo(0);
-});
-
- it("turns to the right and walks away after placement", async () => {
-  const progress = new Animated.Value(0);
-  await render_with_providers(<VoticWordmark entrance={progress} robotEntrance />);
-  const [start, end] = HOME_ROBOT_TIMELINE.letters[0];
-  const read = (id: string, key: string) => {
-    const style = StyleSheet.flatten(screen.getByTestId(id, { includeHiddenElements: true }).props.style);
-    const entry = (style.transform as Record<string, number | { __getValue: () => number }>[])
-      .find((item) => item[key] !== undefined)?.[key];
-    return typeof entry === "number" ? entry : entry?.__getValue();
-  };
-  await act(async () => progress.setValue(start + (end - start) * 0.79));
-  expect(read("votic-wordmark-robot-o", "scaleX")).toBeCloseTo(-1);
-  expect(read("votic-wordmark-robot-o", "translateX")).toBeCloseTo(0);
-  await act(async () => progress.setValue(start + (end - start) * 0.86));
-  expect(read("votic-wordmark-robot-o", "translateX")).toBeGreaterThan(0);
-  expect(read("votic-robot-leg-o-1", "translateY")).toBeCloseTo(-4);
+  await act(async () => progress.setValue(at_letter(0, ROBOT_BEATS.release[0])));
+  const onLetter = transform_value("votic-robot-forearm-o", "translateX") as number;
+  await act(async () => progress.setValue(at_letter(0, ROBOT_BEATS.release[1])));
+  // The arm has come back off the letter towards the body.
+  expect(transform_value("votic-robot-forearm-o", "translateX") as number).toBeGreaterThan(onLetter);
+  expect(transform_value("votic-wordmark-robot-o", "scaleX")).toBeCloseTo(1);
+  await act(async () => progress.setValue(at_letter(0, ROBOT_BEATS.turn[1])));
+  expect(transform_value("votic-wordmark-robot-o", "scaleX")).toBeCloseTo(-1);
+  expect(transform_value("votic-robot-legs-o", "scaleX")).toBeCloseTo(-1);
+  let previous = 0;
+  for (const fraction of [0.9, 0.97, 1.0]) {
+    await act(async () => progress.setValue(at_letter(0, fraction)));
+    const x = transform_value("votic-wordmark-robot-o", "translateX") as number;
+    expect(x).toBeGreaterThan(previous);
+    expect(transform_value("votic-robot-legs-o", "translateX")).toBeCloseTo(x);
+    expect(opacity("votic-wordmark-robot-o")).toBe(1);
+    previous = x;
+  }
+  // The letter stays put.
+  expect(transform_value("votic-robot-carrier-o", "translateX")).toBe(0);
+  expect(transform_value("votic-robot-letter-o", "translateX")).toBe(0);
 });
