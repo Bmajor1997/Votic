@@ -166,7 +166,7 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
 }
 
 function ScannerCapture({ scanner }: { scanner: Scanner }) {
-  const { pages, retakeId, busy, cameraReady, show_page, capture } = scanner;
+  const { pages, retakeId, busy, cameraReady, show_page, capture, scanAllowance } = scanner;
   return (
     <View style={{ flex: 1, justifyContent: "space-between" }}>
       <View pointerEvents="none" style={s.guideWrap}>
@@ -181,6 +181,11 @@ function ScannerCapture({ scanner }: { scanner: Scanner }) {
             ? "Retake this page. Your other pages are kept."
             : "Photograph each sheet. Finish them as one document."}
         </Text>
+        {scanAllowance ? (
+          <Text accessibilityLiveRegion="polite" style={s.hint}>
+            {scanAllowance}
+          </Text>
+        ) : null}
       </View>
       <View style={s.captureBar}>
         {pages.length ? (

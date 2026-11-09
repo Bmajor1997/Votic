@@ -2,7 +2,7 @@
 
 Eight Remotion compositions accompany the live Expo/React Native interactions on `feature/finish-experience`:
 
-- `HomeLogoEntrance`: Home-only 600 ms right-to-left entrance of the existing logo and wordmark as one unit; toggle `dark`, `reducedMotion`, or `returningSession`. This composition uses 390 × 844 logical pixels at 60 fps, with a two-second settled hold.
+- `HomeLogoEntrance`: Home-only V and robot-carried letter entrance, showing the current app timing and approximate poses; toggle `dark`, `reducedMotion`, or `returningSession`. This composition uses 390 × 844 logical pixels at 60 fps, with a two-second settled hold. The larger robot, stronger lean, and steps are an experimental visual study; they are not yet present in the native app. Confirm the final result on an Android device.
 - `DocumentOpen`: measured document card expands, its title travels independently, then reader text appears.
 - `ReadListen`: sliding selection and listening-control entrance.
 - `PlayPause`: triangle/pause geometry morph, in both directions.

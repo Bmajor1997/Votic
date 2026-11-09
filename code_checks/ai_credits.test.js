@@ -17,16 +17,41 @@ const exhausted = (error) => error instanceof AiLimitError && error.code === "AI
 
 test("free and Plus transitions preserve spent credits and change the allowance without a second grant", () => {
   const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
-  const free = credits.period("u", {}, 100);
+  const free = credits.period("u", {}, 100, { free: true });
   credits.reserve({ uid: "u", request_id: "free-use", feature: "help", credits: 40, period: free });
   credits.charge("free-use");
   const plus = credits.period("u", subscriber("2026-11-05T00:00:00Z", "2026-12-05T00:00:00Z"), 1000);
   assert.equal(credits.summary("u", plus).remaining, 960);
-  const downgraded = credits.period("u", {}, 100);
+  const downgraded = credits.period("u", {}, 100, { free: true });
   assert.equal(credits.summary("u", downgraded).remaining, 60);
   credits.reserve({ uid: "u", request_id: "remaining", feature: "help", credits: 60, period: downgraded });
   credits.charge("remaining");
   assert.throws(() => credits.reserve({ uid: "u", request_id: "excess", feature: "help", credits: 1, period: downgraded }), exhausted);
+});
+
+test("a paid 75-credit plan is not mistaken for Free when its configuration changes", () => {
+  const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
+  const profile = subscriber("2026-11-01T00:00:00Z", "2026-12-01T00:00:00Z");
+  assert.equal(credits.period("u", profile, 75).allowance, 75);
+  assert.equal(credits.period("u", profile, 1000).allowance, 75);
+});
+
+test("changing an existing Free allowance to 75 retains spent credits and supports Plus transitions", () => {
+  const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
+  const old = credits.period("u", {}, 100, { free: true });
+  credits.reserve({ uid: "u", request_id: "spent-old", feature: "help", credits: 60, period: old });
+  credits.charge("spent-old");
+  const current = credits.period("u", {}, 75, { free: true });
+  assert.equal(credits.summary("u", current).remaining, 15);
+  credits.reserve({ uid: "u", request_id: "fill-free", feature: "help", credits: 15, period: current });
+  credits.charge("fill-free");
+  assert.throws(() => credits.reserve({ uid: "u", request_id: "over-free", feature: "help", credits: 1, period: current }), exhausted);
+  const plus = credits.period("u", subscriber("2026-11-05T00:00:00Z", "2026-12-05T00:00:00Z"), 1000);
+  assert.equal(credits.summary("u", plus).remaining, 925);
+  const free = credits.period("u", {}, 75, { free: true });
+  assert.equal(credits.summary("u", free).remaining, 0);
+  now.set("2026-12-01T00:00:00Z");
+  assert.equal(credits.summary("u", credits.period("u", {}, 75, { free: true })).remaining, 75);
 });
 
 test("percent remaining rounds down, never exceeds 100 and never goes below 0", () => {

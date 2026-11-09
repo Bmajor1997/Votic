@@ -14,6 +14,7 @@ import {
   Field,
   FormMessage,
   NotConfiguredNotice,
+  SocialSignIn,
   PasswordInput,
   LegalLine,
   SwitchPrompt,
@@ -27,6 +28,7 @@ export default function CreateAccount() {
   const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
   const [accountExists, setAccountExists] = useState(false);
   const [triedSubmit, setTriedSubmit] = useState(false);
@@ -40,7 +42,7 @@ export default function CreateAccount() {
     setTriedSubmit(true);
     setError("");
     setAccountExists(false);
-    if (!looks_like_email(email) || problem || busy) return;
+    if (!looks_like_email(email) || problem || busy || socialBusy) return;
     setBusy(true);
     try {
       await auth.createAccount(email, password);
@@ -58,6 +60,7 @@ export default function CreateAccount() {
       title="Create your account"
       subtitle="Your account keeps your setup and subscription with you."
     >
+      <SocialSignIn googleOnly disabled={busy} onBusyChange={setSocialBusy} onError={setError} />
       <View style={accountStyles.form}>
         <Field label="Email" error={emailError}>
           <EmailInput
@@ -92,7 +95,7 @@ export default function CreateAccount() {
           ) : null}
         </FormMessage>
       ) : null}
-      <PrimaryButton label="Create account" busy={busy} onPress={() => void submit()} />
+      <PrimaryButton label="Create account" busy={busy || socialBusy} onPress={() => void submit()} />
       <NotConfiguredNotice />
       <SwitchPrompt
         prompt="Already have an account?"

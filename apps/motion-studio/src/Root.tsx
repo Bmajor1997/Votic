@@ -1,5 +1,6 @@
 import { HomeLogoEntrance } from "./HomeLogoEntrance";
 import { Composition } from "remotion";
+import { MOTION } from "../../mobile/src/motion/motionSpec";
 import {
   DocumentOpen,
   ReadListen,
@@ -14,7 +15,7 @@ export const RemotionRoot = () => (
     <Composition
       id="HomeLogoEntrance"
       component={HomeLogoEntrance}
-      durationInFrames={180}
+      durationInFrames={Math.ceil((MOTION.homeLogo.duration / 1000 + 2) * 60)}
       fps={60}
       width={390}
       height={844}

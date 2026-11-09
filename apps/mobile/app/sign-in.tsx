@@ -10,6 +10,7 @@ import {
   Field,
   FormMessage,
   NotConfiguredNotice,
+  SocialSignIn,
   PasswordInput,
   SwitchPrompt,
   accountStyles,
@@ -22,6 +23,7 @@ export default function SignIn() {
   const [email, setEmail] = useState(typeof params.email === "string" ? params.email : "");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
   const [triedSubmit, setTriedSubmit] = useState(false);
   const passwordRef = useRef<TextInput>(null);
@@ -47,7 +49,7 @@ export default function SignIn() {
   async function submit() {
     setTriedSubmit(true);
     setError("");
-    if (!looks_like_email(email) || !password || busy) return;
+    if (!looks_like_email(email) || !password || busy || socialBusy) return;
     setBusy(true);
     try {
       await auth.signIn(email, password);
@@ -63,7 +65,7 @@ export default function SignIn() {
 
   return (
     <AccountScaffold title="Welcome back" subtitle="Sign in to pick up where you left off.">
-      {/* Welcome already offers Continue with Google, so tapping Sign in leads straight to email sign-in. */}
+      <SocialSignIn googleOnly disabled={busy} onBusyChange={setSocialBusy} onError={setError} />
       <View style={accountStyles.form}>
         <Field label="Email" error={emailError}>
           <EmailInput
@@ -103,7 +105,7 @@ export default function SignIn() {
         </View>
       </View>
       {error ? <FormMessage text={error} /> : null}
-      <PrimaryButton label="Sign in" busy={busy} onPress={() => void submit()} />
+      <PrimaryButton label="Sign in" busy={busy || socialBusy} onPress={() => void submit()} />
       <NotConfiguredNotice />
       <SwitchPrompt
         prompt="New to Votic?"

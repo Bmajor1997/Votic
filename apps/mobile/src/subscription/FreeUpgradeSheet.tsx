@@ -42,7 +42,7 @@ function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string
     },
     scans: {
       title: "Keep scanning",
-      body: `You've used your five Free camera scan pages this month.${reset}`,
+      body: `You've used your three Free camera scan pages this month.${reset}`,
     },
     pdf: { title: "Read your scanned PDF", body: "Scanned PDF reading is available with Votic Plus." },
     credits: {

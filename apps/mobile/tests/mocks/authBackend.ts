@@ -12,9 +12,11 @@ export const fakeAuth = {
   socialCreatesAccount: true,
   /** False behaves like a build without Firebase settings, where development builds can be explored. */
   configured: true,
+  googleAvailable: true,
   reset(user: VoticUser | null = SIGNED_IN) {
     fakeAuth.user = user;
     fakeAuth.configured = true;
+    fakeAuth.googleAvailable = true;
     fakeAuth.accounts.clear();
     fakeAuth.calls.length = 0;
     fakeAuth.socialCreatesAccount = true;
@@ -33,7 +35,7 @@ function failure(code: string) {
 export function create_auth_backend(): AuthBackend {
   return {
     configured: fakeAuth.configured,
-    googleAvailable: true,
+    googleAvailable: fakeAuth.googleAvailable,
     appleAvailable: async () => true,
     subscribe(listener) {
       listeners.add(listener);

@@ -1,7 +1,7 @@
 import { UnfinishedScanError, useOcrReview } from "./OcrReviewProvider";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -12,6 +12,7 @@ import { MAX_SCAN_PAGES, move_scan_page } from "./scanDraftModel";
 import { recognize_scan_pages, ScanPageError } from "./scanRecognition";
 import { rotate_scan_photo } from "./scanPhoto";
 import { FreeDocumentLimitError, useDocumentLibrary } from "./DocumentLibraryProvider";
+import { ai_usage } from "../api/voticApi";
 export function useScanner() {
   const { theme } = useVoticTheme();
   const { ensureCanAddDocument } = useDocumentLibrary();
@@ -29,6 +30,31 @@ export function useScanner() {
   const [working, setWorking] = useState(false);
   const lock = useRef(false);
   const [processingPage, setProcessingPage] = useState(0);
+  const [scanAllowance, setScanAllowance] = useState("Checking scan allowance…");
+  const scanAllowanceActive = useRef(true);
+  const checkScanAllowance = useCallback(async () => {
+    const usage = await ai_usage();
+    if (usage.plan?.name !== "Votic Free") {
+      if (scanAllowanceActive.current) setScanAllowance("");
+      return null;
+    }
+    if (!usage.freeScans)
+      throw new Error("Votic couldn't check your remaining scan pages. Please try again.");
+    const { remaining, limit } = usage.freeScans;
+    if (scanAllowanceActive.current)
+      setScanAllowance(`${remaining} of ${limit} Free scan pages remaining this month.`);
+    return remaining;
+  }, []);
+  useEffect(() => {
+    scanAllowanceActive.current = true;
+    void checkScanAllowance().catch(() => {
+      if (scanAllowanceActive.current)
+        setScanAllowance("Scan allowance unavailable. Try again before finishing.");
+    });
+    return () => {
+      scanAllowanceActive.current = false;
+    };
+  }, [checkScanAllowance]);
   const [torch, setTorch] = useState(false);
   const completedPages = useRef(new Map<string, string>());
   const pages = draft.draft.pages;
@@ -154,6 +180,15 @@ export function useScanner() {
       ensureAvailable();
       const snapshot = draft.latest.current;
       await draft.commit(snapshot);
+      const remaining = await checkScanAllowance();
+      const needed = snapshot.pages.filter(
+        (page) => page.text === undefined && !completedPages.current.has(page.id),
+      ).length;
+      if (remaining !== null && needed > remaining) {
+        throw new Error(
+          `This scan needs ${needed} ${needed === 1 ? "page" : "pages"}, but you have ${remaining} Free scan ${remaining === 1 ? "page" : "pages"} left this month. Your photos are saved; remove pages or upgrade to continue.`,
+        );
+      }
       const job = session.start();
       if (!job) return;
       try {
@@ -182,6 +217,10 @@ export function useScanner() {
         });
         if (saved && job.current()) router.replace("/reader");
       } finally {
+        void checkScanAllowance().catch(() => {
+          if (scanAllowanceActive.current)
+            setScanAllowance("Scan allowance unavailable. Try again before finishing.");
+        });
         job.finish();
         setProcessingPage(0);
       }
@@ -228,6 +267,7 @@ export function useScanner() {
     setCameraReady,
     busy,
     processingPage,
+    scanAllowance,
     torch,
     setTorch,
     pages,

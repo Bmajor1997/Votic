@@ -98,14 +98,16 @@ describe("Explore without an account", () => {
 });
 
 describe("Create account", () => {
-  it("is email only: Google and Apple are offered on Welcome, not here", async () => {
+  it("offers Google account creation when configured", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<CreateAccount />);
     expect(screen.getByRole("header", { name: "Create your account" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Continue with Google" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Continue with Google" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /Apple/ })).toBeNull();
     expect(screen.queryByText("or continue with email")).toBeNull();
     expect(screen.getByLabelText("Email")).toBeTruthy();
+    await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+    expect(fakeAuth.calls).toContain("signInWithGoogle");
   });
 
   it("checks the email and password before creating an account", async () => {
@@ -553,9 +555,18 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByRole("button", { name: "Start using Votic" })).toBeTruthy();
 });
 
-it("goes straight to email sign-in, without repeating Continue with Google from Welcome", async () => {
+it("offers Google on sign-in and uses the existing authentication flow", async () => {
   await render_with_providers(<SignIn />);
-  expect(screen.queryByRole("button", { name: /Google/ })).toBeNull();
-  expect(screen.queryByText("or sign in with email")).toBeNull();
   expect(screen.getByRole("button", { name: "Sign in" })).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  expect(fakeAuth.calls).toContain("signInWithGoogle");
+});
+
+it.each([Welcome, SignIn, CreateAccount])("explains when Google is unavailable in this build", async (Form) => {
+  fakeAuth.reset(null);
+  fakeAuth.googleAvailable = false;
+  await render_with_providers(<Form />);
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  expect(screen.getByText(/Google sign-in isn.t configured in this build/)).toBeTruthy();
+  expect(fakeAuth.calls).not.toContain("signInWithGoogle");
 });

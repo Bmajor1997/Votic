@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { scan_document_image } from "../../src/api/voticApi";
+import { ai_usage, scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import ScanDocumentScreen from "../../app/scan";
 import { render_with_providers } from "../renderWithProviders";
@@ -28,7 +28,10 @@ jest.mock("expo-camera", () => {
 jest.mock("../../src/documents/scanPhoto", () => ({
   rotate_scan_photo: jest.fn(async () => ({ uri: "file:///cache/rotated.jpg" })),
 }));
-jest.mock("../../src/api/voticApi", () => ({ scan_document_image: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({
+  scan_document_image: jest.fn(),
+  ai_usage: jest.fn(async () => ({ plan: { name: "Votic Plus" } })),
+}));
 
 describe("document scanner", () => {
   it("never flashes the screen when a photo is taken", async () => {
@@ -38,6 +41,46 @@ describe("document scanner", () => {
     // expo-camera's default shutter animation flashes the whole screen, a photosensitivity risk.
     expect(cameraProps.at(-1)?.animateShutter).toBe(false);
   });
+});
+
+it("shows remaining Free pages and stops an over-limit scan before OCR starts", async () => {
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest
+    .mocked(ai_usage)
+    .mockResolvedValue({
+      status: "active",
+      plan: { name: "Votic Free" },
+      monthly: null,
+      purchased: null,
+      purchaseProducts: [],
+      freeScans: { limit: 3, remaining: 1 },
+    });
+  jest.mocked(scan_document_image).mockClear();
+  await render_with_providers(<ScanDocumentScreen />);
+  expect(await screen.findByText("1 of 3 Free scan pages remaining this month.")).toBeTruthy();
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Add another page" }));
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Finish scan" }));
+  await waitFor(() =>
+    expect(Alert.alert).toHaveBeenCalledWith(
+      "Could not read scan",
+      expect.stringContaining("you have 1 Free scan page left"),
+    ),
+  );
+  expect(scan_document_image).not.toHaveBeenCalled();
+  jest
+    .mocked(ai_usage)
+    .mockResolvedValue({
+      status: "unmetered",
+      plan: { name: "Votic Plus" },
+      monthly: null,
+      purchased: null,
+      purchaseProducts: [],
+    });
 });
 
 it("waits for camera readiness and reviews/corrects OCR before opening its saved document", async () => {

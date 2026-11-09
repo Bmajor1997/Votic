@@ -1,6 +1,7 @@
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState, Easing, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Animated, AppState, Easing, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ai_usage } from "../api/voticApi";
 import { useAuth } from "../auth/AuthProvider";
@@ -90,16 +91,44 @@ function UsageBar({ percent }: { percent: number }) {
   );
 }
 
-function AllowanceCard({ monthly }: { monthly: NonNullable<AiUsage["monthly"]> }) {
+function AllowanceCard({ monthly, plan }: { monthly: NonNullable<AiUsage["monthly"]>; plan: string }) {
   const { theme } = useVoticTheme();
+  const { fontScale, width } = useWindowDimensions();
   return (
-    <View style={[s.card, theme.elevation, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={[s.hero, { backgroundColor: theme.brandTint, borderColor: theme.border }]}>
+      <Text style={[s.eyebrow, { color: theme.mutedText }]}>{plan}</Text>
       <Text style={[s.eyebrow, { color: theme.mutedText }]}>MONTHLY AI ALLOWANCE</Text>
-      <Text accessibilityRole="header" style={[s.percent, { color: theme.text }]}>
-        {monthly.percentRemaining}% remaining
-      </Text>
+      <View style={s.heroRow}>
+        <Text accessibilityRole="header" style={[s.heroPercent, { color: theme.accentText }]}>
+          {monthly.percentRemaining}% remaining
+        </Text>
+        {width >= 340 && fontScale <= 1.3 ? (
+          <Image source={require("../../assets/ai-usage-robot.png")} accessibilityIgnoresInvertColors accessible={false} style={s.robot} resizeMode="contain" />
+        ) : null}
+      </View>
       <UsageBar percent={monthly.percentRemaining} />
       <Text style={[s.detail, { color: theme.mutedText }]}>{usage_reset_label(monthly)}</Text>
+    </View>
+  );
+}
+
+function CreditUses() {
+  const { theme } = useVoticTheme();
+  const items = [
+    { icon: "chatbubble-ellipses-outline" as const, label: "AI questions" },
+    { icon: "document-text-outline" as const, label: "Summaries" },
+    { icon: "camera-outline" as const, label: "Camera scans" },
+    { icon: "mic-outline" as const, label: "Voice questions" },
+  ];
+  return (
+    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>What uses credits?</Text>
+      {items.map((item) => (
+        <View key={item.label} style={s.useRow}>
+          <View style={[s.useIcon, { backgroundColor: theme.brandTint }]}><Ionicons name={item.icon} size={21} color={theme.accentText} /></View>
+          <Text style={[s.detail, { color: theme.text }]}>{item.label}</Text>
+        </View>
+      ))}
     </View>
   );
 }
@@ -161,6 +190,19 @@ function BuyMore({
     if (busy) return;
     setBusy(product.productId);
     setMessage("");
+    try {
+      const current = await ai_usage();
+      if (current.plan?.name === "Votic Free" || !current.purchaseProducts.includes(product.productId)) {
+        setMessage("Extra credits are available with Votic Plus. Refresh your plan and try again.");
+        onPurchased();
+        setBusy(null);
+        return;
+      }
+    } catch {
+      setMessage("Votic couldn't confirm your plan. Check your connection and try again.");
+      setBusy(null);
+      return;
+    }
     const outcome = await service.purchaseCredits!(product.productId).catch(() => ({
       kind: "failed" as const,
       message: "Your purchase couldn't be confirmed. Please try again.",
@@ -174,10 +216,11 @@ function BuyMore({
   const unavailable = !productIds.length || !supported || products?.length === 0;
   if (unavailable && !exhausted) return null;
   return (
-    <View style={s.group}>
+    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
       <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
-        Need more?
+        Need more credits?
       </Text>
+      <Text style={[s.detail, { color: theme.mutedText }]}>Add extra AI credits whenever you need them.</Text>
       {unavailable ? (
         <Text style={[s.detail, { color: theme.mutedText }]}>
           {productIds.length && !supported
@@ -213,10 +256,11 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
   if (usage.status === "active" && usage.monthly)
     return (
       <>
-        <AllowanceCard monthly={usage.monthly} />
+        <AllowanceCard monthly={usage.monthly} plan={usage.plan?.name ?? "Votic"} />
+        <CreditUses />
         {usage.purchased ? <PurchasedCard remaining={usage.purchased.remaining} /> : null}
         {/* Beta testers are never asked to pay, so no extra-usage prices for them. */}
-        {beta ? null : (
+        {beta || !usage.plan || usage.plan.name === "Votic Free" ? null : (
           <BuyMore
             productIds={usage.purchaseProducts}
             exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
@@ -229,7 +273,7 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
     usage.status === "not-subscribed"
       ? entitlement.status === "expired"
         ? "Your Votic Plus subscription has ended. Reading and your notes are still here with Votic Free."
-        : "Votic Free includes 100 AI credits a month. Votic Plus includes more."
+        : "Votic Free includes 75 AI credits a month. Votic Plus includes more."
       : usage.status === "unmetered"
         ? "Your plan doesn't use a monthly AI allowance."
         : "AI usage details aren't available from this Votic server.";
@@ -283,6 +327,12 @@ const s = StyleSheet.create({
   group: { gap: spacing.md },
   loading: { minHeight: 120, alignItems: "center", justifyContent: "center" },
   card: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  hero: { borderWidth: 1, borderRadius: radii.lg, padding: spacing.lg, gap: spacing.md },
+  heroRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
+  heroPercent: { flex: 1, fontSize: 32, lineHeight: 40, fontWeight: "800", letterSpacing: -0.5 },
+  robot: { width: 105, height: 110 },
+  useRow: { flexDirection: "row", alignItems: "center", gap: spacing.md },
+  useIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center", borderRadius: radii.md },
   eyebrow: { ...typography.eyebrow },
   percent: { fontSize: 32, lineHeight: 40, fontWeight: "800", letterSpacing: -0.5 },
   sectionTitle: { ...typography.sectionTitle },

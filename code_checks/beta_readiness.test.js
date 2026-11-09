@@ -43,7 +43,7 @@ test("beta uses verified UID, gates all feature routes, and preserves paid prior
       assert.equal((await (await post(base + "/api/access")).json()).allowed, false);
       const free = await (await post(base + "/api/ai-usage", { uid: "tester", beta: true })).json();
       assert.equal(free.plan.name, "Votic Free");
-      assert.equal(free.monthly.allowance, 100);
+      assert.equal(free.monthly.allowance, 75);
       uid = "tester";
       const access = await post(base + "/api/access");
       assert.equal(access.headers.get("cache-control"), "no-store");

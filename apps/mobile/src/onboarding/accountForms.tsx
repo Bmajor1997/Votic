@@ -76,20 +76,27 @@ type Provider = "apple" | "google";
  */
 export function SocialSignIn({
   disabled,
+  googleOnly = false,
   onBusyChange,
   onError,
 }: {
   disabled?: boolean;
+  googleOnly?: boolean;
   onBusyChange?: (busy: boolean) => void;
   onError: (message: string) => void;
 }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
   const [busy, setBusy] = useState<Provider | null>(null);
-  if (!auth.appleAvailable && !auth.googleAvailable) return null;
+  const showGoogle = Platform.OS === "android" || Platform.OS === "ios";
+  if ((!auth.appleAvailable || googleOnly) && !showGoogle) return null;
 
   async function continue_with(provider: Provider) {
     if (busy || disabled) return;
+    if (provider === "google" && !auth.googleAvailable) {
+      onError("Google sign-in isn't configured in this build. Please use email or update the app.");
+      return;
+    }
     onError("");
     setBusy(provider);
     onBusyChange?.(true);
@@ -107,7 +114,7 @@ export function SocialSignIn({
 
   return (
     <View style={s.social}>
-      {auth.appleAvailable ? (
+      {auth.appleAvailable && !googleOnly ? (
         <AppleAuthentication.AppleAuthenticationButton
           buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
           buttonStyle={
@@ -120,12 +127,17 @@ export function SocialSignIn({
           onPress={() => void continue_with("apple")}
         />
       ) : null}
-      {auth.googleAvailable ? (
+      {showGoogle ? (
         <GoogleButton
           busy={busy === "google"}
           disabled={busy !== null || Boolean(disabled)}
           onPress={() => void continue_with("google")}
         />
+      ) : null}
+      {showGoogle && !auth.googleAvailable ? (
+        <Text accessibilityRole="text" style={{ color: theme.mutedText }}>
+          Google sign-in is unavailable in this build. You can continue with email.
+        </Text>
       ) : null}
     </View>
   );

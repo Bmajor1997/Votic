@@ -90,7 +90,7 @@ function SessionHomeLogo({ ready }: { ready: boolean }) {
   );
   return (
     <Animated.View testID="home-logo-entrance" pointerEvents="none">
-      <VoticWordmark entrance={progress} />
+      <VoticWordmark entrance={progress} robotEntrance />
     </Animated.View>
   );
 }

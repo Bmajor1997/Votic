@@ -154,6 +154,12 @@ it("skips motion from the initial device Reduce Motion setting", async () => {
   await frame();
   expect(runs).toHaveLength(0);
   expect(shift()).toBe(0);
+  for (const letter of ["o", "t", "i", "c"]) {
+    const style = screen.getByTestId(`votic-wordmark-robot-${letter}`, { includeHiddenElements: true }).props
+      .style;
+    const value = (Array.isArray(style) ? Object.assign({}, ...style.flat()) : style).opacity;
+    expect(typeof value === "number" ? value : value.__getValue()).toBe(0);
+  }
 });
 it("reveals the logo if Home or the native animation never settles", async () => {
   await fresh(false);

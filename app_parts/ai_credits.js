@@ -16,6 +16,7 @@ export const CREDIT_COSTS = {
   "pdf-ocr-small": 10, "pdf-ocr-medium": 20, "pdf-ocr-large": 30, // scanned PDF by upload size
   "ask-votic-transcription": 1, // one spoken question (60 seconds at most)
 };
+export const FREE_MONTHLY_CREDITS = 75;
 export const DOCUMENT_SMALL_BYTES = 100_000;
 /** A reservation whose request died (crash, lost process) gives its credits back after this long. */
 export const CREDIT_HOLD_MS = 10 * 60_000;
@@ -77,12 +78,15 @@ function calendar_month(now) {
 }
 
 /**
- * Moving between Votic Free (100 credits) and Plus changes the allowance of the period already granted; other
+ * Moving between Votic Free (75 credits) and Plus changes the allowance of the period already granted; other
  * allowance changes wait for the next period. Returns the period row as stored afterwards.
  */
-function sync_free_allowance(db, uid, row, allowance) {
-  if (row.allowance === allowance || (allowance !== 100 && row.allowance !== 100)) return row;
-  db.prepare("UPDATE credit_periods SET allowance=? WHERE uid=? AND period_start=?").run(allowance, uid, row.period_start);
+function sync_free_allowance(db, uid, row, allowance, free) {
+  // Existing Free periods may still carry the old 100-credit allowance. Preserve their usage.
+  const previousFree = row.is_free === 1 || (row.is_free == null && !row.verified && [75, 100].includes(row.allowance));
+  if (row.allowance === allowance && row.is_free === Number(free)) return row;
+  const nextAllowance = free || previousFree ? allowance : row.allowance;
+  db.prepare("UPDATE credit_periods SET allowance=?, is_free=? WHERE uid=? AND period_start=?").run(nextAllowance, Number(free), uid, row.period_start);
   return db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, row.period_start);
 }
 
@@ -105,6 +109,11 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
     );
     CREATE INDEX IF NOT EXISTS credit_charges_period ON credit_charges(uid, period_start);
     CREATE INDEX IF NOT EXISTS credit_charges_time ON credit_charges(uid, created_at);`);
+  // Older databases have no explicit plan marker. Keep legacy rows nullable until their next use.
+  if (!db.prepare("PRAGMA table_info(credit_periods)").all().some(column => column.name === "is_free")) {
+    try { db.exec("ALTER TABLE credit_periods ADD COLUMN is_free INTEGER"); }
+    catch (error) { if (!db.prepare("PRAGMA table_info(credit_periods)").all().some(column => column.name === "is_free")) throw error; }
+  }
   const transaction = (work) => {
     db.exec("BEGIN IMMEDIATE");
     try { const result = work(); db.exec("COMMIT"); return result; }
@@ -146,13 +155,13 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           if ((start < latest_start || start < latest_end - RENEWAL_TOLERANCE_MS) && !(free && start > latest_start)) {
             if (!free && end > latest_end) db.prepare("UPDATE credit_periods SET period_end=? WHERE uid=? AND period_start=?").run(iso(end), uid, latest.period_start);
             const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, latest.period_start);
-            return period_result(sync_free_allowance(db, uid, row, allowance), end, free);
+            return period_result(sync_free_allowance(db, uid, row, allowance, free), end, free);
           }
         }
-        db.prepare("INSERT OR IGNORE INTO credit_periods(uid,period_start,period_end,allowance,verified,created_at) VALUES(?,?,?,?,?,?)")
-          .run(uid, iso(start), iso(end), allowance, verified ? 1 : 0, now().toISOString());
+        db.prepare("INSERT OR IGNORE INTO credit_periods(uid,period_start,period_end,allowance,verified,created_at,is_free) VALUES(?,?,?,?,?,?,?)")
+          .run(uid, iso(start), iso(end), allowance, verified ? 1 : 0, now().toISOString(), Number(free));
         const row = db.prepare("SELECT * FROM credit_periods WHERE uid=? AND period_start=?").get(uid, iso(start));
-        return period_result(sync_free_allowance(db, uid, row, allowance), end, free);
+        return period_result(sync_free_allowance(db, uid, row, allowance, free), end, free);
       });
     },
     /**
@@ -200,6 +209,15 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
         release_stale(uid);
         const spent = period ? Math.min(period.allowance, used(uid, period.start)) : 0;
         return { allowance: period?.allowance ?? null, used: spent, remaining: period ? period.allowance - spent : null, purchased: purchased(uid) };
+      });
+    },
+    /** Count this month's charged and active reserved operations for an account. */
+    monthly_feature_count(uid, features) {
+      return transaction(() => {
+        release_stale(uid);
+        const cycle = calendar_month(now().getTime());
+        return db.prepare(`SELECT COUNT(*) AS n FROM credit_charges WHERE uid=? AND created_at>=? AND created_at<? AND status IN ('reserved','charged') AND feature IN (SELECT value FROM json_each(?))`)
+          .get(uid, iso(cycle.start), iso(cycle.end), JSON.stringify(features)).n;
       });
     },
     /** Provider safeguards that grow with the credits actually spent this calendar month, never past their cost bound. */

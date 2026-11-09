@@ -40,10 +40,10 @@ export function PaywallBenefits() {
     ["Read and listen", "✓ No time limit", "✓ No time limit"],
     ["Saved documents", "✓ Up to 5", "✓ Up to 2,000"],
     ["Notes and bookmarks", "✓ Up to 25 combined", "✓ No set limit"],
-    ["AI credits", "✓ 100 per month", "✓ Larger monthly allowance"],
-    ["AI questions", "✓ Uses your 100 credits", "✓ Uses Plus allowance"],
+    ["AI credits", "✓ 75 per month", "✓ Larger monthly allowance"],
+    ["AI questions", "✓ Uses your 75 credits", "✓ Uses Plus allowance"],
     ["AI summaries", "✓ 5 per month; uses credits", "✓ Uses Plus allowance"],
-    ["Camera scans", "✓ 5 pages per month; uses credits", "✓ Uses Plus allowance"],
+    ["Camera scans", "✓ 3 pages per month; uses credits", "✓ Uses Plus allowance"],
     ["Scanned PDF reading", "− Plus feature", "✓ Uses Plus allowance"],
     ["No ads", "✓ Included", "✓ Included"],
   ];
@@ -118,7 +118,7 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
           </Text>
           <Text style={[p.benefitTitle, { color: theme.text }]}>How does AI usage work?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
-            Votic Free includes 100 AI credits a month for questions, with up to 5 summaries and 5 camera-scan
+            Votic Free includes 75 AI credits a month for questions, with up to 5 summaries and 3 camera-scan
             pages. Votic Plus includes a larger monthly allowance for AI answers, summaries, voice questions,
             and reading scanned pages. Allowances renew monthly and unused usage doesn&apos;t carry over.
             Reading, listening, and notes don&apos;t use it. See what&apos;s left anytime in Settings, AI

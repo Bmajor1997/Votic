@@ -109,3 +109,15 @@ test("stores document content only after explicit consent and can clear it", asy
   await expect.poll(() => page.evaluate(() => localStorage.getItem("votic.resume.v1"))).toBeNull();
 });
 
+
+test("document markup is displayed as text, not executed", async ({ page }) => {
+  const payload = '<img src=x onerror="window.voticInjected=1">';
+  await page.getByRole("button", { name: "Add document" }).click();
+  await page.locator("#documentFile").setInputFiles({ name: "markup.txt", mimeType: "text/plain", buffer: Buffer.from(`# ${payload}\n\n${payload}`) });
+  await page.getByRole("button", { name: "Open in reader" }).click();
+  await expect(page.locator("#document")).toContainText(payload);
+  await expect(page.locator("#document img")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.voticInjected)).toBeUndefined();
+  await page.getByRole("button", { name: "Sections" }).click();
+  await expect(page.locator("#sectionList img")).toHaveCount(0);
+});

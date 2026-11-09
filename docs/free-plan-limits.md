@@ -1,6 +1,6 @@
 # Votic Free limits
 
-The backend meters dedicated summary requests and camera OCR per authenticated account in UTC calendar months. Reserved and charged operations count; failed or stale reservations are released. Limits and AI credits are separate. Plus and beta access bypass the Free feature counts, not the credit ledger. Scanned PDF OCR requires Plus or beta access.
+Free includes 75 AI credits per month, up to 5 dedicated summaries, and up to 3 camera scan pages. The backend meters dedicated summary requests and camera OCR per authenticated account in UTC calendar months. Reserved and charged operations count; failed or stale reservations are released. Limits and AI credits are separate. Plus and beta access bypass the Free feature counts, not the credit ledger. Scanned PDF OCR requires Plus or beta access.
 
 The summary counter covers dedicated document and conversation summary actions, Catch me up, and document review. An ordinary Ask Votic question is not classified by topic: a person can ask for a summary in a regular question, so this is not a tamper-proof semantic limit. The backend does not trust a client to grant an allowance, but a client can choose which request feature it sends.
 

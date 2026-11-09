@@ -31,7 +31,7 @@ it("compares Free and Plus with credit limits, checks, and the Plus trial", asyn
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
-  expect(screen.getByLabelText(/AI credits\. Free: ✓ 100 per month/)).toBeTruthy();
+  expect(screen.getByLabelText(/AI credits\. Free: ✓ 75 per month/)).toBeTruthy();
   expect(screen.getByLabelText(/Saved documents\. Free: ✓ Up to 5/)).toBeTruthy();
   expect(screen.queryByText("Free: − Not included")).toBeNull();
   expect(screen.queryByText("Plus: ✓ Store offer")).toBeNull();

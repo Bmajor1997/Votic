@@ -621,7 +621,8 @@ export default function Documents() {
                 <View style={s.grow}>
                   <Text style={[s.importChoiceTitle, { color: theme.text }]}>Scan with camera</Text>
                   <Text style={[s.importChoiceCopy, { color: theme.mutedText }]}>
-                    Capture one or more pages. Votic will read the text and turn the scan into a document.
+                    Capture pages and turn them into a document. Votic Free includes 3 scan pages per month,
+                    using AI credits.
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={theme.mutedText} />

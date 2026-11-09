@@ -16,6 +16,7 @@ export type AiUsage = {
   purchased: { remaining: number } | null;
   /** Store product IDs the server credits for additional usage. Empty when none are configured. */
   purchaseProducts: string[];
+  freeScans?: { limit: number; remaining: number };
 };
 
 const STATUSES = ["active", "unmetered", "not-subscribed", "not-configured"] as const;
@@ -45,6 +46,7 @@ export function parse_ai_usage(result: Record<string, unknown>): AiUsage {
   if (status === "active" && !monthly) throw unreadable();
   const remaining = (result.purchased as Record<string, unknown> | null | undefined)?.remaining;
   const plan = result.plan as Record<string, unknown> | null | undefined;
+  const scans = result.freeScans as Record<string, unknown> | null | undefined;
   return {
     status,
     plan: plan && typeof plan.name === "string" ? { name: plan.name } : null,
@@ -56,6 +58,14 @@ export function parse_ai_usage(result: Record<string, unknown>): AiUsage {
     purchaseProducts: Array.isArray(result.purchaseProducts)
       ? result.purchaseProducts.filter((id): id is string => typeof id === "string" && id.length > 0)
       : [],
+    ...(scans &&
+    Number.isSafeInteger(scans.limit) &&
+    Number.isSafeInteger(scans.remaining) &&
+    (scans.limit as number) > 0 &&
+    (scans.remaining as number) >= 0 &&
+    (scans.remaining as number) <= (scans.limit as number)
+      ? { freeScans: { limit: scans.limit as number, remaining: scans.remaining as number } }
+      : {}),
   };
 }
 
