@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, RefObject, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -28,6 +28,8 @@ import {
   DOCUMENT_TYPE_FILTERS,
   DocumentTypeFilter,
   document_type_filter,
+  empty_filter_message,
+  type_filter_noun,
   collection_summary,
   Sort,
   document_type_label,
@@ -48,20 +50,24 @@ import { sheetStyles } from "../../src/reader/components/sheetStyles";
 import { is_finished } from "../../src/reader/finish";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
+/** File type chips in the person's accent: filled when chosen, a light tint of the same color otherwise. */
 function DocumentTypeFilters({
   hasDocuments,
   selected,
   onSelect,
   theme,
+  scrollRef,
 }: {
   hasDocuments: boolean;
   selected: DocumentTypeFilter;
   onSelect: (filter: DocumentTypeFilter) => void;
   theme: ReturnType<typeof useVoticTheme>["theme"];
+  scrollRef: RefObject<ScrollView | null>;
 }) {
   if (!hasDocuments) return null;
   return (
     <ScrollView
+      ref={scrollRef}
       horizontal
       showsHorizontalScrollIndicator={false}
       accessibilityRole="radiogroup"
@@ -76,10 +82,12 @@ function DocumentTypeFilters({
           onPress={() => onSelect(item.value)}
           style={[
             s.typeFilter,
-            { backgroundColor: selected === item.value ? theme.accent : theme.surfaceMuted },
+            { backgroundColor: selected === item.value ? theme.accent : theme.brandTint },
           ]}
         >
-          <Text style={[s.typeFilterText, { color: selected === item.value ? "#FFF" : theme.text }]}>
+          <Text
+            style={[s.typeFilterText, { color: selected === item.value ? theme.onAccent : theme.accentText }]}
+          >
             {item.label}
           </Text>
         </Pressable>
@@ -97,6 +105,7 @@ export default function Documents() {
   const cardRefs = useRef<Record<string, View | null>>({});
   const titleRefs = useRef<Record<string, Text | null>>({});
   const uploadRef = useRef<View>(null);
+  const typeFiltersRef = useRef<ScrollView>(null);
   const library = useDocumentLibrary();
   const { collections, loaded, openDocument, addCollection } = library;
   // Quick Notes lives in Notes; it isn't a document to read.
@@ -217,9 +226,9 @@ export default function Documents() {
         style={({ pressed }) => [s.upload, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
       >
         {importing ? (
-          <ActivityIndicator size="small" color="#FFF" />
+          <ActivityIndicator size="small" color={theme.onAccent} />
         ) : (
-          <Ionicons name="add" size={30} color="#FFF" />
+          <Ionicons name="add" size={30} color={theme.onAccent} />
         )}
       </Pressable>
     </View>
@@ -275,6 +284,7 @@ export default function Documents() {
         selected={typeFilter}
         onSelect={setTypeFilter}
         theme={theme}
+        scrollRef={typeFiltersRef}
       />
 
       {processingName ? (
@@ -332,10 +342,14 @@ export default function Documents() {
         <>
           <View style={s.summaryRow}>
             <Text style={[s.summary, { color: theme.mutedText }]}>
-              {visible.length} {finishedOnly ? "finished " : ""}
-              {visible.length === 1 ? "document" : "documents"}
-              {collection !== "all" ? ` in ${collectionLabel}` : ""} ·{" "}
-              {SORTS.find((item) => item.value === sort)?.label}
+              {summary_line({
+                count: visible.length,
+                finishedOnly,
+                collection,
+                collectionLabel,
+                typeFilter,
+                sort,
+              })}
             </Text>
             {filterCount ? (
               <Pressable
@@ -476,13 +490,7 @@ export default function Documents() {
             <View style={s.noResults}>
               <Ionicons name="search-outline" size={30} color={theme.mutedText} />
               <Text style={[s.emptyTitle, { color: theme.text }]}>
-                {query
-                  ? `No documents match “${query.trim()}”`
-                  : typeFilter !== "all"
-                    ? `No ${DOCUMENT_TYPE_FILTERS.find((item) => item.value === typeFilter)?.label} documents found`
-                    : finishedOnly
-                      ? "No finished documents yet"
-                      : `Nothing in ${collectionLabel} yet`}
+                {empty_filter_message({ query, typeFilter, finishedOnly, collectionLabel })}
               </Text>
               <Pressable
                 accessibilityRole="button"
@@ -491,6 +499,7 @@ export default function Documents() {
                   setCollection("all");
                   setFinishedOnly(false);
                   setTypeFilter("all");
+                  typeFiltersRef.current?.scrollTo({ x: 0, animated: !reduceMotion });
                 }}
                 style={s.textButton}
               >
@@ -825,6 +834,27 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
       <Text style={[s.choiceText, { color: theme.text }]}>{label}</Text>
     </Pressable>
   );
+}
+
+/** "2 PDFs in Work · File type · Newest first": what the list below shows and how it's ordered. */
+function summary_line({
+  count,
+  finishedOnly,
+  collection,
+  collectionLabel,
+  typeFilter,
+  sort,
+}: {
+  count: number;
+  finishedOnly: boolean;
+  collection: string;
+  collectionLabel: string;
+  typeFilter: DocumentTypeFilter;
+  sort: Sort;
+}) {
+  const noun = type_filter_noun(typeFilter, count);
+  const place = collection !== "all" ? ` in ${collectionLabel}` : "";
+  return `${count} ${finishedOnly ? "finished " : ""}${noun}${place} · ${SORTS.find((item) => item.value === sort)?.label}`;
 }
 
 function FileGroupHeading({

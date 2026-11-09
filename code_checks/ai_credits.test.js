@@ -44,7 +44,8 @@ test("percent remaining rounds down, never exceeds 100 and never goes below 0", 
 
 test("credit prices are fixed per action and chosen from request size before any AI work", () => {
   assert.equal(credit_cost("help"), 1);
-  assert.equal(credit_cost("ask-votic", 20_000), 2);
+  assert.equal(credit_cost("ask-votic", 20_000), 1);
+  assert.equal(credit_cost("summary", 20_000), 2);
   assert.equal(credit_cost("catch-me-up", 100_000), 2);
   assert.equal(credit_cost("ask-votic", 100_001), 5);
   assert.equal(credit_cost("document-review", 400_000), 5);

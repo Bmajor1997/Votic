@@ -331,7 +331,7 @@ export function create_votic_handler(options = {}) {
     const summaryFeatures = ["summary", "catch-me-up", "document-review"];
     const freeLimit = plan.free && (summaryFeatures.includes(feature)
       ? { features: summaryFeatures, maximum: 5, code: "FREE_SUMMARIES_EXHAUSTED", message: "You've used your five Free summaries this month." }
-      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: 5, code: "FREE_SCANS_EXHAUSTED", message: "You've used your five Free camera scans this month." } : null);
+      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: 5, code: "FREE_SCANS_EXHAUSTED", message: "You've used your five Free camera scan pages this month." } : null);
     credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period, freeLimit });
     try {
       // An explicitly configured plan keeps its own safeguards; otherwise they follow the credits spent.

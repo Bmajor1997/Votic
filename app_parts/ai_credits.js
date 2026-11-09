@@ -9,8 +9,9 @@ import { CREDIT_WALLET_SCHEMA } from "./credit_wallet.js";
  */
 export const CREDIT_COSTS = {
   "help": 1, // a question about using Votic, without a document
-  "document-small": 2, // a question or summary of a document request up to DOCUMENT_SMALL_BYTES
-  "document-large": 5, // a larger document request (bounded by VOTIC_MAX_JSON_BYTES)
+  "question-small": 1, // a question about a document, request up to DOCUMENT_SMALL_BYTES
+  "document-small": 2, // a summary of a document request up to DOCUMENT_SMALL_BYTES
+  "document-large": 5, // a larger question or summary request (bounded by VOTIC_MAX_JSON_BYTES)
   "scan-ocr": 3, // one camera page
   "pdf-ocr-small": 10, "pdf-ocr-medium": 20, "pdf-ocr-large": 30, // scanned PDF by upload size
   "ask-votic-transcription": 1, // one spoken question (60 seconds at most)
@@ -24,7 +25,11 @@ export const MAX_USD_PER_CREDIT = 0.005, MAX_TOKENS_PER_CREDIT = 40_000;
 const RENEWAL_TOLERANCE_MS = 24 * 3600_000;
 
 export function credit_cost(feature, bytes = 0) {
-  if (feature === "ask-votic" || feature === "catch-me-up" || feature === "summary" || feature === "document-review")
+  // A question about an ordinary document costs 1 credit; a very large one keeps the larger price so a single
+  // request can't exceed MAX_USD_PER_CREDIT (see docs/ai-credit-policy.md).
+  if (feature === "ask-votic")
+    return CREDIT_COSTS[bytes > DOCUMENT_SMALL_BYTES ? "document-large" : "question-small"];
+  if (feature === "catch-me-up" || feature === "summary" || feature === "document-review")
     return CREDIT_COSTS[bytes > DOCUMENT_SMALL_BYTES ? "document-large" : "document-small"];
   if (feature === "pdf-ocr") return CREDIT_COSTS[bytes <= 3_000_000 ? "pdf-ocr-small" : bytes <= 8_000_000 ? "pdf-ocr-medium" : "pdf-ocr-large"];
   const cost = CREDIT_COSTS[feature];

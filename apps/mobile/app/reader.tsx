@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Speech from "expo-speech";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { useReaderPreparation } from "../src/reader/useReaderPreparation";
 import {
   Alert,
   AppState,
@@ -279,7 +280,6 @@ function ReaderContent() {
   const scrollOffset = useRef(0);
   const viewportHeight = useRef(0);
   const manuallyScrolling = useRef(false);
-  const readerPrepared = useRef(false);
   const [readerReady, setReaderReady] = useState(false);
   const completedRef = useRef(activeDocument?.progress === 1);
   const askGeneration = useRef(0);
@@ -288,6 +288,7 @@ function ReaderContent() {
   // An explicit Read request takes precedence over a stale autoplay parameter.
   const listening = params.mode !== "read" && (params.mode === "listen" || params.autoplay === "1");
   const contentHeight = useRef(0);
+  const { readerPrepared, listenScrollPending } = useReaderPreparation(listening);
   // Set when the position jumps (seek, prev/next) so Read mode scrolls there once.
   const scrollToPosition = useRef(false);
   // Reading counts only while someone is engaged with the page; listening counts while narration plays.
@@ -893,8 +894,14 @@ function ReaderContent() {
     transition.closeReader(() => router.back());
   }
   function prepare_reader() {
-    if (readerPrepared.current || !viewportHeight.current) return;
+    if (!viewportHeight.current) return;
     if (passages.length && sentenceLayout.current[index] === undefined) return;
+    if (readerPrepared.current) {
+      // Switching from Read to Listen mounts a new page, which opens at the saved sentence rather than the top.
+      if (listenScrollPending.current) follow_active_word(true, false);
+      listenScrollPending.current = false;
+      return;
+    }
     readerPrepared.current = true;
     follow_active_word(true, false);
     requestAnimationFrame(() => {

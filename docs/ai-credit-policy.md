@@ -11,8 +11,9 @@ Each action has a fixed price. The server picks it from the request's size befor
 | Action | Server feature | Credits |
 |---|---|---:|
 | Help question about using Votic, no document (AI answer) | `ask-votic` / `catch-me-up` without a document | 1 |
-| Question, summary, or Catch me up about a document, request ≤ 100 KB | `ask-votic`, `catch-me-up` | 2 |
-| Same, larger request (bounded by `VOTIC_MAX_JSON_BYTES`, default 500 KB) | `ask-votic`, `catch-me-up` | 5 |
+| Question about a document, request ≤ 100 KB | `ask-votic` | 1 |
+| Summary or Catch me up about a document, request ≤ 100 KB | `summary`, `catch-me-up` | 2 |
+| Question, summary, or Catch me up, larger request (bounded by `VOTIC_MAX_JSON_BYTES`, default 500 KB) | `ask-votic`, `summary`, `catch-me-up` | 5 |
 | AI document review (server route kept; the retired Review screen is not restored) | `document-review` | 2 / 5 by size |
 | Camera scan, one page | `scan-ocr` | 3 |
 | Scanned PDF ≤ 3 MB / ≤ 8 MB / ≤ 12 MB | `pdf-ocr` | 10 / 20 / 30 |
@@ -24,7 +25,7 @@ Free: reading, listening (device speech), notes, bookmarks, imports of text docu
 
 ### Examples
 
-With 1,000 credits a month, someone could ask about 500 questions on ordinary documents, or about 200 on very long ones. They could also scan about 330 camera pages, or mix these. Typical use (a few questions a day, some summaries, occasional scans) uses well under half the allowance.
+With 1,000 credits a month, someone could ask about 1,000 questions on ordinary documents, or about 200 on very long ones. They could also scan about 330 camera pages, or mix these. Typical use (a few questions a day, some summaries, occasional scans) uses well under half the allowance.
 
 ## Worst-case cost per credit
 
@@ -33,7 +34,7 @@ The model is `gpt-6-luna` at $0.10 per million input tokens and $0.50 per millio
 | Action | Worst realistic provider cost | Credits | $/credit |
 |---|---:|---:|---:|
 | Large document question (500 KB of dense text, ~170K tokens, 900 output) | ≈ $0.018 | 5 | ≈ $0.0036 |
-| Small document question (100 KB, ~33K tokens) | ≈ $0.0038 | 2 | ≈ $0.0019 |
+| Small document question (100 KB, ~33K tokens) | ≈ $0.0038 | 1 | ≈ $0.0038 |
 | Help question with 20-turn history (~13K tokens) | ≈ $0.0015 | 1 | ≈ $0.0015 |
 | Camera page (image plus up to 5K output) | ≈ $0.003 | 3 | ≈ $0.001 |
 | 12 MB scanned PDF (up to ~300K tokens, long-context rate, 12K output) | ≈ $0.07 | 30 | ≈ $0.0023 |
