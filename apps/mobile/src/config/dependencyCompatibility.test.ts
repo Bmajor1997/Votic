@@ -8,11 +8,12 @@ const cli = project.resolve("@expo/cli/package.json", {
   paths: [dirname(project.resolve("expo/package.json"))],
 });
 const read = createRequire(cli);
-const schemas = read(join(dirname(cli), "build/src/start/server/DevToolsPlugin.schema.js"));
+const schemas = read(join(dirname(cli), "build/src/start/server/devtools/DevToolsPlugin.schema.js"));
 const { createMCPDevToolsExtensionSchema } = read(
-  join(dirname(cli), "build/src/start/server/createMCPDevToolsExtensionSchema.js"),
+  join(dirname(cli), "build/src/start/server/mcp/createMCPDevToolsExtensionSchema.js"),
 );
 const { z } = read("zod") as typeof import("zod");
+const { validate } = read("@expo/schema-utils");
 
 it("Expo's installed Zod rejects oversized constrained input before parsing its elements", () => {
   let visited = 0;
@@ -30,7 +31,7 @@ it("Expo's installed Zod rejects oversized constrained input before parsing its 
   expect(visited).toBe(1);
 });
 
-it("Expo dev-tool schemas keep validating configuration and CLI output with patched Zod", () => {
+it("Expo dev-tool schemas keep validating configuration and CLI output", () => {
   const plugin = {
     packageName: "test-plugin",
     packageRoot: "/test/plugin",
@@ -51,15 +52,15 @@ it("Expo dev-tool schemas keep validating configuration and CLI output with patc
       ],
     },
   };
-  expect(schemas.PluginSchema.safeParse(plugin).success).toBe(true);
-  expect(schemas.PluginSchema.safeParse({ ...plugin, packageName: "" }).success).toBe(false);
-  expect(
-    schemas.DevToolsPluginOutputSchema.safeParse([{ type: "text", text: "Ready", level: "info" }]).success,
-  ).toBe(true);
-  expect(schemas.DevToolsPluginOutputSchema.safeParse([{ type: "unknown", text: "Invalid" }]).success).toBe(
-    false,
-  );
-  const command = createMCPDevToolsExtensionSchema(plugin);
+  expect(() => validate(schemas.PluginSchema, plugin)).not.toThrow();
+  expect(() => validate(schemas.PluginSchema, { ...plugin, packageName: "" })).toThrow();
+  expect(() =>
+    validate(schemas.DevToolsPluginOutputSchema, [{ type: "text", text: "Ready", level: "info" }]),
+  ).not.toThrow();
+  expect(() =>
+    validate(schemas.DevToolsPluginOutputSchema, [{ type: "unknown", text: "Invalid" }]),
+  ).toThrow();
+  const command = createMCPDevToolsExtensionSchema(plugin, z);
   expect(command.safeParse({ command: "inspect", limit: 3, confirm: true, label: "example" }).success).toBe(
     true,
   );

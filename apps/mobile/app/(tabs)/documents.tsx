@@ -48,6 +48,46 @@ import { sheetStyles } from "../../src/reader/components/sheetStyles";
 import { is_finished } from "../../src/reader/finish";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 
+function DocumentTypeFilters({
+  hasDocuments,
+  selected,
+  onSelect,
+  theme,
+}: {
+  hasDocuments: boolean;
+  selected: DocumentTypeFilter;
+  onSelect: (filter: DocumentTypeFilter) => void;
+  theme: ReturnType<typeof useVoticTheme>["theme"];
+}) {
+  if (!hasDocuments) return null;
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      accessibilityRole="radiogroup"
+      contentContainerStyle={s.typeFilters}
+    >
+      {DOCUMENT_TYPE_FILTERS.map((item) => (
+        <Pressable
+          key={item.value}
+          accessibilityRole="radio"
+          accessibilityLabel={`${item.label} filter`}
+          accessibilityState={{ checked: selected === item.value }}
+          onPress={() => onSelect(item.value)}
+          style={[
+            s.typeFilter,
+            { backgroundColor: selected === item.value ? theme.accent : theme.surfaceMuted },
+          ]}
+        >
+          <Text style={[s.typeFilterText, { color: selected === item.value ? "#FFF" : theme.text }]}>
+            {item.label}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
+
 export default function Documents() {
   const { theme } = useVoticTheme();
   const insets = useSafeAreaInsets();
@@ -230,32 +270,12 @@ export default function Documents() {
         </View>
       ) : null}
 
-      {documents.length ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          accessibilityRole="radiogroup"
-          contentContainerStyle={s.typeFilters}
-        >
-          {DOCUMENT_TYPE_FILTERS.map((item) => (
-            <Pressable
-              key={item.value}
-              accessibilityRole="radio"
-              accessibilityLabel={`${item.label} filter`}
-              accessibilityState={{ checked: typeFilter === item.value }}
-              onPress={() => setTypeFilter(item.value)}
-              style={[
-                s.typeFilter,
-                { backgroundColor: typeFilter === item.value ? theme.accent : theme.surfaceMuted },
-              ]}
-            >
-              <Text style={[s.typeFilterText, { color: typeFilter === item.value ? "#FFF" : theme.text }]}>
-                {item.label}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      ) : null}
+      <DocumentTypeFilters
+        hasDocuments={documents.length > 0}
+        selected={typeFilter}
+        onSelect={setTypeFilter}
+        theme={theme}
+      />
 
       {processingName ? (
         <View
