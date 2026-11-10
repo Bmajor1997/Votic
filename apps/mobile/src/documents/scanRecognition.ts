@@ -6,6 +6,8 @@ export class ScanPageError extends Error {
   constructor(
     public pageId: string,
     message: string,
+    /** The server's error code, such as FREE_SCANS_EXHAUSTED, when it refused the page. */
+    public code?: string,
   ) {
     super(message);
   }
@@ -51,6 +53,9 @@ export async function recognize_scan_pages(
       throw new ScanPageError(
         page.id,
         `Page ${index + 1}: ${error instanceof Error ? error.message : "Text recognition failed. Try again."}`,
+        (error as { code?: unknown } | null)?.code === undefined
+          ? undefined
+          : String((error as { code: unknown }).code),
       );
     }
   }

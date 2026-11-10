@@ -277,8 +277,9 @@ export function create_votic_handler(options = {}) {
       plan: plan ? { name: usage_plan_name(plan), free: Boolean(plan.free) } : null,
       monthly,
       purchased: { remaining: summary.purchased },
-      ...(plan?.free ? { freeScans: { limit: FREE_SCAN_PAGES, remaining: Math.max(0, FREE_SCAN_PAGES - usage_store.credits.monthly_feature_count(identity.uid, ["scan-ocr"])) } } : {}),
-      purchaseProducts: plan && !plan.beta && !plan.free ? purchase_products : [],
+      ...(plan?.free ? { freeScans: { limit: FREE_SCAN_PAGES, remaining: Math.max(0, FREE_SCAN_PAGES - usage_store.credits.monthly_feature_count(identity.uid, ["scan-ocr"])), pageCredits: credit_cost("scan-ocr") } } : {}),
+      // Free can buy credits too ("Just need a few more?"); beta testers are never asked to pay.
+      purchaseProducts: plan && !plan.beta ? purchase_products : [],
     });
  };
  // RevenueCat webhooks use a separate server secret and never trust app-originated grants.

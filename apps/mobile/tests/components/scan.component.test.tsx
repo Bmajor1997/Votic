@@ -4,6 +4,7 @@ import { ai_usage, scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import ScanDocumentScreen from "../../app/scan";
 import { render_with_providers } from "../renderWithProviders";
+import { entitlement_of, fakeSubscriptions } from "../mocks/subscriptionService";
 
 const photoBytes = new ArrayBuffer(8);
 const mockReadPhoto = jest.fn(async () => photoBytes);
@@ -43,40 +44,53 @@ describe("document scanner", () => {
   });
 });
 
-it("shows remaining Free pages and stops an over-limit scan before OCR starts", async () => {
-  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
-  jest.spyOn(Alert, "alert").mockImplementation(() => {});
-  jest.mocked(ai_usage).mockResolvedValue({
-    status: "active",
+function free_usage(remaining: number, purchased: number) {
+  return {
+    status: "active" as const,
     plan: { name: "Votic Free", free: true },
     monthly: null,
-    purchased: null,
+    purchased: purchased ? { remaining: purchased } : null,
     purchaseProducts: [],
-    freeScans: { limit: 3, remaining: 1 },
-  });
-  jest.mocked(scan_document_image).mockClear();
-  await render_with_providers(<ScanDocumentScreen />);
-  expect(await screen.findByText("1 of 3 Free scan pages remaining this month.")).toBeTruthy();
+    freeScans: { limit: 3, remaining, pageCredits: 3 },
+  };
+}
+
+async function capture_two_pages_and_finish() {
   await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
   await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
   await fireEvent.press(screen.getByRole("button", { name: "Add another page" }));
   await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
   await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
   await fireEvent.press(screen.getByRole("button", { name: "Finish scan" }));
-  await waitFor(() =>
-    expect(Alert.alert).toHaveBeenCalledWith(
-      "Could not read scan",
-      expect.stringContaining("you have 1 Free scan page left"),
-    ),
-  );
+}
+
+it("opens the Votic Plus sheet, not an error, when Free pages and credits can't cover a scan", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest.mocked(ai_usage).mockResolvedValue(free_usage(1, 0));
+  jest.mocked(scan_document_image).mockClear();
+  await render_with_providers(<ScanDocumentScreen />);
+  expect(await screen.findByText("1 of 3 Free scan pages remaining this month.")).toBeTruthy();
+  await capture_two_pages_and_finish();
+  expect(await screen.findByText("Keep scanning")).toBeTruthy();
+  expect(Alert.alert).not.toHaveBeenCalled();
   expect(scan_document_image).not.toHaveBeenCalled();
-  jest.mocked(ai_usage).mockResolvedValue({
-    status: "unmetered",
-    plan: { name: "Votic Plus", free: false },
-    monthly: null,
-    purchased: null,
-    purchaseProducts: [],
-  });
+  jest.mocked(ai_usage).mockResolvedValue({ ...free_usage(3, 0), plan: { name: "Votic Plus", free: false } });
+  fakeSubscriptions.reset();
+});
+
+it("uses purchased credits for pages past the Free ones", async () => {
+  jest.mocked(ai_usage).mockResolvedValue(free_usage(1, 3));
+  jest.mocked(scan_document_image).mockClear().mockResolvedValue("A readable scanned page.");
+  await render_with_providers(<ScanDocumentScreen />);
+  expect(
+    await screen.findByText("1 of 3 Free scan pages remaining this month. 3 purchased credits for more."),
+  ).toBeTruthy();
+  await capture_two_pages_and_finish();
+  await waitFor(() => expect(scan_document_image).toHaveBeenCalledTimes(2));
+  jest.mocked(scan_document_image).mockClear();
+  jest.mocked(ai_usage).mockResolvedValue({ ...free_usage(3, 0), plan: { name: "Votic Plus", free: false } });
 });
 
 it("shows no Free allowance text to Plus users, or when the allowance can't be checked", async () => {

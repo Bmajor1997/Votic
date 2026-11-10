@@ -75,12 +75,12 @@ test("expired or absent subscriptions receive the Free allowance and pay the sta
   }
 });
 
-test("only verified Plus users are offered extra credit products", async () => {
+test("Free and verified Plus users are offered extra credit products", async () => {
   const env = { VOTIC_CREDIT_PRODUCTS_JSON: '{"votic_ai_credits_100":100}' };
   await with_server({ env, creditWallet: {}, revenueCat: async () => ({ ok: true, json: async () => customer(null) }) }, async ({ post }) => {
     const free = (await ai_usage(post)).body;
     assert.equal(free.plan.name, "Votic Free");
-    assert.deepEqual(free.purchaseProducts, []);
+    assert.deepEqual(free.purchaseProducts, ["votic_ai_credits_100"]);
   });
   await with_server({ env, creditWallet: {} }, async ({ post }) => {
     const plus = (await ai_usage(post)).body;
@@ -258,7 +258,7 @@ test("Free camera scanning blocks the fourth readable page before provider work"
   await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; return provider(answer("Page text")); } }, async ({ base, post }) => {
     const scan = () => fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
     for (let i = 0; i < 3; i++) assert.equal((await scan()).status, 200);
-    assert.deepEqual((await ai_usage(post)).body.freeScans, { limit: 3, remaining: 0 });
+    assert.deepEqual((await ai_usage(post)).body.freeScans, { limit: 3, remaining: 0, pageCredits: 3 });
     const response = await scan();
     assert.equal(response.status, 429);
     assert.equal((await response.json()).code, "FREE_SCANS_EXHAUSTED");

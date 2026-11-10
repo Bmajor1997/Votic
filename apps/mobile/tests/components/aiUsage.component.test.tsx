@@ -118,7 +118,7 @@ it("shows additional credits separately, and offers only configured store produc
   read.mockResolvedValue(usage({ purchaseProducts: ["votic_ai_100"], purchased: { remaining: 100 } }, 0));
   await fireEvent.press(buy);
   expect(fakeSubscriptions.calls).toContain("purchaseCredits:votic_ai_100");
-  expect(screen.getByText(/appears here once the store confirms the purchase/)).toBeTruthy();
+  expect(screen.getByText(/once the store confirms the purchase/)).toBeTruthy();
   expect(screen.getByRole("header", { name: "Additional AI credits" })).toBeTruthy();
   expect(screen.getByText("100 credits available")).toBeTruthy();
 });

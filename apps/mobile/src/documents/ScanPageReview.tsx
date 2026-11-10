@@ -1,8 +1,10 @@
-import { UsageLimitNotice } from "../subscription/UsageLimitNotice";
+import { UsageLimitNoticeCard, useUsageLimitNotice } from "../subscription/UsageLimitNotice";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScanDraft } from "./scanDraftModel";
 
 type Props = {
+  /** The scanner's one limit notice, so its Votic Plus sheet opens once whichever view is showing. */
+  limitNotice: ReturnType<typeof useUsageLimitNotice>;
   draft: ScanDraft;
   selected: string;
   busy: boolean;
@@ -85,7 +87,7 @@ export function ScanPageReview(props: Props) {
       <Text accessibilityLiveRegion="polite" style={s.copy}>
         {props.progress || "Finish scan checks the text from every page before saving one document."}
       </Text>
-      <UsageLimitNotice />
+      <UsageLimitNoticeCard {...props.limitNotice} />
     </ScrollView>
   );
 }

@@ -68,7 +68,12 @@ export function useUsageLimitNotice() {
   return { notice: enabled ? notice : null, dismiss: setNotice };
 }
 
-export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useUsageLimitNotice>) {
+/** `sheetOnly` keeps the Votic Plus sheet but leaves out the card (the scanner's camera view has no room for it). */
+export function UsageLimitNoticeCard({
+  notice,
+  dismiss,
+  sheetOnly = false,
+}: ReturnType<typeof useUsageLimitNotice> & { sheetOnly?: boolean }) {
   const { theme } = useVoticTheme();
   const { access, checking } = useSubscription();
   if (!notice) return null;
@@ -94,42 +99,47 @@ export function UsageLimitNoticeCard({ notice, dismiss }: ReturnType<typeof useU
       {offer ? (
         <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} onClose={dismiss} />
       ) : null}
-      <View
-        testID="ai-usage-notice"
-        style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
-      >
-        <View style={s.row}>
-          <Text accessibilityLiveRegion="polite" style={[s.detail, s.copy, s.heading, { color: theme.text }]}>
-            You&apos;ve used this month&apos;s AI usage. It renews{" "}
-            {new Date(notice.resetsAt).toLocaleDateString(undefined, {
-              month: "long",
-              day: "numeric",
-              year: "numeric",
-            })}
-            .
+      {sheetOnly ? null : (
+        <View
+          testID="ai-usage-notice"
+          style={[s.notice, { backgroundColor: theme.surfaceMuted, borderColor: theme.border }]}
+        >
+          <View style={s.row}>
+            <Text
+              accessibilityLiveRegion="polite"
+              style={[s.detail, s.copy, s.heading, { color: theme.text }]}
+            >
+              You&apos;ve used this month&apos;s AI usage. It renews{" "}
+              {new Date(notice.resetsAt).toLocaleDateString(undefined, {
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+              })}
+              .
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss AI usage notice"
+              onPress={dismiss}
+              style={s.dismiss}
+            >
+              <Ionicons name="close" size={20} color={theme.mutedText} accessible={false} />
+            </Pressable>
+          </View>
+          <Text style={[s.detail, { color: theme.mutedText }]}>
+            Reading, listening, and your notes keep working as usual.
           </Text>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Dismiss AI usage notice"
-            onPress={dismiss}
-            style={s.dismiss}
+            accessibilityLabel="AI Usage"
+            accessibilityHint="Shows your monthly AI usage and any options for more. Opening it doesn't buy anything."
+            onPress={() => router.push("/ai-usage")}
+            style={s.link}
           >
-            <Ionicons name="close" size={20} color={theme.mutedText} accessible={false} />
+            <Text style={[s.linkText, { color: theme.accentText }]}>See AI Usage</Text>
           </Pressable>
         </View>
-        <Text style={[s.detail, { color: theme.mutedText }]}>
-          Reading, listening, and your notes keep working as usual.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="AI Usage"
-          accessibilityHint="Shows your monthly AI usage and any options for more. Opening it doesn't buy anything."
-          onPress={() => router.push("/ai-usage")}
-          style={s.link}
-        >
-          <Text style={[s.linkText, { color: theme.accentText }]}>See AI Usage</Text>
-        </Pressable>
-      </View>
+      )}
     </>
   );
 }

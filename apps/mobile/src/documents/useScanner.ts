@@ -13,6 +13,15 @@ import { recognize_scan_pages, ScanPageError } from "./scanRecognition";
 import { rotate_scan_photo } from "./scanPhoto";
 import { FreeDocumentLimitError, useDocumentLibrary } from "./DocumentLibraryProvider";
 import { ai_usage } from "../api/voticApi";
+import { announce_allowance_limit } from "../subscription/allowanceNotice";
+import {
+  next_free_reset,
+  scan_allowance_text,
+  scan_pages_covered,
+  ScanAllowance,
+  ScanLimitReached,
+  SCAN_LIMIT_CODES,
+} from "./scanAllowance";
 export function useScanner() {
   const { theme } = useVoticTheme();
   const { ensureCanAddDocument } = useDocumentLibrary();
@@ -40,10 +49,9 @@ export function useScanner() {
       if (scanAllowanceActive.current) setScanAllowance("");
       return null;
     }
-    const { remaining, limit } = usage.freeScans;
-    if (scanAllowanceActive.current)
-      setScanAllowance(`${remaining} of ${limit} Free scan pages remaining this month.`);
-    return remaining;
+    const allowance: ScanAllowance = { ...usage.freeScans, purchased: usage.purchased?.remaining ?? 0 };
+    if (scanAllowanceActive.current) setScanAllowance(scan_allowance_text(allowance));
+    return allowance;
   }, []);
   useEffect(() => {
     scanAllowanceActive.current = true;
@@ -58,7 +66,7 @@ export function useScanner() {
   const current = cameraMode ? undefined : (pages.find((page) => page.id === selected) ?? pages.at(-1));
   const busy = working || draft.saving;
   function show_problem(error: unknown) {
-    if (error instanceof FreeDocumentLimitError) return;
+    if (error instanceof FreeDocumentLimitError || error instanceof ScanLimitReached) return;
     if (error instanceof UnfinishedScanError) {
       Alert.alert("Finish your saved scan first", error.message, [
         { text: "Not now", style: "cancel" },
@@ -68,6 +76,8 @@ export function useScanner() {
       if (error instanceof ScanPageError) {
         setSelected(error.pageId);
         setCameraMode(false);
+        // The server's limit opens the Votic Plus sheet on this screen instead of an alert.
+        if (SCAN_LIMIT_CODES.includes(error.code ?? "")) return;
       }
       Alert.alert(
         error instanceof ScanSaveError ? "Could not save scan" : "Could not read scan",
@@ -177,14 +187,13 @@ export function useScanner() {
       ensureAvailable();
       const snapshot = draft.latest.current;
       await draft.commit(snapshot);
-      const remaining = await check_scan_allowance();
       const needed = snapshot.pages.filter(
         (page) => page.text === undefined && !completedPages.current.has(page.id),
       ).length;
-      if (remaining !== null && needed > remaining) {
-        throw new Error(
-          `This scan needs ${needed} ${needed === 1 ? "page" : "pages"}, but you have ${remaining} Free scan ${remaining === 1 ? "page" : "pages"} left this month. Your photos are saved; remove pages or upgrade to continue.`,
-        );
+      // Too few Free pages and credits: the Votic Plus sheet (with "Just need a few more?") opens; photos are kept.
+      if (!scan_pages_covered(needed, await check_scan_allowance())) {
+        announce_allowance_limit("FREE_SCANS_EXHAUSTED", next_free_reset());
+        throw new ScanLimitReached();
       }
       const job = session.start();
       if (!job) return;

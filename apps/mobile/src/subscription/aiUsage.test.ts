@@ -30,12 +30,16 @@ describe("AI usage from the server", () => {
     const free = parse_ai_usage({
       ...active,
       plan: { name: "Votic Gratuit", free: true },
-      freeScans: { limit: 3, remaining: 2 },
+      freeScans: { limit: 3, remaining: 2, pageCredits: 3 },
     });
     expect(free.plan).toEqual({ name: "Votic Gratuit", free: true });
-    expect(free.freeScans).toEqual({ limit: 3, remaining: 2 });
-    expect(parse_ai_usage({ ...active, freeScans: { limit: 3, remaining: 4 } }).freeScans).toBeUndefined();
-    expect(parse_ai_usage({ ...active, freeScans: { limit: 0, remaining: 0 } }).freeScans).toBeUndefined();
+    expect(free.freeScans).toEqual({ limit: 3, remaining: 2, pageCredits: 3 });
+    expect(
+      parse_ai_usage({ ...active, freeScans: { limit: 3, remaining: 4, pageCredits: 3 } }).freeScans,
+    ).toBeUndefined();
+    expect(
+      parse_ai_usage({ ...active, freeScans: { limit: 0, remaining: 0, pageCredits: 3 } }).freeScans,
+    ).toBeUndefined();
   });
 
   it("keeps the server's percentage and dates, and drops what the screen doesn't show", () => {
