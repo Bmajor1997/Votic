@@ -16,10 +16,10 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { ai_usage } from "../api/voticApi";
 import { useAuth } from "../auth/AuthProvider";
 import { radii, spacing, typography } from "../design/tokens";
-import { SecondaryButton } from "../onboarding/components";
+import { PrimaryButton, SecondaryButton } from "../onboarding/components";
 import { AiUsage, subscribe_ai_usage_changes, usage_reset_label } from "../subscription/aiUsage";
-import { CreditTopUp } from "../subscription/CreditTopUp";
 import { useSubscription } from "../subscription/SubscriptionProvider";
+import { CreditProduct } from "../subscription/subscriptionTypes";
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 type Load = { state: "loading" } | { state: "error"; message: string } | { state: "ready"; usage: AiUsage };
@@ -172,6 +172,105 @@ function PurchasedCard({ remaining }: { remaining: number }) {
   );
 }
 
+const PURCHASE_MESSAGES = {
+  purchased:
+    "Thanks. Your additional AI usage appears here once the store confirms the purchase. This usually takes a moment.",
+  pending: "Your purchase is waiting for approval. Your additional AI usage appears here once it's approved.",
+};
+
+/** Only store products the server credits; nothing is offered when the store or the server can't confirm it. */
+function BuyMore({
+  productIds,
+  exhausted,
+  onPurchased,
+}: {
+  productIds: string[];
+  exhausted: boolean;
+  onPurchased: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const { service } = useSubscription();
+  const [products, setProducts] = useState<CreditProduct[] | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const supported =
+    !service.unavailableReason && Boolean(service.getCreditProducts && service.purchaseCredits);
+  const key = productIds.join(",");
+  useEffect(() => {
+    if (!supported || !key) return;
+    let current = true;
+    service.getCreditProducts!(key.split(",")).then(
+      (found) => current && setProducts(found),
+      () => current && setProducts([]),
+    );
+    return () => {
+      current = false;
+    };
+  }, [service, supported, key]);
+  async function buy(product: CreditProduct) {
+    if (busy) return;
+    setBusy(product.productId);
+    setMessage("");
+    try {
+      const current = await ai_usage();
+      if (current.plan?.free || !current.purchaseProducts.includes(product.productId)) {
+        setMessage("Extra credits are available with Votic Plus. Refresh your plan and try again.");
+        onPurchased();
+        setBusy(null);
+        return;
+      }
+    } catch {
+      setMessage("Votic couldn't confirm your plan. Check your connection and try again.");
+      setBusy(null);
+      return;
+    }
+    const outcome = await service.purchaseCredits!(product.productId).catch(() => ({
+      kind: "failed" as const,
+      message: "Your purchase couldn't be confirmed. Please try again.",
+    }));
+    setBusy(null);
+    if (outcome.kind === "purchased" || outcome.kind === "pending") {
+      setMessage(PURCHASE_MESSAGES[outcome.kind]);
+      onPurchased();
+    } else if (outcome.kind === "failed") setMessage(outcome.message);
+  }
+  const unavailable = !productIds.length || !supported || products?.length === 0;
+  if (unavailable && !exhausted) return null;
+  return (
+    <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+      <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+        Need more credits?
+      </Text>
+      <Text style={[s.detail, { color: theme.mutedText }]}>Add extra AI credits whenever you need them.</Text>
+      {unavailable ? (
+        <Text style={[s.detail, { color: theme.mutedText }]}>
+          {productIds.length && !supported
+            ? "Buying additional AI usage needs the store version of Votic."
+            : "Additional AI usage isn't available to buy right now. Your allowance renews on the date above."}
+        </Text>
+      ) : !products ? (
+        <ActivityIndicator accessibilityLabel="Loading additional AI usage" color={theme.accent} />
+      ) : (
+        products.map((product) => (
+          <PrimaryButton
+            key={product.productId}
+            label={`${product.title} · ${product.priceString}`}
+            busy={busy === product.productId}
+            disabled={Boolean(busy) && busy !== product.productId}
+            accessibilityHint={`One-time purchase of ${product.priceString}. It doesn't change your subscription.`}
+            onPress={() => void buy(product)}
+          />
+        ))
+      )}
+      {message ? (
+        <Text accessibilityLiveRegion="polite" style={[s.detail, { color: theme.text }]}>
+          {message}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void }) {
   const { theme } = useVoticTheme();
   const { entitlement, beta } = useSubscription();
@@ -182,20 +281,12 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
         <CreditUses />
         {usage.purchased ? <PurchasedCard remaining={usage.purchased.remaining} /> : null}
         {/* Beta testers are never asked to pay, so no extra-usage prices for them. */}
-        {beta || !usage.plan ? null : (
-          <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <CreditTopUp
-              productIds={usage.purchaseProducts}
-              exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
-              onPurchased={refresh}
-              title="Need more credits?"
-              intro={
-                usage.plan.free
-                  ? "Add extra AI credits whenever you need them, or upgrade to Votic Plus for a larger monthly allowance."
-                  : "Add extra AI credits whenever you need them."
-              }
-            />
-          </View>
+        {beta || !usage.plan || usage.plan.free ? null : (
+          <BuyMore
+            productIds={usage.purchaseProducts}
+            exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
+            onPurchased={refresh}
+          />
         )}
       </>
     );

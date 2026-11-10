@@ -118,23 +118,6 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
     try { db.exec("ALTER TABLE credit_periods ADD COLUMN is_free INTEGER"); }
     catch (error) { if (!db.prepare("PRAGMA table_info(credit_periods)").all().some(column => column.name === "is_free")) throw error; }
   }
-  /**
-   * This month's included uses of a Free feature: requests the monthly allowance paid for. Uses paid entirely with
-   * purchased credits don't use up the included ones. Throws the feature's limit error when they're used up and
-   * purchased credits can't cover this request either.
-   */
-  const included_uses = (uid, features) => {
-    const cycle = calendar_month(now().getTime());
-    return db.prepare(`SELECT COUNT(*) AS n FROM credit_charges WHERE uid=? AND created_at>=? AND created_at<? AND status IN ('reserved','charged') AND subscription_credits>0 AND feature IN (SELECT value FROM json_each(?))`)
-      .get(uid, iso(cycle.start), iso(cycle.end), JSON.stringify(features)).n;
-  };
-  const free_limit_reached = (uid, freeLimit, credits) => {
-    if (included_uses(uid, freeLimit.features) < freeLimit.maximum) return false;
-    if (purchased(uid) >= credits) return true;
-    const error = new AiLimitError(freeLimit.message, freeLimit.code, iso(calendar_month(now().getTime()).end));
-    error.purchased = purchased(uid) > 0;
-    throw error;
-  };
   const transaction = (work) => {
     db.exec("BEGIN IMMEDIATE");
     try { const result = work(); db.exec("COMMIT"); return result; }
@@ -198,9 +181,14 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
           return { request_id, status: existing.status };
         }
         release_stale(uid);
-        // Past a Free feature limit (scan pages, summaries), purchased credits alone can pay for more.
-        const purchased_only = Boolean(freeLimit) && free_limit_reached(uid, freeLimit, credits);
-        const monthly = purchased_only ? 0 : Math.max(0, period.allowance - used(uid, period.start));
+        if (freeLimit) {
+          const cycle = calendar_month(now().getTime());
+          const count = db.prepare(`SELECT COUNT(*) AS n FROM credit_charges WHERE uid=? AND created_at>=? AND created_at<? AND status IN ('reserved','charged') AND feature IN (SELECT value FROM json_each(?))`)
+            .get(uid, iso(cycle.start), iso(cycle.end), JSON.stringify(freeLimit.features)).n;
+          if (count >= freeLimit.maximum)
+            throw new AiLimitError(freeLimit.message, freeLimit.code, iso(cycle.end));
+        }
+        const monthly = Math.max(0, period.allowance - used(uid, period.start));
         const from_monthly = Math.min(monthly, credits), from_purchased = credits - from_monthly;
         if (from_purchased > purchased(uid)) {
           const error = new AiLimitError("You've used this month's AI allowance.", "AI_CREDITS_EXHAUSTED", period.end);
@@ -227,11 +215,13 @@ export function create_credit_ledger(db, { now = () => new Date() } = {}) {
         return { allowance: period?.allowance ?? null, used: spent, remaining: period ? period.allowance - spent : null, purchased: purchased(uid) };
       });
     },
-    /** This month's included (allowance-paid) uses of Free features, such as camera scan pages. */
+    /** Count this month's charged and active reserved operations for an account. */
     monthly_feature_count(uid, features) {
       return transaction(() => {
         release_stale(uid);
-        return included_uses(uid, features);
+        const cycle = calendar_month(now().getTime());
+        return db.prepare(`SELECT COUNT(*) AS n FROM credit_charges WHERE uid=? AND created_at>=? AND created_at<? AND status IN ('reserved','charged') AND feature IN (SELECT value FROM json_each(?))`)
+          .get(uid, iso(cycle.start), iso(cycle.end), JSON.stringify(features)).n;
       });
     },
     /** Provider safeguards that grow with the credits actually spent this calendar month, never past their cost bound. */

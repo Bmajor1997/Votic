@@ -6,10 +6,6 @@ import { editorial } from "../design/editorial";
 import { BrandMark } from "../onboarding/WelcomeMotion";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
-import { useEffect, useState } from "react";
-import { ai_usage } from "../api/voticApi";
-import { CreditTopUp } from "./CreditTopUp";
-import { useSubscription } from "./SubscriptionProvider";
 
 type Props = {
   visible: boolean;
@@ -57,44 +53,12 @@ function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string
   return copy[reason];
 }
 
-/** What a credit pack pays for, for the limits that credits can extend. Files, notes and scanned PDFs need Plus. */
-const TOP_UP_INTRO: Partial<Record<Props["reason"], string>> = {
-  scans: "Buy a credit pack to scan a few more pages this month. Each extra page uses 3 credits.",
-  summaries:
-    "Buy a credit pack for a few more summaries this month. Each one uses 2 credits, or 5 for a long document.",
-  credits:
-    "Buy a credit pack to keep going this month. A question uses 1 credit; summaries and scan pages use more.",
-};
-
-/** The credit packs the server offers this account, loaded when the sheet opens (none for beta testers). */
-function useTopUpProducts(visible: boolean, wanted: boolean) {
-  const { beta } = useSubscription();
-  const [productIds, setProductIds] = useState<string[]>([]);
-  useEffect(() => {
-    if (!visible || !wanted || beta) return;
-    let current = true;
-    ai_usage().then(
-      (usage) => current && setProductIds(usage.purchaseProducts),
-      () => current && setProductIds([]),
-    );
-    return () => {
-      current = false;
-    };
-  }, [visible, wanted, beta]);
-  return beta ? [] : productIds;
-}
-
-/**
- * An upgrade invitation at a Free limit; the next screen displays the store's plans and confirms the purchase.
- * Where credits can extend the limit (scans, summaries, AI credits) it also offers "Just need a few more?".
- */
+/** An upgrade invitation; the next screen displays the store's plans and confirms the purchase. */
 export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const copy = sheet_copy(reason, resetsAt);
-  const topUpIntro = TOP_UP_INTRO[reason];
-  const topUpProducts = useTopUpProducts(visible, Boolean(topUpIntro));
   return (
     <Modal
       visible={visible}
@@ -155,15 +119,6 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
             >
               <Text style={[s.buttonText, { color: theme.text }]}>Continue with Votic Free</Text>
             </Pressable>
-            {topUpIntro && topUpProducts.length ? (
-              <View style={[s.topUp, { borderTopColor: theme.border }]}>
-                <CreditTopUp
-                  productIds={topUpProducts}
-                  title="Just need a few more? Buy credits"
-                  intro={topUpIntro}
-                />
-              </View>
-            ) : null}
           </ScrollView>
         </View>
       </View>
@@ -202,5 +157,4 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
   },
   buttonText: { fontSize: 17, fontWeight: "800", textAlign: "center" },
-  topUp: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 16 },
 });

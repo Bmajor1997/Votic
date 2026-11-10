@@ -17,8 +17,7 @@ export type AiUsage = {
   purchased: { remaining: number } | null;
   /** Store product IDs the server credits for additional usage. Empty when none are configured. */
   purchaseProducts: string[];
-  /** Votic Free only: included camera scan pages left this month, and what each extra page costs in credits. */
-  freeScans?: { limit: number; remaining: number; pageCredits: number };
+  freeScans?: { limit: number; remaining: number };
 };
 
 const STATUSES = ["active", "unmetered", "not-subscribed", "not-configured"] as const;
@@ -72,12 +71,10 @@ function parse_plan(plan: Record<string, unknown> | null | undefined): AiUsage["
 /** Free scan pages left this month; anything malformed is ignored and the server's own limit still applies. */
 function parse_free_scans(scans: Record<string, unknown> | null | undefined) {
   if (!scans) return null;
-  const { limit, remaining, pageCredits } = scans;
-  if (![limit, remaining, pageCredits].every(Number.isSafeInteger)) return null;
-  const [cap, left, cost] = [limit as number, remaining as number, pageCredits as number];
-  return cap > 0 && left >= 0 && left <= cap && cost > 0
-    ? { limit: cap, remaining: left, pageCredits: cost }
-    : null;
+  const { limit, remaining } = scans;
+  if (!Number.isSafeInteger(limit) || !Number.isSafeInteger(remaining)) return null;
+  const [cap, left] = [limit as number, remaining as number];
+  return cap > 0 && left >= 0 && left <= cap ? { limit: cap, remaining: left } : null;
 }
 
 export function format_usage_date(value: string) {

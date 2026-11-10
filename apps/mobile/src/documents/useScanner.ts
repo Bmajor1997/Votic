@@ -49,7 +49,7 @@ export function useScanner() {
       if (scanAllowanceActive.current) setScanAllowance("");
       return null;
     }
-    const allowance: ScanAllowance = { ...usage.freeScans, purchased: usage.purchased?.remaining ?? 0 };
+    const allowance: ScanAllowance = usage.freeScans;
     if (scanAllowanceActive.current) setScanAllowance(scan_allowance_text(allowance));
     return allowance;
   }, []);
@@ -190,7 +190,7 @@ export function useScanner() {
       const needed = snapshot.pages.filter(
         (page) => page.text === undefined && !completedPages.current.has(page.id),
       ).length;
-      // Too few Free pages and credits: the Votic Plus sheet (with "Just need a few more?") opens; photos are kept.
+      // Too few Free pages: the Votic Plus sheet opens instead of an error, and the photos are kept.
       if (!scan_pages_covered(needed, await check_scan_allowance())) {
         announce_allowance_limit("FREE_SCANS_EXHAUSTED", next_free_reset());
         throw new ScanLimitReached();

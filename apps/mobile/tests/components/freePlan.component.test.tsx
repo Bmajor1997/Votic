@@ -1,11 +1,10 @@
-import { expect, it, jest } from "@jest/globals";
+import { expect, it } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
-import * as api from "../../src/api/voticApi";
 import { FreeUpgradeSheet } from "../../src/subscription/FreeUpgradeSheet";
 
 it("allows five new Free documents and rejects a sixth", async () => {
@@ -25,8 +24,6 @@ it("allows five new Free documents and rejects a sixth", async () => {
     expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/five saved documents/i);
   });
   expect(screen.getByText("Upgrade to Votic Plus to upload more files")).toBeTruthy();
-  // Files need Votic Plus: no credit packs are offered for them.
-  expect(screen.queryByText("Just need a few more? Buy credits")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
   expect(router.push).toHaveBeenCalledWith("/paywall");
   expect(screen.getByText("Documents: 5")).toBeTruthy();
@@ -131,23 +128,10 @@ it("keeps existing notes after Plus ends and prevents new ones", async () => {
   });
 });
 
-it("offers Votic Plus first and credit packs as a smaller choice at the Free scan limit", async () => {
+it("offers only Votic Plus at the Free scan limit, with no credits for sale", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
-  fakeSubscriptions.creditProducts = [
-    { productId: "votic_ai_100", title: "100 AI credits", priceString: "$2.99" },
-  ];
-  jest.spyOn(api, "ai_usage").mockResolvedValue({
-    status: "active",
-    plan: { name: "Votic Free", free: true },
-    monthly: null,
-    purchased: null,
-    purchaseProducts: ["votic_ai_100"],
-  });
   await render_with_providers(<FreeUpgradeSheet visible reason="scans" onClose={() => {}} />);
   expect(screen.getByText("Keep scanning")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Subscribe to Votic Plus" })).toBeTruthy();
-  expect(await screen.findByRole("header", { name: "Just need a few more? Buy credits" })).toBeTruthy();
-  expect(screen.getByText(/Each extra page uses 3 credits/)).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "100 AI credits · $2.99" }));
-  expect(fakeSubscriptions.calls).toContain("purchaseCredits:votic_ai_100");
+  expect(screen.queryByText(/Buy credits/i)).toBeNull();
 });

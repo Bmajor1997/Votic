@@ -322,28 +322,6 @@ test("Free monthly feature caps count reservations atomically, release failures,
   credits.reserve({ uid: "free", request_id: "next-month", feature: "summary", credits: 2, period: next, freeLimit: cap });
 });
 
-test("past a Free limit, purchased credits pay for more scan pages without using the monthly allowance", () => {
-  const now = clock("2026-11-10T00:00:00Z");
-  const db = new DatabaseSync(":memory:");
-  const credits = create_credit_ledger(db, { now });
-  const period = credits.period("free", {}, 75, { free: true });
-  const cap = { features: ["scan-ocr"], maximum: 3, code: "FREE_SCANS_EXHAUSTED", message: "Scan limit" };
-  const scan = (id) => { credits.reserve({ uid: "free", request_id: id, feature: "scan-ocr", credits: 3, period, freeLimit: cap }); credits.charge(id); };
-  for (const id of ["p1", "p2", "p3"]) scan(id);
-  assert.equal(credits.monthly_feature_count("free", ["scan-ocr"]), 3);
-  const blocked = (() => { try { scan("p4"); } catch (error) { return error; } })();
-  assert.equal(blocked.code, "FREE_SCANS_EXHAUSTED");
-  assert.equal(blocked.purchased, false);
-  purchase(db, "free", "pack-1", 5);
-  scan("p4");
-  const after = credits.summary("free", period);
-  assert.deepEqual([after.used, after.purchased], [9, 2], "the fourth page came from purchased credits");
-  assert.equal(credits.monthly_feature_count("free", ["scan-ocr"]), 3, "purchased pages don't use included ones");
-  const short = (() => { try { scan("p5"); } catch (error) { return error; } })();
-  assert.equal(short.code, "FREE_SCANS_EXHAUSTED", "2 purchased credits can't pay for a 3-credit page");
-  assert.equal(short.purchased, true);
-});
-
 test("Free credits reset on the UTC month after Plus ends mid-cycle", () => {
   const now = clock("2026-11-20T00:00:00Z"), credits = ledger(now);
   const paid = credits.period("u", subscriber("2026-11-15T00:00:00Z", "2026-12-15T00:00:00Z"), 1000);
