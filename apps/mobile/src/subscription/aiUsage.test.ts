@@ -26,10 +26,22 @@ const active = {
 };
 
 describe("AI usage from the server", () => {
+  it("marks Votic Free by the server's flag, not the plan's name, and reads its scan pages", () => {
+    const free = parse_ai_usage({
+      ...active,
+      plan: { name: "Votic Gratuit", free: true },
+      freeScans: { limit: 3, remaining: 2 },
+    });
+    expect(free.plan).toEqual({ name: "Votic Gratuit", free: true });
+    expect(free.freeScans).toEqual({ limit: 3, remaining: 2 });
+    expect(parse_ai_usage({ ...active, freeScans: { limit: 3, remaining: 4 } }).freeScans).toBeUndefined();
+    expect(parse_ai_usage({ ...active, freeScans: { limit: 0, remaining: 0 } }).freeScans).toBeUndefined();
+  });
+
   it("keeps the server's percentage and dates, and drops what the screen doesn't show", () => {
     expect(parse_ai_usage(active)).toEqual({
       status: "active",
-      plan: { name: "Votic Plus" },
+      plan: { name: "Votic Plus", free: false },
       monthly: {
         percentRemaining: 99,
         periodEnd: "2026-11-03T10:00:00.000Z",

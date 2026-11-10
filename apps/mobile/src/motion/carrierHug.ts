@@ -1,4 +1,4 @@
-import { ROBOT, ROBOT_BEATS, ROBOT_SAMPLES, robotPose, type RobotPose } from "./robotCarrier";
+import { ROBOT, ROBOT_BEATS, ROBOT_SAMPLES, robot_pose, type RobotPose } from "./robotCarrier";
 
 /**
  * The chosen grip: a chest hug. The robot holds its letter high against its chest with one short, jointed arm
@@ -51,20 +51,20 @@ const smooth = (v: number) => {
   return c * c * (3 - 2 * c);
 };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const lerpP = (a: P, b: P, t: number) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
+const lerp_point = (a: P, b: P, t: number) => ({ x: lerp(a.x, b.x, t), y: lerp(a.y, b.y, t) });
 const within = ([a, b]: readonly [number, number], f: number) => clamp01((f - a) / (b - a));
 const rad = (d: number) => (d * Math.PI) / 180;
 const rot = (p: P, deg: number): P => ({
   x: p.x * Math.cos(rad(deg)) - p.y * Math.sin(rad(deg)),
   y: p.x * Math.sin(rad(deg)) + p.y * Math.cos(rad(deg)),
 });
-const boneAngle = (from: P, to: P) => (Math.atan2(-(to.x - from.x), to.y - from.y) * 180) / Math.PI;
+const bone_angle = (from: P, to: P) => (Math.atan2(-(to.x - from.x), to.y - from.y) * 180) / Math.PI;
 
 /** The robot frame's top-left corner, relative to the letter box's top-right corner. */
 export const FRAME_ORIGIN = { x: -ROBOT.overlap, y: ROBOT.baseline - ROBOT.frame.height } as const;
 
 /** Two-bone IK with the elbow below the shoulder–hand line. */
-function solveArm(shoulder: P, target: P) {
+function solve_arm(shoulder: P, target: P) {
   const { upper, fore } = ARM;
   const dx = target.x - shoulder.x;
   const dy = target.y - shoulder.y;
@@ -84,7 +84,7 @@ function solveArm(shoulder: P, target: P) {
 }
 
 /** A point given in the letter's final-place coordinates, after the letter's current move. */
-export function onLetter(letter: HugPose["letter"], back: P, point: P): P {
+export function on_letter(letter: HugPose["letter"], back: P, point: P): P {
   const r = rot({ x: point.x - back.x, y: point.y - back.y }, letter.angle);
   return { x: back.x + letter.x + r.x, y: back.y + letter.y + r.y };
 }
@@ -93,13 +93,13 @@ export function onLetter(letter: HugPose["letter"], back: P, point: P): P {
 export const tallness = (letter: CarriedLetter) => clamp01((LETTER_INK[letter].height - 17) / 4);
 
 /** The pose for `letter` at `f` (0 → ROBOT_END) of its range. */
-export function hugPose(letter: CarriedLetter, f: number): HugPose {
-  const body = robotPose(f);
+export function hug_pose(letter: CarriedLetter, f: number): HugPose {
+  const body = robot_pose(f);
   const ink = LETTER_INK[letter];
   const tall = tallness(letter);
   const upper = body.lean + body.bow * (1 - 0.55 * tall);
   const hip = { x: FRAME_ORIGIN.x + ROBOT.hip.x + body.exit, y: FRAME_ORIGIN.y + ROBOT.hip.y + body.drop };
-  const toWorld = (local: P) => {
+  const to_world = (local: P) => {
     const r = rot({ x: local.x - ROBOT.hip.x, y: local.y - ROBOT.hip.y }, upper);
     return { x: hip.x + body.facing * r.x, y: hip.y + r.y };
   };
@@ -107,10 +107,10 @@ export function hugPose(letter: CarriedLetter, f: number): HugPose {
   const loaded = f < ROBOT_BEATS.lower[1];
 
   // Carried: the letter's back-bottom corner against the lower chest, leaning back with the body (tall letters upright).
-  const carriedAt = toWorld({ x: 4.6, y: 32 + 3.5 * tall });
+  const carriedAt = to_world({ x: 4.6, y: 32 + 3.5 * tall });
   const carriedAngle = upper * (1 - tall) - 4 * tall;
   const lowerU = smooth(within(ROBOT_BEATS.lower, f));
-  const at = loaded ? lerpP(carriedAt, back, lowerU) : back;
+  const at = loaded ? lerp_point(carriedAt, back, lowerU) : back;
   const letterMove = {
     x: at.x - back.x,
     y: at.y - back.y,
@@ -118,7 +118,7 @@ export function hugPose(letter: CarriedLetter, f: number): HugPose {
   };
 
   // The hand on the letter's face, nearer its back edge, halfway up.
-  const grip = onLetter(letterMove, back, {
+  const grip = on_letter(letterMove, back, {
     x: back.x - Math.min(0.4 * ink.width, 6),
     y: back.y - 0.5 * ink.height,
   });
@@ -126,14 +126,14 @@ export function hugPose(letter: CarriedLetter, f: number): HugPose {
   const slide = smooth(within([ROBOT_BEATS.release[0], ROBOT_BEATS.release[0] + 0.03], f));
   const hang = smooth(within([ROBOT_BEATS.release[0] + 0.03, ROBOT_BEATS.release[1]], f));
   const off = { x: back.x + 2.5, y: grip.y + 1 };
-  const rest = toWorld({ x: 10.5 - 3.5 * Math.sin(Math.PI * body.step), y: 36 });
-  let target = loaded ? grip : hang > 0 ? lerpP(off, rest, hang) : lerpP(grip, off, slide);
+  const rest = to_world({ x: 10.5 - 3.5 * Math.sin(Math.PI * body.step), y: 36 });
+  let target = loaded ? grip : hang > 0 ? lerp_point(off, rest, hang) : lerp_point(grip, off, slide);
   if (f >= ROBOT_BEATS.release[1]) target = rest;
   // A hand never goes below the ground.
   target = { x: target.x, y: Math.min(target.y, ROBOT.baseline - 1.5) };
 
-  const shoulder = toWorld(ARM.shoulder);
-  const arm = solveArm(shoulder, target);
+  const shoulder = to_world(ARM.shoulder);
+  const arm = solve_arm(shoulder, target);
   return {
     body,
     hip,
@@ -142,16 +142,16 @@ export function hugPose(letter: CarriedLetter, f: number): HugPose {
     shoulder,
     elbow: arm.elbow,
     hand: arm.hand,
-    upperArm: boneAngle(shoulder, arm.elbow),
-    forearm: boneAngle(arm.elbow, arm.hand),
+    upperArm: bone_angle(shoulder, arm.elbow),
+    forearm: bone_angle(arm.elbow, arm.hand),
     gap: loaded ? arm.gap : 0,
   };
 }
 
 /** Sampled poses for each letter, computed once for the app's piecewise-linear interpolation. */
 export const HUG_TRACKS: Record<CarriedLetter, readonly HugPose[]> = {
-  o: ROBOT_SAMPLES.map((f) => hugPose("o", f)),
-  t: ROBOT_SAMPLES.map((f) => hugPose("t", f)),
-  i: ROBOT_SAMPLES.map((f) => hugPose("i", f)),
-  c: ROBOT_SAMPLES.map((f) => hugPose("c", f)),
+  o: ROBOT_SAMPLES.map((f) => hug_pose("o", f)),
+  t: ROBOT_SAMPLES.map((f) => hug_pose("t", f)),
+  i: ROBOT_SAMPLES.map((f) => hug_pose("i", f)),
+  c: ROBOT_SAMPLES.map((f) => hug_pose("c", f)),
 };

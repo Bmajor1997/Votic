@@ -423,7 +423,7 @@ export default function Notes() {
               })()
             : null
         }
-        onClose={requested.closeViewer}
+        onClose={requested.close_viewer}
         onEdit={setEditing}
         onMore={setMenuItem}
         onOpenInReader={(item) => {

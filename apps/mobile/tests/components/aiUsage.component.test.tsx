@@ -11,7 +11,7 @@ import { render_with_providers } from "../renderWithProviders";
 // Mocked server answers for the screen only. The real percentage and period math is tested on the server.
 const usage = (overrides: Partial<AiUsage> = {}, percentRemaining = 99): AiUsage => ({
   status: "active",
-  plan: { name: "Votic Plus" },
+  plan: { name: "Votic Plus", free: false },
   monthly: {
     percentRemaining,
     periodEnd: "2026-11-03T10:00:00.000Z",
@@ -28,7 +28,7 @@ it("shows the server's percentage once, above an accessible progress bar, with t
   jest.spyOn(api, "ai_usage").mockResolvedValue(usage());
   await render_with_providers(<AiUsageScreen />);
   expect(screen.getByRole("header", { name: "AI Credits & Usage" })).toBeTruthy();
-  expect(screen.getByText("MONTHLY AI ALLOWANCE")).toBeTruthy();
+  expect(screen.getByText("VOTIC PLUS · MONTHLY AI ALLOWANCE")).toBeTruthy();
   expect(screen.getAllByText(/99% remaining/)).toHaveLength(1);
   expect(screen.queryByText(/% used|% left/)).toBeNull();
   expect(screen.queryByText(/1,000|990/)).toBeNull();

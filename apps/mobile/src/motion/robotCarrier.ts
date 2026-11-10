@@ -128,7 +128,7 @@ function walk(u: number, advances: readonly number[], start: Feet, first: 0 | 1,
 }
 
 /** Two-bone IK, knee forward. `dx`, `dy` locate the ankle from the hip (dx negative = forward, dy down). */
-function solveLeg(dx: number, dy: number, pitch: number, planted: boolean): Omit<LegPose, "ankle"> {
+function solve_leg(dx: number, dy: number, pitch: number, planted: boolean): Omit<LegPose, "ankle"> {
   const { thigh: a, shin: b } = ROBOT;
   const reach = Math.min(Math.hypot(dx, dy), (a + b) * 0.999);
   const toward = Math.atan2(-dx, dy);
@@ -141,7 +141,7 @@ function solveLeg(dx: number, dy: number, pitch: number, planted: boolean): Omit
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value));
 
 /** The lowest the hip may sit so both ankles are within reach (with a small safety margin). */
-function gaitDrop(rel: Feet, lifted: Feet) {
+function gait_drop(rel: Feet, lifted: Feet) {
   const stand = ROBOT.ground - ROBOT.ankle - ROBOT.hip.y;
   const reach = (ROBOT.thigh + ROBOT.shin) * 0.98;
   return Math.max(
@@ -156,7 +156,7 @@ const IN_HALF = WALK_IN_STEPS[0] / 2;
 const OUT_HALF = WALK_OUT_STEPS[1] / 2;
 
 /** Where the feet are, relative to the hip along the walking direction, and how high each is lifted (px). */
-function feetAt(f: number) {
+function feet_at(f: number) {
   const [walkStart, walkEnd] = ROBOT_BEATS.walk;
   if (f <= walkEnd) {
     const w = walk(within([walkStart, walkEnd], f), WALK_IN_STEPS, [-IN_HALF, IN_HALF], 0, IN_HALF);
@@ -197,8 +197,8 @@ function feetAt(f: number) {
 }
 
 /** The pose at `f` (0 → ROBOT_END) of a letter's range. */
-export function robotPose(f: number): RobotPose {
-  const feet = feetAt(f);
+export function robot_pose(f: number): RobotPose {
+  const feet = feet_at(f);
   const loaded = f < ROBOT_HANDOFF;
   const walking = f <= ROBOT_BEATS.walk[1];
   const exiting = f >= ROBOT_BEATS.exit[0];
@@ -213,7 +213,7 @@ export function robotPose(f: number): RobotPose {
     : exiting
       ? 0.4 * (0.5 + 0.5 * Math.cos(2 * Math.PI * stepPhase))
       : lerp(ROBOT.squat, 0, standU);
-  const drop = Math.max(posture, gaitDrop(feet.rel, feet.lifted));
+  const drop = Math.max(posture, gait_drop(feet.rel, feet.lifted));
 
   const settleU = within(ROBOT_BEATS.settle, f);
   const lean = !loaded
@@ -236,7 +236,7 @@ export function robotPose(f: number): RobotPose {
     const lifting = feet.swingPhase[leg];
     const pitch = 12 * lifting;
     return {
-      ...solveLeg(dx, dy, pitch, feet.lifted[leg] === 0),
+      ...solve_leg(dx, dy, pitch, feet.lifted[leg] === 0),
       ankle: { x: ROBOT.hip.x + dx, y: ROBOT.hip.y + drop + dy },
     };
   }) as [LegPose, LegPose];

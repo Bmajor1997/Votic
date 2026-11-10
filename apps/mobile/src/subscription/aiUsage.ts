@@ -4,7 +4,8 @@
  */
 export type AiUsage = {
   status: "active" | "unmetered" | "not-subscribed" | "not-configured";
-  plan: { name: string } | null;
+  /** `free` is true for Votic Free; the name is for display only. */
+  plan: { name: string; free: boolean } | null;
   monthly: {
     percentRemaining: number;
     periodEnd: string;
@@ -45,11 +46,10 @@ export function parse_ai_usage(result: Record<string, unknown>): AiUsage {
   const monthly = parse_monthly(result.monthly as Record<string, unknown> | null | undefined);
   if (status === "active" && !monthly) throw unreadable();
   const remaining = (result.purchased as Record<string, unknown> | null | undefined)?.remaining;
-  const plan = result.plan as Record<string, unknown> | null | undefined;
-  const scans = result.freeScans as Record<string, unknown> | null | undefined;
+  const free_scans = parse_free_scans(result.freeScans as Record<string, unknown> | null | undefined);
   return {
     status,
-    plan: plan && typeof plan.name === "string" ? { name: plan.name } : null,
+    plan: parse_plan(result.plan as Record<string, unknown> | null | undefined),
     monthly,
     purchased:
       typeof remaining === "number" && Number.isSafeInteger(remaining) && remaining >= 0
@@ -58,15 +58,23 @@ export function parse_ai_usage(result: Record<string, unknown>): AiUsage {
     purchaseProducts: Array.isArray(result.purchaseProducts)
       ? result.purchaseProducts.filter((id): id is string => typeof id === "string" && id.length > 0)
       : [],
-    ...(scans &&
-    Number.isSafeInteger(scans.limit) &&
-    Number.isSafeInteger(scans.remaining) &&
-    (scans.limit as number) > 0 &&
-    (scans.remaining as number) >= 0 &&
-    (scans.remaining as number) <= (scans.limit as number)
-      ? { freeScans: { limit: scans.limit as number, remaining: scans.remaining as number } }
-      : {}),
+    ...(free_scans ? { freeScans: free_scans } : {}),
   };
+}
+
+/** The plan's name, and whether it is Votic Free (so the app never has to recognise Free by its display name). */
+function parse_plan(plan: Record<string, unknown> | null | undefined): AiUsage["plan"] {
+  if (!plan || typeof plan.name !== "string") return null;
+  return { name: plan.name, free: plan.free === true };
+}
+
+/** Free scan pages left this month; anything malformed is ignored and the server's own limit still applies. */
+function parse_free_scans(scans: Record<string, unknown> | null | undefined) {
+  if (!scans) return null;
+  const { limit, remaining } = scans;
+  if (!Number.isSafeInteger(limit) || !Number.isSafeInteger(remaining)) return null;
+  const [cap, left] = [limit as number, remaining as number];
+  return cap > 0 && left >= 0 && left <= cap ? { limit: cap, remaining: left } : null;
 }
 
 export function format_usage_date(value: string) {

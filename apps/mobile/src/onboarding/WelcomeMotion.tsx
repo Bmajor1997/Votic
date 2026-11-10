@@ -56,7 +56,7 @@ export function BrandMark({
       <Image source={source} resizeMode="contain" tintColor={tint} style={{ width: size, height: size }} />
     </Animated.View>
   );
-  const wingMotion = (value: Animated.Value | undefined) =>
+  const wing_motion = (value: Animated.Value | undefined) =>
     value && {
       transform: [
         { translateX: value.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, -7, 620] }) },
@@ -108,7 +108,7 @@ export function BrandMark({
             {piece(
               wing,
               theme.logoWing,
-              { ...wingMotion(flight?.wings[index]), opacity: wingOpacity },
+              { ...wing_motion(flight?.wings[index]), opacity: wingOpacity },
               `brand-mark-wing-${index + 1}`,
             )}
           </View>
@@ -257,7 +257,7 @@ export function useMarkFlight() {
       }
       flying.current = true;
       // Each piece nudges back a few points before it takes off (see the interpolations), then speeds away.
-      const takeOff = (value: Animated.Value, duration: number) =>
+      const take_off = (value: Animated.Value, duration: number) =>
         Animated.timing(value, {
           toValue: 1,
           duration,
@@ -267,9 +267,9 @@ export function useMarkFlight() {
       animation.current = Animated.parallel([
         Animated.stagger(
           130,
-          flight.wings.map((wing) => takeOff(wing, 460)),
+          flight.wings.map((wing) => take_off(wing, 460)),
         ),
-        Animated.sequence([Animated.delay(380), takeOff(flight.stroke, 520)]),
+        Animated.sequence([Animated.delay(380), take_off(flight.stroke, 520)]),
         Animated.timing(flight.glow, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]);
       animation.current.start(({ finished }) => {
@@ -291,7 +291,7 @@ export function useMarkFlight() {
    * Continue with Google: the same flight, resolving once the V has gone (true) so the account picker opens then.
    * False means it didn't fly (already flying, or interrupted), and the caller should not open the picker.
    */
-  const flyAway = useCallback(() => new Promise<boolean>((resolve) => launch(resolve)), [launch]);
+  const fly_away = useCallback(() => new Promise<boolean>((resolve) => launch(resolve)), [launch]);
   /** Puts the V back together after a Google sign-in is cancelled or fails, so it never stays off-screen. */
   const land = useCallback(() => {
     cancel();
@@ -316,7 +316,7 @@ export function useMarkFlight() {
       if (token === generation.current) animation.current = null;
     });
   }, [cancel, flight, reduceMotion]);
-  return { fly, flyAway, land, flight, cancel };
+  return { fly, fly_away, land, flight, cancel };
 }
 
 const s = StyleSheet.create({

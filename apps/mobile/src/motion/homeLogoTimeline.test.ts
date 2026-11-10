@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { HOME_ROBOT_TIMELINE, LIVE_CHANGES, live_letters } from "./homeLogoTimeline";
 import { MOTION } from "./motionSpec";
-import { ROBOT_END, robotPose } from "./robotCarrier";
+import { ROBOT_END, robot_pose } from "./robotCarrier";
 
 const steps = (step = 0.001) => Array.from({ length: Math.round(1 / step) + 1 }, (_, i) => i * step);
 /** Whether letter `index`'s robot can be seen at entrance progress `t`. */
 function robot_visible(index: number, t: number) {
   const [start, end] = HOME_ROBOT_TIMELINE.letters[index];
   const f = (t - start) / (end - start);
-  return f >= 0 && f <= ROBOT_END && robotPose(f).opacity > 0;
+  return f >= 0 && f <= ROBOT_END && robot_pose(f).opacity > 0;
 }
 
 describe("live letters (which robots are drawn)", () => {

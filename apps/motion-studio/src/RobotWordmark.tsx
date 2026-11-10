@@ -16,7 +16,7 @@ import {
 import {
   ARM,
   LETTER_INK,
-  hugPose,
+  hug_pose,
   type CarriedLetter,
   type HugPose,
 } from "../../mobile/src/motion/carrierHug";
@@ -124,7 +124,7 @@ export function RobotWordmark({
       {(["o", "t", "i", "c"] as const).map((letter, i) => {
         const r = timeline.letters[i];
         const f = (p - r[0]) / (r[1] - r[0]);
-        const pose = hugPose(letter, Math.min(ROBOT_END, Math.max(0, f)));
+        const pose = hug_pose(letter, Math.min(ROBOT_END, Math.max(0, f)));
         const letterOpacity = sample(p, r, [0, ROBOT_BEATS.fadeIn[1]], [0, 1]);
         return (
           <Carrier

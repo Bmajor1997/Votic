@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ARM, LETTER_INK, hugPose, onLetter, tallness, type CarriedLetter } from "./carrierHug";
+import { ARM, LETTER_INK, hug_pose, on_letter, tallness, type CarriedLetter } from "./carrierHug";
 import { ROBOT, ROBOT_BEATS, ROBOT_END, ROBOT_HANDOFF } from "./robotCarrier";
 
 const LETTERS: CarriedLetter[] = ["o", "t", "i", "c"];
@@ -27,7 +27,7 @@ describe("chest hug", () => {
     for (const letter of LETTERS) {
       const ink = LETTER_INK[letter];
       for (const f of loaded) {
-        const pose = hugPose(letter, f);
+        const pose = hug_pose(letter, f);
         expect(pose.gap).toBe(0);
         const elbow = end(pose.shoulder, pose.upperArm, ARM.upper);
         expect(elbow.x).toBeCloseTo(pose.elbow.x, 4);
@@ -37,7 +37,7 @@ describe("chest hug", () => {
         expect(hand.y).toBeCloseTo(pose.hand.y, 4);
         // The hand rests on the letter's face: inside its ink box once the letter's move is undone.
         const b = back(letter);
-        const local = onLetter({ x: -pose.letter.x, y: 0, angle: 0 }, b, {
+        const local = on_letter({ x: -pose.letter.x, y: 0, angle: 0 }, b, {
           x: hand.x,
           y: hand.y - pose.letter.y,
         });
@@ -56,7 +56,7 @@ describe("chest hug", () => {
 
   it("holds the letter against the chest, leaning back with the robot (short letters) or upright (tall ones)", () => {
     for (const letter of LETTERS) {
-      const pose = hugPose(letter, 0.25);
+      const pose = hug_pose(letter, 0.25);
       expect(pose.upper).toBeGreaterThan(8);
       expect(pose.letter.y).toBeLessThan(-3);
       if (tallness(letter) === 0) expect(pose.letter.angle).toBeCloseTo(pose.upper);
@@ -68,7 +68,7 @@ describe("chest hug", () => {
     for (const letter of LETTERS) {
       const ink = LETTER_INK[letter];
       for (const f of range(0, ROBOT_BEATS.settle[1])) {
-        const pose = hugPose(letter, f);
+        const pose = hug_pose(letter, f);
         // The head in the robot's frame, turned with the upper body about the hip.
         const center = {
           x: ROBOT.head.left + ROBOT.head.width / 2,
@@ -86,7 +86,7 @@ describe("chest hug", () => {
           { x: b.x, y: b.y - ink.height },
           { x: b.x - ink.width / 2, y: b.y - ink.height },
         ]) {
-          const top = onLetter(pose.letter, b, corner);
+          const top = on_letter(pose.letter, b, corner);
           expect(Math.hypot(top.x - head.x, top.y - head.y)).toBeGreaterThan(ROBOT.head.height / 2 - 0.5);
         }
       }
@@ -95,18 +95,18 @@ describe("chest hug", () => {
 
   it("sets the letter down exactly in place, upright, at the handoff, and never puts a hand below the ground", () => {
     for (const letter of LETTERS) {
-      const placed = hugPose(letter, ROBOT_HANDOFF);
+      const placed = hug_pose(letter, ROBOT_HANDOFF);
       expect(placed.letter).toEqual({ x: 0, y: 0, angle: 0 });
       for (const f of range(0, ROBOT_END))
-        expect(hugPose(letter, f).hand.y).toBeLessThanOrEqual(ROBOT.baseline);
+        expect(hug_pose(letter, f).hand.y).toBeLessThanOrEqual(ROBOT.baseline);
     }
   });
 
   it("slides its hand back off the letter, then lets the arm hang beside the body", () => {
     for (const letter of LETTERS) {
       const b = back(letter);
-      expect(hugPose(letter, ROBOT_BEATS.release[0] + 0.03).hand.x).toBeGreaterThan(b.x);
-      const hanging = hugPose(letter, ROBOT_BEATS.release[1]);
+      expect(hug_pose(letter, ROBOT_BEATS.release[0] + 0.03).hand.x).toBeGreaterThan(b.x);
+      const hanging = hug_pose(letter, ROBOT_BEATS.release[1]);
       expect(Math.abs(hanging.hand.x - hanging.hip.x)).toBeLessThan(4);
     }
   });

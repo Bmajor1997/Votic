@@ -58,7 +58,7 @@ export function useWordmarkEntranceActive() {
   return entrance !== null && entrance.phase !== "done";
 }
 /** What a header that joined the entrance should show: the finished logo until the entrance actually starts. */
-export function shownProgress(entrance: Entrance) {
+export function shown_progress(entrance: Entrance) {
   return entrance.phase === "waiting" ? FINISHED : entrance.progress;
 }
 
@@ -84,7 +84,7 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
   const current = session.generation === generation ? session : fresh();
   if (current !== session) setSession(current);
   const { progress, phase } = current;
-  const setPhase = useCallback(
+  const set_phase = useCallback(
     (next: Phase) => setSession((value) => (value.progress === progress ? { ...value, phase: next } : value)),
     [progress],
   );
@@ -110,16 +110,16 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
 
   const animation = useRef<Animated.CompositeAnimation | null>(null);
   // Finishing shows the final logo at once; the phase is recorded separately (from callbacks only).
-  const finishNow = useCallback(() => {
+  const finish_now = useCallback(() => {
     animation.current?.stop();
     animation.current = null;
     homeEntrance.claim(uid, generation);
     progress.setValue(1);
   }, [homeEntrance, uid, generation, progress]);
   const settle = useCallback(() => {
-    finishNow();
-    setPhase("done");
-  }, [finishNow, setPhase]);
+    finish_now();
+    set_phase("done");
+  }, [finish_now, set_phase]);
 
   // Going to the background finishes the entrance rather than resuming a half-built logo later.
   const latestSettle = useRef(settle);
@@ -137,10 +137,10 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
   // Reduce motion finishes it on every page at once.
   useEffect(() => {
     if (phase === "done" || !reduceMotion) return;
-    finishNow();
-    const record = setTimeout(() => setPhase("done"), 0);
+    finish_now();
+    const record = setTimeout(() => set_phase("done"), 0);
     return () => clearTimeout(record);
-  }, [phase, reduceMotion, finishNow, setPhase]);
+  }, [phase, reduceMotion, finish_now, set_phase]);
 
   // Start: once, from Home, when everything is ready. A timeout reveals the logo if it never gets going.
   useEffect(() => {
@@ -165,12 +165,12 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
         animation.current = run;
         startedAt.current = Date.now();
         setLive({ progress, letters: live_letters(0) });
-        setPhase("running");
+        set_phase("running");
         run.start(({ finished }) => {
           if (!finished || animation.current !== run) return;
           animation.current = null;
           progress.setValue(1);
-          setPhase("done");
+          set_phase("done");
         });
       } catch {
         settle();
@@ -191,7 +191,7 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
     generation,
     homeEntrance,
     settle,
-    setPhase,
+    set_phase,
   ]);
 
   // While running, page changes don't touch it; a safety deadline reveals the finished logo if the native driver

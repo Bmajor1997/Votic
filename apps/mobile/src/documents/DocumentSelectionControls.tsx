@@ -32,8 +32,8 @@ export function DocumentSelectionBar({ selection, total }: { selection: Selectio
       total={total}
       noun={DOCUMENT_NOUN}
       prompt="Choose documents to delete"
-      onToggleAll={selection.toggleAll}
-      onDelete={selection.confirmDelete}
+      onToggleAll={selection.toggle_all}
+      onDelete={selection.confirm_delete}
       onCancel={selection.cancel}
     />
   );

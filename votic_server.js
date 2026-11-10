@@ -16,7 +16,7 @@ import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
-import { credit_cost, percent_remaining, FREE_MONTHLY_CREDITS } from "./app_parts/ai_credits.js";
+import { credit_cost, percent_remaining, FREE_MONTHLY_CREDITS, FREE_SCAN_PAGES } from "./app_parts/ai_credits.js";
 import { AccountDeletionError, delete_account_data } from "./app_parts/account_deletion.js";
 import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -274,10 +274,10 @@ export function create_votic_handler(options = {}) {
     } : null;
     send_json(response, 200, {
       status: plan ? (plan.period ? "active" : "unmetered") : "not-subscribed",
-      plan: plan ? { name: usage_plan_name(plan) } : null,
+      plan: plan ? { name: usage_plan_name(plan), free: Boolean(plan.free) } : null,
       monthly,
       purchased: { remaining: summary.purchased },
-      ...(plan?.free ? { freeScans: { limit: 3, remaining: Math.max(0, 3 - usage_store.credits.monthly_feature_count(identity.uid, ["scan-ocr"])) } } : {}),
+      ...(plan?.free ? { freeScans: { limit: FREE_SCAN_PAGES, remaining: Math.max(0, FREE_SCAN_PAGES - usage_store.credits.monthly_feature_count(identity.uid, ["scan-ocr"])) } } : {}),
       purchaseProducts: plan && !plan.beta && !plan.free ? purchase_products : [],
     });
  };
@@ -332,7 +332,7 @@ export function create_votic_handler(options = {}) {
     const summaryFeatures = ["summary", "catch-me-up", "document-review"];
     const freeLimit = plan.free && (summaryFeatures.includes(feature)
       ? { features: summaryFeatures, maximum: 5, code: "FREE_SUMMARIES_EXHAUSTED", message: "You've used your five Free summaries this month." }
-      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: 3, code: "FREE_SCANS_EXHAUSTED", message: "You've used your three Free camera scan pages this month." } : null);
+      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: FREE_SCAN_PAGES, code: "FREE_SCANS_EXHAUSTED", message: "You've used your three Free camera scan pages this month." } : null);
     credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period, freeLimit });
     try {
       // An explicitly configured plan keeps its own safeguards; otherwise they follow the credits spent.

@@ -1,7 +1,17 @@
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Animated, AppState, Easing, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  AppState,
+  Easing,
+  Image,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { ai_usage } from "../api/voticApi";
 import { useAuth } from "../auth/AuthProvider";
@@ -96,14 +106,21 @@ function AllowanceCard({ monthly, plan }: { monthly: NonNullable<AiUsage["monthl
   const { fontScale, width } = useWindowDimensions();
   return (
     <View style={[s.hero, { backgroundColor: theme.brandTint, borderColor: theme.border }]}>
-      <Text style={[s.eyebrow, { color: theme.mutedText }]}>{plan}</Text>
-      <Text style={[s.eyebrow, { color: theme.mutedText }]}>MONTHLY AI ALLOWANCE</Text>
+      <Text
+        style={[s.eyebrow, { color: theme.mutedText }]}
+      >{`${plan.toUpperCase()} · MONTHLY AI ALLOWANCE`}</Text>
       <View style={s.heroRow}>
         <Text accessibilityRole="header" style={[s.heroPercent, { color: theme.accentText }]}>
           {monthly.percentRemaining}% remaining
         </Text>
         {width >= 340 && fontScale <= 1.3 ? (
-          <Image source={require("../../assets/ai-usage-robot.png")} accessibilityIgnoresInvertColors accessible={false} style={s.robot} resizeMode="contain" />
+          <Image
+            source={require("../../assets/ai-usage-robot.png")}
+            accessibilityIgnoresInvertColors
+            accessible={false}
+            style={s.robot}
+            resizeMode="contain"
+          />
         ) : null}
       </View>
       <UsageBar percent={monthly.percentRemaining} />
@@ -122,10 +139,14 @@ function CreditUses() {
   ];
   return (
     <View style={[s.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>What uses credits?</Text>
+      <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
+        What uses credits?
+      </Text>
       {items.map((item) => (
         <View key={item.label} style={s.useRow}>
-          <View style={[s.useIcon, { backgroundColor: theme.brandTint }]}><Ionicons name={item.icon} size={21} color={theme.accentText} /></View>
+          <View style={[s.useIcon, { backgroundColor: theme.brandTint }]}>
+            <Ionicons name={item.icon} size={21} color={theme.accentText} />
+          </View>
           <Text style={[s.detail, { color: theme.text }]}>{item.label}</Text>
         </View>
       ))}
@@ -192,7 +213,7 @@ function BuyMore({
     setMessage("");
     try {
       const current = await ai_usage();
-      if (current.plan?.name === "Votic Free" || !current.purchaseProducts.includes(product.productId)) {
+      if (current.plan?.free || !current.purchaseProducts.includes(product.productId)) {
         setMessage("Extra credits are available with Votic Plus. Refresh your plan and try again.");
         onPurchased();
         setBusy(null);
@@ -260,7 +281,7 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
         <CreditUses />
         {usage.purchased ? <PurchasedCard remaining={usage.purchased.remaining} /> : null}
         {/* Beta testers are never asked to pay, so no extra-usage prices for them. */}
-        {beta || !usage.plan || usage.plan.name === "Votic Free" ? null : (
+        {beta || !usage.plan || usage.plan.free ? null : (
           <BuyMore
             productIds={usage.purchaseProducts}
             exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}

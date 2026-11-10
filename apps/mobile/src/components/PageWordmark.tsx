@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { shownProgress, useWordmarkEntrance, useWordmarkEntranceActive } from "../home/WordmarkEntrance";
+import { shown_progress, useWordmarkEntrance, useWordmarkEntranceActive } from "../home/WordmarkEntrance";
 import { VoticLogo } from "./VoticLogo";
 import { VoticWordmark } from "./VoticWordmark";
 
@@ -16,7 +16,7 @@ export function PageWordmark() {
   if (!joined) return <VoticLogo />;
   return (
     <View testID="page-wordmark-entrance" pointerEvents="none">
-      <VoticWordmark entrance={shownProgress(entrance)} robotEntrance live={entrance.live} />
+      <VoticWordmark entrance={shown_progress(entrance)} robotEntrance live={entrance.live} />
     </View>
   );
 }

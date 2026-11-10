@@ -7,7 +7,7 @@ import {
   ROBOT_END,
   ROBOT_HANDOFF,
   ROBOT_TRAVEL,
-  robotPose,
+  robot_pose,
   type RobotPose,
 } from "./robotCarrier";
 
@@ -18,7 +18,7 @@ const range = (start: number, end: number, step = 0.0025) => {
   return out;
 };
 /** Ankle from the joint angles (forward kinematics), in the robot's frame. */
-function ankleFromAngles(pose: RobotPose, leg: 0 | 1) {
+function ankle_from_angles(pose: RobotPose, leg: 0 | 1) {
   const { thigh, knee } = pose.legs[leg];
   const a = rad(thigh);
   const b = rad(thigh + knee);
@@ -28,8 +28,8 @@ function ankleFromAngles(pose: RobotPose, leg: 0 | 1) {
   };
 }
 /** Where an ankle is on screen (relative to the letter's final place), including turning around. */
-function worldAnkleX(pose: RobotPose, leg: 0 | 1) {
-  const local = ankleFromAngles(pose, leg).x;
+function world_ankle_x(pose: RobotPose, leg: 0 | 1) {
+  const local = ankle_from_angles(pose, leg).x;
   return pose.travel + pose.exit + ROBOT.hip.x + pose.facing * (local - ROBOT.hip.x);
 }
 const groundAnkle = ROBOT.ground - ROBOT.ankle;
@@ -37,9 +37,9 @@ const groundAnkle = ROBOT.ground - ROBOT.ankle;
 describe("legs and feet", () => {
   it("reach their targets: the drawn joints put each ankle exactly where the gait places it", () => {
     for (const f of range(0, ROBOT_END)) {
-      const pose = robotPose(f);
+      const pose = robot_pose(f);
       for (const leg of [0, 1] as const) {
-        const ankle = ankleFromAngles(pose, leg);
+        const ankle = ankle_from_angles(pose, leg);
         expect(ankle.x).toBeCloseTo(pose.legs[leg].ankle.x, 2);
         expect(ankle.y).toBeCloseTo(pose.legs[leg].ankle.y, 2);
       }
@@ -50,13 +50,13 @@ describe("legs and feet", () => {
     let checked = 0;
     for (const walking of [range(0, ROBOT_BEATS.walk[1]), range(ROBOT_BEATS.exit[0], ROBOT_END)])
       for (let i = 1; i < walking.length; i++) {
-        const before = robotPose(walking[i - 1]);
-        const after = robotPose(walking[i]);
+        const before = robot_pose(walking[i - 1]);
+        const after = robot_pose(walking[i]);
         for (const leg of [0, 1] as const) {
           if (!before.legs[leg].planted || !after.legs[leg].planted) continue;
           checked++;
           expect(after.legs[leg].ankle.y).toBeCloseTo(groundAnkle, 3);
-          expect(worldAnkleX(after, leg)).toBeCloseTo(worldAnkleX(before, leg), 2);
+          expect(world_ankle_x(after, leg)).toBeCloseTo(world_ankle_x(before, leg), 2);
           // Flat sole: the foot's absolute angle is level.
           expect(after.legs[leg].thigh + after.legs[leg].knee + after.legs[leg].foot).toBeCloseTo(0, 3);
         }
@@ -69,7 +69,7 @@ describe("legs and feet", () => {
     const [start, end] = ROBOT_BEATS.walk;
     const swings: number[] = [];
     for (let step = 0; step < steps; step++) {
-      const mid = robotPose(start + ((end - start) * (step + 0.5)) / steps);
+      const mid = robot_pose(start + ((end - start) * (step + 0.5)) / steps);
       const lifted = ([0, 1] as const).filter((leg) => !mid.legs[leg].planted);
       expect(lifted).toHaveLength(1);
       expect(groundAnkle - mid.legs[lifted[0]].ankle.y).toBeGreaterThan(2);
@@ -83,7 +83,8 @@ describe("legs and feet", () => {
 
   it("stay under the hip: every ankle is within a stride of the body", () => {
     for (const f of range(0, ROBOT_END)) {
-      for (const leg of robotPose(f).legs) expect(Math.abs(leg.ankle.x - ROBOT.hip.x)).toBeLessThanOrEqual(7);
+      for (const leg of robot_pose(f).legs)
+        expect(Math.abs(leg.ankle.x - ROBOT.hip.x)).toBeLessThanOrEqual(7);
     }
   });
 });
@@ -91,37 +92,37 @@ describe("legs and feet", () => {
 describe("carrying the letter", () => {
   it("leans back under the load and squints with effort", () => {
     for (const f of range(0, ROBOT_BEATS.settle[1])) {
-      const pose = robotPose(f);
+      const pose = robot_pose(f);
       expect(pose.lean).toBeGreaterThanOrEqual(8);
       expect(pose.eye).toBeLessThan(0.5);
     }
-    expect(robotPose(ROBOT_BEATS.exit[0]).eye).toBe(1);
+    expect(robot_pose(ROBOT_BEATS.exit[0]).eye).toBe(1);
   });
 
   it("squats and bows to set the letter down, upright and in place exactly at the handoff", () => {
-    const placed = robotPose(ROBOT_HANDOFF);
+    const placed = robot_pose(ROBOT_HANDOFF);
     expect(placed.lean).toBe(0);
     expect(placed.travel).toBe(0);
     expect(placed.drop).toBeCloseTo(ROBOT.squat);
     expect(placed.bow).toBeCloseTo(ROBOT.bow);
-    expect(robotPose(0).travel).toBe(ROBOT_TRAVEL);
+    expect(robot_pose(0).travel).toBe(ROBOT_TRAVEL);
   });
 });
 
 describe("leaving", () => {
   it("lets go, turns to show its right side, then walks out to the right before fading", () => {
-    expect(robotPose(ROBOT_BEATS.turn[0]).facing).toBe(1);
-    expect(robotPose(ROBOT_BEATS.turn[1]).facing).toBe(-1);
+    expect(robot_pose(ROBOT_BEATS.turn[0]).facing).toBe(1);
+    expect(robot_pose(ROBOT_BEATS.turn[1]).facing).toBe(-1);
     let previous = 0;
     for (const f of range(ROBOT_BEATS.exit[0], ROBOT_END)) {
-      const pose = robotPose(f);
+      const pose = robot_pose(f);
       expect(pose.exit).toBeGreaterThanOrEqual(previous);
       previous = pose.exit;
     }
     // Visible steps out: well clear of the letter before it starts to fade.
-    expect(robotPose(ROBOT_BEATS.fadeOut[0]).exit).toBeGreaterThan(15);
-    expect(robotPose(ROBOT_BEATS.fadeOut[0]).opacity).toBe(1);
-    expect(robotPose(ROBOT_END).opacity).toBe(0);
+    expect(robot_pose(ROBOT_BEATS.fadeOut[0]).exit).toBeGreaterThan(15);
+    expect(robot_pose(ROBOT_BEATS.fadeOut[0]).opacity).toBe(1);
+    expect(robot_pose(ROBOT_END).opacity).toBe(0);
   });
 });
 

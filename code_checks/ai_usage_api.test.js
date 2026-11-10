@@ -40,7 +40,7 @@ test("AI Usage reports the verified period with a full allowance and never trust
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.deepEqual(await response.json(), {
-      status: "active", plan: { name: "Votic Plus" },
+      status: "active", plan: { name: "Votic Plus", free: false },
       monthly: { percentRemaining: 100, allowance: 10, used: 0, remaining: 10, periodStart: period.purchase_date, periodEnd: period.expires_date, resetsAt: period.expires_date, billingPeriodVerified: true },
       purchased: { remaining: 0 }, purchaseProducts: [],
     });

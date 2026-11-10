@@ -30,7 +30,7 @@ jest.mock("../../src/documents/scanPhoto", () => ({
 }));
 jest.mock("../../src/api/voticApi", () => ({
   scan_document_image: jest.fn(),
-  ai_usage: jest.fn(async () => ({ plan: { name: "Votic Plus" } })),
+  ai_usage: jest.fn(async () => ({ plan: { name: "Votic Plus", free: false } })),
 }));
 
 describe("document scanner", () => {
@@ -46,16 +46,14 @@ describe("document scanner", () => {
 it("shows remaining Free pages and stops an over-limit scan before OCR starts", async () => {
   const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
   jest.spyOn(Alert, "alert").mockImplementation(() => {});
-  jest
-    .mocked(ai_usage)
-    .mockResolvedValue({
-      status: "active",
-      plan: { name: "Votic Free" },
-      monthly: null,
-      purchased: null,
-      purchaseProducts: [],
-      freeScans: { limit: 3, remaining: 1 },
-    });
+  jest.mocked(ai_usage).mockResolvedValue({
+    status: "active",
+    plan: { name: "Votic Free", free: true },
+    monthly: null,
+    purchased: null,
+    purchaseProducts: [],
+    freeScans: { limit: 3, remaining: 1 },
+  });
   jest.mocked(scan_document_image).mockClear();
   await render_with_providers(<ScanDocumentScreen />);
   expect(await screen.findByText("1 of 3 Free scan pages remaining this month.")).toBeTruthy();
@@ -72,15 +70,20 @@ it("shows remaining Free pages and stops an over-limit scan before OCR starts", 
     ),
   );
   expect(scan_document_image).not.toHaveBeenCalled();
-  jest
-    .mocked(ai_usage)
-    .mockResolvedValue({
-      status: "unmetered",
-      plan: { name: "Votic Plus" },
-      monthly: null,
-      purchased: null,
-      purchaseProducts: [],
-    });
+  jest.mocked(ai_usage).mockResolvedValue({
+    status: "unmetered",
+    plan: { name: "Votic Plus", free: false },
+    monthly: null,
+    purchased: null,
+    purchaseProducts: [],
+  });
+});
+
+it("shows no Free allowance text to Plus users, or when the allowance can't be checked", async () => {
+  jest.mocked(ai_usage).mockRejectedValueOnce(new Error("offline"));
+  await render_with_providers(<ScanDocumentScreen />);
+  await act(async () => {});
+  expect(screen.queryByText(/Free scan pages|scan allowance/i)).toBeNull();
 });
 
 it("waits for camera readiness and reviews/corrects OCR before opening its saved document", async () => {

@@ -111,7 +111,8 @@ test("stores document content only after explicit consent and can clear it", asy
 
 
 test("document markup is displayed as text, not executed", async ({ page }) => {
-  const payload = '<img src=x onerror="window.voticInjected=1">';
+  // No period in the payload: the reader splits sentences at periods, which would add a space to the text shown.
+  const payload = '<img src=x onerror="voticInjected=1">';
   await page.getByRole("button", { name: "Add document" }).click();
   await page.locator("#documentFile").setInputFiles({ name: "markup.txt", mimeType: "text/plain", buffer: Buffer.from(`# ${payload}\n\n${payload}`) });
   await page.getByRole("button", { name: "Open in reader" }).click();

@@ -24,62 +24,74 @@ Object.assign(el, { rememberDocument: $("#rememberDocument"), clearSavedDocument
 Object.assign(el, { homePage: $("#homePage"), documentsPage: $("#documentsPage"), settingsPage: $("#settingsPage"), homeAddDocument: $("#homeAddDocument"), documentsAddDocument: $("#documentsAddDocument"), documentLibrary: $("#documentLibrary"), homeSavedTitle: $("#homeSavedTitle"), homeSavedMeta: $("#homeSavedMeta"), homeOpenSaved: $("#homeOpenSaved"), settingsTextSize: $("#settingsTextSize"), settingsReadingSpacing: $("#settingsReadingSpacing"), settingsReduceMotion: $("#settingsReduceMotion"), settingsWordEmphasis: $("#settingsWordEmphasis") });
 
 
+/** A worksheet checkbox, kept as a real button so it can be ticked with a tap or the keyboard. */
+function worksheet_checkbox(word, control_id) {
+  const checked = worksheet_responses[control_id] ?? /[☑☒]/.test(word.text);
+  const element = document.createElement("button");
+  element.type = "button";
+  element.className = "worksheet-checkbox";
+  element.dataset.worksheetControl = control_id;
+  element.setAttribute("aria-pressed", String(checked));
+  element.setAttribute("aria-label", `${checked ? "Uncheck" : "Check"} this worksheet item`);
+  element.textContent = checked ? "☑" : "☐";
+  return element;
+}
+/** A worksheet answer field for a run of blanks: one line for a single blank, a larger box for several. */
+function worksheet_answer(sentence, word, previous_sentence, control_id, blank_count) {
+  const clean = (text) => text?.replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100);
+  const prompt = clean(sentence.text.slice(0, word.start)) || clean(previous_sentence?.text) || "Worksheet answer";
+  const element = document.createElement(blank_count > 1 ? "textarea" : "input");
+  element.className = blank_count > 1 ? "worksheet-answer worksheet-answer-large" : "worksheet-answer";
+  if (blank_count > 1) element.rows = Math.min(6, blank_count);
+  element.dataset.worksheetControl = control_id;
+  element.setAttribute("aria-label", `Answer: ${prompt}`);
+  element.placeholder = "Type your answer";
+  element.value = typeof worksheet_responses[control_id] === "string" ? worksheet_responses[control_id] : "";
+  return element;
+}
+/** One sentence's words, built as elements (never HTML text) so document text can't run as page code. */
+function render_sentence(sentence, previous_sentence) {
+  const sentence_element = document.createElement("span");
+  sentence_element.className = "sentence";
+  sentence_element.dataset.sentence = sentence.index;
+  for (let word_index = 0; word_index < sentence.words.length; word_index++) {
+    if (word_index) sentence_element.append(" ");
+    const word = sentence.words[word_index];
+    const control_type = active_document_mode === "worksheet" ? worksheet_control_type(word.text) : null;
+    const control_id = worksheet_control_id(sentence.index, word_index);
+    let element;
+    if (control_type === "checkbox") element = worksheet_checkbox(word, control_id);
+    else if (control_type === "answer") {
+      let blank_count = 1;
+      while (worksheet_control_type(sentence.words[word_index + blank_count]?.text) === "answer") blank_count++;
+      element = worksheet_answer(sentence, word, previous_sentence, control_id, blank_count);
+      element.dataset.word = word_index;
+      word_index += blank_count - 1;
+    } else {
+      element = document.createElement("span");
+      element.className = "word";
+      element.textContent = word.text;
+    }
+    if (!element.hasAttribute("data-word")) element.dataset.word = word_index;
+    sentence_element.append(element);
+  }
+  return sentence_element;
+}
 function render_document() {
   const sections = document.createDocumentFragment();
   for (const section of doc.sections) {
-    const sectionElement = document.createElement("section");
-    sectionElement.id = `section-${section.sectionIndex}`;
-    sectionElement.dataset.section = section.sectionIndex;
+    const section_element = document.createElement("section");
+    section_element.id = `section-${section.sectionIndex}`;
+    section_element.dataset.section = section.sectionIndex;
     const heading = document.createElement("h2");
     heading.textContent = section.heading;
     const paragraph = document.createElement("p");
-    section.sentences.forEach((sentence, sentenceIndex) => {
-      if (sentenceIndex) paragraph.append(" ");
-      const sentenceElement = document.createElement("span");
-      sentenceElement.className = "sentence";
-      sentenceElement.dataset.sentence = sentence.index;
-      for (let wordIndex = 0; wordIndex < sentence.words.length; wordIndex++) {
-        if (wordIndex) sentenceElement.append(" ");
-        const word = sentence.words[wordIndex];
-        const controlType = active_document_mode === "worksheet" ? worksheet_control_type(word.text) : null;
-        const controlId = worksheet_control_id(sentence.index, wordIndex);
-        let element;
-        if (controlType === "checkbox") {
-          const checked = worksheet_responses[controlId] ?? /[☑☒]/.test(word.text);
-          element = document.createElement("button");
-          element.type = "button";
-          element.className = "worksheet-checkbox";
-          element.dataset.worksheetControl = controlId;
-          element.setAttribute("aria-pressed", String(checked));
-          element.setAttribute("aria-label", `${checked ? "Uncheck" : "Check"} this worksheet item`);
-          element.textContent = checked ? "☑" : "☐";
-        } else if (controlType === "answer") {
-          let blankCount = 1;
-          while (worksheet_control_type(sentence.words[wordIndex + blankCount]?.text) === "answer") blankCount++;
-          const previousSentence = section.sentences[sentenceIndex - 1];
-          const prompt = sentence.text.slice(0, word.start).replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100) || previousSentence?.text.replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100) || "Worksheet answer";
-          const value = typeof worksheet_responses[controlId] === "string" ? worksheet_responses[controlId] : "";
-          element = document.createElement(blankCount > 1 ? "textarea" : "input");
-          element.className = blankCount > 1 ? "worksheet-answer worksheet-answer-large" : "worksheet-answer";
-          if (blankCount > 1) element.rows = Math.min(6, blankCount);
-          element.dataset.worksheetControl = controlId;
-          element.setAttribute("aria-label", `Answer: ${prompt}`);
-          element.placeholder = "Type your answer";
-          element.value = value;
-          element.dataset.word = wordIndex;
-          wordIndex += blankCount - 1;
-        } else {
-          element = document.createElement("span");
-          element.className = "word";
-          element.textContent = word.text;
-        }
-        if (!element.hasAttribute("data-word")) element.dataset.word = wordIndex;
-        sentenceElement.append(element);
-      }
-      paragraph.append(sentenceElement);
+    section.sentences.forEach((sentence, sentence_index) => {
+      if (sentence_index) paragraph.append(" ");
+      paragraph.append(render_sentence(sentence, section.sentences[sentence_index - 1]));
     });
-    sectionElement.append(heading, paragraph);
-    sections.append(sectionElement);
+    section_element.append(heading, paragraph);
+    sections.append(section_element);
   }
   el.document.replaceChildren(sections);
   el.document.classList.toggle("has-worksheet-controls", Boolean(el.document.querySelector("[data-worksheet-control]")));
@@ -105,10 +117,10 @@ function render_sections() {
     dot.setAttribute("aria-hidden", "true");
     dots.append(dot);
   });
-  const lastDot = document.createElement("span");
-  lastDot.style.left = "100%";
-  lastDot.setAttribute("aria-hidden", "true");
-  dots.append(lastDot);
+  const last_dot = document.createElement("span");
+  last_dot.style.left = "100%";
+  last_dot.setAttribute("aria-hidden", "true");
+  dots.append(last_dot);
   el.sectionList.replaceChildren(list);
   el.sectionDots.replaceChildren(dots);
 }

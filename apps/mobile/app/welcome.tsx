@@ -46,7 +46,7 @@ export default function Welcome() {
             onError={setError}
             // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
             // comes back together and the screen is ready again.
-            beforeGoogle={mark.flyAway}
+            beforeGoogle={mark.fly_away}
             afterGoogleStopped={mark.land}
           />
           <Pressable

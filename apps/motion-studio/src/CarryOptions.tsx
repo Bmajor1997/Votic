@@ -12,7 +12,7 @@ import {
   ROBOT,
   ROBOT_BEATS,
   ROBOT_END,
-  robotPose,
+  robot_pose,
   type RobotPose,
 } from "../../mobile/src/motion/robotCarrier";
 
@@ -50,7 +50,7 @@ const FONT = "900 30px Arial";
 
 type P = { x: number; y: number };
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-const lerpP = (a: P, b: P, t: number) => ({
+const lerp_point = (a: P, b: P, t: number) => ({
   x: lerp(a.x, b.x, t),
   y: lerp(a.y, b.y, t),
 });
@@ -134,7 +134,7 @@ type Frame = {
   base: RobotPose;
   hip: P;
   upper: number;
-  toWorld: (local: P) => P;
+  to_world: (local: P) => P;
   letter: { pivot: P; at: P; angle: number };
   hand: P;
   handAngle: number;
@@ -144,8 +144,8 @@ type Frame = {
 };
 
 /** Where everything is for one letter's robot under a given grip. */
-export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
-  const base = robotPose(f);
+export function carry_frame(option: CarryOption, f: number, ink: Ink): Frame {
+  const base = robot_pose(f);
   // Tall letters (t, i) would tip into the face: they ride lower and more upright, and the bow to set them down
   // is shallower so the head stays clear of the placed letter. o and c are unaffected.
   const tall = option === "hug" ? clamp01((ink.base - ink.top - 17) / 4) : 0;
@@ -154,7 +154,7 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
     x: ink.x + ink.width + 8 + base.travel + base.exit,
     y: 15 + base.drop,
   };
-  const toWorld = (local: P) => {
+  const to_world = (local: P) => {
     const r = rot(
       { x: local.x - ROBOT.hip.x, y: local.y - ROBOT.hip.y },
       upper,
@@ -179,7 +179,7 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
       angle: f < ROBOT_BEATS.walk[1] ? 3 * Math.sin(Math.PI * walkSteps) : 0,
     },
   }[option];
-  const carriedAt = toWorld(carried.local);
+  const carriedAt = to_world(carried.local);
   const lowerU = smooth(within(ROBOT_BEATS.lower, f));
   const loaded = f < ROBOT_BEATS.lower[1];
 
@@ -188,7 +188,7 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
   else if (option !== "cradle")
     letter = {
       pivot: back,
-      at: lerpP(carriedAt, back, lowerU),
+      at: lerp_point(carriedAt, back, lowerU),
       angle: lerp(carried.angle, 0, lowerU),
     };
   else {
@@ -202,7 +202,7 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
     if (f < mid)
       letter = {
         pivot: front,
-        at: lerpP(carriedFront, front, u1),
+        at: lerp_point(carriedFront, front, u1),
         angle: lerp(carried.angle, -6, u1),
       };
     else
@@ -219,12 +219,12 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
     cradle: { x: ink.right - 2.2, y: ink.base + 2.3 },
     hook: { x: ink.right - Math.min(0.35 * w, 4), y: ink.top - 1.4 },
   }[option];
-  let onLetter = place(letter, grip);
+  let on_letter = place(letter, grip);
   if (option === "cradle" && f >= 0.66 && loaded) {
     // As the back edge comes down, the fingers slide out from under it onto the back face.
     const out = smooth(within([0.66, ROBOT_BEATS.lower[1]], f));
-    onLetter = lerpP(
-      onLetter,
+    on_letter = lerp_point(
+      on_letter,
       place(letter, { x: ink.right + 2.3, y: ink.base - 3 }),
       out,
     );
@@ -238,19 +238,19 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
     within([ROBOT_BEATS.release[0] + 0.03, ROBOT_BEATS.release[1]], f),
   );
   const off = {
-    hug: { x: back.x + 2.5, y: onLetter.y + 1 },
+    hug: { x: back.x + 2.5, y: on_letter.y + 1 },
     cradle: { x: back.x + 5, y: back.y + 1.5 },
-    hook: { x: onLetter.x + 1, y: onLetter.y - 3.5 },
+    hook: { x: on_letter.x + 1, y: on_letter.y - 3.5 },
   }[option];
   const swing =
     f >= ROBOT_BEATS.exit[0]
       ? 3.5 * Math.sin(Math.PI * within(ROBOT_BEATS.exit, f) * 4)
       : 0;
-  const rest = toWorld({ x: 10.5 - swing, y: 36 });
-  const shoulder = toWorld(SHOULDER);
-  let target = onLetter;
+  const rest = to_world({ x: 10.5 - swing, y: 36 });
+  const shoulder = to_world(SHOULDER);
+  let target = on_letter;
   if (!loaded)
-    target = r2 > 0 ? lerpP(off, rest, r2) : lerpP(onLetter, off, r1);
+    target = r2 > 0 ? lerp_point(off, rest, r2) : lerp_point(on_letter, off, r1);
   if (f >= ROBOT_BEATS.release[1]) target = rest;
   // Hands never go below the ground line.
   target = { x: target.x, y: Math.min(target.y, 26.5) };
@@ -264,7 +264,7 @@ export function carryFrame(option: CarryOption, f: number, ink: Ink): Frame {
     base,
     hip,
     upper,
-    toWorld,
+    to_world,
     letter,
     hand: solved.hand,
     handAngle: loaded ? handAngle : 0,
@@ -404,10 +404,10 @@ export function OptionWordmark({
       {letters.map((l, i) => {
         const r = timeline.letters[i];
         const f = Math.min(ROBOT_END, Math.max(0, (p - r[0]) / (r[1] - r[0])));
-        const fr = carryFrame(option, f, l);
+        const fr = carry_frame(option, f, l);
         const { base } = fr;
         const letterOpacity = sample(p, r, [0, ROBOT_BEATS.fadeIn[1]], [0, 1]);
-        const hipLocal = (x: number, y: number) => ({
+        const hip_local = (x: number, y: number) => ({
           x: x - ROBOT.hip.x,
           y: y - ROBOT.hip.y,
         });
@@ -445,7 +445,7 @@ export function OptionWordmark({
             </g>
           );
         };
-        const t = hipLocal(0, 0);
+        const t = hip_local(0, 0);
         const torso = ROBOT.torso;
         const head = ROBOT.head;
         const handDir = Math.atan2(
