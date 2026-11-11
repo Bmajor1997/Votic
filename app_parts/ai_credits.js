@@ -18,6 +18,8 @@ export const CREDIT_COSTS = {
 };
 /** Votic Free: AI credits each calendar month, and camera scan pages each month (each page also costs credits). */
 export const FREE_MONTHLY_CREDITS = 75;
+/** Votic Free's earlier monthly allowance; months that started on it keep it until they end. */
+const LEGACY_FREE_CREDITS = 100;
 export const FREE_SCAN_PAGES = 3;
 export const DOCUMENT_SMALL_BYTES = 100_000;
 /** A reservation whose request died (crash, lost process) gives its credits back after this long. */
@@ -85,8 +87,11 @@ function calendar_month(now) {
  * until it ends, so nobody loses credits partway through a month. Returns the period row as stored afterwards.
  */
 function sync_free_allowance(db, uid, row, allowance, free) {
-  // Rows from before the plan marker existed: an unverified 75- or 100-credit period was a Free month.
-  const previous_free = row.is_free === 1 || (row.is_free == null && !row.verified && [75, 100].includes(row.allowance));
+  // Rows from before the plan marker existed: a 100-credit period was a Free month, even a verified one (a Plus
+  // subscriber who moved to Free kept their paid period's row, verified flag and all, at the old 100-credit Free
+  // allowance). An unverified 75-credit period was a Free month too; Plus is 1,000 credits.
+  const legacy_free = row.allowance === LEGACY_FREE_CREDITS || (!row.verified && row.allowance === FREE_MONTHLY_CREDITS);
+  const previous_free = row.is_free === 1 || (row.is_free == null && legacy_free);
   const keep_legacy_free = free && previous_free && row.allowance > allowance;
   const next_allowance = keep_legacy_free ? row.allowance : free || previous_free ? allowance : row.allowance;
   if (row.allowance === next_allowance && row.is_free === Number(free)) return row;
