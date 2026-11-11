@@ -16,7 +16,7 @@ import { create_firebase_authorizer } from "./app_parts/firebase_auth.js";
 import { create_premium_authorizer, PremiumVerificationError } from "./app_parts/premium_access.js";
 import { import_public_webpage, WebImportError } from "./app_parts/web_import.js";
 import { AiLimitError, create_usage_store } from "./app_parts/ai_usage.js";
-import { credit_cost, percent_remaining } from "./app_parts/ai_credits.js";
+import { credit_cost, percent_remaining, FREE_MONTHLY_CREDITS, FREE_SCAN_PAGES } from "./app_parts/ai_credits.js";
 import { AccountDeletionError, delete_account_data } from "./app_parts/account_deletion.js";
 import { accounted_fetch, ai_failure_reason, response_text, transcribe_voice, validate_voice_wav } from "./app_parts/openai_gateway.js";
 const root = fileURLToPath(new URL(".", import.meta.url));
@@ -236,7 +236,7 @@ export function create_votic_handler(options = {}) {
       } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
     } catch (error) { if (!beta_allowed) throw error; }
     if (!beta_allowed) return { uid: identity.uid, free: true, tier: null,
-      period: usage_store.credits.period(identity.uid, {}, 100, { free: true }) };
+      period: usage_store.credits.period(identity.uid, {}, FREE_MONTHLY_CREDITS, { free: true }) };
     // Beta testers stay eligible for the founder offer after beta access is switched off.
     usage_store.founder?.rememberBetaTester(identity.uid);
     return { uid: identity.uid, beta: true, tier: null,
@@ -274,10 +274,11 @@ export function create_votic_handler(options = {}) {
     } : null;
     send_json(response, 200, {
       status: plan ? (plan.period ? "active" : "unmetered") : "not-subscribed",
-      plan: plan ? { name: usage_plan_name(plan) } : null,
+      plan: plan ? { name: usage_plan_name(plan), free: Boolean(plan.free) } : null,
       monthly,
       purchased: { remaining: summary.purchased },
-      purchaseProducts: plan && !plan.beta ? purchase_products : [],
+      ...(plan?.free ? { freeScans: { limit: FREE_SCAN_PAGES, remaining: Math.max(0, FREE_SCAN_PAGES - usage_store.credits.monthly_feature_count(identity.uid, ["scan-ocr"])) } } : {}),
+      purchaseProducts: plan && !plan.beta && !plan.free ? purchase_products : [],
     });
  };
  // RevenueCat webhooks use a separate server secret and never trust app-originated grants.
@@ -331,7 +332,7 @@ export function create_votic_handler(options = {}) {
     const summaryFeatures = ["summary", "catch-me-up", "document-review"];
     const freeLimit = plan.free && (summaryFeatures.includes(feature)
       ? { features: summaryFeatures, maximum: 5, code: "FREE_SUMMARIES_EXHAUSTED", message: "You've used your five Free summaries this month." }
-      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: 5, code: "FREE_SCANS_EXHAUSTED", message: "You've used your five Free camera scan pages this month." } : null);
+      : feature === "scan-ocr" ? { features: ["scan-ocr"], maximum: FREE_SCAN_PAGES, code: "FREE_SCANS_EXHAUSTED", message: "You've used your three Free camera scan pages this month." } : null);
     credits.reserve({ uid: plan.uid, request_id, feature, credits: price, period: plan.period, freeLimit });
     try {
       // An explicitly configured plan keeps its own safeguards; otherwise they follow the credits spent.

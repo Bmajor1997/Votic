@@ -2,7 +2,7 @@ import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { router } from "expo-router";
-import { ReactNode, forwardRef, useState } from "react";
+import { ReactNode, forwardRef, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -71,35 +71,59 @@ export function AccountScaffold({
 type Provider = "apple" | "google";
 
 /**
- * Sign in with Apple and Google. Both create the account the first time and sign in after that, so the same
- * buttons appear on Create Account and Sign In. Each only shows where it actually works in this build.
+ * Sign in with Apple and Google, on Welcome. Both create the account the first time and sign in after that.
+ * Each only shows where it actually works in this build.
  */
 export function SocialSignIn({
   disabled,
   onBusyChange,
   onError,
+  beforeGoogle,
+  afterGoogleStopped,
 }: {
   disabled?: boolean;
   onBusyChange?: (busy: boolean) => void;
   onError: (message: string) => void;
+  /** Runs first when Continue with Google is tapped (Welcome's V flight); false stops before the account picker. */
+  beforeGoogle?: () => Promise<boolean>;
+  /** Google sign-in was cancelled or failed: put the screen back (Welcome reassembles its V). */
+  afterGoogleStopped?: () => void;
 }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
   const [busy, setBusy] = useState<Provider | null>(null);
-  if (!auth.appleAvailable && !auth.googleAvailable) return null;
+  // Set at once, so a second tap before the screen re-renders can't open the account picker again.
+  const started = useRef(false);
+  // Google problems are explained right under its button, where the person is looking.
+  const [googleError, setGoogleError] = useState("");
+  const showGoogle = Platform.OS === "android" || Platform.OS === "ios";
+  if (!auth.appleAvailable && !showGoogle) return null;
 
   async function continue_with(provider: Provider) {
-    if (busy || disabled) return;
+    if (started.current || busy || disabled) return;
+    started.current = true;
     onError("");
+    setGoogleError("");
     setBusy(provider);
     onBusyChange?.(true);
+    let signedIn = false;
     try {
       if (provider === "apple") await auth.signInWithApple();
-      else await auth.signInWithGoogle();
+      else {
+        if (beforeGoogle && !(await beforeGoogle())) return;
+        await auth.signInWithGoogle();
+      }
+      signedIn = true;
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
-      if (!(failure instanceof SignInCancelled)) onError(auth_error_message(failure));
+      if (!(failure instanceof SignInCancelled)) {
+        const message = auth_error_message(failure);
+        if (provider === "google") setGoogleError(message);
+        else onError(message);
+      }
     } finally {
+      if (provider === "google" && !signedIn) afterGoogleStopped?.();
+      started.current = false;
       setBusy(null);
       onBusyChange?.(false);
     }
@@ -120,12 +144,26 @@ export function SocialSignIn({
           onPress={() => void continue_with("apple")}
         />
       ) : null}
-      {auth.googleAvailable ? (
+      {showGoogle ? (
         <GoogleButton
           busy={busy === "google"}
           disabled={busy !== null || Boolean(disabled)}
           onPress={() => void continue_with("google")}
         />
+      ) : null}
+      {showGoogle && googleError ? (
+        <Text
+          testID="google-sign-in-error"
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+          style={[s.googleError, { color: theme.text }]}
+        >
+          {googleError}
+        </Text>
+      ) : showGoogle && !auth.googleAvailable ? (
+        <Text accessibilityRole="text" style={{ color: theme.mutedText }}>
+          Google sign-in is unavailable in this build. You can continue with email.
+        </Text>
       ) : null}
     </View>
   );
@@ -430,6 +468,7 @@ const s = StyleSheet.create({
   },
   googleLogo: { width: 22, height: 22 },
   googleText: { fontSize: 17, fontWeight: "700", letterSpacing: 0.1 },
+  googleError: { fontSize: 15, lineHeight: 21, textAlign: "center" },
   divider: { flexDirection: "row", alignItems: "center", gap: spacing.md },
   rule: { flex: 1, height: StyleSheet.hairlineWidth },
   dividerText: { fontSize: 14, fontWeight: "600" },

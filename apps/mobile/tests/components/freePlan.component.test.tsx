@@ -5,6 +5,7 @@ import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider"
 import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
+import { FreeUpgradeSheet } from "../../src/subscription/FreeUpgradeSheet";
 
 it("allows five new Free documents and rejects a sixth", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
@@ -22,7 +23,7 @@ it("allows five new Free documents and rejects a sixth", async () => {
   await act(() => {
     expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/five saved documents/i);
   });
-  expect(screen.getByText("Make room for more reading")).toBeTruthy();
+  expect(screen.getByText("Upgrade to Votic Plus to upload more files")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
   expect(router.push).toHaveBeenCalledWith("/paywall");
   expect(screen.getByText("Documents: 5")).toBeTruthy();
@@ -125,4 +126,12 @@ it("keeps existing notes after Plus ends and prevents new ones", async () => {
   await act(() => {
     expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true);
   });
+});
+
+it("offers only Votic Plus at the Free scan limit, with no credits for sale", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<FreeUpgradeSheet visible reason="scans" onClose={() => {}} />);
+  expect(screen.getByText("Keep scanning")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Subscribe to Votic Plus" })).toBeTruthy();
+  expect(screen.queryByText(/Buy credits/i)).toBeNull();
 });

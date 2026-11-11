@@ -25,7 +25,7 @@ export function find_note(
 
 /**
  * Opens the note a link asked for (Home passes `note`, `notebook` and `from` IDs), once the library has loaded, so a
- * Quick Note shows that note rather than the whole notebook. `closeViewer` closes it and, when it came from Home,
+ * Quick Note shows that note rather than the whole notebook. `close_viewer` closes it and, when it came from Home,
  * returns to Home rather than leaving the person in Notes. `missing` is true when the note no longer exists.
  */
 export function useRequestedNote(
@@ -54,11 +54,11 @@ export function useRequestedNote(
     if (noteId && handled === noteId)
       router.setParams({ note: undefined, notebook: undefined, from: undefined });
   }, [noteId, handled]);
-  function closeViewer() {
+  function close_viewer() {
     open(null);
     if (!origin) return;
     setOrigin(null);
     router.navigate(RETURN_DESTINATIONS[origin]);
   }
-  return { missing, closeViewer };
+  return { missing, close_viewer };
 }

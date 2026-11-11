@@ -220,7 +220,10 @@ export async function scan_document_image(name: string, bytes: ArrayBuffer, sign
     signal,
   );
   const result = response.result;
-  if (!response.ok) throw new Error(server_error(result, "Votic could not read this scanned page."));
+  if (!response.ok)
+    throw Object.assign(new Error(server_error(result, "Votic could not read this scanned page.")), {
+      code: typeof result.code === "string" ? result.code : undefined,
+    });
   if (typeof result.text !== "string" || !result.text.trim())
     throw new Error("Votic could not find readable text in this scanned page.");
   return result.text.trim();

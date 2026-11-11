@@ -40,7 +40,7 @@ test("AI Usage reports the verified period with a full allowance and never trust
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.deepEqual(await response.json(), {
-      status: "active", plan: { name: "Votic Plus" },
+      status: "active", plan: { name: "Votic Plus", free: false },
       monthly: { percentRemaining: 100, allowance: 10, used: 0, remaining: 10, periodStart: period.purchase_date, periodEnd: period.expires_date, resetsAt: period.expires_date, billingPeriodVerified: true },
       purchased: { remaining: 0 }, purchaseProducts: [],
     });
@@ -67,12 +67,26 @@ test("expired or absent subscriptions receive the Free allowance and pay the sta
     await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
       const initial = (await ai_usage(post)).body;
       assert.equal(initial.plan.name, "Votic Free");
-      assert.equal(initial.monthly.allowance, 100);
+      assert.equal(initial.monthly.allowance, 75);
       assert.equal((await post("/api/help", { question: "How?", document })).status, 200);
       assert.equal((await ai_usage(post)).body.monthly.used, 1);
       assert.equal(calls, 1);
     });
   }
+});
+
+test("only verified Plus users are offered extra credit products", async () => {
+  const env = { VOTIC_CREDIT_PRODUCTS_JSON: '{"votic_ai_credits_100":100}' };
+  await with_server({ env, creditWallet: {}, revenueCat: async () => ({ ok: true, json: async () => customer(null) }) }, async ({ post }) => {
+    const free = (await ai_usage(post)).body;
+    assert.equal(free.plan.name, "Votic Free");
+    assert.deepEqual(free.purchaseProducts, []);
+  });
+  await with_server({ env, creditWallet: {} }, async ({ post }) => {
+    const plus = (await ai_usage(post)).body;
+    assert.equal(plus.plan.name, "Votic Plus");
+    assert.deepEqual(plus.purchaseProducts, ["votic_ai_credits_100"]);
+  });
 });
 
 test("each answered document question is charged once; failures and fallbacks are free", async () => {
@@ -204,7 +218,7 @@ test("an expired or refunded annual subscription moves to the Free allowance", a
     await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
       const usage = (await ai_usage(post)).body;
       assert.equal(usage.plan.name, "Votic Free");
-      assert.equal(usage.monthly.allowance, 100);
+      assert.equal(usage.monthly.allowance, 75);
       assert.equal((await post("/api/help", { question: "Q?", document })).status, 200);
       assert.equal((await ai_usage(post)).body.monthly.used, 1);
     });
@@ -238,17 +252,18 @@ test("Free accounts cannot send a scanned PDF to paid OCR", async () => {
   });
 });
 
-test("Free camera scanning blocks the sixth readable page before provider work", async () => {
+test("Free camera scanning blocks the fourth readable page before provider work", async () => {
   let calls = 0;
   const photo = Buffer.alloc(2000); photo.set([255, 216, 255]);
   await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; return provider(answer("Page text")); } }, async ({ base, post }) => {
     const scan = () => fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
-    for (let i = 0; i < 5; i++) assert.equal((await scan()).status, 200);
+    for (let i = 0; i < 3; i++) assert.equal((await scan()).status, 200);
+    assert.deepEqual((await ai_usage(post)).body.freeScans, { limit: 3, remaining: 0 });
     const response = await scan();
     assert.equal(response.status, 429);
     assert.equal((await response.json()).code, "FREE_SCANS_EXHAUSTED");
-    assert.equal(calls, 5);
-    assert.equal((await ai_usage(post)).body.monthly.used, 15);
+    assert.equal(calls, 3);
+    assert.equal((await ai_usage(post)).body.monthly.used, 9);
   });
 });
 

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { Animated, StyleSheet } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 import { useVoticTheme } from "../theme/ThemeProvider";
+import { HOME_ROBOT_TIMELINE } from "../motion/homeLogoTimeline";
+import { ROBOT_BEATS } from "../motion/robotCarrier";
+import { CarrierLetter } from "./CarrierLetter";
 
 /** The V artwork's cropped aspect ratio (217 × 160): stroke and wings share one frame, so they overlay exactly. */
 const V_ASPECT = 217 / 160;
@@ -34,6 +37,8 @@ export const WORDMARK_TIMELINE = {
   finish: [0.9, 1],
 } as const;
 
+export { HOME_ROBOT_TIMELINE } from "../motion/homeLogoTimeline";
+
 type Range = readonly [number, number];
 const at = (range: Range, fraction: number) => range[0] + (range[1] - range[0]) * fraction;
 
@@ -46,12 +51,21 @@ export function VoticWordmark({
   compact = false,
   entrance,
   pulse = false,
+  robotEntrance = false,
+  live,
 }: {
   compact?: boolean;
   /** 0 → 1 drives the assembly; omit for the finished logo. */
   entrance?: Animated.Value;
   /** The subtle one-time wing pulse other screens show on arrival. */
   pulse?: boolean;
+  /** Home only: each letter is carried in by its own side-profile robot (CarrierLetter). */
+  robotEntrance?: boolean;
+  /**
+   * Which letters' robots are on screen now (from the shared entrance). Other letters are drawn as plain letters with
+   * no robot, so only what can be seen is animated. Omitted: every letter has its robot.
+   */
+  live?: readonly boolean[];
 }) {
   const { theme } = useVoticTheme();
   const fontSize = compact ? 22 : 30;
@@ -61,14 +75,22 @@ export function VoticWordmark({
   const progress = entrance ?? finished;
   const wingPulse = useWingPulse(pulse && !entrance);
 
-  const stroke = WORDMARK_TIMELINE.stroke;
-  const vSettle = WORDMARK_TIMELINE.vSettle;
-  const finish = WORDMARK_TIMELINE.finish;
+  const timeline = robotEntrance ? HOME_ROBOT_TIMELINE : WORDMARK_TIMELINE;
+  const stroke = timeline.stroke;
+  const vSettle = timeline.vSettle;
+  const finish = timeline.finish;
   // A touch of overshoot at the end of each piece reads as a light spring without a JavaScript frame loop.
   const settle = (range: Range, from: number, overshoot: number) =>
     progress.interpolate({
       inputRange: [range[0], at(range, 0.7), range[1]],
       outputRange: [from, overshoot, 0],
+      extrapolate: "clamp",
+    });
+  // A carried letter is fully visible from the moment its robot is.
+  const carried = (range: Range) =>
+    progress.interpolate({
+      inputRange: [range[0], at(range, ROBOT_BEATS.fadeIn[1])],
+      outputRange: [0, 1],
       extrapolate: "clamp",
     });
   const appear = (range: Range) =>
@@ -127,12 +149,14 @@ export function VoticWordmark({
             s.layer,
             {
               opacity: appear(stroke),
-              transform: [{ translateY: settle(stroke, vHeight * 0.25, -vHeight * 0.04) }],
+              transform: robotEntrance
+                ? [{ translateX: settle(stroke, -vWidth * 0.65, vWidth * 0.03) }]
+                : [{ translateY: settle(stroke, vHeight * 0.25, -vHeight * 0.04) }],
             },
           ]}
         />
         {WINGS.map((source, index) => {
-          const range = WORDMARK_TIMELINE.wings[index];
+          const range = timeline.wings[index];
           return (
             <Animated.Image
               key={index}
@@ -156,8 +180,9 @@ export function VoticWordmark({
         })}
       </Animated.View>
       {LETTERS.map((letter, index) => {
-        const range = WORDMARK_TIMELINE.letters[index];
-        return (
+        const range = timeline.letters[index];
+        const spacing = index === 0 ? Math.round(fontSize * 0.04) : -fontSize * 0.035;
+        const glyph = (
           <Animated.Text
             key={letter}
             testID={`votic-wordmark-letter-${letter}`}
@@ -168,14 +193,29 @@ export function VoticWordmark({
                 color: theme.text,
                 fontSize,
                 lineHeight: Math.round(fontSize * 1.14),
-                marginLeft: index === 0 ? Math.round(fontSize * 0.04) : -fontSize * 0.035,
-                opacity: appear(range),
-                transform: [{ translateX: settle(range, -fontSize * 0.3, fontSize * 0.03) }],
+                marginLeft: robotEntrance ? 0 : spacing,
+                opacity: robotEntrance ? carried(range) : appear(range),
+                transform: robotEntrance
+                  ? []
+                  : [{ translateX: settle(range, -fontSize * 0.3, fontSize * 0.03) }],
               },
             ]}
           >
             {letter}
           </Animated.Text>
+        );
+        if (!robotEntrance) return glyph;
+        // Not yet arrived (invisible) or already placed: the same letter in the same place, without a robot.
+        if (live && !live[index])
+          return (
+            <View key={letter} testID={`votic-wordmark-plain-${letter}`} style={{ marginLeft: spacing }}>
+              {glyph}
+            </View>
+          );
+        return (
+          <CarrierLetter key={letter} letter={letter} range={range} progress={progress} marginLeft={spacing}>
+            {glyph}
+          </CarrierLetter>
         );
       })}
     </Animated.View>

@@ -24,37 +24,105 @@ Object.assign(el, { rememberDocument: $("#rememberDocument"), clearSavedDocument
 Object.assign(el, { homePage: $("#homePage"), documentsPage: $("#documentsPage"), settingsPage: $("#settingsPage"), homeAddDocument: $("#homeAddDocument"), documentsAddDocument: $("#documentsAddDocument"), documentLibrary: $("#documentLibrary"), homeSavedTitle: $("#homeSavedTitle"), homeSavedMeta: $("#homeSavedMeta"), homeOpenSaved: $("#homeOpenSaved"), settingsTextSize: $("#settingsTextSize"), settingsReadingSpacing: $("#settingsReadingSpacing"), settingsReduceMotion: $("#settingsReduceMotion"), settingsWordEmphasis: $("#settingsWordEmphasis") });
 
 
-const escape_html = (value) => value.replace(/[&<>'"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
-
-function render_document() {
-  const render_sentence = (sentence, previous_sentence) => {
-    const output = [];
-    for (let word_index = 0; word_index < sentence.words.length; word_index++) {
-      const word = sentence.words[word_index];
-      const control_type = active_document_mode === "worksheet" ? worksheet_control_type(word.text) : null;
-      const control_id = worksheet_control_id(sentence.index, word_index);
-      if (control_type === "checkbox") {
-        const checked = worksheet_responses[control_id] ?? /[☑☒]/.test(word.text);
-        output.push(`<button type="button" class="worksheet-checkbox" data-word="${word_index}" data-worksheet-control="${control_id}" aria-pressed="${checked}" aria-label="${checked ? "Uncheck" : "Check"} this worksheet item">${checked ? "☑" : "☐"}</button>`);
-      } else if (control_type === "answer") {
-        let blank_count = 1;
-        while (worksheet_control_type(sentence.words[word_index + blank_count]?.text) === "answer") blank_count++;
-        const prompt = sentence.text.slice(0, word.start).replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100) || previous_sentence?.text.replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100) || "Worksheet answer";
-        const value = typeof worksheet_responses[control_id] === "string" ? worksheet_responses[control_id] : "";
-        if (blank_count > 1) output.push(`<textarea class="worksheet-answer worksheet-answer-large" rows="${Math.min(6, blank_count)}" data-word="${word_index}" data-worksheet-control="${control_id}" aria-label="Answer: ${escape_html(prompt)}" placeholder="Type your answer">${escape_html(value)}</textarea>`);
-        else output.push(`<input class="worksheet-answer" data-word="${word_index}" data-worksheet-control="${control_id}" aria-label="Answer: ${escape_html(prompt)}" value="${escape_html(value)}" placeholder="Type your answer">`);
-        word_index += blank_count - 1;
-      } else output.push(`<span class="word" data-word="${word_index}">${escape_html(word.text)}</span>`);
+/** A worksheet checkbox, kept as a real button so it can be ticked with a tap or the keyboard. */
+function worksheet_checkbox(word, control_id) {
+  const checked = worksheet_responses[control_id] ?? /[☑☒]/.test(word.text);
+  const element = document.createElement("button");
+  element.type = "button";
+  element.className = "worksheet-checkbox";
+  element.dataset.worksheetControl = control_id;
+  element.setAttribute("aria-pressed", String(checked));
+  element.setAttribute("aria-label", `${checked ? "Uncheck" : "Check"} this worksheet item`);
+  element.textContent = checked ? "☑" : "☐";
+  return element;
+}
+/** A worksheet answer field for a run of blanks: one line for a single blank, a larger box for several. */
+function worksheet_answer(sentence, word, previous_sentence, control_id, blank_count) {
+  const clean = (text) => text?.replace(/[•☐□☑☒_]+/g, " ").trim().slice(-100);
+  const prompt = clean(sentence.text.slice(0, word.start)) || clean(previous_sentence?.text) || "Worksheet answer";
+  const element = document.createElement(blank_count > 1 ? "textarea" : "input");
+  element.className = blank_count > 1 ? "worksheet-answer worksheet-answer-large" : "worksheet-answer";
+  if (blank_count > 1) element.rows = Math.min(6, blank_count);
+  element.dataset.worksheetControl = control_id;
+  element.setAttribute("aria-label", `Answer: ${prompt}`);
+  element.placeholder = "Type your answer";
+  element.value = typeof worksheet_responses[control_id] === "string" ? worksheet_responses[control_id] : "";
+  return element;
+}
+/** One sentence's words, built as elements (never HTML text) so document text can't run as page code. */
+function render_sentence(sentence, previous_sentence) {
+  const sentence_element = document.createElement("span");
+  sentence_element.className = "sentence";
+  sentence_element.dataset.sentence = sentence.index;
+  for (let word_index = 0; word_index < sentence.words.length; word_index++) {
+    if (word_index) sentence_element.append(" ");
+    const word = sentence.words[word_index];
+    const control_type = active_document_mode === "worksheet" ? worksheet_control_type(word.text) : null;
+    const control_id = worksheet_control_id(sentence.index, word_index);
+    let element;
+    if (control_type === "checkbox") element = worksheet_checkbox(word, control_id);
+    else if (control_type === "answer") {
+      let blank_count = 1;
+      while (worksheet_control_type(sentence.words[word_index + blank_count]?.text) === "answer") blank_count++;
+      element = worksheet_answer(sentence, word, previous_sentence, control_id, blank_count);
+      element.dataset.word = word_index;
+      word_index += blank_count - 1;
+    } else {
+      element = document.createElement("span");
+      element.className = "word";
+      element.textContent = word.text;
     }
-    return output.join(" ");
-  };
-  el.document.innerHTML = doc.sections.map((section) => `<section id="section-${section.sectionIndex}" data-section="${section.sectionIndex}"><h2>${escape_html(section.heading)}</h2><p>${section.sentences.map((sentence, index) => `<span class="sentence" data-sentence="${sentence.index}">${render_sentence(sentence, section.sentences[index - 1])}</span>`).join(" ")}</p></section>`).join("");
+    if (!element.hasAttribute("data-word")) element.dataset.word = word_index;
+    sentence_element.append(element);
+  }
+  return sentence_element;
+}
+function render_document() {
+  const sections = document.createDocumentFragment();
+  for (const section of doc.sections) {
+    const section_element = document.createElement("section");
+    section_element.id = `section-${section.sectionIndex}`;
+    section_element.dataset.section = section.sectionIndex;
+    const heading = document.createElement("h2");
+    heading.textContent = section.heading;
+    const paragraph = document.createElement("p");
+    section.sentences.forEach((sentence, sentence_index) => {
+      if (sentence_index) paragraph.append(" ");
+      paragraph.append(render_sentence(sentence, section.sentences[sentence_index - 1]));
+    });
+    section_element.append(heading, paragraph);
+    sections.append(section_element);
+  }
+  el.document.replaceChildren(sections);
   el.document.classList.toggle("has-worksheet-controls", Boolean(el.document.querySelector("[data-worksheet-control]")));
   el.worksheetTools.hidden = active_document_mode !== "worksheet";
 }
 function render_sections() {
-  el.sectionList.innerHTML = doc.sections.map((section, index) => `<button data-section-jump="${index}"><span>${String(index + 1).padStart(2, "0")}</span><strong>${escape_html(section.heading)}</strong><small data-section-duration="${index}"></small></button>`).join("");
-  el.sectionDots.innerHTML = doc.sections.map((section, index) => `<span data-section-dot="${index}" style="left:${section.startRatio * 100}%" aria-hidden="true"></span>`).join("") + '<span style="left:100%" aria-hidden="true"></span>';
+  const list = document.createDocumentFragment();
+  const dots = document.createDocumentFragment();
+  doc.sections.forEach((section, index) => {
+    const button = document.createElement("button");
+    button.dataset.sectionJump = index;
+    const number = document.createElement("span");
+    number.textContent = String(index + 1).padStart(2, "0");
+    const heading = document.createElement("strong");
+    heading.textContent = section.heading;
+    const duration = document.createElement("small");
+    duration.dataset.sectionDuration = index;
+    button.append(number, heading, duration);
+    list.append(button);
+    const dot = document.createElement("span");
+    dot.dataset.sectionDot = index;
+    dot.style.left = `${section.startRatio * 100}%`;
+    dot.setAttribute("aria-hidden", "true");
+    dots.append(dot);
+  });
+  const last_dot = document.createElement("span");
+  last_dot.style.left = "100%";
+  last_dot.setAttribute("aria-hidden", "true");
+  dots.append(last_dot);
+  el.sectionList.replaceChildren(list);
+  el.sectionDots.replaceChildren(dots);
 }
 const active_sentence = () => doc.sentences[state.sentenceIndex];
 const active_section = () => doc.sections[active_sentence()?.sectionIndex ?? 0];
@@ -122,7 +190,7 @@ function seek_to_progress(progress) { cancel_speech(); const location = location
 function clear_saved_document() { try { localStorage.removeItem(RESUME_KEY); LEGACY_RESUME_KEYS.forEach((key) => localStorage.removeItem(key)); localStorage.removeItem(PERSISTENCE_CONSENT_KEY); localStorage.removeItem(LEGACY_PERSISTENCE_CONSENT_KEY); } catch { /* Current-session state remains usable. */ } persistenceEnabled = false; }
 function close_current_document() { if (doc) cancel_speech(); doc = null; documentTitle = ""; worksheet_responses = {}; review_options = { summary: true, takeaways: true }; current_review = null; state.sentenceIndex = 0; state.wordIndex = 0; state.completed = false; el.document.innerHTML = ""; el.sectionList.innerHTML = ""; el.sectionDots.innerHTML = ""; el.resumeCard.hidden = true; clear_saved_document(); show_reader(false); el.closeDocumentDialog.close(); el.emptyAddDocument.focus(); announce("Document closed. Choose another document when you are ready."); }
 function load_parsed_document(parsed, mode = "reading") { persistenceEnabled = Boolean(el.rememberDocument?.checked); try { if (persistenceEnabled) localStorage.setItem(PERSISTENCE_CONSENT_KEY, "true"); else clear_saved_document(); } catch { persistenceEnabled = false; } if (!parsed.sections.length) { el.documentError.textContent = "This document does not contain readable text."; return; } if (doc) cancel_speech(); doc = build_document(parsed.sections); documentTitle = parsed.title; active_document_mode = mode === "worksheet" ? "worksheet" : "reading"; worksheet_responses = {}; review_options = { summary: true, takeaways: true }; current_review = null; state.sentenceIndex = 0; state.wordIndex = 0; state.completed = false; el.resumeCard.hidden = true; show_reader(true); render_document(); render_sections(); render_state(); el.dialog.close(); set_app_view("reader"); render_document_library(); window.scrollTo({ top: 0, behavior: "smooth" }); }
-function render_review() { const review = current_review || build_review(doc); el.reviewSummary.textContent = review.summary; el.reviewTakeaways.innerHTML = review.takeaways.map((item) => `<li>${escape_html(item)}</li>`).join(""); el.includeSummary.checked = review_options.summary; el.includeTakeaways.checked = review_options.takeaways; el.reviewSummarySection.hidden = !review_options.summary; el.reviewTakeawaysSection.hidden = !review_options.takeaways; el.downloadSummary.hidden = !review_options.summary; el.downloadTakeaways.hidden = !review_options.takeaways; el.downloadReview.hidden = !review_options.summary || !review_options.takeaways; el.generateReview.disabled = !review_options.summary && !review_options.takeaways; return review; }
+function render_review() { const review = current_review || build_review(doc); el.reviewSummary.textContent = review.summary; el.reviewTakeaways.replaceChildren(...review.takeaways.map((item) => { const li = document.createElement("li"); li.textContent = item; return li; })); el.includeSummary.checked = review_options.summary; el.includeTakeaways.checked = review_options.takeaways; el.reviewSummarySection.hidden = !review_options.summary; el.reviewTakeawaysSection.hidden = !review_options.takeaways; el.downloadSummary.hidden = !review_options.summary; el.downloadTakeaways.hidden = !review_options.takeaways; el.downloadReview.hidden = !review_options.summary || !review_options.takeaways; el.generateReview.disabled = !review_options.summary && !review_options.takeaways; return review; }
 async function generate_ai_review() {
   pause_for_choice(); el.generateReview.disabled = true; el.generateReview.textContent = "Generating…"; el.reviewStatus.textContent = "Creating AI review…";
   try {

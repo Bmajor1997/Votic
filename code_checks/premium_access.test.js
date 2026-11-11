@@ -75,7 +75,9 @@ test("an unpaid signed-in account receives Free access without a Plus entitlemen
     const response = await fetch(`${base}/api/ai-usage`, { method: "POST" });
     const usage = await response.json();
     assert.equal(usage.plan.name, "Votic Free");
-    assert.equal(usage.monthly.allowance, 100);
+    assert.equal(usage.plan.free, true);
+    assert.equal(usage.monthly.allowance, 75);
+    assert.deepEqual(usage.freeScans, { limit: 3, remaining: 3 });
   });
 });
 

@@ -1,7 +1,7 @@
 import { UnfinishedScanError, useOcrReview } from "./OcrReviewProvider";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { router } from "expo-router";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "react-native";
 import { useVoticPurpose } from "../personalization/PurposeProvider";
 import { useVoticTheme } from "../theme/ThemeProvider";
@@ -12,6 +12,16 @@ import { MAX_SCAN_PAGES, move_scan_page } from "./scanDraftModel";
 import { recognize_scan_pages, ScanPageError } from "./scanRecognition";
 import { rotate_scan_photo } from "./scanPhoto";
 import { FreeDocumentLimitError, useDocumentLibrary } from "./DocumentLibraryProvider";
+import { ai_usage } from "../api/voticApi";
+import { announce_allowance_limit } from "../subscription/allowanceNotice";
+import {
+  next_free_reset,
+  scan_allowance_text,
+  scan_pages_covered,
+  ScanAllowance,
+  ScanLimitReached,
+  SCAN_LIMIT_CODES,
+} from "./scanAllowance";
 export function useScanner() {
   const { theme } = useVoticTheme();
   const { ensureCanAddDocument } = useDocumentLibrary();
@@ -29,13 +39,34 @@ export function useScanner() {
   const [working, setWorking] = useState(false);
   const lock = useRef(false);
   const [processingPage, setProcessingPage] = useState(0);
+  // Only Votic Free has a scan page limit, so nothing is shown until the server says this account is on Free.
+  const [scanAllowance, setScanAllowance] = useState("");
+  const scanAllowanceActive = useRef(true);
+  const check_scan_allowance = useCallback(async () => {
+    // If the allowance can't be checked, scanning goes ahead: the server still enforces the Free limit.
+    const usage = await ai_usage().catch(() => null);
+    if (!usage?.plan?.free || !usage.freeScans) {
+      if (scanAllowanceActive.current) setScanAllowance("");
+      return null;
+    }
+    const allowance: ScanAllowance = usage.freeScans;
+    if (scanAllowanceActive.current) setScanAllowance(scan_allowance_text(allowance));
+    return allowance;
+  }, []);
+  useEffect(() => {
+    scanAllowanceActive.current = true;
+    void check_scan_allowance();
+    return () => {
+      scanAllowanceActive.current = false;
+    };
+  }, [check_scan_allowance]);
   const [torch, setTorch] = useState(false);
   const completedPages = useRef(new Map<string, string>());
   const pages = draft.draft.pages;
   const current = cameraMode ? undefined : (pages.find((page) => page.id === selected) ?? pages.at(-1));
   const busy = working || draft.saving;
   function show_problem(error: unknown) {
-    if (error instanceof FreeDocumentLimitError) return;
+    if (error instanceof FreeDocumentLimitError || error instanceof ScanLimitReached) return;
     if (error instanceof UnfinishedScanError) {
       Alert.alert("Finish your saved scan first", error.message, [
         { text: "Not now", style: "cancel" },
@@ -45,6 +76,8 @@ export function useScanner() {
       if (error instanceof ScanPageError) {
         setSelected(error.pageId);
         setCameraMode(false);
+        // The server's limit opens the Votic Plus sheet on this screen instead of an alert.
+        if (SCAN_LIMIT_CODES.includes(error.code ?? "")) return;
       }
       Alert.alert(
         error instanceof ScanSaveError ? "Could not save scan" : "Could not read scan",
@@ -154,6 +187,14 @@ export function useScanner() {
       ensureAvailable();
       const snapshot = draft.latest.current;
       await draft.commit(snapshot);
+      const needed = snapshot.pages.filter(
+        (page) => page.text === undefined && !completedPages.current.has(page.id),
+      ).length;
+      // Too few Free pages: the Votic Plus sheet opens instead of an error, and the photos are kept.
+      if (!scan_pages_covered(needed, await check_scan_allowance())) {
+        announce_allowance_limit("FREE_SCANS_EXHAUSTED", next_free_reset());
+        throw new ScanLimitReached();
+      }
       const job = session.start();
       if (!job) return;
       try {
@@ -182,6 +223,7 @@ export function useScanner() {
         });
         if (saved && job.current()) router.replace("/reader");
       } finally {
+        void check_scan_allowance();
         job.finish();
         setProcessingPage(0);
       }
@@ -228,6 +270,7 @@ export function useScanner() {
     setCameraReady,
     busy,
     processingPage,
+    scanAllowance,
     torch,
     setTorch,
     pages,

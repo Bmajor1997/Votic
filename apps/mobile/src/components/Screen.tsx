@@ -9,7 +9,7 @@ import { useOptionalWalkthrough } from "../walkthrough/WalkthroughProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { FadingScrollView } from "./FadingScrollView";
-import { VoticLogo } from "./VoticLogo";
+import { PageWordmark } from "./PageWordmark";
 import { useDocumentLibrary } from "../documents/DocumentLibraryProvider";
 import { useDocumentTransition } from "../navigation/DocumentTransitionProvider";
 
@@ -61,7 +61,7 @@ export function Screen({
           showsVerticalScrollIndicator={false}
         >
           <View style={[s.brandBar, { borderBottomColor: theme.border }]} accessibilityRole="header">
-            {brand ?? <VoticLogo />}
+            {brand ?? <PageWordmark />}
             <View style={s.headerIcon} />
           </View>
           {persistenceError ? (

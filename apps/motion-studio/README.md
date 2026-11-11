@@ -1,8 +1,12 @@
 # Votic motion studies
 
-Eight Remotion compositions accompany the live Expo/React Native interactions on `feature/finish-experience`:
+Ten Remotion compositions accompany the live Expo/React Native interactions on `feature/finish-experience`:
 
-- `HomeLogoEntrance`: Home-only 600 ms right-to-left entrance of the existing logo and wordmark as one unit; toggle `dark`, `reducedMotion`, or `returningSession`. This composition uses 390 × 844 logical pixels at 60 fps, with a two-second settled hold.
+- `HomeLogoEntrance`: Home-only V and robot-carried letter entrance at the native header's logical size (390 × 844, 60 fps, two-second settled hold); toggle `dark`, `reducedMotion`, or `returningSession`.
+- `CarryOptions`: the three grip options that were compared (A chest hug — chosen, B low cradle, C top hook), playing in sync. A design study with its own simplified arm; the app uses option A via `carrierHug.ts`.
+- `HomeRobotCloseUp`: the same wordmark magnified (`zoom`, default 5×) with a baseline `guides` line, for pausing on the carry, foot contact, set-down, turn and walk-out. Robot `o` walks in from frame 130, places its letter at frame 229 and is gone by frame 283.
+
+  Both draw the carrier robot from `../mobile/src/motion/robotCarrier.ts` (body, walk, lean, squat, exit) and `../mobile/src/motion/carrierHug.ts` (the chest-hug grip and its placement), the same pose functions, element structure and transform order the app's `CarrierLetter` uses, so poses and timing match the Android app. The app samples the poses (about 120 points per letter, linear between them); the study evaluates them exactly per frame.
 - `DocumentOpen`: measured document card expands, its title travels independently, then reader text appears.
 - `ReadListen`: sliding selection and listening-control entrance.
 - `PlayPause`: triangle/pause geometry morph, in both directions.

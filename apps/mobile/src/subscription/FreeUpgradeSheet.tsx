@@ -29,8 +29,8 @@ function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string
   const reset = reset_text(resetsAt);
   const copy: Record<Props["reason"], { title: string; body: string }> = {
     documents: {
-      title: "Make room for more reading",
-      body: "You've reached the five saved documents included with Votic Free. Upgrade to save more, or remove a document to make room.",
+      title: "Upgrade to Votic Plus to upload more files",
+      body: "Votic Free includes five saved files. Upgrade to Votic Plus to save up to 2,000, or remove a file to make room.",
     },
     notes: {
       title: "Keep more notes and bookmarks",
@@ -42,7 +42,7 @@ function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string
     },
     scans: {
       title: "Keep scanning",
-      body: `You've used your five Free camera scan pages this month.${reset}`,
+      body: `You've used your three Free camera scan pages this month.${reset}`,
     },
     pdf: { title: "Read your scanned PDF", body: "Scanned PDF reading is available with Votic Plus." },
     credits: {

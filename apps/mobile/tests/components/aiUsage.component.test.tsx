@@ -11,7 +11,7 @@ import { render_with_providers } from "../renderWithProviders";
 // Mocked server answers for the screen only. The real percentage and period math is tested on the server.
 const usage = (overrides: Partial<AiUsage> = {}, percentRemaining = 99): AiUsage => ({
   status: "active",
-  plan: { name: "Votic Plus" },
+  plan: { name: "Votic Plus", free: false },
   monthly: {
     percentRemaining,
     periodEnd: "2026-11-03T10:00:00.000Z",
@@ -28,7 +28,7 @@ it("shows the server's percentage once, above an accessible progress bar, with t
   jest.spyOn(api, "ai_usage").mockResolvedValue(usage());
   await render_with_providers(<AiUsageScreen />);
   expect(screen.getByRole("header", { name: "AI Credits & Usage" })).toBeTruthy();
-  expect(screen.getByText("MONTHLY AI ALLOWANCE")).toBeTruthy();
+  expect(screen.getByText("VOTIC PLUS · MONTHLY AI ALLOWANCE")).toBeTruthy();
   expect(screen.getAllByText(/99% remaining/)).toHaveLength(1);
   expect(screen.queryByText(/% used|% left/)).toBeNull();
   expect(screen.queryByText(/1,000|990/)).toBeNull();
@@ -110,7 +110,7 @@ it("shows additional credits separately, and offers only configured store produc
     .spyOn(api, "ai_usage")
     .mockResolvedValue(usage({ purchaseProducts: ["votic_ai_100"] }, 0));
   await render_with_providers(<AiUsageScreen />);
-  expect(screen.getByRole("header", { name: "Need more?" })).toBeTruthy();
+  expect(screen.getByRole("header", { name: "Need more credits?" })).toBeTruthy();
   expect(fakeSubscriptions.calls).toContain("getCreditProducts:votic_ai_100");
   expect(screen.queryByRole("button", { name: /not-credited/ })).toBeNull();
   const buy = screen.getByRole("button", { name: "More AI usage · $2.99" });
@@ -126,7 +126,7 @@ it("shows additional credits separately, and offers only configured store produc
 it("never offers a purchase that isn't configured, and says so only when usage has run out", async () => {
   const read = jest.spyOn(api, "ai_usage").mockResolvedValue(usage({}, 40));
   const rendered = await render_with_providers(<AiUsageScreen />);
-  expect(screen.queryByRole("header", { name: "Need more?" })).toBeNull();
+  expect(screen.queryByRole("header", { name: "Need more credits?" })).toBeNull();
   await rendered.unmount();
   read.mockResolvedValue(usage({}, 0));
   await render_with_providers(<AiUsageScreen />);

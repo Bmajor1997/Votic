@@ -30,6 +30,11 @@ export function allowance_notifier() {
   };
 }
 
+/** A limit the app found itself before asking the server (for example, too few Free scan pages for a scan). */
+export function announce_allowance_limit(code: string, resetsAt: string) {
+  for (const listener of [...listeners]) listener({ resetsAt, code });
+}
+
 // Weak ownership follows the AuthProvider lifetime. A generation change forgets the prior session.
 const noticeSessions = new WeakMap<object, { generation: number; shown: Set<string> }>();
 export function claim_allowance_notice(owner: object, generation: number, resetsAt: string) {

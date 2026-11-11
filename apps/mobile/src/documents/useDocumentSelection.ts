@@ -26,10 +26,10 @@ export function useDocumentSelection(visibleIds: readonly string[], removeDocume
       current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
     );
   }
-  function toggleAll() {
+  function toggle_all() {
     setChosen(selectedIds.length >= visibleIds.length ? [] : [...visibleIds]);
   }
-  function confirmDelete() {
+  function confirm_delete() {
     const ids = selectedIds;
     if (!ids.length) return;
     const many = ids.length > 1;
@@ -52,5 +52,5 @@ export function useDocumentSelection(visibleIds: readonly string[], removeDocume
       ],
     );
   }
-  return { selecting, selectedIds, start, cancel, toggle, toggleAll, confirmDelete };
+  return { selecting, selectedIds, start, cancel, toggle, toggle_all, confirm_delete };
 }

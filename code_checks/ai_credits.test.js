@@ -17,16 +17,82 @@ const exhausted = (error) => error instanceof AiLimitError && error.code === "AI
 
 test("free and Plus transitions preserve spent credits and change the allowance without a second grant", () => {
   const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
-  const free = credits.period("u", {}, 100);
+  const free = credits.period("u", {}, 100, { free: true });
   credits.reserve({ uid: "u", request_id: "free-use", feature: "help", credits: 40, period: free });
   credits.charge("free-use");
   const plus = credits.period("u", subscriber("2026-11-05T00:00:00Z", "2026-12-05T00:00:00Z"), 1000);
   assert.equal(credits.summary("u", plus).remaining, 960);
-  const downgraded = credits.period("u", {}, 100);
+  const downgraded = credits.period("u", {}, 100, { free: true });
   assert.equal(credits.summary("u", downgraded).remaining, 60);
   credits.reserve({ uid: "u", request_id: "remaining", feature: "help", credits: 60, period: downgraded });
   credits.charge("remaining");
   assert.throws(() => credits.reserve({ uid: "u", request_id: "excess", feature: "help", credits: 1, period: downgraded }), exhausted);
+});
+
+test("a paid 75-credit plan is not mistaken for Free when its configuration changes", () => {
+  const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
+  const profile = subscriber("2026-11-01T00:00:00Z", "2026-12-01T00:00:00Z");
+  assert.equal(credits.period("u", profile, 75).allowance, 75);
+  assert.equal(credits.period("u", profile, 1000).allowance, 75);
+});
+
+test("a Free month that started at 100 credits keeps them until it ends; new Free months get 75", () => {
+  const now = clock("2026-11-05T00:00:00Z"), credits = ledger(now);
+  const old = credits.period("u", {}, 100, { free: true });
+  credits.reserve({ uid: "u", request_id: "spent-old", feature: "help", credits: 60, period: old });
+  credits.charge("spent-old");
+  const current = credits.period("u", {}, 75, { free: true });
+  assert.equal(current.allowance, 100, "no credits are taken away partway through a month");
+  assert.equal(credits.summary("u", current).remaining, 40);
+  const plus = credits.period("u", subscriber("2026-11-05T00:00:00Z", "2026-12-05T00:00:00Z"), 1000);
+  assert.equal(credits.summary("u", plus).remaining, 940);
+  const free = credits.period("u", {}, 75, { free: true });
+  assert.equal(credits.summary("u", free).remaining, 15, "leaving Plus lands on the current Free allowance");
+  credits.reserve({ uid: "u", request_id: "fill-free", feature: "help", credits: 15, period: free });
+  credits.charge("fill-free");
+  assert.throws(() => credits.reserve({ uid: "u", request_id: "over-free", feature: "help", credits: 1, period: free }), exhausted);
+  now.set("2026-12-01T00:00:00Z");
+  const december = credits.period("u", {}, 75, { free: true });
+  assert.equal(december.allowance, 75);
+  assert.equal(credits.summary("u", december).remaining, 75);
+});
+
+test("a legacy Free row without the plan marker is recognised and keeps its 100 credits this month", () => {
+  const now = clock("2026-11-05T00:00:00Z");
+  const db = new DatabaseSync(":memory:");
+  db.exec(`CREATE TABLE credit_periods (uid TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL,
+    allowance INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY (uid, period_start))`);
+  db.prepare("INSERT INTO credit_periods VALUES(?,?,?,?,?,?)").run("u", "2026-11-01T00:00:00.000Z", "2026-12-01T00:00:00.000Z", 100, 0, now().toISOString());
+  const credits = create_credit_ledger(db, { now });
+  assert.equal(credits.period("u", {}, 75, { free: true }).allowance, 100);
+  now.set("2026-12-01T00:00:00Z");
+  assert.equal(credits.period("u", {}, 75, { free: true }).allowance, 75);
+});
+
+test("a Plus subscriber who moved to Free before the plan marker keeps that month's 100 credits", () => {
+  // Before the plan marker, a mid-month move from Plus to Free reused the paid period's row (verified) and set it
+  // to the old 100-credit Free allowance without clearing the verified flag.
+  const now = clock("2026-11-10T00:00:00Z");
+  const db = new DatabaseSync(":memory:");
+  db.exec(`CREATE TABLE credit_periods (uid TEXT NOT NULL, period_start TEXT NOT NULL, period_end TEXT NOT NULL,
+    allowance INTEGER NOT NULL, verified INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL, PRIMARY KEY (uid, period_start))`);
+  db.prepare("INSERT INTO credit_periods VALUES(?,?,?,?,?,?)").run("u", "2026-11-03T00:00:00.000Z", "2026-12-03T00:00:00.000Z", 100, 1, "2026-11-03T00:00:00.000Z");
+  const credits = create_credit_ledger(db, { now });
+  const free = credits.period("u", {}, 75, { free: true });
+  assert.equal(free.allowance, 100, "no credits are taken away partway through the month");
+  credits.reserve({ uid: "u", request_id: "spent", feature: "help", credits: 80, period: free });
+  credits.charge("spent");
+  assert.equal(credits.summary("u", credits.period("u", {}, 75, { free: true })).remaining, 20);
+  // The next Free month starts on the current allowance.
+  now.set("2026-12-01T00:00:00Z");
+  assert.equal(credits.period("u", {}, 75, { free: true }).allowance, 75);
+});
+
+test("a current Plus period is never mistaken for a legacy Free month", () => {
+  const now = clock("2026-11-10T00:00:00Z"), credits = ledger(now);
+  const profile = subscriber("2026-11-03T00:00:00Z", "2026-12-03T00:00:00Z");
+  assert.equal(credits.period("u", profile, 1000).allowance, 1000);
+  assert.equal(credits.period("u", {}, 75, { free: true }).allowance, 75, "leaving Plus lands on the current Free allowance");
 });
 
 test("percent remaining rounds down, never exceeds 100 and never goes below 0", () => {

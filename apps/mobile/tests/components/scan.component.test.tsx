@@ -1,9 +1,10 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
-import { scan_document_image } from "../../src/api/voticApi";
+import { ai_usage, scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import ScanDocumentScreen from "../../app/scan";
 import { render_with_providers } from "../renderWithProviders";
+import { entitlement_of, fakeSubscriptions } from "../mocks/subscriptionService";
 
 const photoBytes = new ArrayBuffer(8);
 const mockReadPhoto = jest.fn(async () => photoBytes);
@@ -28,7 +29,10 @@ jest.mock("expo-camera", () => {
 jest.mock("../../src/documents/scanPhoto", () => ({
   rotate_scan_photo: jest.fn(async () => ({ uri: "file:///cache/rotated.jpg" })),
 }));
-jest.mock("../../src/api/voticApi", () => ({ scan_document_image: jest.fn() }));
+jest.mock("../../src/api/voticApi", () => ({
+  scan_document_image: jest.fn(),
+  ai_usage: jest.fn(async () => ({ plan: { name: "Votic Plus", free: false } })),
+}));
 
 describe("document scanner", () => {
   it("never flashes the screen when a photo is taken", async () => {
@@ -38,6 +42,49 @@ describe("document scanner", () => {
     // expo-camera's default shutter animation flashes the whole screen, a photosensitivity risk.
     expect(cameraProps.at(-1)?.animateShutter).toBe(false);
   });
+});
+
+function free_usage(remaining: number) {
+  return {
+    status: "active" as const,
+    plan: { name: "Votic Free", free: true },
+    monthly: null,
+    purchased: null,
+    purchaseProducts: [],
+    freeScans: { limit: 3, remaining },
+  };
+}
+
+async function capture_two_pages_and_finish() {
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Add another page" }));
+  await act(async () => (cameraProps.at(-1)?.onCameraReady as () => void)());
+  await fireEvent.press(screen.getByRole("button", { name: "Take photo" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Finish scan" }));
+}
+
+it("opens the Votic Plus sheet, not an error, when a scan needs more Free pages than are left", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  const { Alert } = jest.requireActual<typeof import("react-native")>("react-native");
+  jest.spyOn(Alert, "alert").mockImplementation(() => {});
+  jest.mocked(ai_usage).mockResolvedValue(free_usage(1));
+  jest.mocked(scan_document_image).mockClear();
+  await render_with_providers(<ScanDocumentScreen />);
+  expect(await screen.findByText("1 of 3 Free scan pages remaining this month.")).toBeTruthy();
+  await capture_two_pages_and_finish();
+  expect(await screen.findByText("Keep scanning")).toBeTruthy();
+  expect(Alert.alert).not.toHaveBeenCalled();
+  expect(scan_document_image).not.toHaveBeenCalled();
+  jest.mocked(ai_usage).mockResolvedValue({ ...free_usage(3), plan: { name: "Votic Plus", free: false } });
+  fakeSubscriptions.reset();
+});
+
+it("shows no Free allowance text to Plus users, or when the allowance can't be checked", async () => {
+  jest.mocked(ai_usage).mockRejectedValueOnce(new Error("offline"));
+  await render_with_providers(<ScanDocumentScreen />);
+  await act(async () => {});
+  expect(screen.queryByText(/Free scan pages|scan allowance/i)).toBeNull();
 });
 
 it("waits for camera readiness and reviews/corrects OCR before opening its saved document", async () => {

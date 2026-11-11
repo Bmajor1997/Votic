@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScanAction, ScanPageReview } from "../src/documents/ScanPageReview";
+import { UsageLimitNoticeCard, useUsageLimitNotice } from "../src/subscription/UsageLimitNotice";
 import { scanStyles as s } from "../src/documents/scanStyles";
 import { useScanner } from "../src/documents/useScanner";
 type Scanner = ReturnType<typeof useScanner>;
@@ -71,6 +72,8 @@ export default function ScanDocumentScreen() {
   return <ScannerView scanner={scanner} />;
 }
 function ScannerView({ scanner }: { scanner: Scanner }) {
+  // One limit notice for both views: its Votic Plus sheet opens even when Finish scan is tapped under the camera.
+  const limitNotice = useUsageLimitNotice();
   const {
     cameraRef,
     draft,
@@ -155,9 +158,13 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
             onMove={(direction) => void move(direction)}
             onRemove={remove_page}
             onFinish={() => void finish_scan()}
+            limitNotice={limitNotice}
           />
         ) : (
-          <ScannerCapture scanner={scanner} />
+          <>
+            <ScannerCapture scanner={scanner} />
+            <UsageLimitNoticeCard {...limitNotice} sheetOnly />
+          </>
         )}
         <ScannerFooter scanner={scanner} />
       </SafeAreaView>
@@ -166,7 +173,7 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
 }
 
 function ScannerCapture({ scanner }: { scanner: Scanner }) {
-  const { pages, retakeId, busy, cameraReady, show_page, capture } = scanner;
+  const { pages, retakeId, busy, cameraReady, show_page, capture, scanAllowance } = scanner;
   return (
     <View style={{ flex: 1, justifyContent: "space-between" }}>
       <View pointerEvents="none" style={s.guideWrap}>
@@ -181,6 +188,11 @@ function ScannerCapture({ scanner }: { scanner: Scanner }) {
             ? "Retake this page. Your other pages are kept."
             : "Photograph each sheet. Finish them as one document."}
         </Text>
+        {scanAllowance ? (
+          <Text accessibilityLiveRegion="polite" style={s.hint}>
+            {scanAllowance}
+          </Text>
+        ) : null}
       </View>
       <View style={s.captureBar}>
         {pages.length ? (

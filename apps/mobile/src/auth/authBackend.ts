@@ -19,6 +19,7 @@ import {
 } from "@firebase/auth";
 import { Platform } from "react-native";
 import { SignInCancelled, password_problem } from "./authErrors";
+import { create_google_sign_in } from "./googleSignIn";
 import { account_deletion_request } from "../api/voticApi";
 
 export type VoticUser = {
@@ -116,10 +117,19 @@ function load_google_module() {
 }
 
 function create_firebase_backend(): AuthBackend {
-  let googleConfigured = false;
+  const google = create_google_sign_in({
+    load: load_google_module,
+    webClientId: googleWebClientId,
+    iosClientId: googleIosClientId,
+    platform: Platform.OS,
+    dev: typeof __DEV__ !== "undefined" && __DEV__,
+    exchange: async (idToken) => {
+      await signInWithCredential(firebase_auth(), GoogleAuthProvider.credential(idToken));
+    },
+  });
   return {
     configured: true,
-    googleAvailable: Boolean(googleWebClientId) && Platform.OS !== "web",
+    googleAvailable: google.available,
     async appleAvailable() {
       if (Platform.OS !== "ios") return false;
       const apple = load_apple_module();
@@ -170,36 +180,10 @@ function create_firebase_backend(): AuthBackend {
       const name = [result.fullName?.givenName, result.fullName?.familyName].filter(Boolean).join(" ");
       if (name && !signedIn.user.displayName) await updateProfile(signedIn.user, { displayName: name });
     },
-    async signInWithGoogle() {
-      const google = load_google_module();
-      if (!google || !googleWebClientId)
-        throw unavailable("Google sign-in needs the Votic app build. It isn't available in Expo Go.");
-      if (!googleConfigured) {
-        google.GoogleSignin.configure({ webClientId: googleWebClientId, iosClientId: googleIosClientId });
-        googleConfigured = true;
-      }
-      if (Platform.OS === "android")
-        await google.GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-      let response: Awaited<ReturnType<typeof google.GoogleSignin.signIn>>;
-      try {
-        response = await google.GoogleSignin.signIn();
-      } catch (error) {
-        if (google.isErrorWithCode(error) && error.code === google.statusCodes.SIGN_IN_CANCELLED)
-          throw new SignInCancelled();
-        throw error;
-      }
-      if (!google.isSuccessResponse(response)) throw new SignInCancelled();
-      const idToken = response.data.idToken;
-      if (!idToken) throw unavailable("Google didn't return a sign-in token. Please try again.");
-      await signInWithCredential(firebase_auth(), GoogleAuthProvider.credential(idToken));
-    },
+    signInWithGoogle: () => google.signIn(),
     async signOut() {
       await firebaseSignOut(firebase_auth());
-      // Also forget the Google account, so the next Google sign-in offers the account picker again.
-      if (googleConfigured)
-        await load_google_module()
-          ?.GoogleSignin.signOut()
-          .catch(() => null);
+      await google.signOut();
     },
     async prepareDeleteAccount(expectedUid) {
       const user = firebase_auth().currentUser;
@@ -213,10 +197,7 @@ function create_firebase_backend(): AuthBackend {
         throw unavailable("The signed-in account changed. Please retry.");
       await account_deletion_request("complete", await user.getIdToken());
       await deleteUser(user);
-      if (googleConfigured)
-        await load_google_module()
-          ?.GoogleSignin.signOut()
-          .catch(() => null);
+      await google.signOut();
     },
     async idToken() {
       return (await firebase_auth().currentUser?.getIdToken()) ?? null;

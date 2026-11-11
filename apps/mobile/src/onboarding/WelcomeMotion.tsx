@@ -46,12 +46,17 @@ export function BrandMark({
   const flight = departure ?? (arrive ? arrival : undefined);
   const wingOpacity = useWingBrightnessPulse(pulseWings && !flight);
   const halo = size * 1.8;
-  const piece = (source: ImageSourcePropType, tint: string | undefined, motion?: object) => (
-    <Animated.View style={[StyleSheet.absoluteFill, motion]}>
+  const piece = (
+    source: ImageSourcePropType,
+    tint: string | undefined,
+    motion: object | undefined,
+    testID: string,
+  ) => (
+    <Animated.View testID={testID} style={[StyleSheet.absoluteFill, motion]}>
       <Image source={source} resizeMode="contain" tintColor={tint} style={{ width: size, height: size }} />
     </Animated.View>
   );
-  const wingMotion = (value: Animated.Value | undefined) =>
+  const wing_motion = (value: Animated.Value | undefined) =>
     value && {
       transform: [
         { translateX: value.interpolate({ inputRange: [0, 0.18, 1], outputRange: [0, -7, 620] }) },
@@ -97,13 +102,15 @@ export function BrandMark({
         />
       ))}
       <View style={{ width: size, height: size }}>
-        {piece(STROKE, theme.isDark ? "#FFFFFF" : undefined, strokeMotion)}
+        {piece(STROKE, theme.isDark ? "#FFFFFF" : undefined, strokeMotion, "brand-mark-stroke")}
         {WINGS.map((wing, index) => (
           <View key={index} style={StyleSheet.absoluteFill}>
-            {piece(wing, theme.logoWing, {
-              ...wingMotion(flight?.wings[index]),
-              opacity: wingOpacity,
-            })}
+            {piece(
+              wing,
+              theme.logoWing,
+              { ...wing_motion(flight?.wings[index]), opacity: wingOpacity },
+              `brand-mark-wing-${index + 1}`,
+            )}
           </View>
         ))}
       </View>
@@ -207,9 +214,10 @@ function useWingBrightnessPulse(active: boolean) {
 }
 
 /**
- * The welcome transition: when someone taps Sign in, the top wing flies off to the right, then the middle
- * wing, then the bottom one, and the left stroke flies up and away. Then Sign in opens. With Less motion
- * nothing moves and Sign in opens straight away. Coming back to the screen puts the V together again.
+ * The welcome transition: when someone taps Create account, Sign in or Continue with Google, the top wing flies off to
+ * the right, then the middle wing, then the bottom one, and the left stroke flies up and away. Then that screen (or
+ * Google's account picker) opens. With Less motion nothing moves and it opens straight away. Coming back to the
+ * screen, or a Google sign-in that's closed or fails, puts the V together again.
  */
 export function useMarkFlight() {
   const { reduceMotion } = useAccessibilityPreferences();
@@ -235,17 +243,21 @@ export function useMarkFlight() {
       return cancel;
     }, [cancel, flight]),
   );
-  const fly = useCallback(
-    (then: () => void) => {
-      if (flying.current) return;
+  /** Flies the V off, then calls `done(true)`; `done(false)` if it was already flying or got interrupted. */
+  const launch = useCallback(
+    (done: (flew: boolean) => void) => {
+      if (flying.current) {
+        done(false);
+        return;
+      }
       const token = ++generation.current;
       if (reduceMotion) {
-        then();
+        done(true);
         return;
       }
       flying.current = true;
       // Each piece nudges back a few points before it takes off (see the interpolations), then speeds away.
-      const takeOff = (value: Animated.Value, duration: number) =>
+      const take_off = (value: Animated.Value, duration: number) =>
         Animated.timing(value, {
           toValue: 1,
           duration,
@@ -255,20 +267,56 @@ export function useMarkFlight() {
       animation.current = Animated.parallel([
         Animated.stagger(
           130,
-          flight.wings.map((wing) => takeOff(wing, 460)),
+          flight.wings.map((wing) => take_off(wing, 460)),
         ),
-        Animated.sequence([Animated.delay(380), takeOff(flight.stroke, 520)]),
+        Animated.sequence([Animated.delay(380), take_off(flight.stroke, 520)]),
         Animated.timing(flight.glow, { toValue: 1, duration: 500, useNativeDriver: true }),
       ]);
       animation.current.start(({ finished }) => {
-        if (token !== generation.current) return;
-        if (finished) then();
-        else flying.current = false;
+        if (token !== generation.current) return done(false);
+        if (!finished) flying.current = false;
+        done(finished);
       });
     },
     [flight, reduceMotion],
   );
-  return { fly, flight, cancel };
+  const fly = useCallback(
+    (then: () => void) =>
+      launch((flew) => {
+        if (flew) then();
+      }),
+    [launch],
+  );
+  /**
+   * Continue with Google: the same flight, resolving once the V has gone (true) so the account picker opens then.
+   * False means it didn't fly (already flying, or interrupted), and the caller should not open the picker.
+   */
+  const fly_away = useCallback(() => new Promise<boolean>((resolve) => launch(resolve)), [launch]);
+  /** Puts the V back together after a Google sign-in is cancelled or fails, so it never stays off-screen. */
+  const land = useCallback(() => {
+    cancel();
+    const pieces = [...flight.wings, flight.stroke, flight.glow];
+    if (reduceMotion) {
+      pieces.forEach((value) => value.setValue(0));
+      return;
+    }
+    const token = generation.current;
+    const back = Animated.parallel(
+      pieces.map((value) =>
+        Animated.timing(value, {
+          toValue: 0,
+          duration: 360,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ),
+    );
+    animation.current = back;
+    back.start(() => {
+      if (token === generation.current) animation.current = null;
+    });
+  }, [cancel, flight, reduceMotion]);
+  return { fly, fly_away, land, flight, cancel };
 }
 
 const s = StyleSheet.create({

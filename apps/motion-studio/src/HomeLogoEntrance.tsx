@@ -1,27 +1,18 @@
-import {
-  AbsoluteFill,
-  CanvasImage,
-  Easing,
-  interpolate,
-  staticFile,
-  useCurrentFrame,
-  useVideoConfig,
-} from "remotion";
-import { MOTION } from "../../mobile/src/motion/motionSpec";
+import { AbsoluteFill } from "remotion";
+import { RobotWordmark, useEntranceProgress } from "./RobotWordmark";
 
 type Props = {
   dark: boolean;
   reducedMotion: boolean;
   returningSession: boolean;
 };
-/** Study of the existing logo as one rigid unit, at the native header's logical size and position. */
+/** The Home header at the native app's logical size and position, with the robot-carried wordmark. */
 export function HomeLogoEntrance({
   dark,
   reducedMotion,
   returningSession,
 }: Props) {
-  const frame = useCurrentFrame();
-  const { fps, width } = useVideoConfig();
+  const progress = useEntranceProgress(reducedMotion || returningSession);
   const ink = dark ? "#FAFAF9" : "#292D32";
   const surface = dark ? "#32373D" : "#FFFFFF";
   const accent = dark ? "#87A7F4" : "#2563EB";
@@ -53,53 +44,7 @@ export function HomeLogoEntrance({
             borderBottom: `1px solid ${border}`,
           }}
         >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              translate: `${reducedMotion || returningSession ? 0 : interpolate(frame, [0, (MOTION.homeLogo.duration / 1000) * fps], [width, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp", easing: Easing.bezier(...MOTION.homeLogo.easing) })}px 0`,
-            }}
-          >
-            <div
-              style={{
-                position: "relative",
-                width: 34,
-                height: 34,
-                marginTop: 1,
-              }}
-            >
-              <CanvasImage
-                src={staticFile("votic-mark.png")}
-                premountFor={fps}
-                style={{
-                  width: 34,
-                  height: 34,
-                  filter: dark ? "brightness(0) invert(1)" : undefined,
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  inset: 0,
-                  backgroundColor: "#2563EB",
-                  maskImage: `url(${staticFile("votic-wings-mask.png")})`,
-                  maskSize: "contain",
-                  maskRepeat: "no-repeat",
-                }}
-              />
-            </div>
-            <span
-              style={{
-                fontSize: 30,
-                lineHeight: "34px",
-                fontWeight: 900,
-                letterSpacing: -1.2,
-                marginLeft: -3,
-              }}
-            >
-              otic
-            </span>
-          </div>
+          <RobotWordmark dark={dark} progress={progress} />
           <div style={{ width: 44, height: 44 }} />
         </div>
         <h2 style={{ margin: 0, fontSize: 26 }}>Continue</h2>
@@ -170,6 +115,39 @@ export function HomeLogoEntrance({
         <span>Documents</span>
         <span>Notes</span>
         <span>Settings</span>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+/** The same wordmark magnified for inspecting poses frame by frame: contact, feet, placement, turn and exit. */
+export function HomeRobotCloseUp({
+  dark,
+  zoom,
+  guides,
+}: {
+  dark: boolean;
+  zoom: number;
+  guides: boolean;
+}) {
+  const progress = useEntranceProgress(false);
+  return (
+    <AbsoluteFill
+      style={{
+        backgroundColor: dark ? "#292D32" : "#FFFFFF",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 24,
+          top: 150,
+          scale: zoom,
+          transformOrigin: "0 0",
+        }}
+      >
+        <RobotWordmark dark={dark} progress={progress} guides={guides} />
       </div>
     </AbsoluteFill>
   );

@@ -85,7 +85,7 @@ function useFounderProduct(subscription: ReturnType<typeof useSubscription>, att
   return product?.productId === productId ? product : null;
 }
 
-function subscriptionNotice(subscription: ReturnType<typeof useSubscription>) {
+function subscription_notice(subscription: ReturnType<typeof useSubscription>) {
   const { entitlement, checking, service } = subscription;
   if (entitlement.status === "expired")
     return "Your Votic Plus subscription has ended. Your documents and notes are still available with Votic Free.";
@@ -292,7 +292,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     }
   }
 
-  const statusNotice = subscriptionNotice(subscription);
+  const statusNotice = subscription_notice(subscription);
 
   const checkout = (
     <SafeAreaView
