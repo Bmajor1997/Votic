@@ -8,6 +8,9 @@ export const MOTION = {
   saved: { duration: 340, hold: 2600 },
   finish: { ring: 520, short: 140, long: 180, totals: 240, actions: 220 },
   feedback: { duration: 280 },
+  // Home's Continue paper slides in from the left (fading in over the first part, so a restart never jumps). It
+  // waits out the tab change (150 ms) so the whole slide is seen on a settled page.
+  papers: { duration: 750, travel: 120, fadeUntil: 0.12, delay: 150 },
 } as const;
 
 /** Two rectangles per scanline form one triangle, then separate into the two pause bars. */

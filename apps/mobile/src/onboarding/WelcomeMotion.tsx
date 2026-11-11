@@ -214,10 +214,10 @@ function useWingBrightnessPulse(active: boolean) {
 }
 
 /**
- * The welcome transition: when someone taps Sign in or Continue with Google, the top wing flies off to the right,
- * then the middle wing, then the bottom one, and the left stroke flies up and away. Then Sign in (or Google's
- * account picker) opens. With Less motion nothing moves and it opens straight away. Coming back to the screen, or a
- * Google sign-in that's closed or fails, puts the V together again.
+ * The welcome transition: when someone taps Create account, Sign in or Continue with Google, the top wing flies off to
+ * the right, then the middle wing, then the bottom one, and the left stroke flies up and away. Then that screen (or
+ * Google's account picker) opens. With Less motion nothing moves and it opens straight away. Coming back to the
+ * screen, or a Google sign-in that's closed or fails, puts the V together again.
  */
 export function useMarkFlight() {
   const { reduceMotion } = useAccessibilityPreferences();

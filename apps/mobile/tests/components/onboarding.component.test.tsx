@@ -46,12 +46,15 @@ describe("Welcome", () => {
     await render_with_providers(<Welcome />);
     expect(screen.getByRole("header", { name: "Make room for\nwhat matters." })).toBeTruthy();
     expect(screen.getByText("A place to read, listen, and keep your ideas.")).toBeTruthy();
+    // Each opens its screen after the V flies away.
     await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
-    expect(router.push).toHaveBeenCalledWith("/create-account");
-    await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
-    // The V flies away first, then Sign in opens.
     await act(async () => jest.advanceTimersByTime(1500));
-    expect(router.push).toHaveBeenCalledWith("/sign-in");
+    expect(router.push).toHaveBeenCalledWith("/create-account");
+    screen.unmount();
+    await render_with_providers(<Welcome />);
+    await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
+    await act(async () => jest.advanceTimersByTime(1500));
+    expect(router.push).toHaveBeenLastCalledWith("/sign-in");
   });
 
   it("links Terms and Privacy only when this build has their addresses", async () => {
@@ -633,6 +636,7 @@ it("stays quiet when the person closes Google's account picker, and email still 
   expect(screen.queryByTestId("google-sign-in-error")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
+  await finish_flight();
   expect(router.push).toHaveBeenLastCalledWith("/create-account");
 });
 

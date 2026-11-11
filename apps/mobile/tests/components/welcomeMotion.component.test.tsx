@@ -10,14 +10,32 @@ import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
 
 describe("Welcome motion", () => {
-  it("cancels delayed Sign in navigation when Create account is chosen", async () => {
+  it("plays the same V flight for Create account as for Sign in, then opens it once", async () => {
     fakeAuth.reset(null);
+    const moves = watch_moves();
+    await render_with_providers(<Welcome />);
+    await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
+    // The V flies (three wings, the stroke, the glow) before Create account opens.
+    expect(moves.away()).toEqual([460, 460, 460, 520, 500]);
+    expect(router.push).not.toHaveBeenCalled();
+    // More taps during the flight change nothing.
+    await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
+    await act(async () => jest.advanceTimersByTime(1500));
+    expect(router.push.mock.calls).toEqual([["/create-account"]]);
+    expect(moves.away()).toHaveLength(5);
+  });
+
+  it("sends the person where they tapped first: a second choice during the flight is ignored", async () => {
+    fakeAuth.reset(null);
+    const moves = watch_moves();
     await render_with_providers(<Welcome />);
     await fireEvent.press(screen.getByRole("button", { name: "Sign in" }));
     await fireEvent.press(screen.getByRole("button", { name: "Create account with email" }));
     await act(async () => jest.advanceTimersByTime(1500));
-    expect(router.push.mock.calls).toEqual([["/create-account"]]);
+    expect(router.push.mock.calls).toEqual([["/sign-in"]]);
+    expect(moves.away()).toHaveLength(5);
   });
+
   it("stands still, with a plain headline, until someone taps Sign in", async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);

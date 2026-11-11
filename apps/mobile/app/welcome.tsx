@@ -13,8 +13,8 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
 /**
  * The first screen. Apple and Google create the account or sign in; "Create account with email" creates a new
  * account; the full-width "Sign in" below it is for existing email accounts. The screen stands still until someone
- * taps Sign in or Continue with Google, when the V's wings fly off to the right one by one and its stroke flies up
- * and away; then Sign in opens, or Google's account picker.
+ * taps one of them, when the V's wings fly off to the right one by one and its stroke flies up and away; then Create
+ * account or Sign in opens, or Google's account picker. A tap while the V is flying does nothing.
  */
 export default function Welcome() {
   const { theme } = useVoticTheme();
@@ -54,10 +54,7 @@ export default function Welcome() {
             accessibilityLabel="Create account with email"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => {
-              mark.cancel();
-              router.push("/create-account");
-            }}
+            onPress={() => mark.fly(() => router.push("/create-account"))}
             style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
           >
             <Ionicons name="mail-outline" size={20} color={theme.onAccent} />
