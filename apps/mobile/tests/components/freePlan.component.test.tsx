@@ -1,11 +1,44 @@
-import { expect, it } from "@jest/globals";
+import { expect, it, jest } from "@jest/globals";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react-native";
 import { Text } from "react-native";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 import { router } from "../mocks/expoRouter";
-import { render_with_providers } from "../renderWithProviders";
+import { AppProviders, render_with_providers, test_document } from "../renderWithProviders";
 import { FreeUpgradeSheet } from "../../src/subscription/FreeUpgradeSheet";
+import * as subscriptions from "../../src/subscription/SubscriptionProvider";
+
+it("waits for a plan check before showing the five-document upgrade", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("active") });
+  const useSubscription = subscriptions.useSubscription;
+  const subscription = jest.spyOn(subscriptions, "useSubscription").mockImplementation(() => ({
+    ...useSubscription(),
+    access: false,
+    checking: true,
+  }));
+  let library: ReturnType<typeof useDocumentLibrary>;
+  function Probe() {
+    library = useDocumentLibrary();
+    return <Text>{library.loaded ? `Documents: ${library.documents.length}` : "Loading"}</Text>;
+  }
+  const rendered = await render_with_providers(<Probe />, {
+    documents: Array.from({ length: 5 }, (_, n) => test_document(String(n), `Document ${n}`)),
+  });
+  await waitFor(() => expect(screen.getByText("Documents: 5")).toBeTruthy());
+  await act(() => {
+    expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/checking your plan/i);
+  });
+  expect(screen.queryByText("Upgrade to Votic Plus to upload more files")).toBeNull();
+  expect(screen.getByText("Documents: 5")).toBeTruthy();
+  subscription.mockImplementation(useSubscription);
+  await rendered.rerender(
+    <AppProviders>
+      <Probe />
+    </AppProviders>,
+  );
+  await act(() => library.addTextDocument("Six.txt", "Example text"));
+  expect(screen.getByText("Documents: 6")).toBeTruthy();
+});
 
 it("allows five new Free documents and rejects a sixth", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });

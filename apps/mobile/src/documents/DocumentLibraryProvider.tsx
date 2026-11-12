@@ -227,6 +227,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   );
 
   function ensure_can_add_document() {
+    if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
     if (
       !access &&
       latestDocuments.current.filter((d) => !d.deletedAt && d.notebookKind !== "quick-notes").length >= 5
@@ -236,7 +237,6 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         "Votic Free includes five saved documents. Remove a document or upgrade to Votic Plus to add another. Your existing documents and notes stay available.",
       );
     }
-    if (!access && checking) throw new Error("Votic is checking your plan. Please try again in a moment.");
   }
 
   function add_text_document(
