@@ -35,11 +35,11 @@ export const PREVIEW_RETENTION_OFFER: RetentionOffer = {
   regularPeriod: { count: 1, unit: "month" },
 };
 
-/** The annual example: $39.99 for the next year, then $74.99/year. Never claimable. */
+/** The annual example: $49.99 for the next year, then $74.99/year. Never claimable. */
 export const PREVIEW_ANNUAL_RETENTION_OFFER: RetentionOffer = {
   id: "preview-annual",
   productId: "preview-annual",
-  offerPrice: "$39.99",
+  offerPrice: "$49.99",
   offerPeriod: { count: 1, unit: "year" },
   offerCycles: 1,
   regularPrice: "$74.99",

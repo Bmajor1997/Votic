@@ -405,7 +405,7 @@ export function same_plan(a: string, b: string) {
 /** The discounted phase (finite, paid) and the regular price after it, straight from the store's option. */
 export function retention_offer_from(productId: string, option: SubscriptionOption): RetentionOffer | null {
   // Play Console's "Discounted recurring payment" (a set number of discounted periods) or "Single payment" (one
-  // discounted charge up front, e.g. $39.99 for 12 months), both followed by the regular price.
+  // discounted charge up front, e.g. $49.99 for 12 months), both followed by the regular price.
   const discounted = option.pricingPhases.find(
     (phase) =>
       phase.price.amountMicros > 0 &&
