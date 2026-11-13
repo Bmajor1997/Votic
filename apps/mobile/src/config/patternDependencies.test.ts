@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
@@ -57,13 +57,15 @@ describe("patched pattern dependencies", () => {
       const oldGlobRequire = createRequire(jestRequire.resolve("glob"));
       expect(oldGlobRequire.resolve("minimatch")).toBe(require.resolve("minimatch"));
       const options = { cwd: folder, nodir: true };
-      expect(oldGlob.sync("src/*.ts", options)).toEqual(["src/a.ts"]);
-      expect(await newGlob.glob("src/*.ts", options)).toEqual(["src/a.ts"]);
+      const portable = (paths: string[]) => paths.map((entry) => entry.replaceAll("\\", "/"));
+      expect(portable(oldGlob.sync("src/*.ts", options))).toEqual(["src/a.ts"]);
+      expect(portable(await newGlob.glob("src/*.ts", options))).toEqual(["src/a.ts"]);
       const controller = new AbortController();
       controller.abort();
       await expect(newGlob.glob("**/*", { ...options, signal: controller.signal })).rejects.toThrow();
       // The older glob is outside the affected >=9 range; its matcher must still resolve to the adapter.
-      expect(dirname(oldGlobRequire.resolve("minimatch"))).toContain("minimatch-compat");
+      // npm may link the file dependency or copy it into node_modules; verify its identity, not its path.
+      expect(oldGlobRequire("minimatch/package.json").name).toBe("@votic/minimatch-compat");
     } finally {
       rmSync(folder, { recursive: true, force: true });
     }

@@ -9,7 +9,7 @@ import { PersonalizationRecap } from "../src/onboarding/PersonalizationRecap";
 import { PrimaryButton } from "../src/onboarding/components";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
-/** Final value recap before the paywall; subscribers continue directly to Home. */
+/** Final recap before the explicit Free or Plus choice on the paywall. */
 export default function Ready() {
   const { theme } = useVoticTheme();
   const { completeHandoff } = useAccountSetup();
@@ -33,7 +33,7 @@ export default function Ready() {
         <PersonalizationRecap />
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton label="Start using Votic" onPress={completeHandoff} />
+        <PrimaryButton label="Choose Free or Plus" onPress={completeHandoff} />
       </View>
     </SafeAreaView>
   );

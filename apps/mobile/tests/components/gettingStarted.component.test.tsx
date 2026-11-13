@@ -6,6 +6,8 @@ import { clean_local_document_text } from "../../src/documents/importDocument";
 import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../../src/onboarding/voticGuide";
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { render_with_providers, test_document } from "../renderWithProviders";
+import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
+import * as subscriptions from "../../src/subscription/SubscriptionProvider";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -30,6 +32,44 @@ function GuideProbe() {
   );
 }
 describe("Votic guide in Help", () => {
+  it("handles the Free library limit without changing existing documents or throwing", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+    const documents = Array.from({ length: 5 }, (_, i) => test_document(String(i), `Book ${i}`));
+    await render_with_providers(
+      <>
+        <SettingsDetailScreen category="help" />
+        <GuideProbe />
+      </>,
+      { documents },
+    );
+    await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
+    expect(screen.getByText(/Votic Free includes five saved documents/)).toBeTruthy();
+    expect(screen.getByTestId("guide-probe").props.children).not.toContain(VOTIC_GUIDE_SOURCE_NAME);
+    expect(screen.getByRole("header", { name: "Upgrade to Votic Plus to upload more files" })).toBeTruthy();
+  });
+  it("says the plan is still being checked rather than that the library is full", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+    const useSubscription = subscriptions.useSubscription;
+    const subscription = jest.spyOn(subscriptions, "useSubscription").mockImplementation(() => ({
+      ...useSubscription(),
+      access: false,
+      checking: true,
+    }));
+    try {
+      await render_with_providers(
+        <>
+          <SettingsDetailScreen category="help" />
+          <GuideProbe />
+        </>,
+      );
+      await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
+      expect(screen.getByText(/checking your plan/i)).toBeTruthy();
+      expect(screen.queryByText(/library is full/i)).toBeNull();
+      expect(screen.getByTestId("guide-probe").props.children).not.toContain(VOTIC_GUIDE_SOURCE_NAME);
+    } finally {
+      subscription.mockRestore();
+    }
+  });
   it("opens the updated walkthrough from Help and preserves the old guide and notes", async () => {
     const old = test_document("old-guide", "Votic guide", {
       sourceName: "Votic guide.md",
@@ -79,6 +119,11 @@ describe("Votic guide in Help", () => {
       "two confirmation",
       "App Store or Google Play",
       "Sepia",
+      "Show me around",
+      "AI Credits & Usage",
+      "Library tools",
+      "75 monthly credits",
+      "not automatic cloud sync",
     ])
       expect(VOTIC_GUIDE_TEXT).toContain(feature);
   });

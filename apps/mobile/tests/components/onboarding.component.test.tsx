@@ -38,7 +38,7 @@ async function saved_onboarding() {
   return parse_onboarding_state(await AsyncStorage.getItem(ONBOARDING_KEY));
 }
 const NOT_SET_UP = { accountSetup: { personalizationCompletedAt: null, completedAt: null } };
-const NOT_HANDED_OFF = { accountSetup: { completedAt: null } };
+const NOT_HANDED_OFF = { accountSetup: { completedAt: null, planChoiceCompletedAt: null } };
 
 describe("Welcome", () => {
   it("welcomes people and offers Create account with email and Sign in", async () => {
@@ -307,10 +307,10 @@ describe("Votic Plus", () => {
   it("shows the store's trial and price and what's included", async () => {
     fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
     await render_paywall();
-    expect(screen.getByRole("header", { name: "Find your reading rhythm" })).toBeTruthy();
+    expect(screen.getByRole("header", { name: "Read, listen, and understand more" })).toBeTruthy();
     expect(screen.getByText("Try Votic Plus free for 2 weeks")).toBeTruthy();
-    expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
-    expect(screen.getByText("AI credits")).toBeTruthy();
+    expect(screen.getByLabelText("Included with Votic Plus")).toBeTruthy();
+    expect(screen.getByText("AI features use your monthly Plus credits.")).toBeTruthy();
     expect(
       screen.getByText(
         /2 weeks free, then \$9.99\/month. Auto-renews. Cancel anytime in (App Store|Google Play)/,
@@ -430,12 +430,12 @@ describe("Votic is ready for you", () => {
       </>,
       NOT_HANDED_OFF,
     );
-    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choose Free or Plus" }));
     expect(screen.getByTestId("handoff").props.children).toBe("true");
     expect(screen.getByTestId("access").props.children).toBe("false:none");
     await waitFor(async () => expect((await load_account_setup("test-user"))?.completedAt).toBeTruthy());
   });
-  it("has one way forward, into Home for a subscriber", async () => {
+  it("has one way forward, into the final plan choice even for a subscriber", async () => {
     await render_with_providers(
       <>
         <Ready />
@@ -445,9 +445,10 @@ describe("Votic is ready for you", () => {
     );
     expect(screen.getByRole("header", { name: "Votic is ready for you" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Add your first document" })).toBeNull();
-    await fireEvent.press(screen.getByRole("button", { name: "Start using Votic" }));
+    await fireEvent.press(screen.getByRole("button", { name: "Choose Free or Plus" }));
     expect(screen.getByTestId("handoff").props.children).toBe("true");
     await waitFor(async () => expect((await load_account_setup("test-user"))?.completedAt).toBeTruthy());
+    expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeNull();
   });
 });
 
@@ -556,7 +557,7 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByLabelText("Your reading. Large text · system font")).toBeTruthy();
   expect(screen.getByLabelText("Your listening. Device voice · 1.5× · no highlighting")).toBeTruthy();
   expect(screen.getByLabelText("Your explanations. Simple")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Start using Votic" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Choose Free or Plus" })).toBeTruthy();
 });
 
 /** Welcome's V flies away before Google's account picker opens. */

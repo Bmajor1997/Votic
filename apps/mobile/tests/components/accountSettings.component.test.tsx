@@ -382,7 +382,7 @@ describe("switching Votic Plus billing", () => {
     ...month,
     id: "$rc_annual",
     productId: "plus:annual",
-    priceString: "$59.99",
+    priceString: "$74.99",
     billingPeriod: { count: 1, unit: "year" as const },
   };
   it("offers the other billing period through the store's change flow, never a second purchase", async () => {
@@ -391,7 +391,7 @@ describe("switching Votic Plus billing", () => {
       defaultEntitlement: entitlement_of("active", { productId: "plus:monthly" }),
     });
     await render_with_providers(<SettingsDetailScreen category="account" />);
-    expect(await screen.findByText(/Annual billing is \$59\.99\/year/)).toBeTruthy();
+    expect(await screen.findByText(/Annual billing is \$74\.99\/year/)).toBeTruthy();
     await fireEvent.press(screen.getByRole("button", { name: "Switch to annual billing" }));
     expect(fakeSubscriptions.calls).toContain("changePlan:$rc_annual:from:plus:monthly");
     expect(fakeSubscriptions.calls.some((call) => call.startsWith("purchase:"))).toBe(false);
@@ -518,10 +518,10 @@ describe("Retention offer before account deletion", () => {
       {
         id: "annual:stay-one-year",
         productId: "votic_plus:annual",
-        offerPrice: "$39.99",
+        offerPrice: "$49.99",
         offerPeriod: { count: 1, unit: "year" as const },
         offerCycles: 1,
-        regularPrice: "$59.99",
+        regularPrice: "$74.99",
         regularPeriod: { count: 1, unit: "year" as const },
       },
     ];
@@ -529,9 +529,9 @@ describe("Retention offer before account deletion", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(await screen.findByRole("header", { name: "Are you sure you want to leave?" })).toBeTruthy();
     expect(fakeSubscriptions.calls).toContain("getRetentionOffer:votic_plus:annual");
-    expect(screen.getByText("$39.99/year")).toBeTruthy();
+    expect(screen.getByText("$49.99/year")).toBeTruthy();
     expect(screen.getByText("for your next year")).toBeTruthy();
-    expect(screen.getByText("$59.99/year")).toBeTruthy();
+    expect(screen.getByText("$74.99/year")).toBeTruthy();
     expect(screen.queryByText("$7.99/month")).toBeNull();
     await fireEvent.press(screen.getByRole("button", { name: /^Claim offer/ }));
     expect(fakeSubscriptions.calls).toContain(
@@ -553,9 +553,9 @@ describe("Retention offer before account deletion", () => {
 
   it("uses the annual example price for an annual plan when the store has none to show", () => {
     expect(preview_retention_offer("votic_plus:votic-plus-annual")).toMatchObject({
-      offerPrice: "$39.99",
+      offerPrice: "$49.99",
       offerPeriod: { count: 1, unit: "year" },
-      regularPrice: "$59.99",
+      regularPrice: "$74.99",
     });
     expect(preview_retention_offer("votic_plus:votic-plus-monthly").offerPrice).toBe("$7.99");
     expect(preview_retention_offer(null).offerPrice).toBe("$7.99");

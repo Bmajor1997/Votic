@@ -1,8 +1,12 @@
 /** Versioned source keeps previous guides, their progress, and saved notes intact. */
-export const VOTIC_GUIDE_SOURCE_NAME = "Votic guide — updated features.md";
+export const VOTIC_GUIDE_SOURCE_NAME = "Votic guide — current app tour.md";
 export const VOTIC_GUIDE_TEXT = `# Getting started with Votic
 
-Welcome to Votic. This walkthrough is a real document, so you can try reading and listening right here. Reopen it any time from Settings, then Help, then Votic walkthrough.
+Welcome to Votic. This walkthrough is a real document, so you can try reading and listening right here. Reopen it any time from Settings, then Help, then Votic walkthrough. For a tour that points to the actual controls, choose Show me around in Help. You can skip the tour or replay Home, Documents, Notes, Reader, or Settings separately.
+
+## Your first document and Home
+
+Open Documents, tap Add document, then choose a file or cloud storage, import a webpage, or scan with the camera. Once a document is saved, choose Read or Listen. Read opens the document without starting audio; Listen opens the listening controls. On Home, Continue Reading and Continue Listening pick up your saved place. Statistics shows your reading and listening activity.
 
 ## Read and listen
 
@@ -16,7 +20,13 @@ Open Ask Votic from the document. You can type a question or tap the microphone.
 
 ## Save and organize notes
 
-Save an important passage with the bookmark control and add a note. Open Notes to find your saved passages and use the Note Workspace to organize and edit your notes. Your documents and notes are stored locally on this device.
+Save an important passage with the bookmark control and add a note. Open Notes to find your saved passages and use the Note Workspace to organize and edit your notes. Quick Note captures a thought without a document passage in the Quick Notes notebook. Search and Filters help find notes by text, title, tag, type, date, or pinned status. Select lets you choose notes to share or delete. Your documents and notes are stored locally on this device.
+
+## AI questions, summaries, and credits
+
+In Ask Votic, use a summary suggestion for the document, or open Conversation options and choose Summarize to summarize the conversation. Answers with a source chip can take you back to the passage used. You can listen to an answer or save it to Notes using its controls.
+
+Questions, summaries, spoken-question transcription, and scan processing use AI credits. Settings, AI Credits & Usage shows the remaining allowance and reset date. Votic Free includes 75 monthly credits, up to five summaries, and three camera-scan pages each month; summaries and scans also use those shared credits. Reading scanned PDFs requires Plus. Free allows five saved documents and 25 notes and bookmarks combined. Reading, device-voice listening, notes, and bookmarks do not use AI credits. Plus has a larger monthly allowance, not unlimited AI use. The paywall shows the store's actual prices and eligible offers; a trial appears only when available to you.
 
 ## Add your documents
 
@@ -28,13 +38,13 @@ Choose Find in the Reader to search the document. Use Previous and Next to move 
 
 ## Recover notes and documents
 
-Unfinished note edits are saved as drafts for this account on this device. Choose Keep draft when closing, then resume from Settings, Help, Note drafts. Saving a note clears its draft. Discarding a draft leaves the saved note unchanged.
+Unfinished note edits are saved as drafts for this account on this device. Choose Keep draft when closing, then resume from Settings, Library tools, Note drafts. Saving a note clears its draft. Discarding a draft leaves the saved note unchanged.
 
-Deleted documents and their notes stay in Settings, Help, Recently Deleted for 30 days. You can restore them or delete them permanently. Deleted items still use storage and remain in backups until they expire or are permanently removed. Older exported backups retain their own copies. Drafts and unfinished scan reviews are not included in backups.
+Deleted documents and their notes stay in Settings, Library tools, Recently Deleted for 30 days. You can restore them or delete them permanently. Deleted items still use storage and remain in backups until they expire or are permanently removed. Older exported backups retain their own copies. Drafts and unfinished scan reviews are not included in backups. Library tools also has Library backup & restore, which exports or restores a library backup; it is not automatic cloud sync.
 
 ## Review scans and originals
 
-After scanning pages or importing an image, review and correct recognized text before saving. Previous and Next keep the captured page order. Corrections do not call text recognition again. Close with Keep review to resume from Settings, Help, Unfinished scan. Temporary photos are not kept as originals. Complex scanned PDFs are recognized as one document; page-by-page correction is currently available for camera scans and image imports. For difficult columns or tables, export the source as a single-column text or Word file and check its reading order.
+After scanning pages or importing an image, review and correct recognized text before saving. Previous and Next keep the captured page order. Corrections do not call text recognition again. Close with Keep review to resume from Settings, Library tools, Unfinished scan. Temporary photos are not kept as originals. Complex scanned PDFs are recognized as one document; page-by-page correction is currently available for camera scans and image imports. For difficult columns or tables, export the source as a single-column text or Word file and check its reading order.
 
 For new webpage imports, Documents, document options, Details includes Open original when a safe public URL was recorded. Older imports may not have an original link. Local source files are not copied permanently.
 

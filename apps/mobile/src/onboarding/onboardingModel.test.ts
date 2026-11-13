@@ -48,6 +48,12 @@ describe("multiple choice", () => {
 });
 
 describe("saved onboarding", () => {
+  it("keeps the final paywall pending across restarts, while migrating earlier completed accounts", () => {
+    const pending = { ...new_onboarding_state(), personalizationCompletedAt: 1, completedAt: 2 };
+    expect(parse_onboarding_state(JSON.stringify(pending))?.planChoiceCompletedAt).toBeNull();
+    expect(parse_onboarding_state(JSON.stringify({ completedAt: 2 }))?.planChoiceCompletedAt).toBe(2);
+    expect(parse_onboarding_state(JSON.stringify({ completedAt: null }))?.planChoiceCompletedAt).toBeNull();
+  });
   it("starts at version 1 on the first question", () => {
     expect(new_onboarding_state()).toMatchObject({
       version: ONBOARDING_VERSION,

@@ -35,17 +35,39 @@ export function LearnVoticSettings() {
     reset(section);
     setMessage("");
     if (section !== "reader") return router.push(ROUTES[section]);
-    const latest = [...documents].sort(
-      (a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt),
-    )[0];
+    const latest = documents
+      .filter((document) => !document.deletedAt && !document.notebookKind)
+      .sort((a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt))[0];
     if (!latest) return setMessage("Add a document, and the Reader walkthrough will start when it opens.");
     openDocument(latest.id);
-    router.push("/reader");
+    router.push({ pathname: "/reader", params: { mode: "listen", autoplay: "0" } });
   }
 
   return (
     <View style={s.group}>
       <Text style={[s.label, { color: theme.mutedText }]}>LEARN VOTIC</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Show me around"
+        accessibilityHint="Starts the current tour from Home. Your documents, notes, and membership are not changed."
+        onPress={() => {
+          reset("tour");
+          showTipsAgain();
+          setMessage("");
+          router.push("/");
+        }}
+        style={({ pressed }) => [
+          s.row,
+          { backgroundColor: theme.accent, borderColor: theme.accent, opacity: pressed ? 0.85 : 1 },
+        ]}
+      >
+        <Ionicons name="compass-outline" size={21} color={theme.onAccent} />
+        <Text style={[s.rowText, { color: theme.onAccent }]}>Show me around</Text>
+        <Ionicons name="arrow-forward" size={20} color={theme.onAccent} />
+      </Pressable>
+      <Text style={[s.message, { color: theme.mutedText }]}>
+        Learn each screen as you visit it, or replay one section below. You can skip at any time.
+      </Text>
       {SECTIONS.map((section) => (
         <Pressable
           key={section}

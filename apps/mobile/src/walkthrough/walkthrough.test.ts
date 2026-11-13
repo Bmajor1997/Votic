@@ -35,22 +35,22 @@ describe("walkthrough steps", () => {
     const targets = (context: Parameters<typeof applicable_steps>[1]) =>
       applicable_steps(FLOWS.home, context).map((step) => step.target);
     // A brand-new library: Home's Getting Started card (or the empty Continue card), this week, then the tabs.
-    expect(targets({ hasStart: true })).toEqual(["home.start", "home.week", "tab.documents", "tab.notes"]);
+    expect(targets({ hasStart: true })).toEqual(["home.start", "home.week", "tab.notes", "tab.documents"]);
     // Something to pick up: Continue, this week, the Recent shelf, and notes.
     expect(targets({ hasContinue: true, hasDocuments: true, hasRecent: true, hasNotes: true })).toEqual([
       "home.continue",
       "home.week",
       "home.recent",
       "home.notes",
-      "tab.documents",
       "tab.notes",
+      "tab.documents",
     ]);
     // Everything finished and the checklist hidden: Recent leads.
     expect(targets({ hasDocuments: true, hasRecent: true })).toEqual([
       "home.week",
       "home.recent",
-      "tab.documents",
       "tab.notes",
+      "tab.documents",
     ]);
     expect(applicable_steps(FLOWS.notes, { hasNotes: false }).map((step) => step.target)).toEqual([
       "notes.empty",
@@ -61,13 +61,14 @@ describe("walkthrough steps", () => {
     ).toEqual(["notes.empty", "notes.quickNote"]);
     expect(
       applicable_steps(FLOWS.notes, { hasNotes: true, canQuickNote: true }).map((step) => step.target),
-    ).toEqual(["notes.list", "notes.quickNote", "notes.search"]);
+    ).toEqual(["notes.list", "notes.quickNote", "notes.search", "notes.select"]);
     expect(applicable_steps(FLOWS.documents, {}).map((step) => step.target)).toEqual(["documents.upload"]);
     expect(applicable_steps(FLOWS.documents, { hasDocuments: true }).map((step) => step.target)).toEqual([
       "documents.document",
-      "documents.upload",
       "documents.newCollection",
       "documents.search",
+      "documents.filters",
+      "documents.upload",
     ]);
   });
   it("words the upload step for first-time and returning use", () => {
@@ -82,6 +83,7 @@ describe("walkthrough steps", () => {
       "reader.progress",
       "reader.find",
       "reader.voice",
+      "reader.sleepTimer",
       "reader.play",
       "reader.bookmark",
       "reader.ask",
@@ -93,6 +95,18 @@ describe("walkthrough steps", () => {
     const reading = applicable_steps(FLOWS.reader, { listening: false }).map((step) => step.target);
     expect(reading).not.toContain("reader.voice");
     expect(reading).not.toContain("reader.play");
+    expect(reading).not.toContain("reader.sleepTimer");
+    expect(applicable_steps(FLOWS.reader, { listening: true }).map((step) => step.target)).not.toContain(
+      "reader.sleepTimer",
+    );
+    expect(
+      applicable_steps(FLOWS.reader, { listening: true, canSleepTimer: true }).map((step) => step.target),
+    ).toContain("reader.sleepTimer");
+  });
+  it("keeps actions that leave the screen last, so they cannot skip the remaining coaching", () => {
+    for (const flow of [FLOWS.home, FLOWS.documents]) {
+      expect(flow.steps.findIndex((step) => step.completesOnPress)).toBe(flow.steps.length - 1);
+    }
   });
   it("tells the two Reader 'More' controls apart", () => {
     const more = FLOWS.reader.steps.findIndex((step) => step.target === "reader.more");

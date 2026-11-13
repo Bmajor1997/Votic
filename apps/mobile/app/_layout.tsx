@@ -47,11 +47,9 @@ function app_stage(
   subscription: StageInputs["subscription"],
 ) {
   const personalized = signedIn && setupDone;
-  // Signing in, finishing setup, and subscribing are separate facts. Only the store grants access.
-  const subscribed = personalized;
   // Wait for this account's setup, and for a returning subscriber's status, rather than flash the wrong screen.
   const waiting = (signedIn && loading) || (personalized && !subscription.access && subscription.checking);
-  return { signedIn, personalized, subscribed, waiting };
+  return { signedIn, personalized, waiting };
 }
 
 function ThemedStack() {
@@ -64,15 +62,17 @@ function ThemedStack() {
     if (hydrated) Promise.resolve(SplashScreen.hideAsync?.()).catch(() => {});
   }, [hydrated]);
   useEffect(() => {
-    if (!user || !hydrated || setup.loading || subscription.checking) return;
+    if (!user || !hydrated || setup.loading || !setup.handedOff || !setup.planChosen || subscription.checking)
+      return;
     const frame = requestAnimationFrame(() => {
       const destination = take_feedback_destination();
       if (destination) router.replace(destination);
     });
     return () => cancelAnimationFrame(frame);
-  }, [user, hydrated, setup.loading, subscription.checking]);
+  }, [user, hydrated, setup.loading, setup.handedOff, setup.planChosen, subscription.checking]);
   if (!hydrated) return null;
-  const { signedIn, personalized, subscribed, waiting } = app_stage(Boolean(user), setup, subscription);
+  const { signedIn, personalized, waiting } = app_stage(Boolean(user), setup, subscription);
+  const appReady = personalized && setup.handedOff && setup.planChosen;
   if (waiting)
     return (
       <View
@@ -97,7 +97,7 @@ function ThemedStack() {
           <DocumentTransitionProvider>
             <WalkthroughProvider>
               {/* Welcome through "Votic is ready for you" use a lighter orange; Votic itself keeps the chosen accent. */}
-              <SetupAccent active={!(subscribed && setup.handedOff)}>
+              <SetupAccent active={!(personalized && setup.handedOff)}>
                 {/* One wordmark entrance after sign-in, shared by every page header so it continues across pages. */}
                 <WordmarkEntranceProvider>
                   <Stack
@@ -123,9 +123,13 @@ function ThemedStack() {
                     <Stack.Protected guard={personalized && !setup.handedOff && setup.widgetsIntroduced}>
                       <Stack.Screen name="ready" options={fade} />
                     </Stack.Protected>
-                    <Stack.Protected guard={subscribed && setup.handedOff}>
+                    <Stack.Protected guard={appReady}>
                       <Stack.Screen name="(tabs)" options={fade} />
-                      <Stack.Screen name="paywall" options={fade} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={personalized && setup.handedOff}>
+                      <Stack.Screen name="paywall" options={{ ...fade, gestureEnabled: setup.planChosen }} />
+                    </Stack.Protected>
+                    <Stack.Protected guard={appReady}>
                       <Stack.Screen
                         name="reader"
                         options={{
@@ -148,14 +152,15 @@ function ThemedStack() {
                       <Stack.Screen name="home-screen-widgets" options={slide} />
                       {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                       <Stack.Screen name="widget" options={{ animation: "none" }} />
+                      <Stack.Screen name="recently-deleted" options={slide} />
+                      <Stack.Screen name="note-drafts" options={slide} />
                     </Stack.Protected>
                     <Stack.Protected guard={signedIn}>
                       <Stack.Screen name="support" options={slide} />
                       <Stack.Screen name="subscription" options={slide} />
                       <Stack.Screen name="account" options={slide} />
+                      {/* Backup and restore stay reachable from Account before setup and the plan choice. */}
                       <Stack.Screen name="library-backup" options={slide} />
-                      <Stack.Screen name="recently-deleted" options={slide} />
-                      <Stack.Screen name="note-drafts" options={slide} />
                       <Stack.Screen name="feedback/index" options={slide} />
                       <Stack.Screen name="feedback/feature" options={slide} />
                       <Stack.Screen name="feedback/bug" options={slide} />

@@ -1,5 +1,5 @@
 import { it, expect, jest } from "@jest/globals";
-import { act, fireEvent, screen, within } from "@testing-library/react-native";
+import { act, fireEvent, screen, within, waitFor } from "@testing-library/react-native";
 import { AccessibilityInfo, Dimensions, StyleSheet, ViewStyle } from "react-native";
 import Paywall from "../../app/paywall";
 import AccountManagement from "../../app/account";
@@ -8,6 +8,83 @@ import { entitlement_of, fakeSubscriptions, TWO_WEEK_TRIAL_PLAN } from "../mocks
 import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
 import { load_account_preferences } from "../../src/onboarding/accountPreferences";
+import { load_account_setup } from "../../src/onboarding/onboardingStorage";
+
+const FINAL_PLAN_CHOICE = {
+  accountSetup: { completedAt: 1, planChoiceCompletedAt: null },
+  reduceMotion: true,
+};
+
+it("requires an explicit Free choice at the end of onboarding and saves it without granting Plus", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />, FINAL_PLAN_CHOICE);
+  expect(router.replace).not.toHaveBeenCalled();
+  expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeNull();
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Votic Free" }));
+  expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeTruthy();
+  expect(router.replace).toHaveBeenCalledWith("/(tabs)");
+  expect(router.back).not.toHaveBeenCalled();
+  expect(fakeSubscriptions.calls.some((call) => call.startsWith("purchase:"))).toBe(false);
+});
+
+it("keeps the explicit Free route available when the store is unavailable, without a testing bypass", async () => {
+  fakeSubscriptions.reset({
+    unavailableReason: "not-configured",
+    defaultEntitlement: entitlement_of("none"),
+  });
+  await render_with_providers(<Paywall />, FINAL_PLAN_CHOICE);
+  expect(
+    screen.queryByRole("button", { name: "Continue without a subscription (testing build)" }),
+  ).toBeNull();
+  expect(router.replace).not.toHaveBeenCalled();
+  await fireEvent.press(screen.getByRole("button", { name: "Continue with Votic Free" }));
+  expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeTruthy();
+  expect(router.replace).toHaveBeenCalledWith("/(tabs)");
+});
+
+it("does not complete onboarding for cancelled, pending, failed, or unconfirmed purchases", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />, FINAL_PLAN_CHOICE);
+  for (const outcome of [
+    { kind: "cancelled" as const },
+    { kind: "pending" as const },
+    { kind: "failed" as const, message: "Purchase failed" },
+    { kind: "purchased" as const, entitlement: entitlement_of("expired") },
+  ]) {
+    fakeSubscriptions.nextPurchase = outcome;
+    await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
+    expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeNull();
+    expect(router.replace).not.toHaveBeenCalled();
+  }
+});
+
+it("finishes a pending purchase only when the store later confirms access", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  await render_with_providers(<Paywall />, FINAL_PLAN_CHOICE);
+  fakeSubscriptions.nextPurchase = { kind: "pending" };
+  await fireEvent.press(screen.getByRole("button", { name: "Start free trial" }));
+  expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeNull();
+  await act(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("active")));
+  await waitFor(async () =>
+    expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeTruthy(),
+  );
+  expect(router.replace).toHaveBeenCalledWith("/(tabs)");
+});
+
+it.each(["purchase", "restore"])("completes the final choice after a store-confirmed %s", async (action) => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  fakeSubscriptions.restoreResult = entitlement_of("active");
+  fakeSubscriptions.nextPurchase = { kind: "purchased", entitlement: entitlement_of("trial") };
+  await render_with_providers(<Paywall />, FINAL_PLAN_CHOICE);
+  await fireEvent.press(
+    screen.getByRole("button", { name: action === "restore" ? "Restore Purchases" : "Start free trial" }),
+  );
+  await waitFor(
+    async () => expect((await load_account_setup("test-user"))?.planChoiceCompletedAt).toBeTruthy(),
+    { timeout: 4000 },
+  );
+  expect(router.replace).toHaveBeenCalledWith("/(tabs)");
+});
 
 it("an expired subscriber can reach account management from the paywall and delete with both confirmations", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("expired") });
@@ -27,17 +104,20 @@ it("an expired subscriber can reach account management from the paywall and dele
   expect(await load_account_preferences("test-user")).toBeNull();
 });
 
-it("compares Free and Plus with credit limits, checks, and the Plus trial", async () => {
+it("shows what Plus adds over Free, using the enforced limits, and never promises unlimited AI", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  expect(screen.getByRole("header", { name: "Compare Free and Plus" })).toBeTruthy();
-  expect(screen.getByLabelText(/AI credits\. Free: ✓ 75 per month/)).toBeTruthy();
-  expect(screen.getByLabelText(/Saved documents\. Free: ✓ Up to 5/)).toBeTruthy();
-  expect(screen.queryByText("Free: − Not included")).toBeNull();
-  expect(screen.queryByText("Plus: ✓ Store offer")).toBeNull();
+  expect(screen.queryByRole("header", { name: "Compare Free and Plus" })).toBeNull();
+  expect(screen.getByLabelText("More room for your library. Up to 2,000 documents (Free: 5)")).toBeTruthy();
   expect(
-    screen.getByLabelText(/Notes and bookmarks\. Free: ✓ Up to 25 combined\. Plus: ✓ No set limit/),
+    screen.getByLabelText("More AI questions & summaries. More monthly AI credits than Free's 75"),
   ).toBeTruthy();
+  expect(screen.getByLabelText("Scan more pages and PDFs. Free scans 3 camera pages a month")).toBeTruthy();
+  expect(screen.getByLabelText("Unlimited notes and bookmarks. Free includes 25 in total")).toBeTruthy();
+  expect(screen.getByText("AI features use your monthly Plus credits.")).toBeTruthy();
+  expect(
+    screen.queryByText(/unlimited AI|unlimited questions|unlimited summaries|unlimited credits/i),
+  ).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Continue with Votic Free" }));
   expect(router.back).toHaveBeenCalled();
 });
@@ -73,8 +153,8 @@ const YEAR = {
   ...MONTH,
   id: "$rc_annual",
   productId: "plus:annual",
-  priceString: "$59.99",
-  priceAmount: 59.99,
+  priceString: "$74.99",
+  priceAmount: 74.99,
   billingPeriod: { count: 1, unit: "year" as const },
 };
 
@@ -89,14 +169,14 @@ it("offers monthly and annual billing side by side, starting on monthly, and hid
   await render_with_providers(<Paywall />);
   const monthly = screen.getByRole("radio", { name: /^Monthly, \$9\.99 per month$/ });
   const annual = screen.getByRole("radio", {
-    name: "Yearly, $59.99 per year, equivalent to $5.00 a month. Save 49% compared with 12 monthly payments at regular prices",
+    name: "Annual, $74.99 per year, equivalent to $6.25 a month. Save 37% compared with 12 monthly payments at regular prices",
   });
   expect(monthly.props.accessibilityState.checked).toBe(true);
   expect(annual.props.accessibilityState.checked).toBe(false);
   expect(screen.queryByText(/\$4\.99/)).toBeNull();
   // The annual card shows the full yearly charge, its savings and the monthly equivalent from store prices.
-  expect(within(annual).getByText("Save 49%")).toBeTruthy();
-  expect(within(annual).getByText("About $5.00/month")).toBeTruthy();
+  expect(within(annual).getByText("Save 37%")).toBeTruthy();
+  expect(within(annual).getByText("About $6.25/month")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
 });
 
@@ -107,21 +187,51 @@ it("promotes the trial only for the store-eligible selected Plus plan", async ()
   });
   await render_with_providers(<Paywall />);
   expect(screen.getByRole("header", { name: "Try Votic Plus free for 2 weeks" })).toBeTruthy();
-  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
+  await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
   expect(screen.queryByRole("header", { name: "Try Votic Plus free for 2 weeks" })).toBeNull();
+});
+
+it("shows an eligible 14-day trial and localized introductory charges only for the selected plan", async () => {
+  fakeSubscriptions.reset({
+    defaultEntitlement: entitlement_of("none"),
+    plans: [
+      {
+        ...MONTH,
+        priceString: "11,49 €",
+        currencyCode: "EUR",
+        trial: { count: 14, unit: "day" },
+        introductoryPrices: [{ priceString: "0,99 €", period: { count: 1, unit: "month" }, cycles: 3 }],
+      },
+      { ...YEAR, priceString: "89,99 €", currencyCode: "EUR" },
+    ],
+  });
+  await render_with_providers(<Paywall />);
+  expect(screen.getByRole("header", { name: "Try Votic Plus free for 14 days" })).toBeTruthy();
+  expect(
+    screen.getByText(
+      /14 days free, then 0,99 € per month for 3 payments, then 11,49 €\/month\. Auto-renews\. Cancel anytime in (App Store|Google Play)\./,
+    ),
+  ).toBeTruthy();
+  await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
+  expect(screen.queryByRole("button", { name: "Start free trial" })).toBeNull();
+  expect(screen.queryByRole("header", { name: "Try Votic Plus free for 14 days" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Subscribe for 89,99 €/year" })).toBeTruthy();
+  expect(
+    screen.getByText(/89,99 €\/year\. Auto-renews\. Cancel anytime in (App Store|Google Play)\./),
+  ).toBeTruthy();
 });
 
 it("shows the full annual charge once annual is chosen, and buys exactly that plan", async () => {
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall now={() => new Date(2026, 9, 19, 12)} />);
-  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
-  expect(screen.getByRole("radio", { name: /^Yearly,/ }).props.accessibilityState.checked).toBe(true);
-  expect(screen.getByLabelText(/^Votic Plus, \$59\.99\/year\. Auto-renews\./)).toBeTruthy();
-  expect(screen.getByText(/^Equivalent to \$5\.00\/month, billed yearly\. Save 49% compared/)).toBeTruthy();
-  expect(screen.getByText(/renews automatically at \$59\.99 per year/)).toBeTruthy();
+  await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
+  expect(screen.getByRole("radio", { name: /^Annual,/ }).props.accessibilityState.checked).toBe(true);
+  expect(screen.getByLabelText(/^Votic Plus, \$74\.99\/year\. Auto-renews\./)).toBeTruthy();
+  expect(screen.getByText(/^Equivalent to \$6\.25\/month, billed yearly\. Save 37% compared/)).toBeTruthy();
+  expect(screen.getByText(/renews automatically at \$74\.99 per year/)).toBeTruthy();
   expect(screen.getByText("Same Votic Plus features on either plan.")).toBeTruthy();
-  expect(screen.getByText("AI credits")).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $59.99/year" }));
+  expect(screen.getByText("AI features use your monthly Plus credits.")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $74.99/year" }));
   expect(fakeSubscriptions.calls).toContain("purchase:$rc_annual");
   expect(fakeSubscriptions.calls).not.toContain("purchase:$rc_monthly");
 });
@@ -136,11 +246,11 @@ it("calculates savings from the store's actual prices, and shows none it can't v
   expect(screen.getByText("About $7.50/month")).toBeTruthy();
   await rendered.unmount();
   fakeSubscriptions.reset({
-    plans: [MONTH, { ...YEAR, priceString: "€59,99", currencyCode: "EUR" }],
+    plans: [MONTH, { ...YEAR, priceString: "€74,99", currencyCode: "EUR" }],
     defaultEntitlement: entitlement_of("none"),
   });
   await render_with_providers(<Paywall />);
-  expect(screen.getAllByText(/€59,99/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/€74,99/).length).toBeGreaterThan(0);
   expect(screen.queryByText(/Save \d+%/)).toBeNull();
   expect(screen.queryByText(/About .*\/month/)).toBeNull();
 });
@@ -148,8 +258,8 @@ it("calculates savings from the store's actual prices, and shows none it can't v
 it("switches billing options instantly with Reduce Motion, and restores purchases from either option", async () => {
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />, { reduceMotion: true });
-  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
-  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$59\.99\/year/) as never)).toBe(1);
+  await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$74\.99\/year/) as never)).toBe(1);
   fakeSubscriptions.restoreResult = entitlement_of("active");
   await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
   expect(screen.getByText("Your Votic Plus subscription is restored.")).toBeTruthy();
@@ -159,8 +269,8 @@ it("switches billing options instantly without Reduce Motion too", async () => {
   const errors = jest.spyOn(console, "error").mockImplementation(() => {});
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  await fireEvent.press(screen.getByRole("radio", { name: /^Yearly,/ }));
-  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$59\.99\/year/) as never)).toBe(1);
+  await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$74\.99\/year/) as never)).toBe(1);
   expect(errors).not.toHaveBeenCalled();
 });
 
@@ -179,28 +289,27 @@ it("says plainly when the store fails unexpectedly, without showing the technica
   expect(fakeSubscriptions.calls.filter((call) => call === "restore")).toHaveLength(1);
 });
 
-it("shows comparison before billing, without a preview, and keeps renewal terms visible", async () => {
+it("shows benefits before billing and keeps renewal terms visible", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   // No numbered sections, no jump button and no extra "make it yours" block.
   expect(screen.queryByText(/^0[1-4] \//, { includeHiddenElements: true })).toBeNull();
   expect(screen.queryByRole("button", { name: "Jump to subscription plans" })).toBeNull();
-  expect(screen.getByText(/Choose Votic Free or upgrade to Votic Plus/)).toBeTruthy();
-  expect(screen.getByText("Read and listen")).toBeTruthy();
+  expect(screen.getByText("Read, listen, and understand more")).toBeTruthy();
   expect(screen.getByText(/Auto-renews. Cancel anytime in (Google Play|App Store)/)).toBeTruthy();
   expect(screen.queryByText("Start with one document.")).toBeNull();
-  const headers = screen.getAllByRole("header");
-  expect(headers.indexOf(screen.getByRole("header", { name: "Compare Free and Plus" }))).toBeLessThan(
-    headers.indexOf(screen.getByRole("header", { name: "Votic Plus" })),
-  );
+  const content = screen.getByTestId("paywall-content");
+  expect(within(content).getByLabelText("Included with Votic Plus")).toBeTruthy();
   expect(screen.getByText("Includes a 2-week free trial")).toBeTruthy();
-  // The full "then $9.99/month" sentence appears once, above the button.
+  // The full "then $9.99/month" sentence appears once, next to the button.
   expect(screen.getAllByText(/2 weeks free, then \$9\.99\/month/)).toHaveLength(1);
   // Questions stay closed until asked for, and still explain cancelling.
   expect(screen.queryByText("How do I cancel?")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Questions about plans" }));
   expect(screen.getByText("How do I cancel?")).toBeTruthy();
   expect(screen.getByText(/unused usage doesn't carry over/)).toBeTruthy();
+  // Names the Settings row as it is actually labelled.
+  expect(screen.getByText(/Settings, AI Credits & Usage\./)).toBeTruthy();
 });
 
 it("links subscription terms and privacy policy when configured, beside restore and cancel", async () => {
@@ -273,12 +382,18 @@ it.each([
     const original = Dimensions.get("window");
     Dimensions.set({ window: { ...original, ...dimensions } });
     try {
-      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+      fakeSubscriptions.reset({
+        plans: [{ ...MONTH, trial: { count: 14, unit: "day" } }, YEAR],
+        defaultEntitlement: entitlement_of("none"),
+      });
       await render_with_providers(<Paywall />, { reduceMotion: true });
       const scroll = screen.getByTestId("paywall-content");
       expect(within(scroll).getByRole("button", { name: "Start free trial" })).toBeTruthy();
       expect(within(scroll).getByRole("button", { name: "Restore Purchases" })).toBeTruthy();
       expect(screen.getAllByRole("button", { name: "Start free trial" })).toHaveLength(1);
+      const billing = within(scroll).getByLabelText("Billing");
+      expect(StyleSheet.flatten(billing.props.style).flexDirection).toBe("column");
+      expect(within(billing).getAllByRole("radio")).toHaveLength(2);
     } finally {
       await act(async () => {
         Dimensions.set({ window: original });
@@ -301,15 +416,19 @@ function visible_opacity(element: { parent: unknown; props: { style?: unknown } 
 it("shows the whole paywall at once with Reduce Motion", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />, { reduceMotion: true });
-  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(1);
-  expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
+  expect(
+    visible_opacity(screen.getByRole("header", { name: "Read, listen, and understand more" }) as never),
+  ).toBe(1);
+  expect(visible_opacity(screen.getByText("AI features use your monthly Plus credits.") as never)).toBe(1);
 });
 
 it("shows the whole paywall at once without Reduce Motion too, with no entrance animation", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
-  expect(visible_opacity(screen.getByRole("header", { name: "Find your reading rhythm" }) as never)).toBe(1);
-  expect(visible_opacity(screen.getByText("AI credits") as never)).toBe(1);
+  expect(
+    visible_opacity(screen.getByRole("header", { name: "Read, listen, and understand more" }) as never),
+  ).toBe(1);
+  expect(visible_opacity(screen.getByText("AI features use your monthly Plus credits.") as never)).toBe(1);
 });
 
 it("offers beta testers the founder lifetime purchase, and welcomes a new founder", async () => {

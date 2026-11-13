@@ -360,7 +360,7 @@ it("switches between monthly and annual through Google Play's replacement flow, 
     defaultOption: { freePhase: null, pricingPhases: [] },
   });
   const monthly = { identifier: "$rc_monthly", product: product("votic_plus:monthly", "P1M", "$9.99") };
-  const annual = { identifier: "$rc_annual", product: product("votic_plus:annual", "P1Y", "$59.99") };
+  const annual = { identifier: "$rc_annual", product: product("votic_plus:annual", "P1Y", "$74.99") };
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
   sdk.logIn.mockResolvedValue({ customerInfo: info(true), created: false });
   sdk.getAppUserID.mockResolvedValue("a");
@@ -369,7 +369,7 @@ it("switches between monthly and annual through Google Play's replacement flow, 
   await service.identify("a");
   expect((await service.getPlans()).map((plan) => [plan.id, plan.priceString])).toEqual([
     ["$rc_monthly", "$9.99"],
-    ["$rc_annual", "$59.99"],
+    ["$rc_annual", "$74.99"],
   ]);
   expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toMatchObject({ kind: "purchased" });
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, {
@@ -449,7 +449,7 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   const annual = {
     product: {
       identifier: "votic_plus:annual",
-      subscriptionOptions: [option("annual:stay", [59990000, "$59.99", "P1Y"], [39990000, "$39.99"])],
+      subscriptionOptions: [option("annual:stay", [74990000, "$74.99", "P1Y"], [49990000, "$49.99"])],
     },
   };
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
@@ -457,9 +457,9 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   await service.identify("a");
   expect(await service.getRetentionOffer?.("votic_plus:annual")).toMatchObject({
     id: "annual:stay",
-    offerPrice: "$39.99",
+    offerPrice: "$49.99",
     offerPeriod: { count: 1, unit: "year" },
-    regularPrice: "$59.99",
+    regularPrice: "$74.99",
   });
   expect(await service.getRetentionOffer?.("votic_plus:monthly")).toMatchObject({ id: "monthly:stay" });
   // An annual subscriber with no annual discount set up isn't shown the monthly one.
@@ -473,34 +473,34 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   expect(await service.getRetentionOffer?.(null)).toMatchObject({ id: "monthly:stay" });
 });
 
-it("reads a single-payment stay-and-save offer, like $39.99 for 12 months, as one discounted year", () => {
+it("reads a single-payment stay-and-save offer, like $49.99 for 12 months, as one discounted year", () => {
   const offer = retention_offer_from("votic_plus:votic-plus-annual", {
     id: "votic-plus-annual:stay-annual",
     tags: ["votic-retention", "rc-ignore-offer"],
     fullPricePhase: {
-      price: { amountMicros: 59990000, formatted: "$59.99" },
+      price: { amountMicros: 74990000, formatted: "$74.99" },
       billingPeriod: { iso8601: "P1Y" },
     },
     pricingPhases: [
       {
         recurrenceMode: 3,
         billingCycleCount: null,
-        price: { amountMicros: 39990000, formatted: "$39.99" },
+        price: { amountMicros: 49990000, formatted: "$49.99" },
         billingPeriod: { iso8601: "P12M" },
       },
       {
         recurrenceMode: 1,
         billingCycleCount: null,
-        price: { amountMicros: 59990000, formatted: "$59.99" },
+        price: { amountMicros: 74990000, formatted: "$74.99" },
         billingPeriod: { iso8601: "P1Y" },
       },
     ],
   } as never);
   expect(offer).toMatchObject({
-    offerPrice: "$39.99",
+    offerPrice: "$49.99",
     offerPeriod: { count: 1, unit: "year" },
     offerCycles: 1,
-    regularPrice: "$59.99",
+    regularPrice: "$74.99",
     regularPeriod: { count: 1, unit: "year" },
   });
 });

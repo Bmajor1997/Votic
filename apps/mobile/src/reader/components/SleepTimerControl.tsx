@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { notification_player } from "../../playback/notificationPlayback";
 import { useVoticTheme } from "../../theme/ThemeProvider";
+import { useWalkthroughTarget } from "../../walkthrough/WalkthroughProvider";
 
 export function SleepTimerControl() {
   const { theme } = useVoticTheme();
+  const timerTarget = useWalkthroughTarget("reader.sleepTimer");
   const [state, setState] = useState(() => notification_player()?.get_state());
   const [open, setOpen] = useState(false);
   useEffect(() => {
@@ -20,6 +22,7 @@ export function SleepTimerControl() {
   return (
     <>
       <Pressable
+        ref={timerTarget}
         accessibilityRole="button"
         accessibilityLabel={active ? "Active sleep timer. Change or cancel" : "Sleep timer"}
         style={{ minHeight: 48, paddingHorizontal: 12, justifyContent: "center" }}

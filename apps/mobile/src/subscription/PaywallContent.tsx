@@ -1,89 +1,116 @@
-import { editorial } from "../design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { VoticLogo } from "../components/VoticLogo";
-import { BrandMark } from "../onboarding/WelcomeMotion";
+import { PaywallRobot } from "./PaywallRobot";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { paywallStyles as p } from "./paywallStyles";
 
 /** The logo, headline and supporting copy at the top of the paywall. */
 export function PaywallIntro() {
   const { theme } = useVoticTheme();
-  const { width } = useWindowDimensions();
+  const { width, fontScale } = useWindowDimensions();
   return (
     <View style={[s.hero, { backgroundColor: theme.background }]}>
       <View style={s.brand}>
         <VoticLogo animate={false} />
-        <Text style={[p.eyebrow, { color: theme.accentText }]}>VOTIC PLUS</Text>
       </View>
+      <PaywallRobot />
       <View style={s.copy}>
         <Text
           accessibilityRole="header"
-          style={[s.title, { color: theme.text }, width < 360 && { fontSize: 22, lineHeight: 28 }]}
+          style={[
+            s.title,
+            { color: theme.isDark ? theme.text : "#09133D" },
+            width < 360 && { fontSize: fontScale >= 1.6 ? 21 : 23, lineHeight: fontScale >= 1.6 ? 26 : 28 },
+          ]}
         >
-          Find your reading rhythm
+          Read, listen, and understand more
         </Text>
-        <Text style={[s.supporting, { color: theme.text }]}>Choose the plan that fits you.</Text>
-      </View>
-      <View testID="paywall-brand-mark" style={s.art}>
-        <BrandMark size={width < 360 ? 88 : 112} arrive />
+        <Text style={[s.supporting, { color: theme.isDark ? theme.mutedText : "#435580" }]}>
+          Make more of every document with Votic Plus
+        </Text>
       </View>
     </View>
   );
 }
 
-/** Votic Free next to Votic Plus, row by row. The limits match the ones the app and server enforce. */
+/**
+ * What Plus adds over Free. Every number is an enforced limit: Free's 5 documents and 25 notes/bookmarks
+ * (DocumentLibraryProvider), 2,000 documents (documentStorage's MAX_STORED_DOCUMENTS), and Free's 75 monthly
+ * AI credits, 5 summaries and 3 camera-scan pages (server ai_credits / votic_server). Plus AI use is a larger
+ * monthly credit allowance, never unlimited; scanned-PDF reading is Plus only.
+ */
 export function PaywallBenefits() {
   const { theme } = useVoticTheme();
+  const { fontScale } = useWindowDimensions();
   const rows = [
-    ["Read and listen", "✓ No time limit", "✓ No time limit"],
-    ["Saved documents", "✓ Up to 5", "✓ Up to 2,000"],
-    ["Notes and bookmarks", "✓ Up to 25 combined", "✓ No set limit"],
-    ["AI credits", "✓ 75 per month", "✓ Larger monthly allowance"],
-    ["AI questions", "✓ Uses your 75 credits", "✓ Uses Plus allowance"],
-    ["AI summaries", "✓ 5 per month; uses credits", "✓ Uses Plus allowance"],
-    ["Camera scans", "✓ 3 pages per month; uses credits", "✓ Uses Plus allowance"],
-    ["Scanned PDF reading", "− Plus feature", "✓ Uses Plus allowance"],
-    ["No ads", "✓ Included", "✓ Included"],
-  ];
+    {
+      icon: "layers-outline",
+      title: "More room for your library",
+      detail: "Up to 2,000 documents (Free: 5)",
+    },
+    {
+      icon: "chatbubble-ellipses-outline",
+      title: "More AI questions & summaries",
+      detail: "More monthly AI credits than Free's 75",
+    },
+    {
+      icon: "scan-outline",
+      title: "Scan more pages and PDFs",
+      detail: "Free scans 3 camera pages a month",
+    },
+    {
+      icon: "bookmark-outline",
+      title: "Unlimited notes and bookmarks",
+      detail: "Free includes 25 in total",
+    },
+  ] as const;
   return (
-    <View
-      accessibilityLabel="Compare Votic Free and Votic Plus"
-      style={[s.card, { borderColor: theme.border, backgroundColor: theme.surface }]}
-    >
-      <Text accessibilityRole="header" style={[p.sectionTitle, s.cardTitle, { color: theme.text }]}>
-        Compare Free and Plus
-      </Text>
-      <View style={s.comparisonRow}>
-        <Text style={s.labelColumn} />
-        <Text style={[s.valueColumn, s.columnHeading, { color: theme.text }]}>Free</Text>
-        <Text
+    <View accessibilityLabel="Included with Votic Plus" style={s.benefits}>
+      {rows.map(({ icon, title, detail }) => (
+        <View
+          key={title}
+          accessible
+          accessibilityLabel={`${title}. ${detail}`}
           style={[
-            s.valueColumn,
-            s.columnHeading,
-            { color: theme.accentText, backgroundColor: theme.brandTint },
+            s.feature,
+            fontScale >= 1.6 && s.featureLargeText,
+            {
+              borderColor: theme.isDark ? theme.border : "#CCE0FF",
+              backgroundColor: theme.surface,
+            },
           ]}
         >
-          Plus
-        </Text>
-      </View>
-      {rows.map(([label, free, plus]) => (
-        <View
-          key={label}
-          accessible
-          accessibilityLabel={`${label}. Free: ${free}. Plus: ${plus}.`}
-          style={[s.comparisonRow, { borderTopColor: theme.border, borderTopWidth: 1 }]}
-        >
-          <Text style={[p.benefitTitle, s.labelColumn, { color: theme.text }]}>{label}</Text>
-          <Text style={[p.detail, s.valueColumn, { color: theme.text }]}>{free}</Text>
-          <Text
-            style={[p.detail, s.valueColumn, { color: theme.accentText, backgroundColor: theme.brandTint }]}
+          <View
+            accessible={false}
+            style={[s.icon, { backgroundColor: theme.isDark ? theme.brandTint : "#E9F5FF" }]}
           >
-            {plus}
-          </Text>
+            <Ionicons name={icon} size={24} color={theme.isDark ? theme.accentText : "#0061FF"} />
+            {icon === "scan-outline" ? (
+              <View style={s.scanDocument}>
+                <Ionicons
+                  name="document-text-outline"
+                  size={14}
+                  color={theme.isDark ? theme.accentText : "#0061FF"}
+                />
+              </View>
+            ) : null}
+          </View>
+          <View style={[s.benefitCopy, fontScale >= 1.6 && s.largeCopy]}>
+            <Text style={[s.featureTitle, { color: theme.isDark ? theme.text : "#09133D" }]}>{title}</Text>
+            <Text style={[s.featureDetail, { color: theme.isDark ? theme.mutedText : "#435580" }]}>
+              {detail}
+            </Text>
+          </View>
         </View>
       ))}
+      <View style={s.creditNote}>
+        <Ionicons name="information-circle-outline" size={16} color={theme.mutedText} />
+        <Text style={[s.creditCopy, { color: theme.mutedText }]}>
+          AI features use your monthly Plus credits.
+        </Text>
+      </View>
     </View>
   );
 }
@@ -122,7 +149,7 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
             pages. Votic Plus includes a larger monthly allowance for AI answers, summaries, voice questions,
             and reading scanned pages. Allowances renew monthly and unused usage doesn&apos;t carry over.
             Reading, listening, and notes don&apos;t use it. See what&apos;s left anytime in Settings, AI
-            Usage.
+            Credits &amp; Usage.
           </Text>
           <Text style={[p.benefitTitle, { color: theme.text }]}>Which voices can I use?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>
@@ -135,31 +162,30 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
 }
 
 const s = StyleSheet.create({
-  hero: { borderRadius: 28, padding: 8, gap: 14 },
-  brand: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 10 },
-  copy: { gap: 10 },
-  title: { ...editorial, fontSize: 24, lineHeight: 30 },
-  supporting: { fontSize: 16, lineHeight: 23, fontWeight: "700" },
-  art: { alignItems: "center", justifyContent: "center" },
-  subtitle: { fontSize: 16, lineHeight: 24 },
-  card: {
-    width: "100%",
-    maxWidth: 420,
-    alignSelf: "center",
+  hero: { alignItems: "center", gap: 4 },
+  brand: { alignItems: "center", justifyContent: "center", minHeight: 36 },
+  copy: { gap: 4, alignSelf: "stretch" },
+  title: { fontWeight: "800", fontSize: 24, lineHeight: 29, letterSpacing: -0.5, textAlign: "center" },
+  supporting: { fontSize: 14, lineHeight: 20, fontWeight: "600", textAlign: "center" },
+  benefits: { gap: 6 },
+  feature: {
     borderWidth: 1,
-    borderRadius: 18,
-    overflow: "hidden",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
-  cardTitle: { paddingTop: 12, paddingBottom: 8, textAlign: "center" },
-  comparisonRow: { flexDirection: "row", alignItems: "stretch" },
-  labelColumn: { flex: 1.5, padding: 8 },
-  valueColumn: { flex: 1, padding: 8, textAlign: "center", textAlignVertical: "center" },
-  columnHeading: { fontWeight: "800" },
-  row: { paddingVertical: 8 },
-  // The check sits beside the benefit's title, even when its description wraps.
-  benefitRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  check: { marginTop: -1 },
-  benefitCopy: { flex: 1, gap: 4 },
+  featureLargeText: { flexDirection: "column", alignItems: "flex-start" },
+  featureTitle: { fontSize: 15, lineHeight: 20, fontWeight: "800", flexShrink: 1 },
+  featureDetail: { fontSize: 13, lineHeight: 18, flexShrink: 1 },
+  icon: { width: 40, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  benefitCopy: { flexGrow: 1, flexShrink: 1, flexBasis: 0, gap: 1 },
+  largeCopy: { flexGrow: 0, flexShrink: 0, flexBasis: "auto", alignSelf: "stretch" },
+  scanDocument: { position: "absolute", alignItems: "center", justifyContent: "center" },
+  creditNote: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingTop: 2 },
+  creditCopy: { flexShrink: 1, fontSize: 12, lineHeight: 17 },
   helpCard: { borderRadius: 20, borderWidth: 1, paddingHorizontal: 16 },
   help: { gap: 10, paddingBottom: 16 },
 });

@@ -89,7 +89,7 @@ export function useNoteDraftProtection(
       } catch {
         Alert.alert(
           "Note save incomplete",
-          "Your recoverable draft has been kept. Review it in Settings → Help → Note drafts and retry saving.",
+          "Your recoverable draft has been kept. Review it in Settings → Library tools → Note drafts and retry saving.",
         );
       } finally {
         setSaving(false);

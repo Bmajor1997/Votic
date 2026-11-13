@@ -24,6 +24,9 @@ export default function Settings() {
   const auth = useAuth();
   const preferencesTarget = useWalkthroughTarget("settings.preferences");
   const helpTarget = useWalkthroughTarget("settings.help");
+  const accountTarget = useWalkthroughTarget("settings.account");
+  const libraryTarget = useWalkthroughTarget("settings.library");
+  const aiUsageTarget = useWalkthroughTarget("settings.aiUsage");
   useWalkthroughTrigger([{ id: "settings" }]);
   const explanation = EXPLANATION_STYLES.find(
     (item) => item.value === personalization.explanationStyle,
@@ -48,15 +51,17 @@ export default function Settings() {
   return (
     <Screen title="Settings">
       <Text style={[s.intro, { color: theme.mutedText }]}>Make Votic feel right for you.</Text>
-      <SettingsGroup>
-        {category(
-          "account",
-          auth.user?.email ??
-            auth.user?.displayName ??
-            (auth.user ? "Your session and Votic Plus" : "Votic Plus and account access"),
-          "person-outline",
-        )}
-      </SettingsGroup>
+      <View ref={accountTarget} collapsable={false}>
+        <SettingsGroup>
+          {category(
+            "account",
+            auth.user?.email ??
+              auth.user?.displayName ??
+              (auth.user ? "Your session and Votic Plus" : "Votic Plus and account access"),
+            "person-outline",
+          )}
+        </SettingsGroup>
+      </View>
       <View ref={preferencesTarget} collapsable={false}>
         <SettingsGroup title="YOUR PREFERENCES">
           {category(
@@ -85,17 +90,21 @@ export default function Settings() {
         </SettingsGroup>
       </View>
       <SettingsGroup title="LIBRARY & STORAGE">
-        {category("library", "Backups, Recently Deleted, drafts, and scans", "folder-open-outline")}
+        <View ref={libraryTarget} collapsable={false}>
+          {category("library", "Backups, Recently Deleted, drafts, and scans", "folder-open-outline")}
+        </View>
         {category("storage", "Device usage and temporary files", "server-outline", true)}
       </SettingsGroup>
       <SettingsGroup title="AI CREDITS & USAGE">
-        <SettingsRow
-          label="AI Credits & Usage"
-          detail="Monthly allowance, additional credits, and renewal date"
-          icon="sparkles-outline"
-          hint="Opens your AI credit balance and usage"
-          onPress={() => router.push("/ai-usage")}
-        />
+        <View ref={aiUsageTarget} collapsable={false}>
+          <SettingsRow
+            label="AI Credits & Usage"
+            detail="Monthly allowance, additional credits, and renewal date"
+            icon="sparkles-outline"
+            hint="Opens your AI credit balance and usage"
+            onPress={() => router.push("/ai-usage")}
+          />
+        </View>
       </SettingsGroup>
       <SettingsGroup title="SUPPORT & ACTIVITY">
         <View ref={helpTarget} collapsable={false}>

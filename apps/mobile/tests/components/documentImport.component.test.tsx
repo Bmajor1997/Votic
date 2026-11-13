@@ -7,6 +7,7 @@ import { extract_document, scan_document_image } from "../../src/api/voticApi";
 import { router } from "../mocks/expoRouter";
 import { create_document_store } from "../../src/documents/documentStorage";
 import { render_with_providers } from "../renderWithProviders";
+import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 
 jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("../../src/api/voticApi", () => ({ extract_document: jest.fn(), scan_document_image: jest.fn() }));
@@ -27,7 +28,7 @@ describe("document import", () => {
     })) as unknown as typeof fetch;
     const alert = jest.spyOn(Alert, "alert").mockImplementation(() => {});
     await render_with_providers(<Documents />);
-    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+    await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
     await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
     // The Documents page explains the failure in place, with a way to try again.
     expect(await screen.findByText("Couldn't add big.pdf")).toBeTruthy();
@@ -37,42 +38,46 @@ describe("document import", () => {
     expect(extract_document).not.toHaveBeenCalled();
   });
 
-  it("lets Android pick an RTF file labelled text/rtf, without opening the picker to every file type", async () => {
-    jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
-      canceled: false,
-      assets: [
-        {
-          name: "Votic test.rtf",
-          uri: "file:///notes.rtf",
-          mimeType: "text/rtf",
-          size: 202,
-          lastModified: 1,
-        },
-      ],
-    } as DocumentPicker.DocumentPickerResult);
-    global.fetch = jest.fn(async () => ({
-      ok: true,
-      arrayBuffer: async () => new TextEncoder().encode("{\\rtf1 Tides}").buffer,
-    })) as unknown as typeof fetch;
-    jest.mocked(extract_document).mockResolvedValue("The Moon's gravity causes two high tides each day.");
-    await render_with_providers(<Documents />);
-    await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
-    const { type } = jest.mocked(DocumentPicker.getDocumentAsync).mock.calls[0][0] as { type: string[] };
-    expect(type).toEqual(expect.arrayContaining(["application/rtf", "text/rtf"]));
-    // The filter still names each supported type rather than allowing anything.
-    expect(type).not.toContain("*/*");
-    expect(type.every((mime) => !mime.includes("*"))).toBe(true);
-    await waitFor(() =>
-      expect(extract_document).toHaveBeenCalledWith("Votic test.rtf", expect.anything(), expect.anything()),
-    );
-    await waitFor(() => expect(screen.getByText("Added to your library")).toBeTruthy());
-  });
+  it.each(["none", "expired", "active"] as const)(
+    "imports an RTF file with %s membership and keeps the picker filter",
+    async (status) => {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of(status) });
+      jest.mocked(DocumentPicker.getDocumentAsync).mockResolvedValue({
+        canceled: false,
+        assets: [
+          {
+            name: "Votic test.rtf",
+            uri: "file:///notes.rtf",
+            mimeType: "text/rtf",
+            size: 202,
+            lastModified: 1,
+          },
+        ],
+      } as DocumentPicker.DocumentPickerResult);
+      global.fetch = jest.fn(async () => ({
+        ok: true,
+        arrayBuffer: async () => new TextEncoder().encode("{\\rtf1 Tides}").buffer,
+      })) as unknown as typeof fetch;
+      jest.mocked(extract_document).mockResolvedValue("The Moon's gravity causes two high tides each day.");
+      await render_with_providers(<Documents />);
+      await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
+      const { type } = jest.mocked(DocumentPicker.getDocumentAsync).mock.calls[0][0] as { type: string[] };
+      expect(type).toEqual(expect.arrayContaining(["application/rtf", "text/rtf"]));
+      // The filter still names each supported type rather than allowing anything.
+      expect(type).not.toContain("*/*");
+      expect(type.every((mime) => !mime.includes("*"))).toBe(true);
+      await waitFor(() =>
+        expect(extract_document).toHaveBeenCalledWith("Votic test.rtf", expect.anything(), expect.anything()),
+      );
+      await waitFor(() => expect(screen.getByText("Added to your library")).toBeTruthy());
+    },
+  );
 });
 
 it("keeps import choices scrollable with bottom safe-area clearance and working destinations", async () => {
   await render_with_providers(<Documents />);
-  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
   expect(screen.getByTestId("document-import-options")).toBeTruthy();
   expect(
     StyleSheet.flatten(screen.getByTestId("document-import-sheet").props.style).paddingBottom,
@@ -80,7 +85,7 @@ it("keeps import choices scrollable with bottom safe-area clearance and working 
   expect(screen.getByRole("button", { name: "Import webpage" })).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Scan with camera" }));
   expect(router.push).toHaveBeenLastCalledWith("/scan");
-  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Import webpage" }));
   expect(router.push).toHaveBeenLastCalledWith("/import-web");
 });
@@ -107,7 +112,7 @@ it("finishes the import even though the Android file picker sends Votic to the b
     arrayBuffer: async () => new TextEncoder().encode("Chapter one. The picker came and went.").buffer,
   })) as unknown as typeof fetch;
   await render_with_providers(<Documents />);
-  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
   await waitFor(async () =>
     expect((await create_document_store("test-user").loadDocuments()).map((d) => d.plainText)).toEqual([
@@ -143,7 +148,7 @@ it("imports BOM UTF-16 text through the picker without silently replacing Unicod
     arrayBuffer: async () => bytes.buffer,
   })) as unknown as typeof fetch;
   await render_with_providers(<Documents />);
-  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
   await waitFor(async () =>
     expect((await create_document_store("test-user").loadDocuments())[0]?.plainText).toBe(expected),
@@ -170,7 +175,7 @@ it("does not send a picked photo for text recognition while a scan review is unf
     arrayBuffer: async () => new ArrayBuffer(8),
   })) as unknown as typeof fetch;
   await render_with_providers(<Documents />);
-  await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
+  await fireEvent.press(await screen.findByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
   expect(await screen.findByText(/unfinished scan review/)).toBeTruthy();
   expect(scan_document_image).not.toHaveBeenCalled();

@@ -56,12 +56,14 @@ function eligible(
   subscribed: boolean,
   handedOff = subscribed,
   widgetsIntroduced = handedOff,
+  planChosen = handedOff,
 ) {
   const state = {
     signedIn,
     personalized,
     subscribed,
-    setup: { handedOff, widgetsIntroduced },
+    appReady: personalized && handedOff && planChosen,
+    setup: { handedOff, widgetsIntroduced, planChosen },
   };
   const active = screens.filter((s) => vm.runInNewContext(s.guard, state));
   const protectedNames = new Set(screens.filter((s) => !active.includes(s)).map((s) => s.name));
@@ -90,10 +92,11 @@ describe("filesystem route access using Expo Router", () => {
     [true, false, false],
     [true, true, false],
   ])
-    it(`blocks paid routes for signedIn/personalized/subscribed=${state.join("/")}`, () => {
+    it(`blocks app routes before onboarding is completed for ${state.join("/")}`, () => {
       const actual = eligible(...(state as [boolean, boolean, boolean]));
       for (const route of ["scan", "import-web", "pronunciations", "voices", "reader", "(tabs)"])
         expect(actual).not.toContain(route);
+      // Backup and restore are linked from Account, which every signed-in stage can open.
       expect(actual.includes("library-backup")).toBe(state[0]);
     });
   it("places widgets and the ready recap before the Free app and paywall", () => {
@@ -114,9 +117,20 @@ describe("filesystem route access using Expo Router", () => {
     expect(completed).not.toContain("ready");
     expect(completed).not.toContain("widgets-intro");
   });
-  it("allows paid routes only after setup and entitlement confirmation", () => {
+  it("allows app routes after setup and the explicit plan choice", () => {
     expect(eligible(true, true, true)).toEqual(
       expect.arrayContaining(["scan", "import-web", "pronunciations", "voices", "reader"]),
+    );
+  });
+  it("keeps the final choice mandatory, while allowing Free users in after choosing", () => {
+    const pending = eligible(true, true, false, true, true, false);
+    expect(pending).toContain("paywall");
+    expect(pending).toContain("library-backup");
+    for (const route of ["(tabs)", "reader", "recently-deleted", "note-drafts", "widget", "handle-share"])
+      expect(pending).not.toContain(route);
+    const free = eligible(true, true, false, true, true, true);
+    expect(free).toEqual(
+      expect.arrayContaining(["(tabs)", "reader", "scan", "import-web", "library-backup"]),
     );
   });
 });

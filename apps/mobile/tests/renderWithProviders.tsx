@@ -130,6 +130,7 @@ export async function seed_storage({
       ...new_onboarding_state(),
       personalizationCompletedAt: 1,
       completedAt: 1,
+      planChoiceCompletedAt: 1,
       ...accountSetup,
     });
   if (walkthrough === "finished" && uid)

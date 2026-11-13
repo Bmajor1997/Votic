@@ -369,42 +369,60 @@ function PersonalizationSettings() {
 }
 
 function HelpSettings() {
+  const { theme } = useVoticTheme();
   const guideRef = useRef<View>(null);
   const library = useDocumentLibrary();
   const transition = useDocumentTransition();
   const { defaultPlaybackRate } = useVoticPurpose();
   const onboarding = useOnboarding();
   const [tipsReset, setTipsReset] = useState(false);
+  const [guideError, setGuideError] = useState("");
   return (
     <>
       <SettingsGroup>
         <View ref={guideRef} collapsable={false}>
           <SettingsRow
             label="Votic walkthrough"
-            detail="Try reading, voice questions, Notes, and the new Settings."
+            detail="Read or listen to the current guide: documents, AI credits, notes, and recovery."
             hint="Opens the updated walkthrough as a document with listening controls"
             icon="book-outline"
             onPress={() => {
               if (!library.loaded || transition.transitioning) return;
-              const existing = library.documents.find(
-                (document) =>
-                  document.sourceName === VOTIC_GUIDE_SOURCE_NAME &&
-                  document.plainText === clean_local_document_text(VOTIC_GUIDE_TEXT),
-              );
-              if (existing) library.openDocument(existing.id);
-              else
-                library.addTextDocument(
-                  VOTIC_GUIDE_SOURCE_NAME,
-                  clean_local_document_text(VOTIC_GUIDE_TEXT),
-                  {
-                    playbackRate: defaultPlaybackRate,
-                    origin: "guide",
-                  },
+              setGuideError("");
+              try {
+                const existing = library.documents.find(
+                  (document) =>
+                    !document.deletedAt &&
+                    document.sourceName === VOTIC_GUIDE_SOURCE_NAME &&
+                    document.plainText === clean_local_document_text(VOTIC_GUIDE_TEXT),
                 );
-              open_from(guideRef, transition, { mode: "listen" });
+                if (existing) library.openDocument(existing.id);
+                else
+                  library.addTextDocument(
+                    VOTIC_GUIDE_SOURCE_NAME,
+                    clean_local_document_text(VOTIC_GUIDE_TEXT),
+                    {
+                      playbackRate: defaultPlaybackRate,
+                      origin: "guide",
+                    },
+                  );
+                open_from(guideRef, transition, { mode: "listen" });
+              } catch (error) {
+                // The library's own reason (a full Free library, a plan check still running) says what to do next.
+                setGuideError(
+                  error instanceof Error && error.message
+                    ? error.message
+                    : "The guide couldn't be opened. Please try again.",
+                );
+              }
             }}
           />
         </View>
+        {guideError ? (
+          <Text accessibilityRole="alert" style={[s.detail, { color: theme.mutedText }]}>
+            {guideError}
+          </Text>
+        ) : null}
         <SettingsRow
           separated
           label="Show tips again"
