@@ -153,8 +153,8 @@ const YEAR = {
   ...MONTH,
   id: "$rc_annual",
   productId: "plus:annual",
-  priceString: "$59.99",
-  priceAmount: 59.99,
+  priceString: "$74.99",
+  priceAmount: 74.99,
   billingPeriod: { count: 1, unit: "year" as const },
 };
 
@@ -169,14 +169,14 @@ it("offers monthly and annual billing side by side, starting on monthly, and hid
   await render_with_providers(<Paywall />);
   const monthly = screen.getByRole("radio", { name: /^Monthly, \$9\.99 per month$/ });
   const annual = screen.getByRole("radio", {
-    name: "Annual, $59.99 per year, equivalent to $5.00 a month. Save 49% compared with 12 monthly payments at regular prices",
+    name: "Annual, $74.99 per year, equivalent to $6.25 a month. Save 37% compared with 12 monthly payments at regular prices",
   });
   expect(monthly.props.accessibilityState.checked).toBe(true);
   expect(annual.props.accessibilityState.checked).toBe(false);
   expect(screen.queryByText(/\$4\.99/)).toBeNull();
   // The annual card shows the full yearly charge, its savings and the monthly equivalent from store prices.
-  expect(within(annual).getByText("Save 49%")).toBeTruthy();
-  expect(within(annual).getByText("About $5.00/month")).toBeTruthy();
+  expect(within(annual).getByText("Save 37%")).toBeTruthy();
+  expect(within(annual).getByText("About $6.25/month")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Subscribe for $9.99/month" })).toBeTruthy();
 });
 
@@ -226,12 +226,12 @@ it("shows the full annual charge once annual is chosen, and buys exactly that pl
   await render_with_providers(<Paywall now={() => new Date(2026, 9, 19, 12)} />);
   await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
   expect(screen.getByRole("radio", { name: /^Annual,/ }).props.accessibilityState.checked).toBe(true);
-  expect(screen.getByLabelText(/^Votic Plus, \$59\.99\/year\. Auto-renews\./)).toBeTruthy();
-  expect(screen.getByText(/^Equivalent to \$5\.00\/month, billed yearly\. Save 49% compared/)).toBeTruthy();
-  expect(screen.getByText(/renews automatically at \$59\.99 per year/)).toBeTruthy();
+  expect(screen.getByLabelText(/^Votic Plus, \$74\.99\/year\. Auto-renews\./)).toBeTruthy();
+  expect(screen.getByText(/^Equivalent to \$6\.25\/month, billed yearly\. Save 37% compared/)).toBeTruthy();
+  expect(screen.getByText(/renews automatically at \$74\.99 per year/)).toBeTruthy();
   expect(screen.getByText("Same Votic Plus features on either plan.")).toBeTruthy();
   expect(screen.getByText("AI features use your monthly Plus credits.")).toBeTruthy();
-  await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $59.99/year" }));
+  await fireEvent.press(screen.getByRole("button", { name: "Subscribe for $74.99/year" }));
   expect(fakeSubscriptions.calls).toContain("purchase:$rc_annual");
   expect(fakeSubscriptions.calls).not.toContain("purchase:$rc_monthly");
 });
@@ -246,11 +246,11 @@ it("calculates savings from the store's actual prices, and shows none it can't v
   expect(screen.getByText("About $7.50/month")).toBeTruthy();
   await rendered.unmount();
   fakeSubscriptions.reset({
-    plans: [MONTH, { ...YEAR, priceString: "€59,99", currencyCode: "EUR" }],
+    plans: [MONTH, { ...YEAR, priceString: "€74,99", currencyCode: "EUR" }],
     defaultEntitlement: entitlement_of("none"),
   });
   await render_with_providers(<Paywall />);
-  expect(screen.getAllByText(/€59,99/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/€74,99/).length).toBeGreaterThan(0);
   expect(screen.queryByText(/Save \d+%/)).toBeNull();
   expect(screen.queryByText(/About .*\/month/)).toBeNull();
 });
@@ -259,7 +259,7 @@ it("switches billing options instantly with Reduce Motion, and restores purchase
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />, { reduceMotion: true });
   await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
-  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$59\.99\/year/) as never)).toBe(1);
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$74\.99\/year/) as never)).toBe(1);
   fakeSubscriptions.restoreResult = entitlement_of("active");
   await fireEvent.press(screen.getByRole("button", { name: "Restore Purchases" }));
   expect(screen.getByText("Your Votic Plus subscription is restored.")).toBeTruthy();
@@ -270,7 +270,7 @@ it("switches billing options instantly without Reduce Motion too", async () => {
   fakeSubscriptions.reset({ plans: [MONTH, YEAR], defaultEntitlement: entitlement_of("none") });
   await render_with_providers(<Paywall />);
   await fireEvent.press(screen.getByRole("radio", { name: /^Annual,/ }));
-  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$59\.99\/year/) as never)).toBe(1);
+  expect(visible_opacity(screen.getByLabelText(/^Votic Plus, \$74\.99\/year/) as never)).toBe(1);
   expect(errors).not.toHaveBeenCalled();
 });
 

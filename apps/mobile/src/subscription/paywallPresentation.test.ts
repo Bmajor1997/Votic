@@ -14,14 +14,14 @@ const monthly: SubscriptionPlan = {
 const annual: SubscriptionPlan = {
   ...monthly,
   id: "annual",
-  priceString: "$59.99",
-  priceAmount: 59.99,
+  priceString: "$74.99",
+  priceAmount: 74.99,
   billingPeriod: { count: 1, unit: "year" },
 };
 
 describe("store-derived offer presentation", () => {
   it("compares a full year with 12 monthly payments without overstating savings", () => {
-    expect(annual_value(annual, [monthly, annual])).toMatchObject({ savings: 49, equivalent: "$5.00" });
+    expect(annual_value(annual, [monthly, annual])).toMatchObject({ savings: 37, equivalent: "$6.25" });
     expect(annual_value(monthly, [monthly, annual])).toBeNull();
   });
   it("suppresses savings for different currencies, ambiguous tiers, missing prices and annual premiums", () => {
@@ -38,12 +38,12 @@ describe("store-derived offer presentation", () => {
     expect(
       plan_from_store_product("annual", {
         identifier: "year",
-        priceString: "59,99 €",
-        price: 59.99,
+        priceString: "74,99 €",
+        price: 74.99,
         currencyCode: "EUR",
         subscriptionPeriod: "P1Y",
         introPrice: null,
       }),
-    ).toMatchObject({ priceAmount: 59.99, currencyCode: "EUR", priceString: "59,99 €" });
+    ).toMatchObject({ priceAmount: 74.99, currencyCode: "EUR", priceString: "74,99 €" });
   });
 });

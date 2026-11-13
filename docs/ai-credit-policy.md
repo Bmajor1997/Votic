@@ -2,7 +2,7 @@
 
 Credit policy decided 2026-10-26; subscription pricing updated 2026-11-02.
 
-Votic V1 sells one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $59.99/year, about $5.00/month, about 50% less than 12 monthly payments). The app always shows the store's localized prices and calculates savings from them. Both plans have identical features and include **1,000 AI credits per monthly allowance cycle** (`VOTIC_MONTHLY_CREDITS`, default 1000). Annual billing does not mean an annual allowance: annual subscribers get 1,000 credits each month, never 12,000 at once. Credits are an internal unit. The paywall and AI Usage screen describe "generous monthly AI usage" and a percentage remaining, not credit counts.
+Votic V1 sells one subscription, **Votic Plus**, billed monthly (US $9.99/month) or annually (US $74.99/year, about $6.25/month, about 37% less than 12 monthly payments). The app always shows the store's localized prices and calculates savings from them. Both plans have identical features and include **1,000 AI credits per monthly allowance cycle** (`VOTIC_MONTHLY_CREDITS`, default 1000). Annual billing does not mean an annual allowance: annual subscribers get 1,000 credits each month, never 12,000 at once. Credits are an internal unit. The paywall and AI Usage screen describe "generous monthly AI usage" and a percentage remaining, not credit counts.
 
 ## What a credit pays for
 
@@ -40,7 +40,7 @@ The model is `gpt-6-luna` at $0.10 per million input tokens and $0.50 per millio
 | 12 MB scanned PDF (up to ~300K tokens, long-context rate, 12K output) | ≈ $0.07 | 30 | ≈ $0.0023 |
 | 60 s voice question | ≈ $0.003 | 1 | ≈ $0.003 |
 
-**Worst case: about $0.0036 per credit, or about $3.60 per subscriber per month if all 1,000 credits go on the most expensive action.** A typical month costs well under $1. Net revenue after the store's 15% subscription fee is about $8.49, so the allowance stays sustainable even at worst-case use. Re-check this table whenever model prices or `OPENAI_*_MODEL` settings change.
+**Worst case: about $0.0036 per credit, or about $3.60 per subscriber per month if all 1,000 credits go on the most expensive action.** A typical month costs well under $1. Net revenue after the store's 15% subscription fee is about $8.49 a month per monthly subscriber and about $5.31 a month per annual subscriber ($74.99 × 0.85 ÷ 12), so the allowance stays sustainable even at the worst case of about $3.60. Re-check this table whenever model prices or `OPENAI_*_MODEL` settings change.
 
 ### Safeguards that stay in place
 
