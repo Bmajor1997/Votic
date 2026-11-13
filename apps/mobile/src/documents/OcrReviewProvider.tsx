@@ -230,7 +230,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
             await options.onPrepared?.();
           } catch {
             throw new Error(
-              "Your scan review could not be saved. Keep Votic open and resume it from Settings → Help → Unfinished scan.",
+              "Your scan review could not be saved. Keep Votic open and resume it from Settings → Library tools → Unfinished scan.",
             );
           }
           if (!mounted.current || !account_writable(uid)) return null;
