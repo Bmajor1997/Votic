@@ -10,6 +10,7 @@ import { ask_votic } from "../../src/api/voticApi";
 import { useDocumentLibrary } from "../../src/documents/DocumentLibraryProvider";
 import { router, searchParams } from "../mocks/expoRouter";
 import { render_with_providers, test_document } from "../renderWithProviders";
+import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -180,35 +181,43 @@ describe("Reader", () => {
     expect(screen.getByRole("button", { name: "Ask Votic about this page" })).toBeTruthy();
   });
 
-  it("shows the document's passages and reading progress", async () => {
-    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
-    expect(screen.getByText("Field Guide")).toBeTruthy();
-    expect(screen.getByText("First passage here.")).toBeTruthy();
-    expect(screen.getByText("Third passage ends.")).toBeTruthy();
-    expect(screen.getByText("0% read")).toBeTruthy();
-    expect(screen.getByText("2 passages left")).toBeTruthy();
-    expect(screen.getByText("Ask Votic")).toBeTruthy();
-    expect(screen.getByText("More")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Expand listening controls" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
-  });
+  it.each(["none", "expired", "active"] as const)(
+    "shows passages and reading progress with %s membership",
+    async (status) => {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of(status) });
+      await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+      expect(screen.getByText("Field Guide")).toBeTruthy();
+      expect(screen.getByText("First passage here.")).toBeTruthy();
+      expect(screen.getByText("Third passage ends.")).toBeTruthy();
+      expect(screen.getByText("0% read")).toBeTruthy();
+      expect(screen.getByText("2 passages left")).toBeTruthy();
+      expect(screen.getByText("Ask Votic")).toBeTruthy();
+      expect(screen.getByText("More")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Expand listening controls" })).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+    },
+  );
 
-  it("reads the current passage aloud and continues to the next", async () => {
-    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
-    await fireEvent.press(screen.getByRole("button", { name: "Play" }));
-    await waitFor(() => expect(speak).toHaveBeenCalled());
-    expect(last_speech().text).toBe("First passage here.");
-    expect(last_speech().options.rate).toBe(1);
-    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+  it.each(["none", "expired", "active"] as const)(
+    "reads aloud, advances, and pauses with %s membership",
+    async (status) => {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of(status) });
+      await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+      await fireEvent.press(screen.getByRole("button", { name: "Play" }));
+      await waitFor(() => expect(speak).toHaveBeenCalled());
+      expect(last_speech().text).toBe("First passage here.");
+      expect(last_speech().options.rate).toBe(1);
+      expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
 
-    await act(async () => last_speech().options.onDone?.());
-    expect(last_speech().text).toBe("Second passage there.");
-    expect(screen.getByText("1 passage left")).toBeTruthy();
+      await act(async () => last_speech().options.onDone?.());
+      expect(last_speech().text).toBe("Second passage there.");
+      expect(screen.getByText("1 passage left")).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Pause" }));
-    expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
-    expect(Speech.stop).toHaveBeenCalled();
-  });
+      await fireEvent.press(screen.getByRole("button", { name: "Pause" }));
+      expect(screen.getByRole("button", { name: "Play" })).toBeTruthy();
+      expect(Speech.stop).toHaveBeenCalled();
+    },
+  );
 
   describe("keeps the highlighted word with the voice", () => {
     const story = test_document("doc-story", "Story", {
@@ -429,21 +438,25 @@ describe("Reader", () => {
     expect(screen.getByText("Nicely done.")).toBeTruthy();
   });
 
-  it("saves the current passage with a note", async () => {
-    await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
-    await fireEvent.press(screen.getByRole("button", { name: "Save current passage" }));
-    expect(screen.getAllByText("First passage here.").length).toBeGreaterThan(1);
-    await fireEvent.changeText(screen.getByLabelText("Note about saved passage"), "Key opening idea.");
-    await fireEvent.press(screen.getByRole("radio", { name: "Key Point" }));
-    await fireEvent.press(screen.getByRole("button", { name: "Save passage" }));
-    expect(screen.getByRole("button", { name: "Edit saved passage" })).toBeTruthy();
+  it.each(["none", "expired", "active"] as const)(
+    "saves, edits, and removes a passage note with %s membership",
+    async (status) => {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of(status) });
+      await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });
+      await fireEvent.press(screen.getByRole("button", { name: "Save current passage" }));
+      expect(screen.getAllByText("First passage here.").length).toBeGreaterThan(1);
+      await fireEvent.changeText(screen.getByLabelText("Note about saved passage"), "Key opening idea.");
+      await fireEvent.press(screen.getByRole("radio", { name: "Key Point" }));
+      await fireEvent.press(screen.getByRole("button", { name: "Save passage" }));
+      expect(screen.getByRole("button", { name: "Edit saved passage" })).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole("button", { name: "Edit saved passage" }));
-    expect(screen.getByDisplayValue("Key opening idea.")).toBeTruthy();
-    expect(screen.getByRole("radio", { name: "Key Point", checked: true })).toBeTruthy();
-    await fireEvent.press(screen.getByRole("button", { name: "Remove saved passage" }));
-    expect(screen.getByRole("button", { name: "Save current passage" })).toBeTruthy();
-  });
+      await fireEvent.press(screen.getByRole("button", { name: "Edit saved passage" }));
+      expect(screen.getByDisplayValue("Key opening idea.")).toBeTruthy();
+      expect(screen.getByRole("radio", { name: "Key Point", checked: true })).toBeTruthy();
+      await fireEvent.press(screen.getByRole("button", { name: "Remove saved passage" }));
+      expect(screen.getByRole("button", { name: "Save current passage" })).toBeTruthy();
+    },
+  );
 
   it("opens the listening controls from the speed button", async () => {
     await render_with_providers(<OpenedReader />, { documents: [book], reduceMotion: true });

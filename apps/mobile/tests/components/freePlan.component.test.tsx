@@ -168,3 +168,61 @@ it("offers only Votic Plus at the Free scan limit, with no credits for sale", as
   expect(screen.getByRole("button", { name: "Subscribe to Votic Plus" })).toBeTruthy();
   expect(screen.queryByText(/Buy credits/i)).toBeNull();
 });
+
+it("keeps a library larger than five usable after Plus ends and allows a new file once there is room", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("active") });
+  let library!: ReturnType<typeof useDocumentLibrary>;
+  function Probe() {
+    library = useDocumentLibrary();
+    return <Text>{library.loaded ? "Ready" : "Loading"}</Text>;
+  }
+  await render_with_providers(<Probe />, {
+    documents: Array.from({ length: 6 }, (_, n) => test_document(String(n), `Document ${n}`)),
+  });
+  await waitFor(() => expect(screen.getByText("Ready")).toBeTruthy());
+  await act(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired")));
+  expect(library.documents.filter((doc) => !doc.deletedAt)).toHaveLength(6);
+  await act(() => {
+    library.openDocument("5");
+    library.renameDocument("5", "Still available on Free");
+    library.updateProgress("5", 0.5, 1);
+    expect(() => library.addTextDocument("New.txt", "New text")).toThrow(/five saved documents/i);
+  });
+  expect(library.activeDocument?.title).toBe("Still available on Free");
+  expect(library.activeDocument?.progress).toBe(0.5);
+  await act(() => {
+    library.removeDocument("0");
+    library.removeDocument("1");
+  });
+  await act(() => library.addTextDocument("New.txt", "New text"));
+  expect(library.documents.filter((doc) => !doc.deletedAt)).toHaveLength(5);
+});
+
+it("counts quick notes and document bookmarks together and makes room when one is removed", async () => {
+  fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+  let library!: ReturnType<typeof useDocumentLibrary>;
+  function Probe() {
+    library = useDocumentLibrary();
+    return <Text>{library.loaded ? "Ready" : "Loading"}</Text>;
+  }
+  await render_with_providers(<Probe />, { documents: [test_document("book", "Book")] });
+  await waitFor(() => expect(screen.getByText("Ready")).toBeTruthy());
+  const note = (id: string) => ({
+    id,
+    text: "A passage",
+    note: "A note",
+    sentenceIndex: 0,
+    createdAt: 1,
+    updatedAt: 1,
+  });
+  await act(() => {
+    for (let i = 0; i < 24; i++) expect(library.addQuickNote(note(`quick-${i}`))).toBe(true);
+    expect(library.savePassage("book", note("bookmark"))).toBe(true);
+  });
+  await act(() => expect(library.addQuickNote(note("too-many"))).toBe(false));
+  await act(() => library.removePassage("book", "bookmark"));
+  await act(() => expect(library.addQuickNote(note("replacement"))).toBe(true));
+  expect(
+    library.documents.flatMap((doc) => doc.savedPassages ?? []).filter((saved) => !saved.deletedAt),
+  ).toHaveLength(25);
+});
