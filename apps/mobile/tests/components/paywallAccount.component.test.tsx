@@ -308,6 +308,8 @@ it("shows benefits before billing and keeps renewal terms visible", async () => 
   await fireEvent.press(screen.getByRole("button", { name: "Questions about plans" }));
   expect(screen.getByText("How do I cancel?")).toBeTruthy();
   expect(screen.getByText(/unused usage doesn't carry over/)).toBeTruthy();
+  // Names the Settings row as it is actually labelled.
+  expect(screen.getByText(/Settings, AI Credits & Usage\./)).toBeTruthy();
 });
 
 it("links subscription terms and privacy policy when configured, beside restore and cancel", async () => {

@@ -407,9 +407,12 @@ function HelpSettings() {
                     },
                   );
                 open_from(guideRef, transition, { mode: "listen" });
-              } catch {
+              } catch (error) {
+                // The library's own reason (a full Free library, a plan check still running) says what to do next.
                 setGuideError(
-                  "The guide couldn't be opened. If your library is full, remove a document or upgrade to Plus, then try again.",
+                  error instanceof Error && error.message
+                    ? error.message
+                    : "The guide couldn't be opened. Please try again.",
                 );
               }
             }}

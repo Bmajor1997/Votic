@@ -149,7 +149,7 @@ export function PaywallQuestions({ store }: { store: "App Store" | "Google Play"
             pages. Votic Plus includes a larger monthly allowance for AI answers, summaries, voice questions,
             and reading scanned pages. Allowances renew monthly and unused usage doesn&apos;t carry over.
             Reading, listening, and notes don&apos;t use it. See what&apos;s left anytime in Settings, AI
-            Usage.
+            Credits &amp; Usage.
           </Text>
           <Text style={[p.benefitTitle, { color: theme.text }]}>Which voices can I use?</Text>
           <Text style={[p.detail, { color: theme.mutedText }]}>

@@ -7,6 +7,7 @@ import { VOTIC_GUIDE_SOURCE_NAME, VOTIC_GUIDE_TEXT } from "../../src/onboarding/
 import { SettingsDetailScreen } from "../../src/settings/SettingsDetails";
 import { render_with_providers, test_document } from "../renderWithProviders";
 import { fakeSubscriptions, entitlement_of } from "../mocks/subscriptionService";
+import * as subscriptions from "../../src/subscription/SubscriptionProvider";
 
 jest.mock("expo-speech", () => ({
   speak: jest.fn(),
@@ -42,9 +43,32 @@ describe("Votic guide in Help", () => {
       { documents },
     );
     await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
-    expect(screen.getByText(/The guide couldn't be opened/)).toBeTruthy();
+    expect(screen.getByText(/Votic Free includes five saved documents/)).toBeTruthy();
     expect(screen.getByTestId("guide-probe").props.children).not.toContain(VOTIC_GUIDE_SOURCE_NAME);
     expect(screen.getByRole("header", { name: "Upgrade to Votic Plus to upload more files" })).toBeTruthy();
+  });
+  it("says the plan is still being checked rather than that the library is full", async () => {
+    fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+    const useSubscription = subscriptions.useSubscription;
+    const subscription = jest.spyOn(subscriptions, "useSubscription").mockImplementation(() => ({
+      ...useSubscription(),
+      access: false,
+      checking: true,
+    }));
+    try {
+      await render_with_providers(
+        <>
+          <SettingsDetailScreen category="help" />
+          <GuideProbe />
+        </>,
+      );
+      await fireEvent.press(screen.getByRole("button", { name: "Votic walkthrough" }));
+      expect(screen.getByText(/checking your plan/i)).toBeTruthy();
+      expect(screen.queryByText(/library is full/i)).toBeNull();
+      expect(screen.getByTestId("guide-probe").props.children).not.toContain(VOTIC_GUIDE_SOURCE_NAME);
+    } finally {
+      subscription.mockRestore();
+    }
   });
   it("opens the updated walkthrough from Help and preserves the old guide and notes", async () => {
     const old = test_document("old-guide", "Votic guide", {

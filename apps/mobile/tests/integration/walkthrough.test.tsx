@@ -867,7 +867,8 @@ describe("Replay and accessibility", () => {
     await settle();
     await press("Show me around");
     expect(router.push).toHaveBeenCalledWith("/");
-    expect(await saved()).toEqual({});
+    // The welcome card's question was already answered, so Home coaching starts without asking again.
+    expect(await saved()).toEqual({ intro: { status: "completed", at: expect.any(Number) } });
     expect(fakeAuth.user?.uid).toBe("test-user");
   });
 

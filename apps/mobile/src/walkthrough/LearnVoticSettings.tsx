@@ -51,7 +51,7 @@ export function LearnVoticSettings() {
         accessibilityLabel="Show me around"
         accessibilityHint="Starts the current tour from Home. Your documents, notes, and membership are not changed."
         onPress={() => {
-          reset("all");
+          reset("tour");
           showTipsAgain();
           setMessage("");
           router.push("/");

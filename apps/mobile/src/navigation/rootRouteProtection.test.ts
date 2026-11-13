@@ -96,7 +96,8 @@ describe("filesystem route access using Expo Router", () => {
       const actual = eligible(...(state as [boolean, boolean, boolean]));
       for (const route of ["scan", "import-web", "pronunciations", "voices", "reader", "(tabs)"])
         expect(actual).not.toContain(route);
-      expect(actual).not.toContain("library-backup");
+      // Backup and restore are linked from Account, which every signed-in stage can open.
+      expect(actual.includes("library-backup")).toBe(state[0]);
     });
   it("places widgets and the ready recap before the Free app and paywall", () => {
     for (const subscribed of [false, true]) {
@@ -124,15 +125,8 @@ describe("filesystem route access using Expo Router", () => {
   it("keeps the final choice mandatory, while allowing Free users in after choosing", () => {
     const pending = eligible(true, true, false, true, true, false);
     expect(pending).toContain("paywall");
-    for (const route of [
-      "(tabs)",
-      "reader",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
-      "widget",
-      "handle-share",
-    ])
+    expect(pending).toContain("library-backup");
+    for (const route of ["(tabs)", "reader", "recently-deleted", "note-drafts", "widget", "handle-share"])
       expect(pending).not.toContain(route);
     const free = eligible(true, true, false, true, true, true);
     expect(free).toEqual(

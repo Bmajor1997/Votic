@@ -47,8 +47,11 @@ type WalkthroughContextValue = {
   /** Screens call this when a highlighted control is used for real. */
   pressed: (target: TargetId) => void;
   isDone: (id: FlowId) => boolean;
-  /** Replay: forgets one section, or every walkthrough and tip. */
-  reset: (id: SectionId | "all") => void;
+  /**
+   * Replay: forgets one section, or every walkthrough and tip. "tour" (Help, Show me around) forgets them all
+   * but counts the welcome card as answered, so the person isn't asked a second time.
+   */
+  reset: (id: SectionId | "all" | "tour") => void;
   registerTarget: (id: TargetId, measure: Measure | null) => void;
   /** The screen showing now registers how to scroll itself, so a control below the fold can be brought into view. */
   registerScroller: (scroll: Scroller | null) => void;
@@ -231,24 +234,27 @@ export function WalkthroughProvider({
     [advance, finish],
   );
   const reset = useCallback(
-    (id: SectionId | "all") => {
+    (id: SectionId | "all" | "tour") => {
       // Replaying one section is a deliberate request; "show all again" starts over, welcome card included.
-      if (id === "all") replaying.current.clear();
+      const everything = id === "all" || id === "tour";
+      if (everything) replaying.current.clear();
       else replaying.current.add(id);
-      if (activeRef.current && (id === "all" || activeRef.current.id === id)) {
+      if (activeRef.current && (everything || activeRef.current.id === id)) {
         activeRef.current = null;
         set_active(null);
       }
       set_state((previous) => {
         const flows = { ...previous.flows };
-        if (id === "all") for (const key of Object.keys(flows)) delete flows[key as FlowId];
+        if (everything) for (const key of Object.keys(flows)) delete flows[key as FlowId];
         else delete flows[id];
+        // Show me around already answered the welcome card's question.
+        if (id === "tour") flows.intro = { status: "completed", at: now() };
         const next = { ...previous, flows };
         stateRef.current = next;
         return next;
       });
     },
-    [set_active, set_state],
+    [now, set_active, set_state],
   );
   const scroller = useRef<Scroller | null>(null);
   const register_scroller = useCallback((scroll: Scroller | null) => {

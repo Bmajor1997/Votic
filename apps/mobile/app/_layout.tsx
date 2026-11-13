@@ -152,7 +152,6 @@ function ThemedStack() {
                       <Stack.Screen name="home-screen-widgets" options={slide} />
                       {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                       <Stack.Screen name="widget" options={{ animation: "none" }} />
-                      <Stack.Screen name="library-backup" options={slide} />
                       <Stack.Screen name="recently-deleted" options={slide} />
                       <Stack.Screen name="note-drafts" options={slide} />
                     </Stack.Protected>
@@ -160,6 +159,8 @@ function ThemedStack() {
                       <Stack.Screen name="support" options={slide} />
                       <Stack.Screen name="subscription" options={slide} />
                       <Stack.Screen name="account" options={slide} />
+                      {/* Backup and restore stay reachable from Account before setup and the plan choice. */}
+                      <Stack.Screen name="library-backup" options={slide} />
                       <Stack.Screen name="feedback/index" options={slide} />
                       <Stack.Screen name="feedback/feature" options={slide} />
                       <Stack.Screen name="feedback/bug" options={slide} />
