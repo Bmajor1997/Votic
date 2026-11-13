@@ -122,7 +122,9 @@ describe("Let's show you around", () => {
     await brand_new();
     expect(screen.getByText("Let's show you around")).toBeTruthy();
     expect(
-      screen.getByText("We'll show you around as you explore, so you can learn Votic as you use it."),
+      screen.getByText(
+        "Read and listen to documents, ask AI questions, and keep notes. We'll point out the real controls as you explore.",
+      ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Show me around" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "I'll explore on my own" })).toBeTruthy();
@@ -219,11 +221,11 @@ describe("Home walkthrough", () => {
       ),
     ).toBeTruthy();
     await press("Next");
-    expect(screen.getByText("Your documents")).toBeTruthy();
-    expect(measured).toContain("Documents tab");
-    await press("Next");
     expect(screen.getByText("Your notes")).toBeTruthy();
     expect(measured).toContain("Notes tab");
+    await press("Next");
+    expect(screen.getByText("Your documents")).toBeTruthy();
+    expect(measured).toContain("Documents tab");
     await press("Got it");
     expect(card()).toBeNull();
     // Only Home is finished; the other areas are taught when they're reached.
@@ -278,7 +280,7 @@ describe("Home walkthrough", () => {
       ],
     });
     const titles = [screen.getAllByRole("header").at(-1)!.props.children];
-    for (let step = 0; step < 4; step += 1) {
+    for (let step = 0; step < 5; step += 1) {
       if (titles.at(-1) === "From your notes")
         expect(
           screen.getByText(
@@ -293,6 +295,7 @@ describe("Home walkthrough", () => {
       "Your week",
       "Recent documents",
       "From your notes",
+      "Your notes",
       "Your documents",
     ]);
   });
@@ -332,9 +335,6 @@ describe("Documents walkthrough", () => {
     // It starts with the person's own document.
     expect(screen.getByText("Your library")).toBeTruthy();
     await press("Next");
-    expect(screen.getByText("Add documents")).toBeTruthy();
-    expect(screen.getByText(/paste a web link, or scan a printed page/)).toBeTruthy();
-    await press("Next");
     expect(screen.getByText("Organize with collections")).toBeTruthy();
     expect(measured).toContain("New collection");
     // Other steps only explain; the control can't be pressed by accident.
@@ -342,7 +342,12 @@ describe("Documents walkthrough", () => {
       screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true }).props.pointerEvents,
     ).toBe("auto");
     await press("Next");
-    expect(screen.getByText("Find and filter")).toBeTruthy();
+    expect(screen.getByText("Find a document")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Sort and filter")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Add documents")).toBeTruthy();
+    expect(screen.getByText(/Review recognized scan text before saving/)).toBeTruthy();
     await press("Got it");
     expect((await saved()).documents?.status).toBe("completed");
   });
@@ -430,6 +435,8 @@ describe("Notes walkthrough", () => {
     expect(measured).toContain("Quick Note");
     await press("Next");
     expect(screen.getByText("Find a note")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Share or remove notes")).toBeTruthy();
     await press("Got it");
     expect(card()).toBeNull();
     expect(measured).not.toContain("Ask Votic about notes");
@@ -549,7 +556,7 @@ describe("Reader walkthrough", () => {
         // The compact panel, not a separate chat screen.
         expect(
           screen.getByText(
-            "Type or speak a question about what you're reading. Answers show where they came from, and your document stays in view.",
+            "Type or speak a question about this document, or choose a summary suggestion. AI features use your monthly credits.",
           ),
         ).toBeTruthy();
       await press("Next");
@@ -560,7 +567,7 @@ describe("Reader walkthrough", () => {
       "Your document",
       "Your progress",
       "Find",
-      "Voice and sleep timer",
+      "Choose a voice",
       "Listen",
       "Save a passage",
       "Ask Votic",
@@ -830,15 +837,24 @@ describe("A control below the fold", () => {
 });
 
 describe("Settings walkthrough", () => {
-  it("points at the preferences, then says where to replay walkthroughs", async () => {
+  it("covers account, preferences, library recovery, AI credits, and Help using real targets", async () => {
     await render_tab(<Settings />);
+    expect(in_card("Your account and plan")).toBeTruthy();
+    await press("Next");
     expect(in_card("Make Votic yours")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Backups and recovery")).toBeTruthy();
+    await press("Next");
+    expect(in_card("Your AI credits")).toBeTruthy();
+    expect(screen.getByText(/Questions, summaries, and scans use credits/)).toBeTruthy();
     await press("Next");
     expect(in_card("Replay any walkthrough")).toBeTruthy();
     // It highlights the Help row instead of floating over the screen.
     expect(screen.getByTestId("walkthrough-spotlight", { includeHiddenElements: true })).toBeTruthy();
     expect(
-      screen.getByText("To see any of these walkthroughs again, open Help, then Learn Votic."),
+      screen.getByText(
+        "Open Help for Show me around, a walkthrough of each screen, and a guide you can read or listen to.",
+      ),
     ).toBeTruthy();
     await press("Got it");
     expect((await saved()).settings?.status).toBe("completed");
@@ -846,6 +862,45 @@ describe("Settings walkthrough", () => {
 });
 
 describe("Replay and accessibility", () => {
+  it("starts Show me around from Help without adding a document or changing the account", async () => {
+    await render_with_providers(<LearnVoticSettings />);
+    await settle();
+    await press("Show me around");
+    expect(router.push).toHaveBeenCalledWith("/");
+    expect(await saved()).toEqual({});
+    expect(fakeAuth.user?.uid).toBe("test-user");
+  });
+
+  it("replays the Reader with a live document in Listen mode without autoplay", async () => {
+    await render_with_providers(<LearnVoticSettings />, {
+      documents: [
+        test_document("live", "Read this", { lastOpenedAt: 5 }),
+        test_document("deleted", "Deleted", { lastOpenedAt: 100, deletedAt: 1 }),
+        test_document("quick", "Quick Notes", { lastOpenedAt: 200, notebookKind: "quick-notes" }),
+      ],
+    });
+    await settle();
+    await press("Replay the Reader walkthrough");
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/reader",
+      params: { mode: "listen", autoplay: "0" },
+    });
+  });
+
+  it("does not try to replay the Reader using a deleted document or a Quick Notes notebook", async () => {
+    await render_with_providers(<LearnVoticSettings />, {
+      documents: [
+        test_document("deleted", "Deleted", { deletedAt: 1 }),
+        test_document("quick", "Quick Notes", { notebookKind: "quick-notes" }),
+      ],
+    });
+    await settle();
+    await press("Replay the Reader walkthrough");
+    expect(router.push).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Add a document, and the Reader walkthrough will start when it opens."),
+    ).toBeTruthy();
+  });
   it("lists Settings in Learn Votic and replays it there", async () => {
     await render_with_providers(<LearnVoticSettings />, { walkthrough: "fresh" });
     await settle();

@@ -341,6 +341,7 @@ export default function Notes() {
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Select notes"
+                  ref={selectTarget}
                   onPress={start_selecting}
                   style={[s.pillButton, { borderColor: theme.border, backgroundColor: theme.surface }]}
                 >

@@ -47,6 +47,7 @@ export type TargetId =
   | "reader.mode"
   | "reader.find"
   | "reader.voice"
+  | "reader.sleepTimer"
   | "reader.document"
   | "reader.progress"
   | "reader.ask"
@@ -58,6 +59,9 @@ export type TargetId =
   | "reader.askComposer"
   | "reader.answerSource"
   | "settings.preferences"
+  | "settings.account"
+  | "settings.library"
+  | "settings.aiUsage"
   | "settings.help";
 
 /** Facts about the screen when a flow starts, so steps can match what's actually on it. */
@@ -71,6 +75,8 @@ export type FlowContext = {
   hasRecent?: boolean;
   /** The Reader was opened to listen (audio controls) rather than to read. */
   listening?: boolean;
+  /** The native player in this build supports the sleep timer. */
+  canSleepTimer?: boolean;
   /** Notes shows Quick Note (once the library has something in it). */
   canQuickNote?: boolean;
 };
@@ -115,7 +121,8 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     steps: [
       {
         title: "Let's show you around",
-        message: "We'll show you around as you explore, so you can learn Votic as you use it.",
+        message:
+          "Read and listen to documents, ask AI questions, and keep notes. We'll point out the real controls as you explore.",
         primaryLabel: "Show me around",
         secondaryLabel: "I'll explore on my own",
       },
@@ -174,6 +181,12 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         message: "Pinned and recent notes show up here. Tap one to go back to that spot in its document.",
       },
       {
+        target: "tab.notes",
+        title: "Your notes",
+        message:
+          "Saved passages, document notes, and Quick Notes collect in Notes. Open a notebook to read, edit, or share them.",
+      },
+      {
         target: "tab.documents",
         interactive: true,
         completesOnPress: true,
@@ -182,11 +195,6 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
           c.hasDocuments
             ? "Add and organize everything you read in Documents."
             : "Add and organize what you read in Documents. Tap it to add your first document.",
-      },
-      {
-        target: "tab.notes",
-        title: "Your notes",
-        message: "Passages you save while reading, and the notes you add, collect in Notes.",
       },
     ],
   },
@@ -203,16 +211,6 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
           "Each document shows how far you've read. Tap one to pick up where you left off, or ••• to rename, move, or delete it.",
       },
       {
-        target: "documents.upload",
-        interactive: true,
-        completesOnPress: true,
-        title: (c) => (c.hasDocuments ? "Add documents" : "Add your first document"),
-        message: (c) =>
-          c.hasDocuments
-            ? "Tap Add anytime to bring in a file, paste a web link, or scan a printed page with your camera."
-            : "Tap Add to choose a file, paste a web link, or scan a printed page with your camera. Votic opens it in the Reader.",
-      },
-      {
         target: "documents.newCollection",
         when: (c) => Boolean(c.hasDocuments),
         title: "Organize with collections",
@@ -221,9 +219,23 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "documents.search",
         when: (c) => Boolean(c.hasDocuments),
-        title: "Find and filter",
+        title: "Find a document",
+        message: "Search your library by document title or filename.",
+      },
+      {
+        target: "documents.filters",
+        when: (c) => Boolean(c.hasDocuments),
+        title: "Sort and filter",
         message:
-          "Search finds any document by its title. The filter button sorts your library or shows one collection.",
+          "Choose a sort order or collection to narrow your library. Clear the filters to see everything again.",
+      },
+      {
+        target: "documents.upload",
+        interactive: true,
+        completesOnPress: true,
+        title: (c) => (c.hasDocuments ? "Add documents" : "Add your first document"),
+        message:
+          "Tap Add document to choose a file or cloud storage, import a webpage, or scan with the camera. Review recognized scan text before saving.",
       },
     ],
   },
@@ -244,7 +256,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         when: (c) => !c.hasNotes,
         title: "Notes start in the Reader",
         message:
-          "While reading, tap the bookmark at the top to save a passage and add a note if you like. It appears here, linked to your document.",
+          "Save a passage with the Reader's bookmark button. After you add a document, Quick Note can also capture a thought without a passage.",
       },
       {
         target: "notes.quickNote",
@@ -258,6 +270,13 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         title: "Find a note",
         message:
           "Search by text, title, or tag. The filter button narrows to pinned notes, note types, or dates.",
+      },
+      {
+        target: "notes.select",
+        when: (c) => Boolean(c.hasNotes),
+        title: "Share or remove notes",
+        message:
+          "Use Select to choose notes to share or delete. Deleted notes can be restored from Settings, Library tools, Recently Deleted for 30 days.",
       },
     ],
   },
@@ -274,8 +293,10 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "reader.document",
         title: "Your document",
-        message:
-          "Scroll to read at your own pace. Votic remembers where you stop, even if you close the app.",
+        message: (c) =>
+          c.listening
+            ? "Scroll through the document while listening. Votic remembers your place when you pause or close it."
+            : "Swipe between pages to read at your own pace. Votic remembers your place when you close the document.",
       },
       {
         target: "reader.progress",
@@ -290,16 +311,23 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
       {
         target: "reader.voice",
         when: (c) => Boolean(c.listening),
-        title: "Voice and sleep timer",
+        title: "Choose a voice",
         message:
-          "Tap the voice name to choose another voice. Sleep timer, at the top of the Reader, stops playback after the time you pick.",
+          "Tap Voice to preview and choose a voice available on your device. Offline listening depends on the voice data installed on your device.",
+      },
+      {
+        target: "reader.sleepTimer",
+        when: (c) => Boolean(c.listening && c.canSleepTimer),
+        title: "Stop listening with a timer",
+        message:
+          "Sleep timer pauses audio after 15, 30, or 60 minutes, or at the end of the passage. It never starts playback for you.",
       },
       {
         target: "reader.play",
         when: (c) => Boolean(c.listening),
         title: "Listen",
         message:
-          "Tap Play and Votic reads aloud from where you are. It highlights each sentence and makes the spoken word bigger, so you can follow along.",
+          "Tap Play to hear this document. Pause and resume from your place; highlighting follows your Reading & Listening settings.",
       },
       {
         target: "reader.bookmark",
@@ -311,7 +339,7 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
         target: "reader.ask",
         title: "Ask Votic",
         message:
-          "Type or speak a question about what you're reading. Answers show where they came from, and your document stays in view.",
+          "Type or speak a question about this document, or choose a summary suggestion. AI features use your monthly credits.",
       },
       {
         target: "reader.more",
@@ -343,15 +371,34 @@ export const FLOWS: Record<FlowId, WalkthroughFlow> = {
     host: "tabs",
     steps: [
       {
+        target: "settings.account",
+        title: "Your account and plan",
+        message:
+          "Account & Membership shows your account and plan, with subscription and account-management options.",
+      },
+      {
         target: "settings.preferences",
         title: "Make Votic yours",
         message:
           "Change how Votic looks, reads, and sounds here: text size, colors, voices, highlighting, and contrast.",
       },
       {
+        target: "settings.library",
+        title: "Backups and recovery",
+        message:
+          "Library tools has backup and restore, Recently Deleted, Note drafts, and unfinished scan reviews. Your library is stored on this device.",
+      },
+      {
+        target: "settings.aiUsage",
+        title: "Your AI credits",
+        message:
+          "AI Credits & Usage shows your remaining credits and reset date. Questions, summaries, and scans use credits; reading and device voices don't.",
+      },
+      {
         target: "settings.help",
         title: "Replay any walkthrough",
-        message: "To see any of these walkthroughs again, open Help, then Learn Votic.",
+        message:
+          "Open Help for Show me around, a walkthrough of each screen, and a guide you can read or listen to.",
       },
     ],
   },

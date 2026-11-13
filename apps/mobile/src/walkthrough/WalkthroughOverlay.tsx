@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   AccessibilityInfo,
-  Animated,
   BackHandler,
   Pressable,
   StyleSheet,
@@ -11,7 +10,6 @@ import {
   Platform,
   useWindowDimensions,
 } from "react-native";
-import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvider";
 import { controlSizes, radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { Rect, card_placement, dim_regions, scroll_needed, spotlight_rect } from "./placement";
@@ -44,7 +42,6 @@ function step_count<T>(steps: T[], index: number, canShow: (step: T) => boolean)
  */
 export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const { theme } = useVoticTheme();
-  const { reduceMotion } = useAccessibilityPreferences();
   const walkthrough = useWalkthrough();
   const { active, measureTarget, measureNode, next, skip, scrollBy } = walkthrough;
   const window = useWindowDimensions();
@@ -52,7 +49,6 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const titleRef = useRef<Text>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const [screenReader, setScreenReader] = useState(false);
-  const entrance = useState(() => new Animated.Value(1))[0];
   const flow = active && FLOWS[active.id].host === host ? active : null;
   const step = flow?.steps[flow.index];
   const stepKey = flow ? `${flow.id}:${flow.index}` : null;
@@ -99,8 +95,8 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     // Measure per step and when the screen size changes (rotation, split screen).
   }, [stepKey, window.width, window.height]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The card fades in when it's actually on screen. A step that first scrolls its control into view shows the
-  // card only after the scroll; starting the fade while the card wasn't drawn left it stuck nearly invisible.
+  // Announce each card once its control is on screen. Keep the card opaque so instructions
+  // remain readable even when navigation interrupts a native animation.
   const shownKey = shown_key(step, rect, stepKey);
   useEffect(() => {
     if (!shownKey || !step || !flow) return;
@@ -109,9 +105,6 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     // Moves screen reader focus to the card. The web has no native view handles (and no setAccessibilityFocus).
     const node = Platform.OS === "web" ? null : findNodeHandle(titleRef.current);
     if (node) AccessibilityInfo.setAccessibilityFocus(node);
-    if (reduceMotion) return entrance.setValue(1);
-    entrance.setValue(0);
-    Animated.timing(entrance, { toValue: 1, duration: 180, useNativeDriver: true }).start();
   }, [shownKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Android's back button closes the walkthrough rather than the screen beneath it.
@@ -192,7 +185,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
           ]}
         />
       ) : null}
-      <Animated.View
+      <View
         testID="walkthrough-card"
         style={[
           s.card,
@@ -200,8 +193,6 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
           {
             backgroundColor: theme.surface,
             borderColor: theme.border,
-            opacity: entrance,
-            transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
           },
         ]}
       >
@@ -280,7 +271,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
             </Pressable>
           </View>
         ) : null}
-      </Animated.View>
+      </View>
     </View>
   );
 }

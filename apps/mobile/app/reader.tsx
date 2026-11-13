@@ -1244,7 +1244,7 @@ function ReaderContent() {
       // "You're all set" waits until both Home and the Reader have been covered, whichever came first.
       { id: "allSet", when: opened && flows.reader?.status === "completed" && Boolean(flows.home) },
     ],
-    { listening },
+    { listening, canSleepTimer: Boolean(nativePlayer?.set_sleep_timer) },
   );
   const { request: requestWalkthrough } = walkthrough;
   useEffect(() => {
