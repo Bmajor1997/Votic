@@ -1,4 +1,3 @@
-import { editorial } from "../src/design/editorial";
 import type { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -11,9 +10,11 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../src/auth/AuthProvider";
+import { useAccountSetup } from "../src/onboarding/AccountSetupProvider";
 import { PaywallBenefits, PaywallIntro, PaywallQuestions } from "../src/subscription/PaywallContent";
 import { usePurchaseCelebration } from "../src/subscription/PurchaseCelebration";
 import { annual_value, default_plan, plus_plans } from "../src/subscription/paywallPresentation";
@@ -113,29 +114,61 @@ function TrialHeading({
   selected?: SubscriptionPlan | null;
 }) {
   const { theme } = useVoticTheme();
-  if (plans.length < 2 || !selected?.trial) return null;
+  if (!plans.length) return null;
   return (
-    <Text accessibilityRole="header" style={[p.benefitTitle, { color: theme.accentText }]}>
-      {offer_title(selected)}
+    <Text accessibilityRole="header" style={[s.offerHeading, { color: theme.text }]}>
+      {offer_title(selected ?? null)}
     </Text>
   );
 }
 
 /** Leaves the paywall without buying: Free users keep Votic Free, subscribers go back to the app. */
-function ContinueButton({ subscribed, disabled }: { subscribed: boolean; disabled: boolean }) {
+function ContinueButton({
+  subscribed,
+  disabled,
+  onPress,
+}: {
+  subscribed: boolean;
+  disabled: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useVoticTheme();
+  const label = subscribed ? "Continue to Votic" : "Continue with Votic Free";
   return (
-    <SecondaryButton
-      label={subscribed ? "Continue to Votic" : "Continue with Votic Free"}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={leave}
-    />
+      onPress={onPress}
+      style={({ pressed }) => [s.free, { opacity: disabled ? 0.5 : pressed ? 0.6 : 1 }]}
+    >
+      <Text style={[s.freeText, { color: theme.accentText }]}>{label}</Text>
+    </Pressable>
   );
 }
 
 export default function Paywall({ now = () => new Date() }: { now?: () => Date }) {
   const { theme } = useVoticTheme();
+  const { height } = useWindowDimensions();
   const auth = useAuth();
-  const inlineCheckout = true;
+  const setup = useAccountSetup();
+  const choosingPlan = setup.handedOff && !setup.planChosen;
+  const choiceRequested = useRef(false);
+  const pendingPurchase = useRef(false);
+  // Wait for the route guard to expose Home before navigating there.
+  useEffect(() => {
+    if (choiceRequested.current && setup.planChosen) {
+      choiceRequested.current = false;
+      router.replace("/(tabs)");
+    }
+  }, [setup.planChosen]);
+  function enterApp() {
+    if (choosingPlan) {
+      choiceRequested.current = true;
+      setup.completePlanChoice();
+    } else router.replace("/(tabs)");
+  }
   const celebration = usePurchaseCelebration();
   const subscription = useSubscription();
   const { service, entitlement } = subscription;
@@ -189,9 +222,18 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const shown = plus_plans(plans || []);
   const selected = shown.find((plan) => plan.id === selectedId) ?? default_plan(shown);
   const working = purchasing || restoring || buyingFounder;
+  // A pending payment may be approved after the purchase sheet has closed.
+  useEffect(() => {
+    if (choosingPlan && pendingPurchase.current && has_access(entitlement.status)) {
+      pendingPurchase.current = false;
+      choiceRequested.current = true;
+      setup.completePlanChoice();
+    }
+  }, [choosingPlan, entitlement.status, setup]);
 
   async function purchase() {
     if (!selected || busy.current) return;
+    pendingPurchase.current = false;
     busy.current = true;
     setPurchasing(true);
     setMessage(null);
@@ -204,17 +246,18 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             detail: "Welcome to Votic Plus. Your library is ready.",
           });
           subscription.setEntitlement(outcome.entitlement);
-          router.replace("/(tabs)");
+          enterApp();
         } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
           });
-      } else if (outcome.kind === "pending")
+      } else if (outcome.kind === "pending") {
+        pendingPurchase.current = true;
         setMessage({
           icon: "time-outline",
           text: "Your purchase is waiting for approval, for example from a parent or your bank. Votic opens as soon as it's approved.",
         });
-      else if (outcome.kind === "failed") setMessage({ text: outcome.message });
+      } else if (outcome.kind === "failed") setMessage({ text: outcome.message });
       // Closing the store's purchase sheet needs no message; the offer stays as it was.
     } catch {
       setMessage({
@@ -227,6 +270,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   }
   async function buy_founder() {
     if (!founder || !service.purchaseFounder || busy.current) return;
+    pendingPurchase.current = false;
     busy.current = true;
     setBuyingFounder(true);
     setMessage(null);
@@ -241,17 +285,18 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           subscription.setEntitlement(outcome.entitlement);
           // Lets Votic's server confirm the purchase with the store and count the founder spot.
           void subscription.refresh().catch(() => {});
-          router.replace("/(tabs)");
+          enterApp();
         } else
           setMessage({
             text: "Your purchase went through, but Votic couldn't confirm it yet. Tap Restore Purchases in a moment.",
           });
-      } else if (outcome.kind === "pending")
+      } else if (outcome.kind === "pending") {
+        pendingPurchase.current = true;
         setMessage({
           icon: "time-outline",
           text: "Your purchase is waiting for approval, for example from a parent or your bank. Votic opens as soon as it's approved.",
         });
-      else if (outcome.kind === "failed") setMessage({ text: outcome.message });
+      } else if (outcome.kind === "failed") setMessage({ text: outcome.message });
     } catch {
       setMessage({
         text: "Votic couldn't confirm your purchase. Check your connection and use Restore Purchases before trying again.",
@@ -274,7 +319,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           detail: "Your Votic Plus subscription is restored.",
         });
         subscription.setEntitlement(restored);
-        router.replace("/(tabs)");
+        enterApp();
       } else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
       else
@@ -295,17 +340,10 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   const statusNotice = subscription_notice(subscription);
 
   const checkout = (
-    <SafeAreaView
-      edges={["bottom"]}
-      style={[
-        s.footer,
-        inlineCheckout && s.inlineFooter,
-        { borderTopColor: theme.border, backgroundColor: theme.surface },
-      ]}
-    >
+    <SafeAreaView edges={["bottom"]} style={s.footer}>
       {message ? <FormMessage icon={message.icon} text={message.text} /> : null}
       {unavailable ? (
-        subscription.canBypass ? (
+        subscription.canBypass && !choosingPlan ? (
           <SecondaryButton
             label="Continue without a subscription (testing build)"
             onPress={subscription.bypass}
@@ -326,11 +364,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         </>
       ) : (
         <>
-          {selected ? (
-            <Text accessibilityLiveRegion="polite" style={[s.summary, { color: theme.text }]}>
-              {billing_summary(selected, STORE)}
-            </Text>
-          ) : null}
           <PrimaryButton
             label={primary_action_label(selected)}
             busy={purchasing}
@@ -338,6 +371,11 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             accessibilityHint={selected ? billing_summary(selected, STORE) : undefined}
             onPress={() => void purchase()}
           />
+          {selected ? (
+            <Text accessibilityLiveRegion="polite" style={[s.summary, { color: theme.mutedText }]}>
+              {billing_summary(selected, STORE)}
+            </Text>
+          ) : null}
         </>
       )}
     </SafeAreaView>
@@ -347,7 +385,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     <SafeAreaView edges={["top", "left", "right"]} style={[s.fill, { backgroundColor: theme.background }]}>
       <ScrollView
         testID="paywall-content"
-        contentContainerStyle={s.content}
+        contentContainerStyle={[s.content, height < 700 && s.shortContent]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -362,9 +400,6 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             onBuy={() => void buy_founder()}
           />
         ) : null}
-        <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
-          Votic Plus
-        </Text>
         <TrialHeading plans={shown} selected={selected} />
         {unavailable ? (
           <FormMessage icon="information-circle-outline" text={UNAVAILABLE_MESSAGES[unavailable]} />
@@ -383,15 +418,14 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             disabled={working}
           />
         ) : null}
-        {shown.length === 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
-        <Text style={[p.detail, { color: theme.text }]}>
-          Choose Votic Free or upgrade to Votic Plus. The trial, when offered by your store, applies to Plus
-          only.
-        </Text>
-        {inlineCheckout ? checkout : null}
-        <ContinueButton subscribed={subscription.access} disabled={working} />
+        {checkout}
+        <ContinueButton
+          subscribed={subscription.access}
+          disabled={working}
+          onPress={choosingPlan ? enterApp : leave}
+        />
 
-        {shown.length > 1 && selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
+        {selected ? <OfferCard plan={selected} plans={shown} now={now()} /> : null}
 
         <PaywallQuestions store={STORE} />
         <CheckoutLinks working={working} restoring={restoring} restore={restore} onMessage={setMessage} />
@@ -449,7 +483,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
       {plan.trial ? (
         <View style={[s.timeline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
-            {plans.length > 1 ? "Your trial" : offer_title(plan)}
+            Your trial
           </Text>
           {trial_timeline(plan, { now, formatDate: format_long_date }).map((item, index) => (
             <View key={item.when} style={s.timelineRow}>
@@ -546,20 +580,25 @@ function FooterLink({
 }
 
 const s = StyleSheet.create({
-  plansTitle: { marginTop: spacing.sm },
+  offerHeading: { fontSize: 19, lineHeight: 25, fontWeight: "800", textAlign: "center" },
+  free: { minHeight: 48, paddingVertical: 4, justifyContent: "center", alignItems: "center" },
+  freeText: { fontSize: 16, lineHeight: 23, fontWeight: "800", textAlign: "center" },
   offer: { gap: 16 },
   timeline: { padding: 18, gap: 20, borderRadius: 20, borderWidth: 1 },
   timelineRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   stepNumber: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
   fill: { flex: 1 },
+  // Compact top-of-screen spacing keeps the purchase button visible without scrolling on a typical phone.
   content: {
-    padding: spacing.lg,
-    gap: spacing.lg,
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    gap: 12,
     paddingBottom: spacing.xl,
     width: "100%",
-    maxWidth: 680,
+    maxWidth: 560,
     alignSelf: "center",
   },
+  shortContent: { gap: 8 },
   benefitCopy: { flex: 1, gap: spacing.xs },
   plan: {
     borderWidth: 2,
@@ -567,13 +606,12 @@ const s = StyleSheet.create({
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  price: { ...editorial, fontSize: 30, lineHeight: 38 },
+  price: { fontWeight: "800", fontSize: 26, lineHeight: 34 },
   pricePeriod: { fontSize: 14, lineHeight: 22, letterSpacing: 0 },
   terms: { fontSize: 12, lineHeight: 18 },
   signOut: { minHeight: controlSizes.minimumTouch, justifyContent: "center", alignSelf: "center" },
   signOutText: { fontSize: 14, textAlign: "center" },
-  inlineFooter: { borderTopWidth: 0, width: "100%", maxWidth: 360, alignSelf: "center" },
-  footer: { padding: spacing.md, gap: spacing.sm, borderTopWidth: 1 },
+  footer: { width: "100%", gap: spacing.xs },
   loading: { minHeight: 54, alignItems: "center", justifyContent: "center" },
   summary: { fontSize: 13, lineHeight: 19, textAlign: "center" },
   links: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", columnGap: spacing.lg },

@@ -29,8 +29,11 @@ type AccountSetupValue = {
   loading: boolean;
   /** The five questions have been answered or skipped. */
   personalized: boolean;
-  /** "Votic is ready for you" has been seen; the paywall is next unless access is confirmed. */
+  /** "Votic is ready for you" has been seen; the final plan choice is next. */
   handedOff: boolean;
+  /** The final paywall was explicitly completed; this never grants a paid entitlement. */
+  planChosen: boolean;
+  completePlanChoice: () => void;
   /**
    * The Home Screen widgets screen has been seen (or doesn't apply: on the web, which has no widgets, and
    * for accounts that finished setup before it existed).
@@ -43,7 +46,7 @@ type AccountSetupValue = {
   finishPersonalization: (options: { skipped: boolean }) => void;
   /** Saves answers edited later from Settings and applies them. */
   savePersonalization: (answers: PersonalizationAnswers) => void;
-  /** After the ready recap: setup is complete; Home still requires confirmed subscription access. */
+  /** After the ready recap: the final paywall is next. */
   completeHandoff: () => void;
   /** After the Home Screen widgets screen: setup moves on to "Votic is ready for you". */
   completeWidgetsIntro: () => void;
@@ -95,6 +98,7 @@ export function AccountSetupProvider({
               personalizationCompletedAt: time,
               personalizationSkipped: true,
               completedAt: time,
+              planChoiceCompletedAt: time,
             }
           : new_onboarding_state();
         await save_account_setup(uid, state).catch(() => {});
@@ -169,6 +173,12 @@ export function AccountSetupProvider({
     loading: Boolean(uid && (!setup || preferences?.uid !== uid)),
     personalized: Boolean(setup?.personalizationCompletedAt),
     handedOff: Boolean(setup?.completedAt),
+    planChosen: Boolean(setup?.planChoiceCompletedAt),
+    completePlanChoice() {
+      update((state) =>
+        state.completedAt ? { ...state, planChoiceCompletedAt: state.planChoiceCompletedAt ?? now() } : state,
+      );
+    },
     widgetsIntroduced:
       Platform.OS === "web" || Boolean(setup?.widgetsIntroducedAt) || Boolean(setup?.completedAt),
     setAnswers: (answers) => update((state) => ({ ...state, answers })),

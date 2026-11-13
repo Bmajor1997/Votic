@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { editorial } from "../design/editorial";
 import { radii, spacing } from "../design/tokens";
 import { useVoticTheme } from "../theme/ThemeProvider";
 import { billing_period_label, plan_name } from "./offerText";
@@ -33,6 +32,7 @@ export function BillingSelector({
           plan={plan}
           plans={plans}
           active={plan.id === selectedId}
+          stacked={!sideBySide}
           disabled={disabled}
           onPress={() => onSelect(plan.id)}
         />
@@ -45,12 +45,14 @@ function BillingOption({
   plan,
   plans,
   active,
+  stacked,
   disabled,
   onPress,
 }: {
   plan: SubscriptionPlan;
   plans: SubscriptionPlan[];
   active: boolean;
+  stacked: boolean;
   disabled: boolean;
   onPress: () => void;
 }) {
@@ -58,8 +60,11 @@ function BillingOption({
   // "Save 33%" and "$6.67/month" only when both store prices are known in the same currency.
   const value = annual_value(plan, plans);
   const per = billing_period_label(plan.billingPeriod);
+  // The same name on screen and for screen readers.
+  const name =
+    plan.billingPeriod?.unit === "year" && plan.billingPeriod.count === 1 ? "Annual" : plan_name(plan);
   const label = [
-    plan_name(plan),
+    name,
     per ? `${plan.priceString} per ${per}` : plan.priceString,
     value ? `equivalent to ${value.equivalent} a month. ${value.comparison}` : null,
   ]
@@ -74,14 +79,20 @@ function BillingOption({
       onPress={onPress}
       style={[
         s.option,
+        stacked && s.stackedOption,
         {
           backgroundColor: active ? theme.sentenceHighlight : theme.surface,
           borderColor: active ? theme.accent : theme.border,
         },
       ]}
     >
+      {value ? (
+        <View style={[s.badge, { backgroundColor: theme.accent }]}>
+          <Text style={[s.badgeText, { color: theme.onAccent }]}>Save {value.savings}%</Text>
+        </View>
+      ) : null}
       <View style={s.top}>
-        <Text style={[p.benefitTitle, { color: theme.text }]}>Votic Plus {plan_name(plan)}</Text>
+        <Text style={[p.benefitTitle, s.name, { color: theme.text }]}>{name}</Text>
         <Ionicons
           name={active ? "radio-button-on" : "radio-button-off"}
           size={22}
@@ -90,27 +101,45 @@ function BillingOption({
       </View>
       <Text style={[s.price, { color: theme.text }]}>
         {plan.priceString}
-        <Text style={s.per}>{per ? `/${per}` : ""}</Text>
+        <Text style={[s.per, { color: theme.mutedText }]}>{per ? `/${per}` : ""}</Text>
       </Text>
       {value ? (
-        <>
-          <Text style={[p.detail, { color: theme.mutedText }]}>About {value.equivalent}/month</Text>
-          <View style={[s.badge, { backgroundColor: theme.brandTint }]}>
-            <Text style={[s.badgeText, { color: theme.accentText }]}>Save {value.savings}%</Text>
-          </View>
-        </>
+        <Text style={[s.equivalent, { color: theme.mutedText }]}>About {value.equivalent}/month</Text>
       ) : null}
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  row: { flexDirection: "row", gap: spacing.md },
-  stack: { flexDirection: "column" },
-  option: { flex: 1, borderWidth: 2, borderRadius: 22, padding: spacing.lg, gap: spacing.xs, minHeight: 48 },
+  // Room above the cards for the savings pill that sits on the annual card's top edge.
+  row: { flexDirection: "row", gap: spacing.sm, paddingTop: 10 },
+  stack: { flexDirection: "column", gap: 16 },
+  option: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 0,
+    borderWidth: 2,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
+    minHeight: 72,
+    minWidth: 0,
+  },
+  name: { flex: 1, fontWeight: "800" },
+  stackedOption: { flexGrow: 0, flexShrink: 0, flexBasis: "auto" },
   top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.sm },
-  price: { ...editorial, fontSize: 26, lineHeight: 34 },
-  per: { fontSize: 14, lineHeight: 22, letterSpacing: 0 },
-  badge: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.pill },
-  badgeText: { fontSize: 12, lineHeight: 18, fontWeight: "800" },
+  price: { fontWeight: "800", fontSize: 22, lineHeight: 28, flexShrink: 1 },
+  equivalent: { fontSize: 12, lineHeight: 17, flexShrink: 1 },
+  per: { fontSize: 14, lineHeight: 22, letterSpacing: 0, fontWeight: "400" },
+  badge: {
+    position: "absolute",
+    top: -11,
+    right: 10,
+    zIndex: 1,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  badgeText: { fontSize: 12, lineHeight: 17, fontWeight: "800" },
 });

@@ -56,6 +56,8 @@ export type OnboardingState = {
   widgetsIntroducedAt: number | null;
   /** Set when the person finishes the ready recap; subscription access is checked separately. */
   completedAt: number | null;
+  /** Explicitly continued with Free or confirmed Plus after the final onboarding paywall. */
+  planChoiceCompletedAt: number | null;
 };
 
 export const EMPTY_ANSWERS: PersonalizationAnswers = {
@@ -75,6 +77,7 @@ export function new_onboarding_state(): OnboardingState {
     personalizationSkipped: false,
     widgetsIntroducedAt: null,
     completedAt: null,
+    planChoiceCompletedAt: null,
   };
 }
 
@@ -239,6 +242,10 @@ export function parse_onboarding_state(raw: string | null): OnboardingState | nu
     personalizationSkipped: value.personalizationSkipped === true,
     widgetsIntroducedAt: time(value.widgetsIntroducedAt),
     completedAt: time(value.completedAt),
+    // Accounts that completed setup before the final plan-choice step retain their existing access.
+    planChoiceCompletedAt: Object.hasOwn(value, "planChoiceCompletedAt")
+      ? time(value.planChoiceCompletedAt)
+      : time(value.completedAt),
   };
 }
 

@@ -42,12 +42,12 @@ const APP = [
   "ai-usage",
   "home-screen-widgets",
   "widget",
-  "support",
-  "subscription",
-  "account",
   "library-backup",
   "recently-deleted",
   "note-drafts",
+  "support",
+  "subscription",
+  "account",
   "feedback/index",
   "feedback/feature",
   "feedback/bug",
@@ -87,9 +87,6 @@ describe("root navigation", () => {
       "support",
       "subscription",
       "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
       "feedback/index",
       "feedback/feature",
       "feedback/bug",
@@ -109,6 +106,28 @@ describe("root navigation", () => {
       await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
     ).toEqual(APP);
   });
+
+  it.each(["none", "active"] as const)(
+    "requires the final plan choice after the recap even with %s entitlement",
+    async (status) => {
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of(status) });
+      await seed_storage({ accountSetup: { completedAt: 1, planChoiceCompletedAt: null } });
+      expect(await render_layout()).toEqual([
+        "paywall",
+        "support",
+        "subscription",
+        "account",
+        "feedback/index",
+        "feedback/feature",
+        "feedback/bug",
+      ]);
+      expect(stackScreens.find((screen) => screen.name === "paywall")?.options?.gestureEnabled).toBe(false);
+      // Home, reader, import/share/widget entry points and saved content routes do not exist yet,
+      // so Back and deep links cannot bypass the choice.
+      expect(current_screens()).not.toContain("(tabs)");
+      expect(current_screens()).not.toContain("reader");
+    },
+  );
 
   it("keeps library screens accessible when Plus expires", async () => {
     await seed_storage({});
@@ -132,9 +151,6 @@ describe("root navigation", () => {
       "support",
       "subscription",
       "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
       "feedback/index",
       "feedback/feature",
       "feedback/bug",
@@ -149,9 +165,6 @@ describe("root navigation", () => {
       "support",
       "subscription",
       "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
       "feedback/index",
       "feedback/feature",
       "feedback/bug",
@@ -195,9 +208,6 @@ describe("root navigation", () => {
       "support",
       "subscription",
       "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
       "feedback/index",
       "feedback/feature",
       "feedback/bug",
@@ -222,9 +232,6 @@ describe("root navigation", () => {
       "support",
       "subscription",
       "account",
-      "library-backup",
-      "recently-deleted",
-      "note-drafts",
       "feedback/index",
       "feedback/feature",
       "feedback/bug",
