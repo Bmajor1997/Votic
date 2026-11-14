@@ -50,7 +50,7 @@ export default function LibraryBackupScreen() {
     setBusy(true);
     setError(null);
     try {
-      const backup = await account.runLibraryTask(create_library_backup);
+      const backup = await account.run_library_task(create_library_backup);
       await share_backup(JSON.stringify(backup));
     } catch (error) {
       Alert.alert("Could not save backup", error instanceof Error ? error.message : "Please try again.");
@@ -96,7 +96,7 @@ export default function LibraryBackupScreen() {
   async function restore(backup: LibraryBackup) {
     setBusy(true);
     try {
-      await account.runLibraryTask((uid) => restore_library_backup(uid, backup, { restorePreferences }));
+      await account.run_library_task((uid) => restore_library_backup(uid, backup, { restorePreferences }));
       Alert.alert(
         "Library restored",
         "Existing work was kept. Differing documents were restored as copies. Restart Votic to apply any restored account preferences.",

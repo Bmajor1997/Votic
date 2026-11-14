@@ -39,8 +39,8 @@ function Home() {
   const [document, setDocument] = useState(story);
   const access = useAccessibilityPreferences();
   useEffect(() => {
-    control = { focus: setFocused, document: setDocument, motion: access.setReduceMotion };
-  }, [access.setReduceMotion]);
+    control = { focus: setFocused, document: setDocument, motion: access.set_reduce_motion };
+  }, [access.set_reduce_motion]);
   return (
     <TestFocusContext.Provider value={focused}>
       <ContinuePreview document={document} />

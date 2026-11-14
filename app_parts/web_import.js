@@ -36,7 +36,7 @@ export function has_several_addresses(value) {
   const location = String(value).split(/[?#]/, 1)[0];
   return (location.match(/https?:\/\//gi) || []).length > 1;
 }
-async function resolve_public_url(value, lookupImpl) {
+async function resolve_public_url(value, lookup_impl) {
   let url;
   if (has_several_addresses(value))
     throw new WebImportError("That box has more than one webpage address. Keep just one link, then try again.");
@@ -52,13 +52,13 @@ async function resolve_public_url(value, lookupImpl) {
   let addresses;
   try {
     addresses = isIP(hostname) ? [{ address: hostname, family: isIP(hostname) }] :
-      await lookupImpl(hostname, { all: true, verbatim: true });
+      await lookup_impl(hostname, { all: true, verbatim: true });
   } catch (error) { throw network_failure(error); }
   if (!addresses.length || addresses.some((item) => private_ip(item.address))) throw new WebImportError("That webpage address is not public.");
   return { url, addresses };
 }
-export async function validate_public_url(value, lookupImpl = lookup) {
-  return (await resolve_public_url(value, lookupImpl)).url;
+export async function validate_public_url(value, lookup_impl = lookup) {
+  return (await resolve_public_url(value, lookup_impl)).url;
 }
 
 /** Keep the hostname for TLS verification/Host, but connect only to an address already validated. */
@@ -358,7 +358,7 @@ function too_little_text(html) {
     : "Votic could not find enough readable article text on that webpage.";
 }
 
-export async function import_public_webpage(value, { fetchImpl = fetch_public_page, lookupImpl = lookup, timeoutMs = 15_000, signal } = {}) {
+export async function import_public_webpage(value, { fetch_impl = fetch_public_page, lookup_impl = lookup, timeoutMs = 15_000, signal } = {}) {
   const started = Date.now();
   const remaining = () => Math.max(1, timeoutMs - (Date.now() - started));
   // A late OS lookup cannot start a download after the shared deadline.
@@ -372,7 +372,7 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
         signal?.addEventListener("abort", canceled, { once: true });
         if (signal?.aborted) canceled();
       });
-      return await Promise.race([lookupImpl(...args), deadline]);
+      return await Promise.race([lookup_impl(...args), deadline]);
     } finally { clearTimeout(timer); signal?.removeEventListener("abort", canceled); }
   };
   let target = await resolve_public_url(value, bounded_lookup);
@@ -390,7 +390,7 @@ export async function import_public_webpage(value, { fetchImpl = fetch_public_pa
     });
     const download = async () => {
       try {
-        response = await fetchImpl(target.url, {
+        response = await fetch_impl(target.url, {
           redirect: "manual", signal: controller.signal,
           headers: { "User-Agent": WEB_IMPORT_USER_AGENT, "Accept": "text/html,application/xhtml+xml", "Accept-Encoding": "identity" },
         }, target.addresses);

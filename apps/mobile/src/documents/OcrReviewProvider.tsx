@@ -34,14 +34,14 @@ type Options = {
   playbackRate: number;
   origin: DocumentOrigin;
   importId?: string;
-  onPrepared?: () => Promise<void>;
+  on_prepared?: () => Promise<void>;
 };
 type Value = {
   hasUnfinishedScan: boolean;
   review: (name: string, pages: string[], options: Options) => Promise<VoticDocument | null>;
   resume: () => void;
   /** Throws before any paid text recognition starts if a new review could not be opened afterwards. */
-  ensureAvailable: () => void;
+  ensure_available: () => void;
 };
 /** A saved, unfinished scan review must be finished or discarded before another image is read. */
 export class UnfinishedScanError extends Error {
@@ -54,7 +54,7 @@ export class UnfinishedScanError extends Error {
 }
 const Context = createContext<Value | null>(null);
 export function OcrReviewProvider({ children }: PropsWithChildren) {
-  const { uid, registerFlush } = useAccountData();
+  const { uid, register_flush } = useAccountData();
   const library = useDocumentLibrary();
   const { show } = useMotionFeedback();
   const { theme } = useVoticTheme();
@@ -73,7 +73,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
     availability.current = { ready, error };
   }, [ready, error]);
   // Stable, so screens can list it in effect dependencies without restarting an import.
-  const ensureAvailable = useCallback(() => {
+  const ensure_available = useCallback(() => {
     if (!availability.current.ready)
       throw new Error(availability.current.error || "Scan review is loading. Please try again.");
     if (latest.current) throw new UnfinishedScanError();
@@ -123,8 +123,8 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
     };
   }, [uid]);
   useEffect(
-    () => registerFlush(() => (ready ? persist() : Promise.resolve())),
-    [registerFlush, ready, persist],
+    () => register_flush(() => (ready ? persist() : Promise.resolve())),
+    [register_flush, ready, persist],
   );
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -160,7 +160,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
     try {
       await persist();
       if (!mounted.current || !account_writable(uid)) return;
-      const document = await library.addTextDocumentDurably(record.name, record.pages.join("\n\n"), {
+      const document = await library.add_text_document_durably(record.name, record.pages.join("\n\n"), {
         playbackRate: record.playbackRate,
         origin: record.origin,
         importId: record.id,
@@ -176,7 +176,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
       callback.current = null;
       if (waiting) waiting(document);
       else {
-        library.openDocument(document.id);
+        library.open_document(document.id);
         router.push("/reader");
       }
     } catch {
@@ -187,7 +187,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
       setBusy(false);
     }
   }
-  const requestClose = () => {
+  const request_close = () => {
     if (!busy)
       Alert.alert(
         "Keep this scan review?",
@@ -210,7 +210,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
     <Context.Provider
       value={{
         hasUnfinishedScan: ready && Boolean(record),
-        ensureAvailable,
+        ensure_available,
         review: async (name, pages, options) => {
           if (!ready) throw new Error(error || "Scan review is loading. Please try again.");
           if (latest.current) throw new UnfinishedScanError();
@@ -227,7 +227,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
           setError(null);
           try {
             await persist();
-            await options.onPrepared?.();
+            await options.on_prepared?.();
           } catch {
             throw new Error(
               "Your scan review could not be saved. Keep Votic open and resume it from Settings → Help → Unfinished scan.",
@@ -250,7 +250,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
       }}
     >
       {children}
-      <Modal visible={visible} animationType="none" onRequestClose={requestClose}>
+      <Modal visible={visible} animationType="none" onRequestClose={request_close}>
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.background }}>
           <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, gap: 16 }}>
@@ -324,7 +324,7 @@ export function OcrReviewProvider({ children }: PropsWithChildren) {
               <Pressable
                 accessibilityRole="button"
                 disabled={busy}
-                onPress={requestClose}
+                onPress={request_close}
                 style={{ minHeight: 48, justifyContent: "center" }}
               >
                 <Text style={{ color: theme.text }}>Close review</Text>

@@ -11,10 +11,10 @@ import { useVoticTheme } from "../../theme/ThemeProvider";
  */
 export function NotebookEmptyState({
   notebook,
-  onOpenDocument,
+  on_open_document,
 }: {
   notebook: Pick<VoticDocument, "title" | "notebookKind">;
-  onOpenDocument: () => void;
+  on_open_document: () => void;
 }) {
   const { theme } = useVoticTheme();
   const quickNotes = notebook.notebookKind === "quick-notes";
@@ -33,7 +33,7 @@ export function NotebookEmptyState({
         <SecondaryButton
           label="Open document"
           icon={<Ionicons name="book-outline" size={18} color={theme.text} accessible={false} />}
-          onPress={onOpenDocument}
+          on_press={on_open_document}
         />
       )}
     </View>

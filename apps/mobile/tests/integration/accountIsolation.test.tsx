@@ -33,7 +33,7 @@ it("migrates old device preferences into the restored session without copying th
   }
   await render_with_providers(<Probe />);
   expect(screen.getByTestId("migration").props.children).toBe("work:detailed:1.7:word");
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(screen.getByTestId("migration").props.children).toBe("null:adaptive:1:both");
 });
@@ -46,17 +46,17 @@ it("keeps what each account said Votic should help with, so a new account on the
   }
   const shown = () => screen.getByTestId("purpose").props.children;
   await render_with_providers(<Probe />);
-  await act(async () => purpose!.setPurpose("work"));
+  await act(async () => purpose!.set_purpose("work"));
   expect(shown()).toBe("work");
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(shown()).toBe("null");
   expect(ask_suggestions(null, purpose!.purpose)).toEqual(DEFAULT_ASK_SUGGESTIONS);
-  await act(async () => purpose!.setPurpose("learning"));
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => purpose!.set_purpose("learning"));
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
   expect(shown()).toBe("work");
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(shown()).toBe("learning");
 });
@@ -72,7 +72,7 @@ it("gives preferences saved before the purpose moved per account the device's pu
   await render_with_providers(<Probe />);
   expect(screen.getByTestId("purpose").props.children).toBe("personal");
   expect(await load_account_preferences("test-user")).toMatchObject({ purpose: "personal" });
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(screen.getByTestId("purpose").props.children).toBe("null");
   expect(await load_account_preferences("B")).toMatchObject({ purpose: null });
@@ -92,7 +92,7 @@ it("rejects old-account store events while and after the next account is identif
               finish_b = resolve;
             })
           : service.identify(uid),
-      onChange: (listener) => {
+      on_change: (listener) => {
         callback = listener;
         return () => {};
       },
@@ -104,7 +104,7 @@ it("rejects old-account store events while and after the next account is identif
   }
   const read = () => JSON.parse(screen.getByTestId("sub").props.children);
   await render_with_providers(<Probe />);
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => callback(subscriptions.entitlement_of("active"), "test-user"));
   expect(read()).toEqual({ access: false, checking: true });
   await act(async () => finish_b(subscriptions.entitlement_of("none")));
@@ -129,13 +129,13 @@ it("a refresh begun for the previous account cannot grant Premium to the next ac
     subscription = useSubscription();
     return <Text testID="access">{String(subscription.access)}</Text>;
   }
-  subscriptions.fakeSubscriptions.setEntitlement("B", subscriptions.entitlement_of("none"));
+  subscriptions.fakeSubscriptions.set_entitlement("B", subscriptions.entitlement_of("none"));
   await render_with_providers(<Probe />);
   let pending: Promise<Entitlement>;
   await act(async () => {
     pending = subscription!.refresh();
   });
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {
     finish(subscriptions.entitlement_of("active"));
     await pending!;
@@ -165,37 +165,37 @@ it("restores each account's answers and effective preferences, including subsequ
   const read = () => JSON.parse(screen.getByTestId("prefs").props.children);
   await render_with_providers(<Probe />);
   await act(async () => {
-    setup!.savePersonalization({
+    setup!.save_personalization({
       ...EMPTY_ANSWERS,
       explanationStyle: "simple",
       listening: ["highlight-sentence"],
     });
-    purpose!.setDefaultPlaybackRate(1.5);
+    purpose!.set_default_playback_rate(1.5);
   });
   await save_account_setup("B", { ...new_onboarding_state(), personalizationCompletedAt: 1, completedAt: 1 });
-  await act(async () => fakeAuth.setUser(null));
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user(null));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toMatchObject({ effective: "adaptive", highlight: "both", rate: 1 });
   await act(async () => {
-    setup!.savePersonalization({
+    setup!.save_personalization({
       ...EMPTY_ANSWERS,
       explanationStyle: "detailed",
       listening: ["highlight-words"],
     });
-    purpose!.setDefaultPlaybackRate(2);
+    purpose!.set_default_playback_rate(2);
   });
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ saved: "simple", effective: "simple", highlight: "sentence", rate: 1.5 });
   await act(async () => {
-    purpose!.setExplanationStyle("quick");
-    access!.setHighlightMode("off");
+    purpose!.set_explanation_style("quick");
+    access!.set_highlight_mode("off");
   });
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ saved: "detailed", effective: "detailed", highlight: "word", rate: 2 });
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ saved: "simple", effective: "quick", highlight: "off", rate: 1.5 });
 });
@@ -219,9 +219,9 @@ it("isolates documents, notes, collections and pending activity saves when accou
   const read = () => JSON.parse(screen.getByTestId("account-library").props.children);
   await render_with_providers(<Probe />);
   await act(async () => {
-    library!.addTextDocument("private.txt", "Account A text.");
-    library!.addCollection("Private collection");
-    library!.addQuickNote({
+    library!.add_text_document("private.txt", "Account A text.");
+    library!.add_collection("Private collection");
+    library!.add_quick_note({
       id: "private-note",
       sentenceIndex: 0,
       text: "",
@@ -229,28 +229,28 @@ it("isolates documents, notes, collections and pending activity saves when accou
       createdAt: 1,
       updatedAt: 1,
     });
-    activity!.recordAsk({ at: 1, category: "summary", newConversation: true });
+    activity!.record_ask({ at: 1, category: "summary", newConversation: true });
   });
   const oldLibrary = library!;
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
-  await act(async () => oldLibrary.addTextDocument("stale.txt", "Stale text."));
+  await act(async () => oldLibrary.add_text_document("stale.txt", "Stale text."));
   await act(async () => jest.advanceTimersByTime(2500));
   expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
-  expect(await create_document_store("B").loadDocuments()).toEqual([]);
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  expect(await create_document_store("B").load_documents()).toEqual([]);
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   await act(async () => {});
   expect(read()).toEqual({ titles: ["Quick Notes", "private"], collections: ["Private collection"], ask: 1 });
-  expect((await create_document_store("test-user").loadDocuments())[0].savedPassages?.[0].note).toBe(
+  expect((await create_document_store("test-user").load_documents())[0].savedPassages?.[0].note).toBe(
     "Account A note",
   );
-  await act(async () => fakeAuth.setUser(null));
+  await act(async () => fakeAuth.set_user(null));
   expect(read()).toEqual({ titles: [], collections: [], ask: 0 });
 });
 
 it("does not show the previous library while the new account's storage read is delayed", async () => {
-  await create_document_store("B").saveDocuments([test_document("b", "B book")]);
+  await create_document_store("B").save_documents([test_document("b", "B book")]);
   let release: (value: string | null) => void = () => {};
   const getItem = jest.mocked(AsyncStorage.getItem).getMockImplementation()!;
   jest.spyOn(AsyncStorage, "getItem").mockImplementation((key) =>
@@ -269,12 +269,12 @@ it("does not show the previous library while the new account's storage read is d
     );
   }
   await render_with_providers(<Probe />, { documents: [test_document("a", "A book")] });
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   expect(JSON.parse(screen.getByTestId("delayed-library").props.children)).toEqual({
     titles: [],
     loaded: false,
   });
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   await act(async () => release(null));
   expect(JSON.parse(screen.getByTestId("delayed-library").props.children)).toEqual({
     titles: ["A book"],
@@ -304,13 +304,13 @@ it("keeps testing bypasses with their account and ignores the unowned legacy dev
     ),
   ).toBe("yes");
   const staleBypass = subscription!.bypass;
-  await act(async () => fakeAuth.setUser({ uid: "B", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "B", email: null, displayName: null }));
   expect(read()).toEqual({ access: false, checking: false });
   await act(async () => staleBypass());
   expect(read().access).toBe(false);
-  await act(async () => fakeAuth.setUser({ uid: "test-user", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "test-user", email: null, displayName: null }));
   expect(read()).toEqual({ access: true, checking: false });
-  await act(async () => subscription!.resetBypass());
+  await act(async () => subscription!.reset_bypass());
   expect(read()).toEqual({ access: false, checking: false });
   expect(
     await AsyncStorage.getItem(

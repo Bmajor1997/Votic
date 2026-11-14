@@ -64,7 +64,7 @@ describe("home-screen widget updates", () => {
     const publish = jest.fn<(snapshot: string) => void>();
     await render_with_providers(<WidgetSync publish={publish} />, { documents: [report] });
     await act(async () => jest.advanceTimersByTime(WIDGET_PUBLISH_DELAY_MS));
-    await act(async () => fakeAuth.setUser(null));
+    await act(async () => fakeAuth.set_user(null));
     expect(sent(publish).at(-1)).toEqual({
       version: 1,
       signedIn: false,

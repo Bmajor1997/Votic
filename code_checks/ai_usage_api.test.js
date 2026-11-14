@@ -21,10 +21,10 @@ const period = { purchase_date: period_start.toISOString(), expires_date: new Da
 const customer = (entitlement = period) => ({ subscriber: { entitlements: entitlement ? { premium: { product_identifier: "votic_plus", ...entitlement } } : {}, subscriptions: { votic_plus: { store: "play_store" } } } });
 const base_env = { REVENUECAT_SECRET_API_KEY: "rc-secret", OPENAI_API_KEY: "test-key", VOTIC_MONTHLY_CREDITS: "10" };
 
-async function with_server({ env = {}, revenueCat = async () => ({ ok: true, json: async () => customer() }), ai = async () => provider(answer("Help")), uid = "plus-user", store, ...options } = {}, run) {
+async function with_server({ env = {}, revenue_cat = async () => ({ ok: true, json: async () => customer() }), ai = async () => provider(answer("Help")), uid = "plus-user", store, ...options } = {}, run) {
   const full_env = { ...base_env, ...env };
   const usage_store = store || create_usage_store(full_env);
-  const server = create_votic_server({ env: full_env, usageStore: usage_store, authorize: () => (uid ? { uid } : true), revenueCatFetchImpl: revenueCat, fetchImpl: ai, logger: { warn() {}, error() {} }, ...options });
+  const server = create_votic_server({ env: full_env, usageStore: usage_store, authorize: () => (uid ? { uid } : true), revenue_cat_fetch_impl: revenue_cat, fetch_impl: ai, logger: { warn() {}, error() {} }, ...options });
   server.listen(0, "127.0.0.1"); await once(server, "listening");
   const base = `http://127.0.0.1:${server.address().port}`;
   const post = (path, body) => fetch(base + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -35,7 +35,7 @@ const ai_usage = async (post) => { const response = await post("/api/ai-usage");
 
 test("AI Usage reports the verified period with a full allowance and never trusts identity or plan from the request", async () => {
   const requested = [];
-  await with_server({ revenueCat: async (url) => { requested.push(url); return { ok: true, json: async () => customer() }; } }, async ({ post }) => {
+  await with_server({ revenue_cat: async (url) => { requested.push(url); return { ok: true, json: async () => customer() }; } }, async ({ post }) => {
     const response = await post("/api/ai-usage", { uid: "someone-else", allowance: 999999, used: 0 });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
@@ -50,7 +50,7 @@ test("AI Usage reports the verified period with a full allowance and never trust
 
 test("unauthenticated and unverifiable requests never get a percentage", async () => {
   await with_server({ uid: null }, async ({ post }) => assert.equal((await post("/api/ai-usage")).status, 401));
-  await with_server({ revenueCat: async () => ({ ok: false, status: 500, json: async () => ({}) }) }, async ({ post }) => {
+  await with_server({ revenue_cat: async () => ({ ok: false, status: 500, json: async () => ({}) }) }, async ({ post }) => {
     const { status, body } = await ai_usage(post);
     assert.equal(status, 503);
     assert.equal(body.monthly, undefined);
@@ -64,7 +64,7 @@ test("unauthenticated and unverifiable requests never get a percentage", async (
 test("expired or absent subscriptions receive the Free allowance and pay the standard credit cost", async () => {
   for (const entitlement of [{ purchase_date: "2026-01-01T00:00:00Z", expires_date: "2026-02-01T00:00:00Z" }, null]) {
     let calls = 0;
-    await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
+    await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
       const initial = (await ai_usage(post)).body;
       assert.equal(initial.plan.name, "Votic Free");
       assert.equal(initial.monthly.allowance, 75);
@@ -77,7 +77,7 @@ test("expired or absent subscriptions receive the Free allowance and pay the sta
 
 test("only verified Plus users are offered extra credit products", async () => {
   const env = { VOTIC_CREDIT_PRODUCTS_JSON: '{"votic_ai_credits_100":100}' };
-  await with_server({ env, creditWallet: {}, revenueCat: async () => ({ ok: true, json: async () => customer(null) }) }, async ({ post }) => {
+  await with_server({ env, creditWallet: {}, revenue_cat: async () => ({ ok: true, json: async () => customer(null) }) }, async ({ post }) => {
     const free = (await ai_usage(post)).body;
     assert.equal(free.plan.name, "Votic Free");
     assert.deepEqual(free.purchaseProducts, []);
@@ -189,7 +189,7 @@ test("account deletion leaves no credit balance for the account", async () => {
       assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
     });
     assert.equal(store.credits.records("plus-user").length, 1);
-    store.beginAccountDeletion("plus-user");
+    store.begin_account_deletion("plus-user");
     assert.deepEqual(store.credits.records("plus-user"), []);
     await with_server({ store }, async ({ post }) => assert.equal((await post("/api/ai-usage")).status, 403));
   } finally { store.close(); }
@@ -198,7 +198,7 @@ test("account deletion leaves no credit balance for the account", async () => {
 test("annual subscribers see this month's allowance and its monthly reset, not the yearly renewal", async () => {
   const annual = { purchase_date: "2026-01-31T10:00:00Z", expires_date: "2027-01-31T10:00:00Z" };
   const now = Date.now();
-  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(annual) }), ai: async () => provider(document_answer) }, async ({ post }) => {
+  await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(annual) }), ai: async () => provider(document_answer) }, async ({ post }) => {
     assert.equal((await post("/api/help", { question: "One?", document })).status, 200);
     const { monthly } = (await ai_usage(post)).body;
     assert.deepEqual([monthly.allowance, monthly.used], [10, 1]);
@@ -215,7 +215,7 @@ test("an expired or refunded annual subscription moves to the Free allowance", a
   // the one-minute confirmed-subscriber cache can't carry the earlier answer over.
   for (const entitlement of [null, { purchase_date: "2025-01-31T10:00:00Z", expires_date: "2026-01-31T10:00:00Z" }]) {
     let calls = 0;
-    await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
+    await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(entitlement) }), ai: async () => { calls += 1; return provider(document_answer); } }, async ({ post }) => {
       const usage = (await ai_usage(post)).body;
       assert.equal(usage.plan.name, "Votic Free");
       assert.equal(usage.monthly.allowance, 75);
@@ -228,7 +228,7 @@ test("an expired or refunded annual subscription moves to the Free allowance", a
 
 test("Free dedicated summaries have a five-per-month limit", async () => {
   let calls = 0;
-  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async (_url, init) => {
+  await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(null) }), ai: async (_url, init) => {
     calls++;
     const body = JSON.parse(init.body);
     return provider(body.input?.some?.(m => Array.isArray(m.content) && m.content.some?.(c => c.type === "input_image")) ? answer("Page text") : document_answer);
@@ -243,8 +243,8 @@ test("Free dedicated summaries have a five-per-month limit", async () => {
 
 test("Free accounts cannot send a scanned PDF to paid OCR", async () => {
   let calls = 0;
-  const extractDocument = async () => { const error = new Error("scanned pdf"); error.code = "PDF_OCR_REQUIRED"; throw error; };
-  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), extractDocument, ai: async () => { calls++; return provider(answer("text")); } }, async ({ base }) => {
+  const extract_document = async () => { const error = new Error("scanned pdf"); error.code = "PDF_OCR_REQUIRED"; throw error; };
+  await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(null) }), extract_document, ai: async () => { calls++; return provider(answer("text")); } }, async ({ base }) => {
     const response = await fetch(base + "/api/extract", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "scan.pdf" }, body: Buffer.from("%PDF-1.4\nscan") });
     assert.equal(response.status, 403);
     assert.equal((await response.json()).code, "FREE_PDF_PLUS_REQUIRED");
@@ -255,7 +255,7 @@ test("Free accounts cannot send a scanned PDF to paid OCR", async () => {
 test("Free camera scanning blocks the fourth readable page before provider work", async () => {
   let calls = 0;
   const photo = Buffer.alloc(2000); photo.set([255, 216, 255]);
-  await with_server({ revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; return provider(answer("Page text")); } }, async ({ base, post }) => {
+  await with_server({ revenue_cat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; return provider(answer("Page text")); } }, async ({ base, post }) => {
     const scan = () => fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
     for (let i = 0; i < 3; i++) assert.equal((await scan()).status, 200);
     assert.deepEqual((await ai_usage(post)).body.freeScans, { limit: 3, remaining: 0 });
@@ -270,7 +270,7 @@ test("Free camera scanning blocks the fourth readable page before provider work"
 test("concurrent Free summaries cannot exceed five reservations", async () => {
   let release, calls = 0;
   const gate = new Promise(resolve => { release = resolve; });
-  await with_server({ env: { VOTIC_AI_USER_CONCURRENCY: "10" }, revenueCat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; await gate; return provider(document_answer); } }, async ({ post }) => {
+  await with_server({ env: { VOTIC_AI_USER_CONCURRENCY: "10" }, revenue_cat: async () => ({ ok: true, json: async () => customer(null) }), ai: async () => { calls++; await gate; return provider(document_answer); } }, async ({ post }) => {
     const requests = Array.from({ length: 7 }, (_, i) => post("/api/help", { question: `Summary ${i}`, document, feature: "summary" }));
     await new Promise(resolve => setTimeout(resolve, 100));
     release();

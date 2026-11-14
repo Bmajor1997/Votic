@@ -118,14 +118,14 @@ export function create_votic_handler(options = {}) {
  const usage_store = options.usageStore || create_usage_store(env);
  const credit_wallet = env.VOTIC_CREDIT_PRODUCTS_JSON ? (options.creditWallet || create_credit_wallet(env)) : null;
  const feedback_admins = new Set(String(env.VOTIC_FEEDBACK_ADMIN_UIDS || "").split(",").map(uid => uid.trim()).filter(Boolean));
- const hits = new Map(), fetch_impl = options.fetchImpl || fetch, logger = options.logger || console;
+ const hits = new Map(), fetch_impl = options.fetch_impl || fetch, logger = options.logger || console;
  // With FIREBASE_PROJECT_ID set, every /api/ request needs a signed-in Votic account.
  const authorize = options.authorize || (env.FIREBASE_PROJECT_ID ? create_firebase_authorizer(env.FIREBASE_PROJECT_ID) : () => true);
  // Without a verifier every request is anonymous, so features tied to an account must say they are unavailable,
  // not ask a person who is already signed in to sign in.
  const sign_in_verified = Boolean(options.authorize || env.FIREBASE_PROJECT_ID);
- const premium_required = beta.mode !== "off" || env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorizePremium);
- const authorize_premium = options.authorizePremium || create_premium_authorizer(env, { fetchImpl: options.revenueCatFetchImpl });
+ const premium_required = beta.mode !== "off" || env.NODE_ENV === "production" || Boolean(env.REVENUECAT_SECRET_API_KEY) || Boolean(options.authorize_premium);
+ const authorize_premium = options.authorize_premium || create_premium_authorizer(env, { fetch_impl: options.revenue_cat_fetch_impl });
  let active_extractions = 0, next_prune = 0, ai_day = "", ai_calls = 0;
  // Paid AI calls per client today. Only granted calls are recorded, so it never outgrows ai_daily_limit.
  const ai_client_calls = new Map();
@@ -168,7 +168,7 @@ export function create_votic_handler(options = {}) {
     if (typeof payload.url !== "string" || payload.url.length > 3000) throw new HttpError(400, "Enter a valid webpage address.");
     try {
       const page = await with_extraction_slot(request_started, response, ({ signal, remaining }) =>
-        import_public_webpage(payload.url, { fetchImpl: options.webFetchImpl, timeoutMs: Math.min(config.body_timeout_ms, remaining()), signal }));
+        import_public_webpage(payload.url, { fetch_impl: options.web_fetch_impl, timeoutMs: Math.min(config.body_timeout_ms, remaining()), signal }));
       send_json(response, 200, page);
     } catch (error) {
       if (error instanceof HttpError) throw error;
@@ -230,7 +230,7 @@ export function create_votic_handler(options = {}) {
         const profile = await authorize_premium.subscription(identity.uid);
         if (profile.allowed) {
           // A verified founder lifetime purchase takes one of the limited founder spots.
-          if (is_founder_product(founder, profile.productId)) usage_store.founder?.recordPurchase(identity.uid, founder.productId);
+          if (is_founder_product(founder, profile.productId)) usage_store.founder?.record_purchase(identity.uid, founder.productId);
           return credit_plan(identity.uid, profile);
         }
       } else if (await authorize_premium(identity.uid)) return { uid: identity.uid, period: null };
@@ -238,7 +238,7 @@ export function create_votic_handler(options = {}) {
     if (!beta_allowed) return { uid: identity.uid, free: true, tier: null,
       period: usage_store.credits.period(identity.uid, {}, FREE_MONTHLY_CREDITS, { free: true }) };
     // Beta testers stay eligible for the founder offer after beta access is switched off.
-    usage_store.founder?.rememberBetaTester(identity.uid);
+    usage_store.founder?.remember_beta_tester(identity.uid);
     return { uid: identity.uid, beta: true, tier: null,
       period: usage_store.credits.period(identity.uid, {}, config.monthly_credits) };
  };
@@ -351,11 +351,11 @@ export function create_votic_handler(options = {}) {
     const body = await read_json_body(request, 1000, config.body_timeout_ms);
     if (!body || typeof body !== "object" || Array.isArray(body) || Object.keys(body).some((key) => key !== "phase") || !["prepare", "complete"].includes(body.phase))
       throw new HttpError(400, "Choose a valid account deletion step.");
-    const result = await delete_account_data({ ...identity, phase: body.phase, env, store: usage_store, fetchImpl: options.accountDeletionFetchImpl || fetch_impl });
+    const result = await delete_account_data({ ...identity, phase: body.phase, env, store: usage_store, fetch_impl: options.account_deletion_fetch_impl || fetch_impl });
     send_json(response, 200, result);
     return;
    }
-   if (path.startsWith("/api/") && identity?.uid && usage_store.accountDeletion(identity.uid)) {
+   if (path.startsWith("/api/") && identity?.uid && usage_store.account_deletion(identity.uid)) {
     const error = new HttpError(403, "This account is being deleted. Finish account deletion or sign out.");
     error.code = "ACCOUNT_DELETED";
     throw error;
@@ -378,7 +378,7 @@ export function create_votic_handler(options = {}) {
         !["harmful", "offensive", "inaccurate", "other"].includes(report.reason) ||
         typeof report.answer !== "string" || !report.answer.trim() || report.answer.length > 8000 || report.consent !== true)
       throw new HttpError(400, "Choose a reason and consent to share this answer for review.");
-    const id = usage_store.recordReport({ user_id: identity.uid, reason: report.reason, answer: report.answer.trim() });
+    const id = usage_store.record_report({ user_id: identity.uid, reason: report.reason, answer: report.answer.trim() });
     send_json(response, 201, { id });
     return;
    }
@@ -390,7 +390,7 @@ export function create_votic_handler(options = {}) {
     if (!event || event.code !== "screen-render" || event.consent !== true || !Number.isSafeInteger(event.count) || event.count < 1 || event.count > 50 ||
         Object.keys(event).some((key) => !["code", "count", "consent"].includes(key)))
       throw new HttpError(400, "Invalid diagnostic event.");
-    usage_store.recordClientEvent(event.code, event.count);
+    usage_store.record_client_event(event.code, event.count);
     send_json(response, 200, { received: true });
     return;
    }
@@ -417,7 +417,7 @@ export function create_votic_handler(options = {}) {
       if (!body.length) throw new HttpError(400, "The uploaded document is empty.");
       if (!valid_signature(name, body)) throw new HttpError(415, "The document contents do not match its filename.");
       let result;
-      try { result = await (options.extractDocument || parse_document_isolated)(name, body, { signal, timeoutMs: Math.min(config.parser_timeout_ms, remaining()), workerUrl: options.parserWorkerUrl }); }
+      try { result = await (options.extract_document || parse_document_isolated)(name, body, { signal, timeoutMs: Math.min(config.parser_timeout_ms, remaining()), workerUrl: options.parserWorkerUrl }); }
       catch (error) {
         rethrow_parser_failure(error, signal, name, logger);
         if (!/\.pdf$/i.test(name) || !(error.code === "PDF_OCR_REQUIRED" || /no selectable text|scanned pdf/i.test(String(error?.message || "")))) throw error;

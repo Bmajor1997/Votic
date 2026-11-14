@@ -29,27 +29,27 @@ const SHEET_COPY = {
  */
 export function ReaderSettingsSheet({
   sheet,
-  onClose,
+  on_close,
   rate,
-  onRateChange,
+  on_rate_change,
   voices,
   voiceNames,
   voicesLoaded,
   previewVoiceIdentifier,
-  onPreviewVoice,
-  onSelectVoice,
+  on_preview_voice,
+  on_select_voice,
 }: {
   sheet: ReaderSheet;
-  onClose: () => void;
+  on_close: () => void;
   rate: number;
-  onRateChange: (rate: number) => void;
+  on_rate_change: (rate: number) => void;
   voices: DeviceVoice[];
   voiceNames: Record<string, string>;
   voicesLoaded: boolean;
   previewVoiceIdentifier: string | null;
   /** Starts or stops a preview of the voice at this position in `voices`. */
-  onPreviewVoice: (voice: DeviceVoice, name: string) => void;
-  onSelectVoice: (voice: DeviceVoice) => void;
+  on_preview_voice: (voice: DeviceVoice, name: string) => void;
+  on_select_voice: (voice: DeviceVoice) => void;
 }) {
   const { theme, appearanceMode, setReaderAppearanceMode } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
@@ -59,12 +59,12 @@ export function ReaderSettingsSheet({
       visible={sheet !== null}
       transparent
       animationType={accessibility.reduceMotion ? "none" : "slide"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close reader controls"
-        onPress={onClose}
+        onPress={on_close}
         style={sheetStyles.modalBackdrop}
       >
         <Pressable
@@ -83,7 +83,7 @@ export function ReaderSettingsSheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close reader controls"
-              onPress={onClose}
+              onPress={on_close}
               style={sheetStyles.iconButton}
             >
               <Ionicons name="close" size={24} color={theme.text} />
@@ -97,19 +97,19 @@ export function ReaderSettingsSheet({
                     label="A"
                     value="default"
                     current={accessibility.textSize}
-                    onChange={accessibility.setTextSize}
+                    on_change={accessibility.set_text_size}
                   />
                   <Choice
                     label="A+"
                     value="large"
                     current={accessibility.textSize}
-                    onChange={accessibility.setTextSize}
+                    on_change={accessibility.set_text_size}
                   />
                   <Choice
                     label="A++"
                     value="extra-large"
                     current={accessibility.textSize}
-                    onChange={accessibility.setTextSize}
+                    on_change={accessibility.set_text_size}
                   />
                 </Setting>
                 <Setting label="Font">
@@ -117,19 +117,19 @@ export function ReaderSettingsSheet({
                     label="Votic Sans"
                     value="system"
                     current={accessibility.readerFont}
-                    onChange={accessibility.setReaderFont}
+                    on_change={accessibility.set_reader_font}
                   />
                   <Choice
                     label="Serif"
                     value="serif"
                     current={accessibility.readerFont}
-                    onChange={accessibility.setReaderFont}
+                    on_change={accessibility.set_reader_font}
                   />
                   <Choice
                     label="Accessible"
                     value="accessible"
                     current={accessibility.readerFont}
-                    onChange={accessibility.setReaderFont}
+                    on_change={accessibility.set_reader_font}
                   />
                 </Setting>
                 <Setting label="Line spacing">
@@ -137,19 +137,19 @@ export function ReaderSettingsSheet({
                     label="Compact"
                     value="compact"
                     current={accessibility.readingSpacing}
-                    onChange={accessibility.setReadingSpacing}
+                    on_change={accessibility.set_reading_spacing}
                   />
                   <Choice
                     label="Comfortable"
                     value="default"
                     current={accessibility.readingSpacing}
-                    onChange={accessibility.setReadingSpacing}
+                    on_change={accessibility.set_reading_spacing}
                   />
                   <Choice
                     label="Open"
                     value="extra"
                     current={accessibility.readingSpacing}
-                    onChange={accessibility.setReadingSpacing}
+                    on_change={accessibility.set_reading_spacing}
                   />
                 </Setting>
                 <Setting label="Text spacing">
@@ -157,13 +157,13 @@ export function ReaderSettingsSheet({
                     label="Standard"
                     value="default"
                     current={accessibility.textSpacing}
-                    onChange={accessibility.setTextSpacing}
+                    on_change={accessibility.set_text_spacing}
                   />
                   <Choice
                     label="Wide"
                     value="wide"
                     current={accessibility.textSpacing}
-                    onChange={accessibility.setTextSpacing}
+                    on_change={accessibility.set_text_spacing}
                   />
                 </Setting>
               </>
@@ -175,19 +175,19 @@ export function ReaderSettingsSheet({
                     label="Light"
                     value="light"
                     current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                    on_change={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Dark"
                     value="dark"
                     current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                    on_change={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                   <Choice
                     label="Sepia"
                     value="sepia"
                     current={appearanceMode}
-                    onChange={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
+                    on_change={(value: ReaderAppearanceMode) => setReaderAppearanceMode(value)}
                   />
                 </Setting>
                 <View style={[s.toggleRow, { borderColor: theme.border }]}>
@@ -201,7 +201,7 @@ export function ReaderSettingsSheet({
                     accessibilityLabel="High contrast"
                     accessibilityHint="Makes the document text and borders stronger"
                     value={accessibility.highContrast}
-                    onValueChange={accessibility.setHighContrast}
+                    onValueChange={accessibility.set_high_contrast}
                     trackColor={{ true: theme.accent }}
                   />
                 </View>
@@ -214,25 +214,25 @@ export function ReaderSettingsSheet({
                     label="Off"
                     value="off"
                     current={accessibility.highlightMode}
-                    onChange={accessibility.setHighlightMode}
+                    on_change={accessibility.set_highlight_mode}
                   />
                   <Choice
                     label="Sentence"
                     value="sentence"
                     current={accessibility.highlightMode}
-                    onChange={accessibility.setHighlightMode}
+                    on_change={accessibility.set_highlight_mode}
                   />
                   <Choice
                     label="Word"
                     value="word"
                     current={accessibility.highlightMode}
-                    onChange={accessibility.setHighlightMode}
+                    on_change={accessibility.set_highlight_mode}
                   />
                   <Choice
                     label="Both"
                     value="both"
                     current={accessibility.highlightMode}
-                    onChange={accessibility.setHighlightMode}
+                    on_change={accessibility.set_highlight_mode}
                   />
                 </Setting>
                 <View style={[s.toggleRow, { borderColor: theme.border }]}>
@@ -245,7 +245,7 @@ export function ReaderSettingsSheet({
                   <Switch
                     accessibilityLabel="Sentence flow"
                     value={accessibility.sentenceFlow}
-                    onValueChange={accessibility.setSentenceFlow}
+                    onValueChange={accessibility.set_sentence_flow}
                     trackColor={{ true: theme.accent }}
                   />
                 </View>
@@ -259,7 +259,7 @@ export function ReaderSettingsSheet({
                   <Switch
                     accessibilityLabel="Emphasize current word"
                     value={accessibility.wordEmphasis}
-                    onValueChange={accessibility.setWordEmphasis}
+                    onValueChange={accessibility.set_word_emphasis}
                     trackColor={{ true: theme.accent }}
                   />
                 </View>
@@ -270,7 +270,7 @@ export function ReaderSettingsSheet({
                 {sheet === "listen" ? (
                   <>
                     <OfflineVoiceStatus voice={accessibility.voiceIdentifier} />
-                    <PlaybackSpeedControl rate={rate} onChange={onRateChange} />
+                    <PlaybackSpeedControl rate={rate} on_change={on_rate_change} />
                   </>
                 ) : null}
                 <Setting label="Voice">
@@ -280,8 +280,8 @@ export function ReaderSettingsSheet({
                     loaded={voicesLoaded}
                     selected={accessibility.voiceIdentifier}
                     previewing={previewVoiceIdentifier}
-                    onPreview={onPreviewVoice}
-                    onSelect={onSelectVoice}
+                    on_preview={on_preview_voice}
+                    on_select={on_select_voice}
                   />
                 </Setting>
               </>

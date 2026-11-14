@@ -85,14 +85,14 @@ it.each(["identify", "reset", "refresh"])("discards cached retention eligibility
   } as never);
   const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
-  expect(await service.getRetentionOffer?.()).toMatchObject({ id: "monthly:stay" });
+  expect(await service.get_retention_offer?.()).toMatchObject({ id: "monthly:stay" });
   if (change === "reset") await service.reset();
   if (change !== "refresh") await service.identify("b");
   else {
     sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [] } } as never);
-    expect(await service.getRetentionOffer?.()).toBeNull();
+    expect(await service.get_retention_offer?.()).toBeNull();
   }
-  expect(await service.claimRetentionOffer?.("monthly:stay", null)).toMatchObject({ kind: "failed" });
+  expect(await service.claim_retention_offer?.("monthly:stay", null)).toMatchObject({ kind: "failed" });
   expect(sdk.purchaseSubscriptionOption).not.toHaveBeenCalled();
 });
 
@@ -157,7 +157,7 @@ it("re-reads the identified customer instead of applying a queued native payload
   sdk.getCustomerInfo.mockImplementation(async () => info(owner === "a"));
   const service = create_revenue_cat_service("public-key", "pro");
   const changed = vi.fn();
-  service.onChange(changed);
+  service.on_change(changed);
   await service.identify("a");
   await service.identify("b");
   sdk.addCustomerInfoUpdateListener.mock.calls[0][0](info(true));
@@ -250,7 +250,7 @@ it("shows Android's eligible free and paid phases, excludes regular renewal from
   sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
   const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
-  const [plan] = await service.getPlans();
+  const [plan] = await service.get_plans();
   expect(plan.trial).toEqual({ count: 7, unit: "day" });
   expect(plan.introductoryPrices).toEqual([
     { priceString: "0,99 €", period: { count: 1, unit: "month" }, cycles: 3 },
@@ -269,7 +269,7 @@ it.each([2, 1, 0, "offline"])(
       sdk.checkTrialOrIntroductoryPriceEligibility.mockRejectedValue(new Error("offline"));
     else sdk.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({ pro_monthly: { status } } as never);
     const service = create_revenue_cat_service("public-key", "pro");
-    const [plan] = await service.getPlans();
+    const [plan] = await service.get_plans();
     expect(plan.trial).toEqual(status === 2 ? { count: 7, unit: "day" } : null);
     expect(plan.introductoryPrices).toBeUndefined();
     expect(plan.priceString).toBe("9,99 €");
@@ -288,7 +288,7 @@ it("hides a paid iOS introduction when eligibility cannot be confirmed", async (
   });
   sdk.checkTrialOrIntroductoryPriceEligibility.mockResolvedValue({ pro_monthly: { status: 0 } } as never);
   const service = create_revenue_cat_service("public-key", "pro");
-  expect((await service.getPlans())[0].introductoryPrices).toBeUndefined();
+  expect((await service.get_plans())[0].introductoryPrices).toBeUndefined();
 });
 
 it("discards offering eligibility results when the store account changes", async () => {
@@ -299,7 +299,7 @@ it("discards offering eligibility results when the store account changes", async
   sdk.logIn.mockResolvedValue({ customerInfo: info(false), created: false });
   const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
-  const plans = service.getPlans();
+  const plans = service.get_plans();
   await flush();
   await service.identify("b");
   eligibility.resolve({ pro_monthly: { status: 2 } });
@@ -314,12 +314,12 @@ it("reads upgrade prices without altering onboarding packages or trusting anothe
   sdk.getProducts.mockResolvedValue([
     { identifier: "plus", priceString: "€14,99", subscriptionPeriod: "P1M", introPrice: null } as never,
   ]);
-  expect(await service.getUpgradePlans?.(["plus"])).toMatchObject([
+  expect(await service.get_upgrade_plans?.(["plus"])).toMatchObject([
     { productId: "plus", priceString: "€14,99", trial: null },
   ]);
   expect(sdk.getProducts).toHaveBeenCalledWith(["plus"], "SUBS");
   sdk.getAppUserID.mockResolvedValue("other");
-  expect(await service.getUpgradePlans?.(["plus"])).toEqual([]);
+  expect(await service.get_upgrade_plans?.(["plus"])).toEqual([]);
 });
 
 it("offers only server-credited additional-usage products for the identified account, and buys the exact one", async () => {
@@ -329,24 +329,24 @@ it("offers only server-credited additional-usage products for the identified acc
   await service.identify("a");
   const product = { identifier: "votic_ai_100", title: "More AI usage", priceString: "$2.99" };
   sdk.getProducts.mockResolvedValue([product, { ...product, identifier: "unlisted" }] as never);
-  expect(await service.getCreditProducts?.(["votic_ai_100"])).toEqual([
+  expect(await service.get_credit_products?.(["votic_ai_100"])).toEqual([
     { productId: "votic_ai_100", title: "More AI usage", priceString: "$2.99" },
   ]);
   expect(sdk.getProducts).toHaveBeenCalledWith(["votic_ai_100"], "NON_SUBSCRIPTION");
   sdk.purchaseStoreProduct.mockResolvedValue({} as never);
-  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "purchased" });
+  expect(await service.purchase_credits?.("votic_ai_100")).toEqual({ kind: "purchased" });
   expect(sdk.purchaseStoreProduct).toHaveBeenCalledWith(product);
-  expect(await service.purchaseCredits?.("unlisted")).toMatchObject({ kind: "failed" });
+  expect(await service.purchase_credits?.("unlisted")).toMatchObject({ kind: "failed" });
   sdk.purchaseStoreProduct.mockRejectedValue({ userCancelled: true });
-  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
+  expect(await service.purchase_credits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
   sdk.purchaseStoreProduct.mockRejectedValue({ code: "20" });
-  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "pending" });
+  expect(await service.purchase_credits?.("votic_ai_100")).toEqual({ kind: "pending" });
   sdk.purchaseStoreProduct.mockRejectedValue({ code: "10" });
-  expect(await service.purchaseCredits?.("votic_ai_100")).toMatchObject({ kind: "failed" });
+  expect(await service.purchase_credits?.("votic_ai_100")).toMatchObject({ kind: "failed" });
   // Another account in the SDK never sees or buys this account's products.
   sdk.getAppUserID.mockResolvedValue("other");
-  expect(await service.getCreditProducts?.(["votic_ai_100"])).toEqual([]);
-  expect(await service.purchaseCredits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
+  expect(await service.get_credit_products?.(["votic_ai_100"])).toEqual([]);
+  expect(await service.purchase_credits?.("votic_ai_100")).toEqual({ kind: "cancelled" });
 });
 
 it("switches between monthly and annual through Google Play's replacement flow, never a second subscription", async () => {
@@ -367,26 +367,28 @@ it("switches between monthly and annual through Google Play's replacement flow, 
   sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
   const service = create_revenue_cat_service("key", "pro");
   await service.identify("a");
-  expect((await service.getPlans()).map((plan) => [plan.id, plan.priceString])).toEqual([
+  expect((await service.get_plans()).map((plan) => [plan.id, plan.priceString])).toEqual([
     ["$rc_monthly", "$9.99"],
     ["$rc_annual", "$59.99"],
   ]);
-  expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toMatchObject({ kind: "purchased" });
+  expect(await service.change_plan?.("$rc_annual", "votic_plus:monthly")).toMatchObject({
+    kind: "purchased",
+  });
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, {
     oldProductIdentifier: "votic_plus",
     replacementMode: "WITH_TIME_PRORATION",
   });
-  await service.changePlan?.("$rc_monthly", "votic_plus:annual");
+  await service.change_plan?.("$rc_monthly", "votic_plus:annual");
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(monthly, null, {
     oldProductIdentifier: "votic_plus",
     replacementMode: "DEFERRED",
   });
   sdk.purchasePackage.mockRejectedValue({ userCancelled: true });
-  expect(await service.changePlan?.("$rc_annual", "votic_plus:monthly")).toEqual({ kind: "cancelled" });
-  expect(await service.changePlan?.("missing", "votic_plus:monthly")).toMatchObject({ kind: "failed" });
+  expect(await service.change_plan?.("$rc_annual", "votic_plus:monthly")).toEqual({ kind: "cancelled" });
+  expect(await service.change_plan?.("missing", "votic_plus:monthly")).toMatchObject({ kind: "failed" });
   Object.assign(Platform, { OS: "ios" });
   sdk.purchasePackage.mockResolvedValue({ customerInfo: info(true) } as never);
-  await service.changePlan?.("$rc_annual", "votic_plus_monthly");
+  await service.change_plan?.("$rc_annual", "votic_plus_monthly");
   expect(sdk.purchasePackage).toHaveBeenLastCalledWith(annual, null, null);
 });
 
@@ -455,22 +457,24 @@ it("offers each subscriber the discount on their own plan, never another plan's"
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
   const service = create_revenue_cat_service("public-key", "pro");
   await service.identify("a");
-  expect(await service.getRetentionOffer?.("votic_plus:annual")).toMatchObject({
+  expect(await service.get_retention_offer?.("votic_plus:annual")).toMatchObject({
     id: "annual:stay",
     offerPrice: "$39.99",
     offerPeriod: { count: 1, unit: "year" },
     regularPrice: "$59.99",
   });
-  expect(await service.getRetentionOffer?.("votic_plus:monthly")).toMatchObject({ id: "monthly:stay" });
+  expect(await service.get_retention_offer?.("votic_plus:monthly")).toMatchObject({ id: "monthly:stay" });
   // An annual subscriber with no annual discount set up isn't shown the monthly one.
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly] } } as never);
-  expect(await service.getRetentionOffer?.("votic_plus:annual")).toBeNull();
+  expect(await service.get_retention_offer?.("votic_plus:annual")).toBeNull();
   // Access that isn't one of the listed plans (a RevenueCat promotional grant) gets the first discount, as before.
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly, annual] } } as never);
-  expect(await service.getRetentionOffer?.("rc_promo_premium_monthly")).toMatchObject({ id: "monthly:stay" });
+  expect(await service.get_retention_offer?.("rc_promo_premium_monthly")).toMatchObject({
+    id: "monthly:stay",
+  });
   sdk.getOfferings.mockResolvedValue({ current: { availablePackages: [monthly] } } as never);
   // Without a known plan, the first discount set up is offered, as before.
-  expect(await service.getRetentionOffer?.(null)).toMatchObject({ id: "monthly:stay" });
+  expect(await service.get_retention_offer?.(null)).toMatchObject({ id: "monthly:stay" });
 });
 
 it("reads a single-payment stay-and-save offer, like $39.99 for 12 months, as one discounted year", () => {

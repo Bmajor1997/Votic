@@ -24,16 +24,16 @@ export function SavePassageSheet({
   visible,
   passageText,
   savedPassage,
-  onClose,
-  onSave,
-  onRemove,
+  on_close,
+  on_save,
+  on_remove,
 }: {
   visible: boolean;
   passageText: string;
   savedPassage?: SavedPassage;
-  onClose: () => void;
-  onSave: (draft: PassageDraft) => void;
-  onRemove: () => void;
+  on_close: () => void;
+  on_save: (draft: PassageDraft) => void;
+  on_remove: () => void;
 }) {
   const { reduceMotion } = useAccessibilityPreferences();
   return (
@@ -41,16 +41,16 @@ export function SavePassageSheet({
       visible={visible}
       transparent
       animationType={reduceMotion ? "none" : "slide"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       {/* Mounted only while open, so each opening starts from the saved passage's current values. */}
       {visible ? (
         <SavePassageForm
           passageText={passageText}
           savedPassage={savedPassage}
-          onClose={onClose}
-          onSave={onSave}
-          onRemove={onRemove}
+          on_close={on_close}
+          on_save={on_save}
+          on_remove={on_remove}
         />
       ) : null}
     </Modal>
@@ -60,15 +60,15 @@ export function SavePassageSheet({
 function SavePassageForm({
   passageText,
   savedPassage,
-  onClose,
-  onSave,
-  onRemove,
+  on_close,
+  on_save,
+  on_remove,
 }: {
   passageText: string;
   savedPassage?: SavedPassage;
-  onClose: () => void;
-  onSave: (draft: PassageDraft) => void;
-  onRemove: () => void;
+  on_close: () => void;
+  on_save: (draft: PassageDraft) => void;
+  on_remove: () => void;
 }) {
   const { theme } = useVoticTheme();
   const [note, setNote] = useState(savedPassage?.note || "");
@@ -84,7 +84,7 @@ function SavePassageForm({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close saved passage editor"
-        onPress={onClose}
+        onPress={on_close}
         style={StyleSheet.absoluteFill}
       />
       <View accessibilityViewIsModal style={[sheetStyles.sheet, { backgroundColor: theme.surface }]}>
@@ -101,7 +101,7 @@ function SavePassageForm({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close saved passage editor"
-            onPress={onClose}
+            onPress={on_close}
             style={sheetStyles.iconButton}
           >
             <Ionicons name="close" size={24} color={theme.text} />
@@ -171,7 +171,7 @@ function SavePassageForm({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Remove saved passage"
-              onPress={onRemove}
+              onPress={on_remove}
               style={({ pressed }) => [
                 s.removeButton,
                 { borderColor: theme.border, opacity: pressed ? 0.65 : 1 },
@@ -183,7 +183,7 @@ function SavePassageForm({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={savedPassage ? "Update saved passage" : "Save passage"}
-            onPress={() => onSave({ note, title, noteType, tags })}
+            onPress={() => on_save({ note, title, noteType, tags })}
             style={({ pressed }) => [
               s.saveButton,
               { backgroundColor: theme.accent, opacity: pressed ? 0.78 : 1 },

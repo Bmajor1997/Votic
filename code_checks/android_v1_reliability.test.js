@@ -87,7 +87,7 @@ test("timed-out parsers release HTTP upload capacity", async () => {
 });
 test("mixed-PDF HTTP import OCRs the whole document instead of returning partial text", async () => {
   let calls = 0;
-  await with_server({ env: { OPENAI_API_KEY: "test-only" }, fetchImpl: async (_url, init) => {
+  await with_server({ env: { OPENAI_API_KEY: "test-only" }, fetch_impl: async (_url, init) => {
     calls++;
     assert.equal(JSON.parse(init.body).input[0].content[1].type, "input_file");
     return { ok: true, json: async () => ({ output_text: "Selectable first page.\nScanned second page." }) };
@@ -158,11 +158,11 @@ test("answer reports survive restart and expire after 30 days", () => {
   let time = new Date("2026-10-01T00:00:00Z"), store;
   try {
     store = create_usage_store({}, { path, now: () => time });
-    const id = store.recordReport({ user_id: "account-a", reason: "harmful", answer: "Opted-in answer" });
+    const id = store.record_report({ user_id: "account-a", reason: "harmful", answer: "Opted-in answer" });
     store.close();
     store = create_usage_store({}, { path, now: () => time });
     assert.equal(store.reports()[0].id, id);
-    store.resolveReport(id);
+    store.resolve_report(id);
     assert.equal(store.reports()[0].status, "reviewed");
     time = new Date(time.getTime() + 31 * 86400000);
     assert.equal(store.reports().length, 0);
@@ -175,7 +175,7 @@ test("answer reports require identity and explicit consent, persist privately, a
   const post = (base, body) => fetch(base + "/api/report-answer", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   try {
     await with_server({ usageStore: store }, async (base) => assert.equal((await post(base, report)).status, 401));
-    await with_server({ usageStore: store, authorize: () => ({ uid: "verified-account" }), authorizePremium: () => { throw new Error("Reporting must not check Premium"); } }, async (base) => {
+    await with_server({ usageStore: store, authorize: () => ({ uid: "verified-account" }), authorize_premium: () => { throw new Error("Reporting must not check Premium"); } }, async (base) => {
       assert.equal((await post(base, { ...report, consent: false })).status, 400);
       assert.equal((await post(base, { ...report, document: "private" })).status, 400);
       assert.equal((await post(base, { ...report, answer: "x".repeat(8001) })).status, 400);

@@ -30,7 +30,7 @@ describe("paywall wording follows the store's product configuration", () => {
     expect(billing_summary(monthly(14, "$6.99"))).toBe(
       "14 days free, then $6.99/month. Auto-renews. Cancel anytime.",
     );
-    expect(billing_terms(monthly(14, "$6.99"), { now, store: "App Store", formatDate: format_date })).toBe(
+    expect(billing_terms(monthly(14, "$6.99"), { now, store: "App Store", format_date: format_date })).toBe(
       "Your 14-day free trial starts when you subscribe. Estimated first charge: 2026-10-15, at $6.99/month. The store confirms the exact date and terms before purchase. " +
         "Your subscription renews automatically at $6.99 per month until you cancel. " +
         "Cancel anytime in your App Store subscription settings at least 24 hours before your trial ends to avoid being charged.",
@@ -39,9 +39,9 @@ describe("paywall wording follows the store's product configuration", () => {
   it("offers a plain subscription when no trial is configured", () => {
     expect(primary_action_label(monthly(null))).toBe("Subscribe for $4.99/month");
     expect(offer_title(monthly(null))).toBe("Get Votic Plus");
-    expect(trial_timeline(monthly(null), { now, formatDate: format_date })).toEqual([]);
+    expect(trial_timeline(monthly(null), { now, format_date: format_date })).toEqual([]);
     expect(billing_summary(monthly(null))).toBe("$4.99/month. Auto-renews. Cancel anytime.");
-    expect(billing_terms(monthly(null), { now, store: "Google Play", formatDate: format_date })).toMatch(
+    expect(billing_terms(monthly(null), { now, store: "Google Play", format_date: format_date })).toMatch(
       /^You'll be charged \$4\.99 when you subscribe\. .* Google Play .* before it renews/,
     );
   });
@@ -49,7 +49,7 @@ describe("paywall wording follows the store's product configuration", () => {
     const plan: SubscriptionPlan = { ...monthly(null, "$9.99"), trial: { count: 2, unit: "week" } };
     expect(offer_title(plan)).toBe("Try Votic Plus free for 2 weeks");
     expect(billing_summary(plan)).toBe("2 weeks free, then $9.99/month. Auto-renews. Cancel anytime.");
-    expect(trial_timeline(plan, { now, formatDate: format_date })).toEqual([
+    expect(trial_timeline(plan, { now, format_date: format_date })).toEqual([
       { when: "Today", what: "Your free trial starts. Get everything in Votic Plus." },
       {
         when: "Around 2026-10-15",
@@ -90,7 +90,7 @@ it("shows localized introductory charges, their payment counts, then the regular
   expect(billing_summary(plan, "Google Play")).toBe(
     "0,99 € per month for 3 payments, then 9,99 €/month. Auto-renews. Cancel anytime in Google Play.",
   );
-  expect(billing_terms(plan, { now, store: "Google Play", formatDate: format_date })).toMatch(
+  expect(billing_terms(plan, { now, store: "Google Play", format_date: format_date })).toMatch(
     /^You'll be charged 0,99 € when you subscribe/,
   );
   expect(billing_summary({ ...plan, trial: { count: 7, unit: "day" } })).toMatch(

@@ -11,16 +11,16 @@ export function VoiceList({
   names,
   selected,
   previewing,
-  onPreview,
-  onSelect,
+  on_preview,
+  on_select,
   loaded = true,
 }: {
   voices: DeviceVoice[];
   names: Record<string, string>;
   selected: string | null;
   previewing: string | null;
-  onPreview: (voice: DeviceVoice, name: string) => void;
-  onSelect: (voice: DeviceVoice) => void;
+  on_preview: (voice: DeviceVoice, name: string) => void;
+  on_select: (voice: DeviceVoice) => void;
   loaded?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -41,8 +41,8 @@ export function VoiceList({
             detail={voice_detail(voice)}
             selected={selected === voice.identifier}
             previewing={previewing === voice.identifier}
-            onPreview={() => onPreview(voice, name)}
-            onSelect={() => onSelect(voice)}
+            on_preview={() => on_preview(voice, name)}
+            on_select={() => on_select(voice)}
           />
         );
       })}

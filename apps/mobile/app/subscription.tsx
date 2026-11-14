@@ -6,7 +6,7 @@ import { UpgradeOptions } from "../src/subscription/UpgradeOptions";
 export default function SubscriptionScreen() {
   return (
     <Screen title="Subscription options">
-      <SecondaryButton label="Back" onPress={() => router.back()} />
+      <SecondaryButton label="Back" on_press={() => router.back()} />
       <UpgradeOptions />
     </Screen>
   );

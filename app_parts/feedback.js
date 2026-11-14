@@ -104,7 +104,7 @@ function similarity(a, b) {
 /** Uses the existing private ledger connection. All mutations and counts share its transaction boundary. */
 export function create_feedback_store(
   db,
-  { now = () => new Date(), accountDeleted = () => false } = {},
+  { now = () => new Date(), account_deleted = () => false } = {},
 ) {
   db.exec(`CREATE TABLE IF NOT EXISTS feedback_groups (
     id TEXT PRIMARY KEY, category TEXT NOT NULL CHECK(category IN ('feature','bug')),
@@ -299,7 +299,7 @@ export function create_feedback_store(
       if (typeof uid !== "string" || !uid)
         throw new FeedbackError(401, "Sign in to submit feedback.");
       return transaction(() => {
-        if (accountDeleted(uid))
+        if (account_deleted(uid))
           throw new FeedbackError(403, "This account is being deleted.");
         const prior = db
           .prepare(

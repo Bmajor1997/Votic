@@ -47,7 +47,7 @@ async function with_server(options, run) {
 const customer = productId => ({ subscriber: { entitlements: { premium: { product_identifier: productId, purchase_date: "2026-01-01T00:00:00Z", expires_date: null } }, subscriptions: { [productId]: { store: "play_store" } } } });
 test("subscription endpoint uses authenticated RevenueCat product, excludes budgets and spoofed identity", async () => {
   const requested = [];
-  await with_server({ revenueCatFetchImpl: async url => { requested.push(url); return { ok: true, json: async () => customer(base.productId) }; } }, async url => {
+  await with_server({ revenue_cat_fetch_impl: async url => { requested.push(url); return { ok: true, json: async () => customer(base.productId) }; } }, async url => {
     const response = await fetch(url + "/api/subscription-options", { method: "POST", body: JSON.stringify({ uid: "someone-else", productId: plus.productId }) });
     assert.equal(response.status, 200);
     assert.equal(response.headers.get("cache-control"), "no-store");
@@ -56,10 +56,10 @@ test("subscription endpoint uses authenticated RevenueCat product, excludes budg
   });
 });
 test("unknown products, absent catalog and authentication failures cannot advertise upgrades", async () => {
-  await with_server({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer("unknown") }) }, async url => {
+  await with_server({ revenue_cat_fetch_impl: async () => ({ ok: true, json: async () => customer("unknown") }) }, async url => {
     assert.deepEqual(await (await fetch(url + "/api/subscription-options", { method: "POST" })).json(), { current: null, upgrades: [] });
   });
-  await with_server({ env: {}, revenueCatFetchImpl: async () => { throw new Error("must not fetch"); } }, async url => {
+  await with_server({ env: {}, revenue_cat_fetch_impl: async () => { throw new Error("must not fetch"); } }, async url => {
     assert.equal((await fetch(url + "/api/subscription-options", { method: "POST" })).status, 200);
   });
   await with_server({ authorize: () => true }, async url => {
@@ -69,8 +69,8 @@ test("unknown products, absent catalog and authentication failures cannot advert
 test("real AI request uses verified tier, never the tier claimed in the request body", async () => {
   const calls = [];
   await with_server({ env: { ...env, OPENAI_API_KEY: "test-ai-key" },
-    revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(base.productId) }),
-    fetchImpl: async () => { calls.push("ai"); throw new Error("must not spend"); },
+    revenue_cat_fetch_impl: async () => ({ ok: true, json: async () => customer(base.productId) }),
+    fetch_impl: async () => { calls.push("ai"); throw new Error("must not spend"); },
   }, async url => {
     const response = await fetch(url + "/api/help", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "Upload?", tier: "Plus" }) });
     assert.equal(response.status, 429);
@@ -84,7 +84,7 @@ test("real AI request uses verified tier, never the tier claimed in the request 
 test("Google Play base plans under one SKU keep distinct verified identities", async () => {
   const payload = customer("votic");
   payload.subscriber.subscriptions.votic.product_plan_identifier = "basic-monthly";
-  const authorize = create_premium_authorizer(env, { fetchImpl: async () => ({ ok: true, json: async () => payload }) });
+  const authorize = create_premium_authorizer(env, { fetch_impl: async () => ({ ok: true, json: async () => payload }) });
   assert.deepEqual(await authorize.subscription("verified"), { allowed: true, productId: "votic:basic-monthly", store: "play_store", periodStart: "2026-01-01T00:00:00Z", periodEnd: null });
   assert.equal(verified_tier([base, plus], await authorize.subscription("verified")), null);
 });

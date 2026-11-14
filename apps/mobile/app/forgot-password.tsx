@@ -28,7 +28,7 @@ export default function ForgotPassword() {
     if (!looks_like_email(email) || busy) return;
     setBusy(true);
     try {
-      await auth.sendPasswordReset(email);
+      await auth.send_password_reset(email);
       setSentTo(email.trim());
     } catch (failure) {
       // An unknown email gets the same answer as a known one, so this screen never reveals who has an account.
@@ -69,9 +69,9 @@ export default function ForgotPassword() {
       <PrimaryButton
         label={sentTo ? "Send again" : "Send reset link"}
         busy={busy}
-        onPress={() => void send()}
+        on_press={() => void send()}
       />
-      <TextButton label="Back to sign in" onPress={() => router.back()} />
+      <TextButton label="Back to sign in" on_press={() => router.back()} />
     </AccountScaffold>
   );
 }

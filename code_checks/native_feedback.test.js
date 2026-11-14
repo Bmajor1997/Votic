@@ -248,7 +248,7 @@ test("daily caps persist across restart, deletion purges originals, titles and r
       (error) => error.status === 429,
     );
     store.feedback.create("b", body({ title: "OFFLINE PLAYBACK!" }));
-    store.beginAccountDeletion("a");
+    store.begin_account_deletion("a");
     const result = store.feedback.dashboard();
     assert.equal(result.totals.feature, 1);
     assert.equal(result.features[0].title, "OFFLINE PLAYBACK!");
@@ -257,7 +257,7 @@ test("daily caps persist across restart, deletion purges originals, titles and r
       () => store.feedback.create("a", body()),
       (error) => error.status === 403,
     );
-    store.beginAccountDeletion("b");
+    store.begin_account_deletion("b");
     assert.equal(store.feedback.dashboard().features.length, 0);
   } finally {
     store.close();
@@ -473,7 +473,7 @@ test("account deletion API removes feedback before external cleanup and blocks s
             ? { ...identity, auth_time: Date.now() / 1000 }
             : identity;
         },
-        accountDeletionFetchImpl: async () => {
+        account_deletion_fetch_impl: async () => {
           assert.equal(store.feedback.dashboard().totals.feature, 0);
           return { ok: true, status: 200 };
         },

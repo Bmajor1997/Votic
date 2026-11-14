@@ -142,7 +142,7 @@ export async function seed_storage({
     );
   if (reduceMotion)
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion }));
-  if (documents && uid) await create_document_store(uid).saveDocuments(documents);
+  if (documents && uid) await create_document_store(uid).save_documents(documents);
 }
 
 /** Renders a screen inside the app's providers, after seeding storage and letting providers load it. */

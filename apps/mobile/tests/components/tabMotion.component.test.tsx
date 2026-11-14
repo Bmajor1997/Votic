@@ -36,7 +36,7 @@ it("keeps the tab animation when Less motion is turned on, and makes it instant 
     transitionSpec: { config: { duration: 150 } },
   });
   // Switching the animation to "none" while the tabs were open left Home and Notes blank.
-  await act(async () => access!.setReduceMotion(true));
+  await act(async () => access!.set_reduce_motion(true));
   expect(tabs.options.at(-1)).toMatchObject({
     animation: "shift",
     transitionSpec: { config: { duration: 0 } },

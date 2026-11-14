@@ -13,7 +13,7 @@ import { BackHeader } from "../src/components/BackHeader";
 
 export default function ImportWebScreen() {
   const { theme } = useVoticTheme();
-  const { addTextDocumentDurably, ensureCanAddDocument } = useDocumentLibrary();
+  const { add_text_document_durably, ensure_can_add_document } = useDocumentLibrary();
   const session = useImportSession();
   const { show } = useMotionFeedback();
   const { defaultPlaybackRate } = useVoticPurpose();
@@ -25,10 +25,10 @@ export default function ImportWebScreen() {
     if (!job) return;
     setBusy(true);
     try {
-      ensureCanAddDocument();
+      ensure_can_add_document();
       const page = await import_web_page(url, job.signal);
       if (!job.current()) return;
-      const saved = await addTextDocumentDurably(page.title + ".txt", page.text, {
+      const saved = await add_text_document_durably(page.title + ".txt", page.text, {
         playbackRate: defaultPlaybackRate,
         origin: "webpage",
         sourceUrl: page.url,

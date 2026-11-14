@@ -42,12 +42,12 @@ export default function Welcome() {
             </Text>
           </View>
           <SocialSignIn
-            onBusyChange={setSocialBusy}
+            on_busy_change={setSocialBusy}
             onError={setError}
             // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
             // comes back together and the screen is ready again.
-            beforeGoogle={mark.fly_away}
-            afterGoogleStopped={mark.land}
+            before_google={mark.fly_away}
+            after_google_stopped={mark.land}
           />
           <Pressable
             accessibilityRole="button"

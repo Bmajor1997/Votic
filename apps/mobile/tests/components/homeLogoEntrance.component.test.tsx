@@ -31,7 +31,7 @@ let control: {
   page: (value: "home" | "documents" | "both") => void;
   focus: (value: boolean) => void;
   motion: (value: boolean) => void;
-  signOut: () => Promise<void>;
+  sign_out: () => Promise<void>;
 };
 const alice = { uid: "test-user", email: "a@example.com", displayName: "A" };
 const runs: { value: Animated.Value; stop: ReturnType<typeof jest.fn> }[] = [];
@@ -48,10 +48,10 @@ function Fixture({ initiallyReady = true }: { initiallyReady?: boolean }) {
       ready: setReady,
       page: setPage,
       focus: setFocused,
-      motion: access.setReduceMotion,
-      signOut: auth.signOut,
+      motion: access.set_reduce_motion,
+      sign_out: auth.sign_out,
     };
-  }, [access.setReduceMotion, auth.signOut]);
+  }, [access.set_reduce_motion, auth.sign_out]);
   return (
     <WordmarkEntranceProvider>
       <TestFocusContext.Provider value={focused && page !== "documents"}>
@@ -102,7 +102,7 @@ async function fresh(initiallyReady = true, reduceMotion = false) {
   await seed_storage({ reduceMotion });
   fakeAuth.reset(null);
   await render_with_providers(<Fixture initiallyReady={initiallyReady} />);
-  await act(async () => fakeAuth.setUser(alice));
+  await act(async () => fakeAuth.set_user(alice));
 }
 /** The entrance has run for real until progress `t`: the native value and the clock both move on. */
 let reached = 0;
@@ -205,7 +205,7 @@ it("shows a restored session statically and ignores token refreshes", async () =
   await render_with_providers(<Fixture />);
   await frame();
   expect(shift()).toBe(0);
-  await act(async () => fakeAuth.setUser({ ...alice }));
+  await act(async () => fakeAuth.set_user({ ...alice }));
   await frame();
   expect(runs).toHaveLength(0);
 });
@@ -214,9 +214,9 @@ it("re-arms after sign-out and a new sign-in to the same account", async () => {
   await fresh();
   await frame();
   expect(runs).toHaveLength(1);
-  await act(async () => control.signOut());
+  await act(async () => control.sign_out());
   expect(shift()).toBe(0);
-  await act(async () => fakeAuth.setUser({ ...alice }));
+  await act(async () => fakeAuth.set_user({ ...alice }));
   await frame();
   expect(runs).toHaveLength(2);
 });

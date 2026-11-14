@@ -60,7 +60,7 @@ export default function ScanDocumentScreen() {
           {draft.error || "Loading your saved scan…"}
         </Text>
         {draft.error ? (
-          <ScanAction label="Discard unreadable scan" primary onPress={discard} />
+          <ScanAction label="Discard unreadable scan" primary on_press={discard} />
         ) : (
           <ActivityIndicator />
         )}
@@ -150,14 +150,14 @@ function ScannerView({ scanner }: { scanner: Scanner }) {
             selected={current.id}
             busy={busy}
             progress={processingPage ? `Reading page ${processingPage} of ${pages.length}` : null}
-            onTitle={draft.rename}
-            onSelect={show_page}
-            onAdd={() => add_page()}
-            onRetake={() => add_page(current.id)}
-            onRotate={() => void rotate()}
-            onMove={(direction) => void move(direction)}
-            onRemove={remove_page}
-            onFinish={() => void finish_scan()}
+            on_title={draft.rename}
+            on_select={show_page}
+            on_add={() => add_page()}
+            on_retake={() => add_page(current.id)}
+            on_rotate={() => void rotate()}
+            on_move={(direction) => void move(direction)}
+            on_remove={remove_page}
+            on_finish={() => void finish_scan()}
             limitNotice={limitNotice}
           />
         ) : (
@@ -196,7 +196,7 @@ function ScannerCapture({ scanner }: { scanner: Scanner }) {
       </View>
       <View style={s.captureBar}>
         {pages.length ? (
-          <ScanAction label="Review pages" onPress={() => show_page(pages.at(-1)!.id)} disabled={busy} />
+          <ScanAction label="Review pages" on_press={() => show_page(pages.at(-1)!.id)} disabled={busy} />
         ) : (
           <View style={s.sideSlot} />
         )}

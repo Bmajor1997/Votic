@@ -3,14 +3,14 @@ export class AccountDeletionError extends Error {
 }
 
 /** Delete only the identity verified by Firebase, never an account ID from the request body. */
-export async function delete_account_data({ uid, auth_time, phase, env, store, fetchImpl = fetch, now = Date.now() }) {
+export async function delete_account_data({ uid, auth_time, phase, env, store, fetch_impl = fetch, now = Date.now() }) {
   if (!uid) throw new AccountDeletionError(401, "Sign in before deleting your account.");
   if (!Number.isFinite(auth_time) || auth_time > now / 1000 + 60 || now / 1000 - auth_time > 300)
     throw new AccountDeletionError(409, "Sign out and sign back in using your usual method, then retry account deletion.", "REAUTH_REQUIRED");
   if (!env.REVENUECAT_SECRET_API_KEY || (env.NODE_ENV === "production" && (!env.VOTIC_AI_USAGE_DB || env.VOTIC_AI_USAGE_DB === ":memory:")))
     throw new AccountDeletionError(503, "Account deletion is not configured on this server. Please contact Votic support.");
   if (phase === "prepare") return { ready: true };
-  store.beginAccountDeletion(uid);
+  store.begin_account_deletion(uid);
   const controller = new AbortController();
   let timer;
   try {
@@ -18,7 +18,7 @@ export async function delete_account_data({ uid, auth_time, phase, env, store, f
       timer = setTimeout(() => { controller.abort(); reject(new AccountDeletionError(503, "Account deletion was interrupted. Please retry to finish deleting your account.")); }, 8000);
     });
     const remove = async () => {
-      const response = await fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
+      const response = await fetch_impl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
         method: "DELETE", headers: { Authorization: `Bearer ${env.REVENUECAT_SECRET_API_KEY}` },
         signal: controller.signal, redirect: "error",
       });
@@ -27,7 +27,7 @@ export async function delete_account_data({ uid, auth_time, phase, env, store, f
       await response.body?.cancel().catch(() => {});
     };
     await Promise.race([remove(), deadline]);
-    store.completeAccountDeletion(uid);
+    store.complete_account_deletion(uid);
     return { deleted: true };
   } catch (error) {
     if (error instanceof AccountDeletionError) throw error;

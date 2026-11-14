@@ -18,17 +18,17 @@ export function AskAnswerSourceChip({
   section,
   documentTitle,
   filename,
-  onPress,
+  on_press,
 }: {
   kind: "passage" | "document" | "help";
   passage?: number;
   section?: string | null;
   documentTitle: string;
   filename?: string;
-  onPress?: () => void;
+  on_press?: () => void;
 }) {
   const { theme } = useVoticTheme();
-  if (kind !== "passage" || passage === undefined || !onPress) {
+  if (kind !== "passage" || passage === undefined || !on_press) {
     const help = kind === "help";
     return (
       <View style={s.plain}>
@@ -51,7 +51,7 @@ export function AskAnswerSourceChip({
       accessibilityRole="button"
       accessibilityLabel={`From passage ${passage}, ${name}`}
       accessibilityHint="Opens this passage in the Reader"
-      onPress={onPress}
+      onPress={on_press}
       // The chip is drawn small, but the area you can tap stays at least 44 points tall.
       hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={({ pressed }) => [

@@ -41,8 +41,8 @@ type SubscriptionValue = {
   /** Development and marked preview builds without store purchases can skip the paywall; release builds never can. */
   canBypass: boolean;
   bypass: () => void;
-  resetBypass: () => Promise<void>;
-  setEntitlement: (entitlement: Entitlement) => void;
+  reset_bypass: () => Promise<void>;
+  set_entitlement: (entitlement: Entitlement) => void;
   /** Asks the store again, e.g. after a network failure. */
   refresh: () => Promise<Entitlement>;
 };
@@ -202,7 +202,7 @@ export function SubscriptionProvider({
   // Renewals, expirations, and refunds arrive here while Votic is open.
   useEffect(
     () =>
-      service.onChange((next, owner) => {
+      service.on_change((next, owner) => {
         if (owner === uidRef.current && owner === settled.current)
           setChecked({ uid: owner, entitlement: next });
       }),
@@ -249,14 +249,14 @@ export function SubscriptionProvider({
         AsyncStorage.setItem(account_storage_key(DEVELOPMENT_BYPASS_KEY, uid), "yes"),
       ).catch(() => {});
     },
-    async resetBypass() {
+    async reset_bypass() {
       if (!canBypass || !uid || uidRef.current !== uid || !account_writable(uid)) return;
       await write_account_data(uid, () =>
         AsyncStorage.removeItem(account_storage_key(DEVELOPMENT_BYPASS_KEY, uid)),
       );
       if (uidRef.current === uid) setBypassState({ uid, bypassed: false });
     },
-    setEntitlement: set_entitlement,
+    set_entitlement: set_entitlement,
     async refresh() {
       await refresh_server_access();
       try {

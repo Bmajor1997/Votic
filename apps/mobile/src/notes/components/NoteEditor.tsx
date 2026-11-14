@@ -27,15 +27,15 @@ export type NoteDraft = { note: string; title: string; noteType: NoteType; tags:
 /** Adds or edits the note, title, type, and tags on a saved passage. */
 export function NoteEditor({
   item,
-  onClose,
-  onSave,
+  on_close,
+  on_save,
 }: {
   item: NoteItem | null;
-  onClose: () => void;
-  onSave: (item: NoteItem, draft: NoteDraft) => void;
+  on_close: () => void;
+  on_save: (item: NoteItem, draft: NoteDraft) => void;
 }) {
   const { reduceMotion } = useAccessibilityPreferences();
-  const requestClose = useRef(onClose);
+  const requestClose = useRef(on_close);
   return (
     <Modal
       visible={item !== null}
@@ -47,11 +47,11 @@ export function NoteEditor({
         <NoteEditorForm
           key={JSON.stringify([item.document.id, item.passage.id])}
           item={item}
-          registerClose={(close) => {
+          register_close={(close) => {
             requestClose.current = close;
           }}
-          onClose={onClose}
-          onSave={onSave}
+          on_close={on_close}
+          on_save={on_save}
         />
       ) : null}
     </Modal>
@@ -59,15 +59,15 @@ export function NoteEditor({
 }
 
 function NoteEditorForm({
-  registerClose,
+  register_close,
   item,
-  onClose,
-  onSave,
+  on_close,
+  on_save,
 }: {
-  registerClose: (close: () => void) => void;
+  register_close: (close: () => void) => void;
   item: NoteItem;
-  onClose: () => void;
-  onSave: (item: NoteItem, draft: NoteDraft) => void;
+  on_close: () => void;
+  on_save: (item: NoteItem, draft: NoteDraft) => void;
 }) {
   const { theme } = useVoticTheme();
   const { passage, document } = item;
@@ -85,10 +85,10 @@ function NoteEditorForm({
       setNoteType(draft.noteType);
       setTags(draft.tags);
     },
-    onClose,
+    on_close,
   );
   useEffect(() => {
-    registerClose(protection.close);
+    register_close(protection.close);
   });
   const saveDisabled = protection.saving || (!passage.text && !note.trim());
   const fieldColors = { color: theme.text, borderColor: theme.border, backgroundColor: theme.background };
@@ -207,7 +207,7 @@ function NoteEditorForm({
             accessibilityLabel="Save note"
             disabled={saveDisabled}
             accessibilityState={{ disabled: saveDisabled }}
-            onPress={() => void protection.save(() => onSave(item, { note, title, noteType, tags }))}
+            onPress={() => void protection.save(() => on_save(item, { note, title, noteType, tags }))}
             accessibilityHint={
               save_unavailable(saveDisabled, protection.saving) ? "Write a note first" : undefined
             }

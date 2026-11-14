@@ -53,13 +53,13 @@ it("clears confirmations on account change and ignores a stale save callback fro
   await act(async () => hook.result.current.show("note", "Private note", "note-1"));
   expect(hook.result.current.event?.title).toBe("Private note");
   await act(async () =>
-    fakeAuth.setUser({ uid: "other-reader", email: "other@example.com", displayName: null }),
+    fakeAuth.set_user({ uid: "other-reader", email: "other@example.com", displayName: null }),
   );
   expect(hook.result.current.event).toBeNull();
   await act(async () => stale("note", "Late private note"));
   expect(hook.result.current.event).toBeNull();
   await act(async () =>
-    fakeAuth.setUser({ uid: "test-user", email: "reader@example.com", displayName: null }),
+    fakeAuth.set_user({ uid: "test-user", email: "reader@example.com", displayName: null }),
   );
   expect(hook.result.current.event).toBeNull();
 });

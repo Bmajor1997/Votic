@@ -27,15 +27,15 @@ type IconName = ComponentProps<typeof Ionicons>["name"];
 /** Every secondary action for one document, in one place: open, rename, move, details, delete. */
 export function DocumentActionsSheet({
   document,
-  onClose,
-  onOpen,
+  on_close,
+  on_open,
 }: {
   document: VoticDocument | null;
-  onClose: () => void;
-  onOpen: (document: VoticDocument) => void;
+  on_close: () => void;
+  on_open: (document: VoticDocument) => void;
 }) {
   const { theme } = useVoticTheme();
-  const { collections, renameDocument, setDocumentCollection, addCollection, removeDocument } =
+  const { collections, rename_document, set_document_collection, add_collection, remove_document } =
     useDocumentLibrary();
   const [view, setView] = useState<View_>("menu");
   const [title, setTitle] = useState("");
@@ -44,7 +44,7 @@ export function DocumentActionsSheet({
   function close() {
     setView("menu");
     setNewCollection("");
-    onClose();
+    on_close();
   }
   function confirm_delete(target: VoticDocument) {
     close();
@@ -53,19 +53,19 @@ export function DocumentActionsSheet({
       `Remove “${readable_title(target.title)}” and its notes from Votic? They stay in Recently Deleted for 30 days, where you can restore them.`,
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: () => removeDocument(target.id) },
+        { text: "Delete", style: "destructive", onPress: () => remove_document(target.id) },
       ],
     );
   }
   function move(collection?: string) {
     if (!document) return;
-    setDocumentCollection(document.id, collection);
+    set_document_collection(document.id, collection);
     close();
   }
   function create_and_move() {
     const clean = newCollection.trim();
     if (!clean || !document) return;
-    move(addCollection(clean));
+    move(add_collection(clean));
   }
 
   const heading =
@@ -125,15 +125,15 @@ export function DocumentActionsSheet({
                     <Action
                       icon="book-outline"
                       label="Open"
-                      onPress={() => {
+                      on_press={() => {
                         close();
-                        onOpen(document);
+                        on_open(document);
                       }}
                     />
                     <Action
                       icon="create-outline"
                       label="Rename"
-                      onPress={() => {
+                      on_press={() => {
                         setTitle(readable_title(document.title));
                         setView("rename");
                       }}
@@ -142,18 +142,18 @@ export function DocumentActionsSheet({
                       icon="folder-outline"
                       label="Move to collection"
                       detail={document.collection || "Unfiled"}
-                      onPress={() => setView("move")}
+                      on_press={() => setView("move")}
                     />
                     <Action
                       icon="information-circle-outline"
                       label="Details"
-                      onPress={() => setView("details")}
+                      on_press={() => setView("details")}
                     />
                     <Action
                       icon="trash-outline"
                       label="Delete"
                       destructive
-                      onPress={() => confirm_delete(document)}
+                      on_press={() => confirm_delete(document)}
                     />
                   </View>
                 ) : null}
@@ -168,7 +168,7 @@ export function DocumentActionsSheet({
                       maxLength={200}
                       returnKeyType="done"
                       onSubmitEditing={() => {
-                        renameDocument(document.id, title);
+                        rename_document(document.id, title);
                         close();
                       }}
                       style={[
@@ -184,7 +184,7 @@ export function DocumentActionsSheet({
                       accessibilityState={{ disabled: !title.trim() }}
                       disabled={!title.trim()}
                       onPress={() => {
-                        renameDocument(document.id, title);
+                        rename_document(document.id, title);
                         close();
                       }}
                       style={[
@@ -283,13 +283,13 @@ function Action({
   label,
   detail,
   destructive = false,
-  onPress,
+  on_press,
 }: {
   icon: IconName;
   label: string;
   detail?: string;
   destructive?: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   const color = destructive ? "#DC2626" : theme.text;
@@ -297,7 +297,7 @@ function Action({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={detail ? `${label}, currently ${detail}` : label}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [s.action, { backgroundColor: pressed ? theme.surfaceMuted : "transparent" }]}
     >
       <Ionicons name={icon} size={22} color={color} />

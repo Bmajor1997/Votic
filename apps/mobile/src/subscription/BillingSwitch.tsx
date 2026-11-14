@@ -22,11 +22,11 @@ export function BillingSwitch() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const alive = useRef(true);
-  const eligible = has_access(entitlement.status) && Boolean(service.changePlan && entitlement.productId);
+  const eligible = has_access(entitlement.status) && Boolean(service.change_plan && entitlement.productId);
   useEffect(() => {
     alive.current = true;
     if (!eligible) return;
-    void store_deadline(service.getPlans())
+    void store_deadline(service.get_plans())
       .then((plans) => {
         if (alive.current) setTarget(other_billing_plan(plans, entitlement.productId));
       })
@@ -40,14 +40,14 @@ export function BillingSwitch() {
   async function change(plan: SubscriptionPlan) {
     setBusy(true);
     setMessage("");
-    const outcome = await service.changePlan!(plan.id, entitlement.productId!).catch(() => ({
+    const outcome = await service.change_plan!(plan.id, entitlement.productId!).catch(() => ({
       kind: "failed" as const,
       message: "The store couldn't change your plan. Please try again.",
     }));
     if (!alive.current) return;
     setBusy(false);
     if (outcome.kind === "purchased") {
-      subscription.setEntitlement(outcome.entitlement);
+      subscription.set_entitlement(outcome.entitlement);
       setMessage(
         annual
           ? "You're on annual billing. Your monthly AI allowance continues as before."
@@ -68,7 +68,7 @@ export function BillingSwitch() {
         label={annual ? "Switch to annual billing" : "Switch to monthly billing"}
         busy={busy}
         disabled={busy}
-        onPress={() => void change(target)}
+        on_press={() => void change(target)}
       />
       {message ? (
         <Text accessibilityLiveRegion="polite" style={[s.detail, { color: theme.text }]}>

@@ -20,10 +20,10 @@ export function NoteGroupCard({
   inNotebook,
   selecting,
   selectedIds,
-  onOpenNotebook,
-  onToggleSelected,
-  onView,
-  onMore,
+  on_open_notebook,
+  on_toggle_selected,
+  on_view,
+  on_more,
   previewLimit,
 }: {
   document: VoticDocument;
@@ -32,10 +32,10 @@ export function NoteGroupCard({
   selecting: boolean;
   /** Selection keys from noteSelectionId. */
   selectedIds: string[];
-  onOpenNotebook: () => void;
-  onToggleSelected: (selectionId: string) => void;
-  onView: (item: NoteItem) => void;
-  onMore: (item: NoteItem) => void;
+  on_open_notebook: () => void;
+  on_toggle_selected: (selectionId: string) => void;
+  on_view: (item: NoteItem) => void;
+  on_more: (item: NoteItem) => void;
   /** Shows only the newest few, with a link to the full notebook. */
   previewLimit?: number;
 }) {
@@ -56,7 +56,7 @@ export function NoteGroupCard({
           accessibilityRole="button"
           accessibilityLabel={`Open ${title} notebook`}
           accessibilityHint={notebook_counts_label(noteCount, savedCount)}
-          onPress={onOpenNotebook}
+          onPress={on_open_notebook}
           style={({ pressed }) => [
             s.header,
             // Minimal: a white header with a hairline, the source color carried by the ink and marker.
@@ -111,7 +111,7 @@ export function NoteGroupCard({
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: selected }}
                   accessibilityLabel={`${selected ? "Deselect" : "Select"} note from ${title}`}
-                  onPress={() => onToggleSelected(selectionId)}
+                  onPress={() => on_toggle_selected(selectionId)}
                   style={s.selectionBox}
                 >
                   <Ionicons
@@ -124,7 +124,7 @@ export function NoteGroupCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`View note from ${title}`}
-                onPress={() => (selecting ? onToggleSelected(selectionId) : onView({ document, passage }))}
+                onPress={() => (selecting ? on_toggle_selected(selectionId) : on_view({ document, passage }))}
                 style={({ pressed }) => [s.main, { opacity: pressed ? 0.68 : 1 }]}
               >
                 <Text style={[s.meta, { color: colors.detail }]}>
@@ -157,7 +157,7 @@ export function NoteGroupCard({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`More options for ${hasNote ? "note" : "saved passage"}`}
-                onPress={() => onMore({ document, passage })}
+                onPress={() => on_more({ document, passage })}
                 style={s.more}
               >
                 <Ionicons name="ellipsis-horizontal" size={20} color={colors.detail} />
@@ -170,7 +170,7 @@ export function NoteGroupCard({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Show all ${passages.length} from ${title}`}
-          onPress={onOpenNotebook}
+          onPress={on_open_notebook}
           style={({ pressed }) => [
             s.showAll,
             { borderTopColor: colors.border, backgroundColor: pressed ? colors.art : colors.surface },

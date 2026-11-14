@@ -2,7 +2,7 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 
 /** Expo's splash XML must not share a resource name with the adaptive icon's background bitmaps. */
-async function configureLauncherBackground(res, hasBackgroundImage) {
+async function configure_launcher_background(res, hasBackgroundImage) {
   const original = path.join(res, "drawable/ic_launcher_background.xml");
   const splash = path.join(res, "drawable/votic_splash_background.xml");
   try {
@@ -29,4 +29,4 @@ async function configureLauncherBackground(res, hasBackgroundImage) {
   }
 }
 
-module.exports = { configureLauncherBackground };
+module.exports = { configure_launcher_background };

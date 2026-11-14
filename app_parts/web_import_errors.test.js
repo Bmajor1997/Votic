@@ -10,11 +10,11 @@ import {
   WEB_IMPORT_USER_AGENT,
 } from "./web_import.js";
 
-const lookupImpl = async () => [{ address: "203.0.113.10", family: 4 }];
+const lookup_impl = async () => [{ address: "203.0.113.10", family: 4 }];
 const ARTICLE =
   "<title>Story</title><article><h1>Story</h1><p>This is a long public article paragraph with useful information for a Votic reader.</p><p>Another paragraph makes the page long enough to be accepted.</p></article>";
 const import_with = (respond) =>
-  import_public_webpage("https://public.test/story", { lookupImpl, fetchImpl: async (...args) => respond(...args) });
+  import_public_webpage("https://public.test/story", { lookup_impl, fetch_impl: async (...args) => respond(...args) });
 
 test("web importer explains access denial, missing pages, rate limits and server errors separately", async () => {
   const cases = [
@@ -88,11 +88,11 @@ test("DNS, TLS and connection failures are described by what failed", async () =
     throw Object.assign(new Error("lookup failed"), { code });
   };
   await assert.rejects(
-    () => import_public_webpage("https://missing.test/", { lookupImpl: failing("ENOTFOUND") }),
+    () => import_public_webpage("https://missing.test/", { lookup_impl: failing("ENOTFOUND") }),
     /couldn't find that website/,
   );
   await assert.rejects(
-    () => import_public_webpage("https://missing.test/", { lookupImpl: failing("EAI_AGAIN") }),
+    () => import_public_webpage("https://missing.test/", { lookup_impl: failing("EAI_AGAIN") }),
     /couldn't look up that website right now/,
   );
   for (const [code, message] of [
@@ -124,12 +124,12 @@ test("error handling keeps private-network and redirect protections in place", a
   await assert.rejects(
     () =>
       import_public_webpage("https://public.test/a", {
-        lookupImpl: lookup,
-        fetchImpl: async () => new Response("", { status: 302, headers: { location: "http://private.test/" } }),
+        lookup_impl: lookup,
+        fetch_impl: async () => new Response("", { status: 302, headers: { location: "http://private.test/" } }),
       }),
     /not public/,
   );
-  await assert.rejects(() => import_public_webpage("http://127.0.0.1/", { lookupImpl: lookup }), /not public/);
+  await assert.rejects(() => import_public_webpage("http://127.0.0.1/", { lookup_impl: lookup }), /not public/);
 });
 
 test("several links pasted into one box are refused clearly instead of being read as one address", async () => {
@@ -137,7 +137,7 @@ test("several links pasted into one box are refused clearly instead of being rea
     "https://www.britannica.com/biography/William-Wallacehttps://www.worldhistory.org/William_Wallace/https://www.bbc.co.uk/history/historic_figures/wallace_william.shtml";
   let fetched = false;
   await assert.rejects(
-    () => import_public_webpage(pasted, { lookupImpl, fetchImpl: async () => { fetched = true; } }),
+    () => import_public_webpage(pasted, { lookup_impl, fetch_impl: async () => { fetched = true; } }),
     /more than one webpage address\. Keep just one link/,
   );
   assert.equal(fetched, false);

@@ -48,8 +48,8 @@ describe("Continue with Google", () => {
   it("opens Google's picker and hands its ID token to Firebase, configuring Google once", async () => {
     const { flow, google, exchange } = setup();
     expect(flow.available).toBe(true);
-    await flow.signIn();
-    await flow.signIn();
+    await flow.sign_in();
+    await flow.sign_in();
     expect(google.GoogleSignin.configure).toHaveBeenCalledTimes(1);
     expect(google.GoogleSignin.configure).toHaveBeenCalledWith(
       expect.objectContaining({ webClientId: "web-client.apps.googleusercontent.com" }),
@@ -61,24 +61,24 @@ describe("Continue with Google", () => {
   it("is unavailable, with a specific reason, when the web client ID is missing", async () => {
     const { flow, google } = setup({ webClientId: undefined });
     expect(flow.available).toBe(false);
-    await expect(flow.signIn()).rejects.toThrow(GOOGLE_MESSAGES.noClientId.release);
+    await expect(flow.sign_in()).rejects.toThrow(GOOGLE_MESSAGES.noClientId.release);
     expect(google.GoogleSignin.signIn).not.toHaveBeenCalled();
     const dev = setup({ webClientId: "", dev: true }).flow;
-    await expect(dev.signIn()).rejects.toThrow(/EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing/);
+    await expect(dev.sign_in()).rejects.toThrow(/EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID is missing/);
   });
 
   it("explains when this build lacks the Google native module", async () => {
     const { flow } = setup({ load: () => null, dev: true });
-    await expect(flow.signIn()).rejects.toThrow(/Rebuild and reinstall/);
+    await expect(flow.sign_in()).rejects.toThrow(/Rebuild and reinstall/);
   });
 
   it("treats closing the picker as a quiet cancellation", async () => {
     const { flow, exchange } = setup({}, async () => {
       throw coded(statusCodes.SIGN_IN_CANCELLED);
     });
-    await expect(flow.signIn()).rejects.toBeInstanceOf(SignInCancelled);
+    await expect(flow.sign_in()).rejects.toBeInstanceOf(SignInCancelled);
     const dismissed = setup({}, async () => ({ type: "cancelled", data: null }));
-    await expect(dismissed.flow.signIn()).rejects.toBeInstanceOf(SignInCancelled);
+    await expect(dismissed.flow.sign_in()).rejects.toBeInstanceOf(SignInCancelled);
     expect(exchange).not.toHaveBeenCalled();
   });
 
@@ -96,7 +96,7 @@ describe("Continue with Google", () => {
     const { flow } = setup({}, async () => {
       throw error;
     });
-    const failure = await flow.signIn().catch((caught: unknown) => caught);
+    const failure = await flow.sign_in().catch((caught: unknown) => caught);
     expect(auth_error_message(failure)).toBe(GOOGLE_MESSAGES[key].release);
   });
 
@@ -104,21 +104,21 @@ describe("Continue with Google", () => {
     const { flow } = setup({ dev: true }, async () => {
       throw coded("10");
     });
-    await expect(flow.signIn()).rejects.toThrow(/SHA-1 signing fingerprint.*com\.votic\.app/);
+    await expect(flow.sign_in()).rejects.toThrow(/SHA-1 signing fingerprint.*com\.votic\.app/);
   });
 
   it("explains a missing ID token and a token Firebase rejects", async () => {
     const noToken = setup({}, success(null));
-    await expect(noToken.flow.signIn()).rejects.toThrow(GOOGLE_MESSAGES.noToken.release);
+    await expect(noToken.flow.sign_in()).rejects.toThrow(GOOGLE_MESSAGES.noToken.release);
     const rejected = setup();
     rejected.exchange.mockRejectedValueOnce(coded("auth/invalid-credential"));
-    await expect(rejected.flow.signIn()).rejects.toThrow(GOOGLE_MESSAGES.tokenRejected.release);
+    await expect(rejected.flow.sign_in()).rejects.toThrow(GOOGLE_MESSAGES.tokenRejected.release);
   });
 
   it("keeps Firebase's own account messages, such as an email that already has a password account", async () => {
     const { flow, exchange } = setup();
     exchange.mockRejectedValueOnce(coded("auth/account-exists-with-different-credential"));
-    const failure = await flow.signIn().catch((caught: unknown) => caught);
+    const failure = await flow.sign_in().catch((caught: unknown) => caught);
     expect(auth_error_message(failure)).toMatch(/Sign in the way you did before/);
   });
 
@@ -126,16 +126,16 @@ describe("Continue with Google", () => {
     const { flow } = setup({}, async () => {
       throw coded("13");
     });
-    const failure = await flow.signIn().catch((caught: unknown) => caught);
+    const failure = await flow.sign_in().catch((caught: unknown) => caught);
     expect(auth_error_message(failure)).toBe(GOOGLE_MESSAGES.failed.release);
   });
 
   it("forgets the Google account on sign-out only after Google was used", async () => {
     const { flow, google } = setup();
-    await flow.signOut();
+    await flow.sign_out();
     expect(google.GoogleSignin.signOut).not.toHaveBeenCalled();
-    await flow.signIn();
-    await flow.signOut();
+    await flow.sign_in();
+    await flow.sign_out();
     expect(google.GoogleSignin.signOut).toHaveBeenCalledTimes(1);
   });
 });

@@ -37,7 +37,7 @@ function ask_about_duplicate(existing: VoticDocument): Promise<DuplicateChoice> 
 
 /** One save path for picker and OS shares; image text always receives human review. */
 export function useImportSave() {
-  const { addTextDocumentDurably, documents, openDocument } = useDocumentLibrary();
+  const { add_text_document_durably, documents, open_document } = useDocumentLibrary();
   const { review } = useOcrReview();
   const { show } = useMotionFeedback();
   return useCallback(
@@ -50,14 +50,14 @@ export function useImportSave() {
         const choice = await ask_about_duplicate(duplicate);
         if (choice === "cancel") return null;
         if (choice === "open") {
-          openDocument(duplicate.id);
+          open_document(duplicate.id);
           return duplicate;
         }
       }
-      const document = await addTextDocumentDurably(name, text, options);
+      const document = await add_text_document_durably(name, text, options);
       show("import", document.title);
       return document;
     },
-    [addTextDocumentDurably, documents, openDocument, review, show],
+    [add_text_document_durably, documents, open_document, review, show],
   );
 }

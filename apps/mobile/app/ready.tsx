@@ -12,7 +12,7 @@ import { useVoticTheme } from "../src/theme/ThemeProvider";
 /** Final value recap before the paywall; subscribers continue directly to Home. */
 export default function Ready() {
   const { theme } = useVoticTheme();
-  const { completeHandoff } = useAccountSetup();
+  const { complete_handoff } = useAccountSetup();
   useEffect(() => {
     AccessibilityInfo.announceForAccessibility?.("Votic is ready for you.");
   }, []);
@@ -33,7 +33,7 @@ export default function Ready() {
         <PersonalizationRecap />
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton label="Start using Votic" onPress={completeHandoff} />
+        <PrimaryButton label="Start using Votic" on_press={complete_handoff} />
       </View>
     </SafeAreaView>
   );

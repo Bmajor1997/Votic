@@ -43,7 +43,7 @@ export default function CreateAccount() {
     if (!looks_like_email(email) || problem || busy) return;
     setBusy(true);
     try {
-      await auth.createAccount(email, password);
+      await auth.create_account(email, password);
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
       setAccountExists((failure as { code?: string })?.code === "auth/email-already-in-use");
@@ -87,17 +87,17 @@ export default function CreateAccount() {
           {accountExists ? (
             <TextButton
               label="Sign in instead"
-              onPress={() => router.replace({ pathname: "/sign-in", params: { email: email.trim() } })}
+              on_press={() => router.replace({ pathname: "/sign-in", params: { email: email.trim() } })}
             />
           ) : null}
         </FormMessage>
       ) : null}
-      <PrimaryButton label="Create account" busy={busy} onPress={() => void submit()} />
+      <PrimaryButton label="Create account" busy={busy} on_press={() => void submit()} />
       <NotConfiguredNotice />
       <SwitchPrompt
         prompt="Already have an account?"
         action="Sign in"
-        onPress={() => router.replace("/sign-in")}
+        on_press={() => router.replace("/sign-in")}
       />
       <LegalLine />
     </AccountScaffold>

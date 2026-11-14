@@ -65,7 +65,7 @@ export default function Statistics() {
     params.kind && KINDS.some((item) => item.value === params.kind) ? params.kind : "week",
   );
   const [offset, setOffset] = useState(Number(params.offset) || 0);
-  const { log, sampleData, setSampleData, hydrated, loadError, retryLoad } = useActivity();
+  const { log, sampleData, set_sample_data, hydrated, loadError, retry_load } = useActivity();
   const { documents } = useDocumentLibrary();
   const now = new Date();
   const period = period_for(kind, offset, now, log.trackingStartedAt);
@@ -75,7 +75,7 @@ export default function Statistics() {
     router.push({ pathname: "/statistics", params: { section: next, kind, offset: String(offset) } });
   }
 
-  if (!hydrated) return <ActivityLoadState error={loadError} retry={retryLoad} />;
+  if (!hydrated) return <ActivityLoadState error={loadError} retry={retry_load} />;
 
   return (
     <SafeAreaView edges={["top", "left", "right"]} style={[s.safe, { backgroundColor: theme.background }]}>
@@ -125,7 +125,7 @@ export default function Statistics() {
               icon="chevron-back"
               label={`Previous ${kind}`}
               disabled={!canGoBack}
-              onPress={() => setOffset(offset + 1)}
+              on_press={() => setOffset(offset + 1)}
             />
           ) : null}
           <Text accessibilityRole="header" style={[s.periodLabel, { color: theme.text }]}>
@@ -136,7 +136,7 @@ export default function Statistics() {
               icon="chevron-forward"
               label={`Next ${kind}`}
               disabled={offset === 0}
-              onPress={() => setOffset(Math.max(0, offset - 1))}
+              on_press={() => setOffset(Math.max(0, offset - 1))}
             />
           ) : null}
         </View>
@@ -163,13 +163,13 @@ export default function Statistics() {
               <TimeChart points={chart_series(log, period, now)} title={`Time for ${period.label}`} />
             </Card>
             <SourcesCard period={period} />
-            <InsightsPreview period={period} onOpen={() => open_section("insights")} />
+            <InsightsPreview period={period} on_open={() => open_section("insights")} />
             <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
               Explore your activity
             </Text>
-            <AskPreview period={period} onOpen={() => open_section("ask")} />
-            <ActivityPreview period={period} onOpen={() => open_section("activity")} />
-            <DocumentsPreview period={period} onOpen={() => open_section("documents")} />
+            <AskPreview period={period} on_open={() => open_section("ask")} />
+            <ActivityPreview period={period} on_open={() => open_section("activity")} />
+            <DocumentsPreview period={period} on_open={() => open_section("documents")} />
             <Text style={[s.footnote, { color: theme.mutedText }]}>
               Reading counts while the Reader is open and you&apos;re scrolling or using it, and pauses after
               two minutes without activity. Listening counts while narration plays with Votic in the
@@ -183,7 +183,9 @@ export default function Statistics() {
                 <Switch
                   accessibilityLabel="Show sample data (development only)"
                   value={sampleData}
-                  onValueChange={(on) => setSampleData(on ? documents.map((document) => document.id) : null)}
+                  onValueChange={(on) =>
+                    set_sample_data(on ? documents.map((document) => document.id) : null)
+                  }
                 />
               </View>
             ) : null}
@@ -304,7 +306,7 @@ function MetricTile({
     </View>
   );
 }
-function AskPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+function AskPreview({ period, on_open }: { period: Period; on_open: () => void }) {
   const { log } = useActivity();
   const ask = ask_summary(log, period.start, period.end);
   return (
@@ -316,11 +318,11 @@ function AskPreview({ period, onOpen }: { period: Period; onOpen: () => void }) 
           ? `${ask.questions} questions · ${ask.conversations} conversations`
           : "Explore the questions you ask about your documents."
       }
-      onOpen={onOpen}
+      on_open={on_open}
     />
   );
 }
-function ActivityPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+function ActivityPreview({ period, on_open }: { period: Period; on_open: () => void }) {
   const { log } = useActivity();
   const streak = streaks(log);
   const summary = summarize(log, period.start, period.end);
@@ -329,11 +331,11 @@ function ActivityPreview({ period, onOpen }: { period: Period; onOpen: () => voi
       icon="calendar-outline"
       title="Activity"
       detail={`${summary.activeDays} active ${summary.activeDays === 1 ? "day" : "days"} in this period · Current streak: ${streak.current} ${streak.current === 1 ? "day" : "days"}`}
-      onOpen={onOpen}
+      on_open={on_open}
     />
   );
 }
-function DocumentsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+function DocumentsPreview({ period, on_open }: { period: Period; on_open: () => void }) {
   const { log } = useActivity();
   const { documents } = useDocumentLibrary();
   const top = document_ranking(log, period.start, period.end)
@@ -348,7 +350,7 @@ function DocumentsPreview({ period, onOpen }: { period: Period; onOpen: () => vo
           ? `Most read: ${readable_title(top.document.title)} · ${format_duration(top.entry.total)}`
           : "See the documents you spend time reading and listening to."
       }
-      onOpen={onOpen}
+      on_open={on_open}
     />
   );
 }
@@ -423,7 +425,7 @@ function SourcesCard({ period }: { period: Period }) {
     </Card>
   );
 }
-function InsightsPreview({ period, onOpen }: { period: Period; onOpen: () => void }) {
+function InsightsPreview({ period, on_open }: { period: Period; on_open: () => void }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
   const result = insights(log, period);
@@ -436,7 +438,7 @@ function InsightsPreview({ period, onOpen }: { period: Period; onOpen: () => voi
       accessibilityRole="button"
       accessibilityLabel="Personal insights details"
       accessibilityHint={`${observation} Opens your reading and listening insights`}
-      onPress={onOpen}
+      onPress={on_open}
       style={({ pressed }) => [
         s.insightCard,
         { backgroundColor: pressed ? theme.brandTint : theme.surfaceMuted, borderColor: theme.border },
@@ -458,12 +460,12 @@ function ExploreRow({
   icon,
   title,
   detail,
-  onOpen,
+  on_open,
 }: {
   icon: IconName;
   title: string;
   detail: string;
-  onOpen: () => void;
+  on_open: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -471,7 +473,7 @@ function ExploreRow({
       accessibilityRole="button"
       accessibilityLabel={`${title} details`}
       accessibilityHint={`${detail} Opens detailed statistics for the selected period`}
-      onPress={onOpen}
+      onPress={on_open}
       style={({ pressed }) => [
         s.exploreRow,
         { backgroundColor: pressed ? theme.surfaceMuted : theme.surface, borderColor: theme.border },
@@ -580,14 +582,14 @@ function ActivityDetail({ period }: { period: Period }) {
             icon="chevron-back"
             label="Previous month"
             disabled={earliest}
-            onPress={() => setMonthOffset(monthOffset + 1)}
+            on_press={() => setMonthOffset(monthOffset + 1)}
           />
           <Text style={[s.periodLabel, { color: theme.text }]}>{calendar.label}</Text>
           <PeriodArrow
             icon="chevron-forward"
             label="Next month"
             disabled={monthOffset === 0}
-            onPress={() => setMonthOffset(Math.max(0, monthOffset - 1))}
+            on_press={() => setMonthOffset(Math.max(0, monthOffset - 1))}
           />
         </View>
         <View style={s.weekHeader}>
@@ -647,7 +649,7 @@ function ActivityDetail({ period }: { period: Period }) {
 function DocumentsDetail({ period }: { period: Period }) {
   const { theme } = useVoticTheme();
   const { log } = useActivity();
-  const { documents, openDocument } = useDocumentLibrary();
+  const { documents, open_document } = useDocumentLibrary();
   const ranked = document_ranking(log, period.start, period.end)
     .map((entry) => ({ entry, document: documents.find((document) => document.id === entry.documentId) }))
     .filter(
@@ -656,7 +658,7 @@ function DocumentsDetail({ period }: { period: Period }) {
     );
   const recent = [...ranked].sort((a, b) => b.entry.lastActiveAt - a.entry.lastActiveAt).slice(0, 5);
   function open(id: string) {
-    openDocument(id);
+    open_document(id);
     router.push("/reader");
   }
   const row = ({ entry, document }: (typeof ranked)[number], index?: number) => (
@@ -837,12 +839,12 @@ function PeriodArrow({
   icon,
   label,
   disabled,
-  onPress,
+  on_press,
 }: {
   icon: IconName;
   label: string;
   disabled: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -851,7 +853,7 @@ function PeriodArrow({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={on_press}
       style={s.iconButton}
     >
       <Ionicons name={icon} size={22} color={disabled ? theme.border : theme.text} />

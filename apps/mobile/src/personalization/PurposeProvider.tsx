@@ -36,12 +36,12 @@ const EXPLANATION_KEY = "votic.mobile.explanation-style.v1";
 const RATE_KEY = "votic.mobile.default-playback-rate.v1";
 type Value = {
   purpose: VoticPurpose | null;
-  setPurpose: (value: VoticPurpose) => void;
+  set_purpose: (value: VoticPurpose) => void;
   explanationStyle: ExplanationStyle;
-  setExplanationStyle: (value: ExplanationStyle) => void;
+  set_explanation_style: (value: ExplanationStyle) => void;
   /** The listening speed new documents start at. Each document then remembers its own. */
   defaultPlaybackRate: number;
-  setDefaultPlaybackRate: (value: number) => void;
+  set_default_playback_rate: (value: number) => void;
   hydrated: boolean;
 };
 const Context = createContext<Value | null>(null);
@@ -78,11 +78,11 @@ export function PurposeProvider({ children }: PropsWithChildren) {
     <Context.Provider
       value={{
         purpose,
-        setPurpose: set_purpose,
+        set_purpose: set_purpose,
         explanationStyle,
-        setExplanationStyle: set_explanation_style,
+        set_explanation_style: set_explanation_style,
         defaultPlaybackRate,
-        setDefaultPlaybackRate: set_default_playback_rate,
+        set_default_playback_rate: set_default_playback_rate,
         hydrated,
       }}
     >
@@ -100,20 +100,20 @@ export function useVoticPurpose() {
 export function AccountPurposePreferences({
   children,
   purpose,
-  setPurpose,
+  set_purpose,
   explanationStyle,
-  setExplanationStyle,
+  set_explanation_style,
   defaultPlaybackRate,
-  setDefaultPlaybackRate,
+  set_default_playback_rate,
 }: PropsWithChildren<
   Pick<
     Value,
     | "purpose"
-    | "setPurpose"
+    | "set_purpose"
     | "explanationStyle"
-    | "setExplanationStyle"
+    | "set_explanation_style"
     | "defaultPlaybackRate"
-    | "setDefaultPlaybackRate"
+    | "set_default_playback_rate"
   >
 >) {
   const parent = useVoticPurpose();
@@ -122,11 +122,11 @@ export function AccountPurposePreferences({
       value={{
         ...parent,
         purpose,
-        setPurpose,
+        set_purpose,
         explanationStyle,
-        setExplanationStyle,
+        set_explanation_style,
         defaultPlaybackRate,
-        setDefaultPlaybackRate,
+        set_default_playback_rate,
       }}
     >
       {children}

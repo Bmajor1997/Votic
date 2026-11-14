@@ -32,8 +32,8 @@ type Entrance = {
   phase: Phase;
   /** Letters whose robot is on screen now (the rest are drawn as plain letters). */
   live: readonly boolean[];
-  setHomeReady: (ready: boolean) => void;
-  setHomeFocused: (focused: boolean) => void;
+  set_home_ready: (ready: boolean) => void;
+  set_home_focused: (focused: boolean) => void;
 };
 
 const EntranceContext = createContext<Entrance | null>(null);
@@ -44,8 +44,8 @@ const STATIC: Entrance = {
   progress: FINISHED,
   phase: "done",
   live: NO_LIVE_LETTERS,
-  setHomeReady: noop,
-  setHomeFocused: noop,
+  set_home_ready: noop,
+  set_home_focused: noop,
 };
 
 /** The shared entrance, or a finished one outside the signed-in app. */
@@ -219,7 +219,13 @@ export function WordmarkEntranceProvider({ children }: PropsWithChildren) {
 
   const letters = phase === "running" && live?.progress === progress ? live.letters : NO_LIVE_LETTERS;
   const value = useMemo(
-    () => ({ progress, phase, live: letters, setHomeReady, setHomeFocused }),
+    () => ({
+      progress,
+      phase,
+      live: letters,
+      set_home_ready: setHomeReady,
+      set_home_focused: setHomeFocused,
+    }),
     [progress, phase, letters],
   );
   return <EntranceContext.Provider value={value}>{children}</EntranceContext.Provider>;

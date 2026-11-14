@@ -11,14 +11,14 @@ test("Expo LogBox cannot enable WebView debugging after prebuild", () => {
   try {
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, "WebView(context).apply {\n    setWebContentsDebuggingEnabled(true)\n}\n");
-    hardening.hardenAndroid(root);
+    hardening.harden_android(root);
     const first = readFileSync(file, "utf8");
     assert.match(first, /setWebContentsDebuggingEnabled\(false\)/);
     assert.doesNotMatch(first, /setWebContentsDebuggingEnabled\(true\)/);
-    hardening.hardenAndroid(root);
+    hardening.harden_android(root);
     assert.equal(readFileSync(file, "utf8"), first);
     writeFileSync(file, "upstream changed");
-    assert.throws(() => hardening.hardenAndroid(root), /needs review/);
+    assert.throws(() => hardening.harden_android(root), /needs review/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -51,18 +51,18 @@ test("RevenueCat retains error payloads and key validation while limiting diagno
     // Reject changed SDK code before writing any other source file.
     chmodSync(join(base, "Purchasing/Purchases/Purchases.swift"), 0o644);
     writeFileSync(join(base, "Purchasing/Purchases/Purchases.swift"), "upstream changed");
-    assert.throws(() => hardening.hardenIos(root), /needs review/);
+    assert.throws(() => hardening.harden_ios(root), /needs review/);
     assert.equal(read("Error Handling/ErrorUtils.swift"), originals["Error Handling/ErrorUtils.swift"]);
     writeFileSync(join(base, "Purchasing/Purchases/Purchases.swift"), originals["Purchasing/Purchases/Purchases.swift"]);
     chmodSync(join(base, "Purchasing/Purchases/Purchases.swift"), 0o444);
-    hardening.hardenIos(root);
+    hardening.harden_ios(root);
     assert.match(read("Error Handling/ErrorUtils.swift"), /localizedDescription: code.description,/);
     assert.match(read("Error Handling/ErrorUtils.swift"), /userInfo\[NSLocalizedDescriptionKey as NSError.UserInfoKey\] = localizedDescription/);
     assert.match(read("Purchasing/Configuration.swift"), /return self.validate\(apiKey: apiKey\)/);
     assert.doesNotMatch(read("Purchasing/Configuration.swift"), /logIfNeeded/);
     assert.match(read("Purchasing/Purchases/Purchases.swift"), /checkForSimulatedStoreAPIKeyInRelease/);
     const first = Object.keys(originals).map(read);
-    hardening.hardenIos(root);
+    hardening.harden_ios(root);
     assert.deepEqual(Object.keys(originals).map(read), first);
     for (const file of Object.keys(originals)) assert.equal(statSync(join(base, file)).mode & 0o777, 0o444);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -70,10 +70,10 @@ test("RevenueCat retains error payloads and key validation while limiting diagno
 
 test("CocoaPods hardening runs after installation, once, and stops on failure", () => {
   const source = "target 'Votic' do\n  post_install do |installer|\n    react_native_post_install(installer)\n  end\nend\n";
-  const result = hardening.hardenPodfile(source);
+  const result = hardening.harden_podfile(source);
   assert.match(result, /nativeDependencyHardening.cjs/);
   assert.match(result, /\|\| raise\('Votic native hardening failed'\)/);
-  assert.equal(hardening.hardenPodfile(result), result);
-  assert.throws(() => hardening.hardenPodfile("changed template"), /needs review/);
-  assert.throws(() => hardening.hardenPodfile(source + source), /needs review/);
+  assert.equal(hardening.harden_podfile(result), result);
+  assert.throws(() => hardening.harden_podfile("changed template"), /needs review/);
+  assert.throws(() => hardening.harden_podfile(source + source), /needs review/);
 });

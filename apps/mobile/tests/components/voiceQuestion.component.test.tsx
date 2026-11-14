@@ -68,12 +68,12 @@ async function stop() {
 }
 
 function EnableReduceMotion() {
-  const { setReduceMotion } = useAccessibilityPreferences();
+  const { set_reduce_motion } = useAccessibilityPreferences();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Enable Reduce Motion"
-      onPress={() => setReduceMotion(true)}
+      onPress={() => set_reduce_motion(true)}
     >
       <Text>Reduce Motion</Text>
     </Pressable>
@@ -170,7 +170,7 @@ describe("Ask Votic recording composer", () => {
 
   it("cancels a transcript reveal when the microphone component unmounts", async () => {
     const onChangeText = jest.fn();
-    const onRevealChange = jest.fn();
+    const on_reveal_change = jest.fn();
     const intervals = jest.spyOn(global, "setInterval");
     const clear = jest.spyOn(global, "clearInterval");
     jest.mocked(transcribe_voice_question).mockResolvedValueOnce("One two three four.");
@@ -179,7 +179,7 @@ describe("Ask Votic recording composer", () => {
         value=""
         onChangeText={onChangeText}
         onFocus={jest.fn()}
-        onRevealChange={onRevealChange}
+        on_reveal_change={on_reveal_change}
       />,
     );
     await start();
@@ -191,10 +191,10 @@ describe("Ask Votic recording composer", () => {
     const revealTimer = intervals.mock.results[index].value;
     await view.unmount();
     const calls = onChangeText.mock.calls.length;
-    const frames = onRevealChange.mock.calls.length;
+    const frames = on_reveal_change.mock.calls.length;
     await act(async () => jest.advanceTimersByTime(1000));
     expect(onChangeText).toHaveBeenCalledTimes(calls);
-    expect(onRevealChange).toHaveBeenCalledTimes(frames);
+    expect(on_reveal_change).toHaveBeenCalledTimes(frames);
     expect(clear).toHaveBeenCalledWith(revealTimer);
   });
 

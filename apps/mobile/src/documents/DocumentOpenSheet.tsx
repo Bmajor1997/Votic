@@ -13,12 +13,12 @@ import { VoticDocument } from "./types";
 /** Choose the controls before opening a document, without starting narration unexpectedly. */
 export function DocumentOpenSheet({
   document,
-  onClose,
-  onOpen,
+  on_close,
+  on_open,
 }: {
   document: VoticDocument | null;
-  onClose: () => void;
-  onOpen: (document: VoticDocument, mode: "read" | "listen") => void;
+  on_close: () => void;
+  on_open: (document: VoticDocument, mode: "read" | "listen") => void;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -28,12 +28,12 @@ export function DocumentOpenSheet({
       visible={document !== null}
       transparent
       animationType={reduceMotion ? "none" : "slide"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Cancel opening document"
-        onPress={onClose}
+        onPress={on_close}
         style={sheetStyles.modalBackdrop}
       >
         <Pressable
@@ -71,7 +71,7 @@ export function DocumentOpenSheet({
                       ? "Opens the document for reading at your saved position"
                       : "Starts listening at your saved position."
                   }
-                  onPress={() => onOpen(document, mode)}
+                  onPress={() => on_open(document, mode)}
                   style={({ pressed }) => [
                     s.choice,
                     {
@@ -96,7 +96,7 @@ export function DocumentOpenSheet({
                   </View>
                 </Pressable>
               ))}
-              <Pressable accessibilityRole="button" onPress={onClose} style={s.cancel}>
+              <Pressable accessibilityRole="button" onPress={on_close} style={s.cancel}>
                 <Text style={[s.label, { color: theme.accentText }]}>Cancel</Text>
               </Pressable>
             </ScrollView>

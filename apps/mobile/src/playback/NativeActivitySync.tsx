@@ -44,9 +44,9 @@ export function NativeActivitySync() {
           await player.ack_activity?.(current.uid, JSON.stringify(events));
           return;
         }
-        await current.activity.recordNativeActivity(events);
+        await current.activity.record_native_activity(events);
         if (disposed) return;
-        await current.library.recordNativeActivity(events);
+        await current.library.record_native_activity(events);
         if (!disposed) await player.ack_activity?.(current.uid, JSON.stringify(events));
       } catch {
         /* Durable native checkpoints remain pending until both stores succeed. */

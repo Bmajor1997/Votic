@@ -26,8 +26,8 @@ test("operations monitor exits nonzero on reported failures and outputs aggregat
   const store = create_usage_store({ VOTIC_AI_USAGE_DB: path });
   try {
     assert.equal(monitor(path).status, 0);
-    store.recordReport({ user_id: "private-account", reason: "other", answer: "Private document contents" });
-    store.recordClientEvent("screen-render", 1);
+    store.record_report({ user_id: "private-account", reason: "other", answer: "Private document contents" });
+    store.record_client_event("screen-render", 1);
     const result = monitor(path);
     assert.equal(result.status, 1);
     const { status, alerts } = JSON.parse(result.stdout);

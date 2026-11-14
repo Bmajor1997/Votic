@@ -37,16 +37,16 @@ export type AuthBackend = {
   /** False when this build has no Firebase settings, so nobody can sign in. */
   configured: boolean;
   googleAvailable: boolean;
-  appleAvailable: () => Promise<boolean>;
+  apple_available: () => Promise<boolean>;
   subscribe: (listener: (user: VoticUser | null) => void) => () => void;
-  createAccount: (email: string, password: string) => Promise<void>;
-  signIn: (email: string, password: string) => Promise<void>;
-  sendPasswordReset: (email: string) => Promise<void>;
-  signInWithApple: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => Promise<void>;
-  deleteAccount: (expectedUid?: string) => Promise<void>;
-  prepareDeleteAccount: (expectedUid?: string) => Promise<void>;
+  create_account: (email: string, password: string) => Promise<void>;
+  sign_in: (email: string, password: string) => Promise<void>;
+  send_password_reset: (email: string) => Promise<void>;
+  sign_in_with_apple: () => Promise<void>;
+  sign_in_with_google: () => Promise<void>;
+  sign_out: () => Promise<void>;
+  delete_account: (expectedUid?: string) => Promise<void>;
+  prepare_delete_account: (expectedUid?: string) => Promise<void>;
   idToken: () => Promise<string | null>;
 };
 
@@ -130,7 +130,7 @@ function create_firebase_backend(): AuthBackend {
   return {
     configured: true,
     googleAvailable: google.available,
-    async appleAvailable() {
+    async apple_available() {
       if (Platform.OS !== "ios") return false;
       const apple = load_apple_module();
       return apple ? apple.isAvailableAsync().catch(() => false) : false;
@@ -139,19 +139,19 @@ function create_firebase_backend(): AuthBackend {
       // onIdTokenChanged also fires when a profile name is added after Apple sign-in.
       return onIdTokenChanged(firebase_auth(), (user) => listener(to_votic_user(user)));
     },
-    async createAccount(email, password) {
+    async create_account(email, password) {
       if (password_problem(password)) {
         throw Object.assign(new Error("Password requirements were not met."), { code: "auth/weak-password" });
       }
       await createUserWithEmailAndPassword(firebase_auth(), email.trim(), password);
     },
-    async signIn(email, password) {
+    async sign_in(email, password) {
       await signInWithEmailAndPassword(firebase_auth(), email.trim(), password);
     },
-    async sendPasswordReset(email) {
+    async send_password_reset(email) {
       await sendPasswordResetEmail(firebase_auth(), email.trim());
     },
-    async signInWithApple() {
+    async sign_in_with_apple() {
       const apple = load_apple_module();
       if (!apple || !(await apple.isAvailableAsync().catch(() => false)))
         throw unavailable("Sign in with Apple isn't available on this device.");
@@ -180,24 +180,24 @@ function create_firebase_backend(): AuthBackend {
       const name = [result.fullName?.givenName, result.fullName?.familyName].filter(Boolean).join(" ");
       if (name && !signedIn.user.displayName) await updateProfile(signedIn.user, { displayName: name });
     },
-    signInWithGoogle: () => google.signIn(),
-    async signOut() {
+    sign_in_with_google: () => google.sign_in(),
+    async sign_out() {
       await firebaseSignOut(firebase_auth());
-      await google.signOut();
+      await google.sign_out();
     },
-    async prepareDeleteAccount(expectedUid) {
+    async prepare_delete_account(expectedUid) {
       const user = firebase_auth().currentUser;
       if (!user || (expectedUid && user.uid !== expectedUid))
         throw unavailable("The signed-in account changed. Please retry.");
       await account_deletion_request("prepare", await user.getIdToken());
     },
-    async deleteAccount(expectedUid) {
+    async delete_account(expectedUid) {
       const user = firebase_auth().currentUser;
       if (!user || (expectedUid && user.uid !== expectedUid))
         throw unavailable("The signed-in account changed. Please retry.");
       await account_deletion_request("complete", await user.getIdToken());
       await deleteUser(user);
-      await google.signOut();
+      await google.sign_out();
     },
     async idToken() {
       return (await firebase_auth().currentUser?.getIdToken()) ?? null;
@@ -210,19 +210,19 @@ function create_unconfigured_backend(): AuthBackend {
   return {
     configured: false,
     googleAvailable: false,
-    appleAvailable: async () => false,
+    apple_available: async () => false,
     subscribe(listener) {
       listener(null);
       return () => {};
     },
-    createAccount: not_set_up,
-    signIn: not_set_up,
-    sendPasswordReset: not_set_up,
-    signInWithApple: not_set_up,
-    signInWithGoogle: not_set_up,
-    signOut: async () => {},
-    deleteAccount: async () => {},
-    prepareDeleteAccount: not_set_up,
+    create_account: not_set_up,
+    sign_in: not_set_up,
+    send_password_reset: not_set_up,
+    sign_in_with_apple: not_set_up,
+    sign_in_with_google: not_set_up,
+    sign_out: async () => {},
+    delete_account: async () => {},
+    prepare_delete_account: not_set_up,
     idToken: async () => null,
   };
 }

@@ -105,13 +105,13 @@ export default function NoteDraftsScreen() {
       </ScrollView>
       <NoteEditor
         item={editing?.item || null}
-        onClose={() => setEditing(null)}
-        onSave={(item, draft) => {
+        on_close={() => setEditing(null)}
+        on_save={(item, draft) => {
           const passage = note_from_draft(item.passage, draft);
           const saved =
             item.document.id === "new-quick-note"
-              ? library.addQuickNote(passage)
-              : library.savePassage(item.document.id, passage);
+              ? library.add_quick_note(passage)
+              : library.save_passage(item.document.id, passage);
           if (!saved) throw new Error("Free note limit reached");
           setEditing(null);
         }}

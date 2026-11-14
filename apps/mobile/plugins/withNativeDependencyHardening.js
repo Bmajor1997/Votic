@@ -1,16 +1,16 @@
 const { withDangerousMod, withPodfile } = require("expo/config-plugins");
-const { hardenAndroid, hardenPodfile } = require("./nativeDependencyHardening.cjs");
+const { harden_android, harden_podfile } = require("./nativeDependencyHardening.cjs");
 
 module.exports = function withNativeDependencyHardening(config) {
   config = withDangerousMod(config, [
     "android",
     async (mod) => {
-      hardenAndroid(mod.modRequest.projectRoot);
+      harden_android(mod.modRequest.projectRoot);
       return mod;
     },
   ]);
   return withPodfile(config, (mod) => {
-    mod.modResults.contents = hardenPodfile(mod.modResults.contents);
+    mod.modResults.contents = harden_podfile(mod.modResults.contents);
     return mod;
   });
 };

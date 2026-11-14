@@ -91,36 +91,36 @@ export interface SubscriptionService {
   /** Forgets the account on this device. The subscription itself stays with the account. */
   reset(): Promise<void>;
   refresh(): Promise<Entitlement>;
-  getPlans(): Promise<SubscriptionPlan[]>;
+  get_plans(): Promise<SubscriptionPlan[]>;
   /** Read upgrade products independently of the onboarding offering. Never starts a purchase. */
-  getUpgradePlans?(productIds: string[]): Promise<SubscriptionPlan[]>;
+  get_upgrade_plans?(productIds: string[]): Promise<SubscriptionPlan[]>;
   purchase(planId: string): Promise<PurchaseOutcome>;
   /**
    * Replaces the current subscription with another Votic Plus billing period through the store's own change
    * flow (never a second subscription). The store shows the final price, proration and timing first.
    */
-  changePlan?(planId: string, fromProductId: string): Promise<PurchaseOutcome>;
+  change_plan?(planId: string, fromProductId: string): Promise<PurchaseOutcome>;
   /**
    * The store's discount for staying on the person's current plan (a monthly subscriber gets the monthly
    * discount, an annual subscriber the annual one), if one is set up and this account is eligible; otherwise
    * null. Without a current plan, the first discount set up is offered.
    */
-  getRetentionOffer?(currentProductId?: string | null): Promise<RetentionOffer | null>;
+  get_retention_offer?(currentProductId?: string | null): Promise<RetentionOffer | null>;
   /**
    * Claims the discount through the store's own purchase sheet. A current subscriber keeps their plan and moves
    * onto the discounted price at their next renewal, so nobody pays twice for the same period.
    */
-  claimRetentionOffer?(offerId: string, fromProductId: string | null): Promise<PurchaseOutcome>;
+  claim_retention_offer?(offerId: string, fromProductId: string | null): Promise<PurchaseOutcome>;
   /** The founder lifetime product from the store, or null when the store doesn't list it. */
-  getFounderProduct?(productId: string): Promise<FounderProduct | null>;
+  get_founder_product?(productId: string): Promise<FounderProduct | null>;
   /** Buys the founder lifetime product; access follows the store's confirmed entitlement, like a subscription. */
-  purchaseFounder?(productId: string): Promise<PurchaseOutcome>;
+  purchase_founder?(productId: string): Promise<PurchaseOutcome>;
   /** Store products for additional AI usage, limited to the IDs Votic's server is configured to credit. */
-  getCreditProducts?(productIds: string[]): Promise<CreditProduct[]>;
-  purchaseCredits?(productId: string): Promise<CreditPurchaseOutcome>;
+  get_credit_products?(productIds: string[]): Promise<CreditProduct[]>;
+  purchase_credits?(productId: string): Promise<CreditPurchaseOutcome>;
   restore(): Promise<Entitlement>;
   /** Called whenever the store reports a change (renewal, expiry, refund). Returns an unsubscribe function. */
-  onChange(listener: (entitlement: Entitlement, userId: string) => void): () => void;
+  on_change(listener: (entitlement: Entitlement, userId: string) => void): () => void;
 }
 
 export const UNKNOWN_ENTITLEMENT: Entitlement = { status: "unknown", expiresAt: null, managementUrl: null };
@@ -136,7 +136,7 @@ export const unavailable_subscription_service = (
   async refresh() {
     return UNKNOWN_ENTITLEMENT;
   },
-  async getPlans() {
+  async get_plans() {
     return [];
   },
   async purchase() {
@@ -145,7 +145,7 @@ export const unavailable_subscription_service = (
   async restore() {
     return UNKNOWN_ENTITLEMENT;
   },
-  onChange() {
+  on_change() {
     return () => {};
   },
 });

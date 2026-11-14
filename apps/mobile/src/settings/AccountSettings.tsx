@@ -109,7 +109,7 @@ export function AccountSettings() {
     // sheet with example prices. Store builds show it only when the store has a real offer for this account.
     const showExample = PREVIEW_TESTING || PREVIEW_IN_DEVELOPMENT || subscription.canBypass;
     try {
-      const lookup = subscription.service.getRetentionOffer?.(currentPlan);
+      const lookup = subscription.service.get_retention_offer?.(currentPlan);
       found = lookup ? await store_deadline(lookup, OFFER_WAIT_MS) : null;
     } catch {
       found = null; // Never let the offer stand in the way of deleting an account.
@@ -125,7 +125,7 @@ export function AccountSettings() {
     open(found || showExample ? "keep-offer" : "deletion-info");
   }
   async function claim() {
-    const claimOffer = subscription.service.claimRetentionOffer;
+    const claimOffer = subscription.service.claim_retention_offer;
     if (!offer || offer.preview || !claimOffer || pending.current) return;
     pending.current = true;
     setClaiming(true);
@@ -137,7 +137,7 @@ export function AccountSettings() {
         has_access(current.status) ? (current.productId ?? null) : null,
       );
       if (outcome.kind === "purchased") {
-        subscription.setEntitlement(outcome.entitlement);
+        subscription.set_entitlement(outcome.entitlement);
         const thanks = "Thanks for staying. Your Votic Plus discount is set up in " + STORE + ".";
         setStayed(thanks);
         setStep(null);
@@ -162,9 +162,9 @@ export function AccountSettings() {
     setError(null);
     try {
       if (action === "recover") await accountData.recover();
-      else if (action === "sign-out") await auth.signOut();
+      else if (action === "sign-out") await auth.sign_out();
       else {
-        await accountData.deleteAccount();
+        await accountData.delete_account();
       }
       setStep(null);
     } catch (failure) {
@@ -223,7 +223,7 @@ export function AccountSettings() {
             detail="Save your library or restore a backup, even without an active membership."
             hint="Opens library backup and restore"
             icon="download-outline"
-            onPress={() => router.push("/library-backup")}
+            on_press={() => router.push("/library-backup")}
           />
         ) : null}
         {auth.user && accountData.canRecover ? (
@@ -232,7 +232,7 @@ export function AccountSettings() {
             detail="Move your documents, notes, collections, and activity from an older Votic version into this account."
             hint="Opens a confirmation before assigning the older library to this account"
             icon="archive-outline"
-            onPress={() => open("recover-library")}
+            on_press={() => open("recover-library")}
           />
         ) : null}
         {auth.user ? <PremiumRows key={auth.user.uid} /> : null}
@@ -247,7 +247,7 @@ export function AccountSettings() {
               label="Sign out"
               hint="Shows a confirmation. Does not delete your account, local documents, or notes"
               icon="log-out-outline"
-              onPress={() => open("sign-out")}
+              on_press={() => open("sign-out")}
             />
             {auth.configured ? (
               <View style={[s.deletion, { borderTopColor: theme.border }]}>
@@ -260,7 +260,7 @@ export function AccountSettings() {
                   detail="Permanently delete your Votic account and sign-in. This cannot be undone."
                   hint="Destructive action. Opens an explanation; two confirmation steps are required before deletion"
                   icon="trash-outline"
-                  onPress={() => void start_deletion()}
+                  on_press={() => void start_deletion()}
                   busy={checkingOffer}
                   danger
                 />
@@ -284,9 +284,9 @@ export function AccountSettings() {
           preview={offer.preview}
           claiming={claiming}
           message={offerMessage}
-          onClaim={() => void claim()}
-          onContinue={() => setStep("deletion-info")}
-          onClose={close}
+          on_claim={() => void claim()}
+          on_continue={() => setStep("deletion-info")}
+          on_close={close}
         />
       ) : null}
       <Modal
@@ -481,9 +481,9 @@ function PremiumRows() {
           detail="Testing build only. Keeps your account and library."
           hint="Clears this account's testing access and reopens the paywall"
           icon="refresh-outline"
-          onPress={() =>
+          on_press={() =>
             void subscription
-              .resetBypass()
+              .reset_bypass()
               .then(() =>
                 // If the paywall opened, this screen is gone. Still here means access comes from elsewhere.
                 setTimeout(() => {
@@ -523,7 +523,7 @@ function PremiumRows() {
       const restored = await store_deadline(subscription.service.restore());
       if (!alive.current) return;
       if (has_access(restored.status)) {
-        subscription.setEntitlement(restored);
+        subscription.set_entitlement(restored);
         setRestoreMessage("Your Votic Plus subscription is active.");
       } else if (restored.status === "unknown")
         setRestoreMessage("Votic couldn't reach the store. Check your connection and try again.");
@@ -547,7 +547,7 @@ function PremiumRows() {
             : "Compare Free and Plus"
         }
         icon="sparkles-outline"
-        onPress={() =>
+        on_press={() =>
           has_access(subscription.entitlement.status) ? void manage() : router.push("/paywall")
         }
       />
@@ -562,7 +562,7 @@ function PremiumRows() {
         disabled={restoring}
         hint="Checks the store for an existing Votic Plus subscription"
         icon="refresh-outline"
-        onPress={() => void restore()}
+        on_press={() => void restore()}
       />
       {restoreMessage ? (
         <Text accessibilityLiveRegion="polite" style={[s.detail, { color: theme.mutedText }]}>
@@ -595,9 +595,9 @@ function RunSetupAgain() {
   const walkthrough = useWalkthrough();
   function run() {
     walkthrough.reset("all");
-    onboarding.showTipsAgain();
+    onboarding.show_tips_again();
     // Setup no longer counts as done, so the app moves straight to the first question.
-    setup.restartSetup();
+    setup.restart_setup();
   }
   return (
     <>
@@ -609,7 +609,7 @@ function RunSetupAgain() {
         detail="Test build only. Go through personalization, widgets, “Votic is ready for you”, and the paywall again with this account."
         hint="Asks first. Your documents, notes, and membership are not changed"
         icon="refresh-outline"
-        onPress={() =>
+        on_press={() =>
           Alert.alert(
             "Run setup again?",
             "This account goes back to the first setup question, and first-run tips show again. Your documents, notes, and membership stay as they are.",
@@ -628,7 +628,7 @@ function AccountRow({
   detail,
   hint,
   icon,
-  onPress,
+  on_press,
   danger = false,
   disabled = false,
   busy = false,
@@ -638,7 +638,7 @@ function AccountRow({
   detail?: string;
   hint: string;
   icon: ComponentProps<typeof Ionicons>["name"];
-  onPress: () => void;
+  on_press: () => void;
   danger?: boolean;
   disabled?: boolean;
   /** Shows a spinner in place of the chevron while the row's action gets ready. */
@@ -655,7 +655,7 @@ function AccountRow({
       accessibilityHint={hint}
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.row,
         { backgroundColor: pressed ? theme.surfaceMuted : theme.surface, borderColor: theme.border },

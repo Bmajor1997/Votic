@@ -47,17 +47,17 @@ const measure_node: MeasureNode = async (node) => {
 
 /** The tab bar is drawn by the navigator; this stands in for the tab layout's registration. */
 function TabTargets() {
-  const { registerTarget } = useWalkthrough();
+  const { register_target } = useWalkthrough();
   useEffect(() => {
-    registerTarget("tab.documents", async () => {
+    register_target("tab.documents", async () => {
       measured.push("Documents tab");
       return { x: 98, y: 780, width: 98, height: 64 };
     });
-    registerTarget("tab.notes", async () => {
+    register_target("tab.notes", async () => {
       measured.push("Notes tab");
       return { x: 196, y: 780, width: 98, height: 64 };
     });
-  }, [registerTarget]);
+  }, [register_target]);
   return null;
 }
 
@@ -763,18 +763,18 @@ describe("Reader walkthrough", () => {
 
 /** Stands in for a screen whose preferences card starts below the fold; it may or may not be able to scroll. */
 function OffscreenTarget({ canScroll, scrolls }: { canScroll: boolean; scrolls: number[] }) {
-  const { registerTarget, registerScroller, request, hydrated } = useWalkthrough();
+  const { register_target, register_scroller, request, hydrated } = useWalkthrough();
   const [scrolled, setScrolled] = useState(0);
   useEffect(() => {
-    registerTarget("settings.preferences", async () => ({
+    register_target("settings.preferences", async () => ({
       x: 20,
       y: 2000 - scrolled,
       width: 350,
       height: 300,
     }));
-  }, [registerTarget, scrolled]);
+  }, [register_target, scrolled]);
   useEffect(() => {
-    registerScroller(
+    register_scroller(
       canScroll
         ? (by) => {
             scrolls.push(by);
@@ -782,7 +782,7 @@ function OffscreenTarget({ canScroll, scrolls }: { canScroll: boolean; scrolls: 
           }
         : null,
     );
-  }, [registerScroller, canScroll, scrolls]);
+  }, [register_scroller, canScroll, scrolls]);
   useEffect(() => {
     // Like a screen's trigger, it asks once the walkthrough has loaded and the screen has settled.
     if (!hydrated) return;
@@ -914,8 +914,8 @@ describe("Existing Votic users", () => {
 describe("Walkthrough progress belongs to the account", () => {
   /** Another account signs in while Votic is open, as after signing out. */
   async function sign_in_as(user: NonNullable<typeof fakeAuth.user>) {
-    await act(async () => fakeAuth.setUser(null));
-    await act(async () => fakeAuth.setUser(user));
+    await act(async () => fakeAuth.set_user(null));
+    await act(async () => fakeAuth.set_user(user));
     await wait_for_walkthrough();
   }
 

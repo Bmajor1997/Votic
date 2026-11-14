@@ -9,14 +9,14 @@ type Props = {
   selected: string;
   busy: boolean;
   progress: string | null;
-  onSelect: (id: string) => void;
-  onTitle: (text: string) => void;
-  onAdd: () => void;
-  onRetake: () => void;
-  onRotate: () => void;
-  onMove: (direction: -1 | 1) => void;
-  onRemove: () => void;
-  onFinish: () => void;
+  on_select: (id: string) => void;
+  on_title: (text: string) => void;
+  on_add: () => void;
+  on_retake: () => void;
+  on_rotate: () => void;
+  on_move: (direction: -1 | 1) => void;
+  on_remove: () => void;
+  on_finish: () => void;
 };
 /** A compact, scrollable page collection. The numbered strip is the document's reading order. */
 export function ScanPageReview(props: Props) {
@@ -41,7 +41,7 @@ export function ScanPageReview(props: Props) {
             accessibilityLabel={`Select page ${at + 1}`}
             accessibilityState={{ selected: props.selected === page.id, disabled: props.busy }}
             disabled={props.busy}
-            onPress={() => props.onSelect(page.id)}
+            onPress={() => props.on_select(page.id)}
             style={[s.thumbnail, props.selected === page.id && s.selected]}
           >
             <Image source={{ uri: page.uri }} style={s.photo} resizeMode="contain" />
@@ -55,31 +55,31 @@ export function ScanPageReview(props: Props) {
         value={props.draft.title}
         maxLength={120}
         editable={!props.busy}
-        onChangeText={props.onTitle}
+        onChangeText={props.on_title}
         style={s.input}
         placeholder="Name this document"
         placeholderTextColor="#CBD5E1"
       />
       <View style={s.actions}>
-        <ScanAction label="Retake page" onPress={props.onRetake} disabled={props.busy} />
-        <ScanAction label="Rotate page" onPress={props.onRotate} disabled={props.busy} />
-        <ScanAction label="Remove page" onPress={props.onRemove} disabled={props.busy} />
+        <ScanAction label="Retake page" on_press={props.on_retake} disabled={props.busy} />
+        <ScanAction label="Rotate page" on_press={props.on_rotate} disabled={props.busy} />
+        <ScanAction label="Remove page" on_press={props.on_remove} disabled={props.busy} />
         <ScanAction
           label="Move page earlier"
-          onPress={() => props.onMove(-1)}
+          on_press={() => props.on_move(-1)}
           disabled={props.busy || index < 1}
         />
         <ScanAction
           label="Move page later"
-          onPress={() => props.onMove(1)}
+          on_press={() => props.on_move(1)}
           disabled={props.busy || index >= props.draft.pages.length - 1}
         />
       </View>
       <View style={s.actions}>
-        <ScanAction label="Add another page" onPress={props.onAdd} disabled={props.busy} />
+        <ScanAction label="Add another page" on_press={props.on_add} disabled={props.busy} />
         <ScanAction
           label={props.progress || "Finish scan"}
-          onPress={props.onFinish}
+          on_press={props.on_finish}
           disabled={props.busy}
           primary
         />
@@ -93,12 +93,12 @@ export function ScanPageReview(props: Props) {
 }
 export function ScanAction({
   label,
-  onPress,
+  on_press,
   disabled,
   primary = false,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   disabled?: boolean;
   primary?: boolean;
 }) {
@@ -108,7 +108,7 @@ export function ScanAction({
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={on_press}
       style={[s.action, primary && s.primary, disabled && { opacity: 0.5 }]}
     >
       <Text style={[s.actionText, primary && { color: "#111827" }]}>{label}</Text>

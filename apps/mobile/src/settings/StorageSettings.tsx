@@ -139,11 +139,11 @@ export function StorageSettings() {
           </Card>
         </>
       ) : null}
-      {uid ? <StorageButton label="Refresh storage" disabled={busy} onPress={() => void refresh()} /> : null}
+      {uid ? <StorageButton label="Refresh storage" disabled={busy} on_press={() => void refresh()} /> : null}
       <StorageButton
         label="Clear old temporary files"
         disabled={busy || !uid || !usage?.temporary?.clearableBytes || Platform.OS === "web"}
-        onPress={() =>
+        on_press={() =>
           Alert.alert(
             "Clear old temporary files?",
             "Remove Votic's temporary import and export files older than one hour. Saved documents, notes, unfinished scan reviews, and backups saved outside Votic will be kept.",
@@ -169,7 +169,7 @@ export function StorageSettings() {
           detail="Review your library before choosing what to remove."
           hint="Opens your document library"
           icon="documents-outline"
-          onPress={() => router.push("/(tabs)/documents")}
+          on_press={() => router.push("/(tabs)/documents")}
         />
         <SettingsRow
           separated
@@ -177,7 +177,7 @@ export function StorageSettings() {
           detail="Restore items or choose what to permanently delete."
           hint="Opens Recently Deleted"
           icon="trash-outline"
-          onPress={() => router.push("/recently-deleted")}
+          on_press={() => router.push("/recently-deleted")}
         />
       </SettingsGroup>
     </>
@@ -185,11 +185,11 @@ export function StorageSettings() {
 }
 function StorageButton({
   label,
-  onPress,
+  on_press,
   disabled,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   disabled: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -199,7 +199,7 @@ function StorageButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={on_press}
       style={[s.button, { borderColor: theme.border, opacity: disabled ? 0.5 : 1 }]}
     >
       <Text style={{ color: theme.accentText, fontSize: 16, fontWeight: "700" }}>{label}</Text>

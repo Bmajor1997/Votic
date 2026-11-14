@@ -10,10 +10,16 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { controlSizes, radii, spacing, typography } from "../design/tokens";
 
 const PRESETS = [0.75, 1, 1.5, 2] as const;
-export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChange: (rate: number) => void }) {
+export function PlaybackSpeedControl({
+  rate,
+  on_change,
+}: {
+  rate: number;
+  on_change: (rate: number) => void;
+}) {
   const { theme } = useVoticTheme();
   function step(delta: number) {
-    onChange(normalize_playback_rate(rate + delta));
+    on_change(normalize_playback_rate(rate + delta));
   }
   return (
     <View>
@@ -63,7 +69,7 @@ export function PlaybackSpeedControl({ rate, onChange }: { rate: number; onChang
             accessibilityRole="radio"
             accessibilityState={{ checked: rate === value }}
             accessibilityLabel={format_playback_rate(value)}
-            onPress={() => onChange(value)}
+            onPress={() => on_change(value)}
             style={({ pressed }) => [
               s.preset,
               {

@@ -41,7 +41,7 @@ export default function Settings() {
         icon={icon}
         separated={separated}
         hint={`Opens ${SETTINGS_CATEGORIES[key]} settings`}
-        onPress={() => router.push({ pathname: "/settings/[category]", params: { category: key } })}
+        on_press={() => router.push({ pathname: "/settings/[category]", params: { category: key } })}
       />
     );
   }
@@ -94,7 +94,7 @@ export default function Settings() {
           detail="Monthly allowance, additional credits, and renewal date"
           icon="sparkles-outline"
           hint="Opens your AI credit balance and usage"
-          onPress={() => router.push("/ai-usage")}
+          on_press={() => router.push("/ai-usage")}
         />
       </SettingsGroup>
       <SettingsGroup title="SUPPORT & ACTIVITY">

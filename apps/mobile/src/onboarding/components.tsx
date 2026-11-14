@@ -19,14 +19,14 @@ type IconName = React.ComponentProps<typeof Ionicons>["name"];
 
 export function PrimaryButton({
   label,
-  onPress,
+  on_press,
   disabled = false,
   busy = false,
   icon,
   accessibilityHint,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   disabled?: boolean;
   busy?: boolean;
   icon?: IconName;
@@ -42,7 +42,7 @@ export function PrimaryButton({
       accessibilityHint={accessibilityHint}
       accessibilityState={{ disabled: inactive, busy }}
       disabled={inactive}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.primary,
         // Disabled uses a muted fill and text, not just transparency, so it reads as unavailable.
@@ -62,13 +62,13 @@ export function PrimaryButton({
 
 export function SecondaryButton({
   label,
-  onPress,
+  on_press,
   icon,
   disabled = false,
   busy = false,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   icon?: ReactNode;
   disabled?: boolean;
   busy?: boolean;
@@ -80,7 +80,7 @@ export function SecondaryButton({
       accessibilityLabel={label}
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.secondary,
         {
@@ -98,11 +98,11 @@ export function SecondaryButton({
 
 export function TextButton({
   label,
-  onPress,
+  on_press,
   disabled = false,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -111,7 +111,7 @@ export function TextButton({
       accessibilityRole="button"
       disabled={disabled}
       accessibilityState={{ disabled }}
-      onPress={onPress}
+      onPress={on_press}
       hitSlop={8}
       style={({ pressed }) => [s.textButton, { opacity: pressed ? 0.6 : 1 }]}
     >
@@ -132,14 +132,14 @@ export function OptionRow({
   icon,
   selected,
   multiple = false,
-  onPress,
+  on_press,
 }: {
   label: string;
   detail?: string;
   icon?: IconName;
   selected: boolean;
   multiple?: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -147,7 +147,7 @@ export function OptionRow({
       accessibilityRole={multiple ? "checkbox" : "radio"}
       accessibilityState={{ checked: selected }}
       accessibilityLabel={detail ? `${label}. ${detail}` : label}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.option,
         {
@@ -200,8 +200,8 @@ export function ProgressSegments({ step, total }: { step: number; total: number 
 export function StepScaffold({
   step,
   total,
-  onBack,
-  onSkip,
+  on_back,
+  on_skip,
   title,
   subtitle,
   children,
@@ -209,8 +209,8 @@ export function StepScaffold({
 }: {
   step: number;
   total: number;
-  onBack?: () => void;
-  onSkip: () => void;
+  on_back?: () => void;
+  on_skip: () => void;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -225,11 +225,11 @@ export function StepScaffold({
     <SafeAreaView style={[s.fill, { backgroundColor: theme.background }]}>
       <View style={s.topBar}>
         <View style={s.topSide}>
-          {onBack ? (
+          {on_back ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Back"
-              onPress={onBack}
+              onPress={on_back}
               style={({ pressed }) => [s.iconButton, { opacity: pressed ? 0.55 : 1 }]}
             >
               <Ionicons name="chevron-back" size={26} color={theme.text} />
@@ -241,7 +241,7 @@ export function StepScaffold({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Skip this step"
-            onPress={onSkip}
+            onPress={on_skip}
             style={({ pressed }) => [s.skip, { opacity: pressed ? 0.55 : 1 }]}
           >
             <Text style={[s.skipText, { color: theme.mutedText }]}>Skip</Text>

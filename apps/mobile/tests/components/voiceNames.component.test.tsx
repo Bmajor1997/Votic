@@ -15,15 +15,15 @@ describe("Voice names in the Listen sheet", () => {
     await render_with_providers(
       <ReaderSettingsSheet
         sheet="listen"
-        onClose={() => {}}
+        on_close={() => {}}
         rate={1}
-        onRateChange={() => {}}
+        on_rate_change={() => {}}
         voices={voices}
         voiceNames={votic_voice_names(voices)}
         voicesLoaded
         previewVoiceIdentifier={null}
-        onPreviewVoice={preview}
-        onSelectVoice={() => {}}
+        on_preview_voice={preview}
+        on_select_voice={() => {}}
       />,
     );
     const names = votic_voice_names(voices);

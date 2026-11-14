@@ -30,7 +30,7 @@ export async function create_library_backup(uid: string): Promise<LibraryBackup>
   writable(uid);
   if (await library_restore_pending(uid)) throw new Error("Finish the interrupted restore first.");
   const store = create_document_store(uid);
-  const documents = await store.loadDocuments();
+  const documents = await store.load_documents();
   if (store.unavailableDocuments().length)
     throw new Error("Some saved documents cannot be read. Recover them before creating a complete backup.");
   const raw = await AsyncStorage.getItem(account_storage_key(LEGACY_ACTIVITY_KEY, uid));

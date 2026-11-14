@@ -19,8 +19,8 @@ function Editor() {
       </Pressable>
       <NoteEditor
         item={open ? item : null}
-        onClose={() => setOpen(false)}
-        onSave={(_, draft) => {
+        on_close={() => setOpen(false)}
+        on_save={(_, draft) => {
           saved(draft);
           setOpen(false);
         }}

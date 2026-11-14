@@ -30,7 +30,7 @@ export function has_premium_entitlement(customer, entitlement_id, now = Date.now
 // works on the next request; a cancellation or refund takes effect within a minute.
 const PREMIUM_CACHE_MS = 60_000, PREMIUM_CACHE_LIMIT = 10_000;
 
-export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 5000, now = Date.now, cacheMs = PREMIUM_CACHE_MS } = {}) {
+export function create_premium_authorizer(env, { fetch_impl = fetch, timeoutMs = 5000, now = Date.now, cacheMs = PREMIUM_CACHE_MS } = {}) {
   const key = String(env.REVENUECAT_SECRET_API_KEY || "").trim();
   const entitlementId = String(env.REVENUECAT_ENTITLEMENT_ID ?? "premium").trim();
   if (!entitlementId || !/^[A-Za-z0-9_.-]+$/.test(entitlementId))
@@ -63,7 +63,7 @@ export function create_premium_authorizer(env, { fetchImpl = fetch, timeoutMs = 
     try {
       // Use a separate transport from paid AI calls. The key is backend-only and never logged.
       const read = async () => {
-        const response = await fetchImpl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
+        const response = await fetch_impl(`https://api.revenuecat.com/v1/subscribers/${encodeURIComponent(uid)}`, {
           headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
           signal: controller.signal,
           redirect: "error",

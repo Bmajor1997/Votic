@@ -20,9 +20,9 @@ export function SelectionBar({
   total,
   noun,
   prompt,
-  onToggleAll,
-  onDelete,
-  onCancel,
+  on_toggle_all,
+  on_delete,
+  on_cancel,
   children,
 }: PropsWithChildren<{
   count: number;
@@ -31,9 +31,9 @@ export function SelectionBar({
   noun: SelectionNoun;
   /** Shown while nothing is chosen, e.g. "Choose notes to ask about, share, or delete". */
   prompt: string;
-  onToggleAll: () => void;
-  onDelete: () => void;
-  onCancel: () => void;
+  on_toggle_all: () => void;
+  on_delete: () => void;
+  on_cancel: () => void;
 }>) {
   const { theme } = useVoticTheme();
   const destructive = theme.isDark ? "#FFB4B4" : "#B91C1C";
@@ -52,7 +52,7 @@ export function SelectionBar({
           }
           disabled={!total}
           accessibilityState={{ disabled: !total }}
-          onPress={onToggleAll}
+          onPress={on_toggle_all}
           style={({ pressed }) => [...pill, { opacity: !total ? 0.45 : pressed ? 0.7 : 1 }]}
         >
           <Ionicons
@@ -71,7 +71,7 @@ export function SelectionBar({
           }
           disabled={!count}
           accessibilityState={{ disabled: !count }}
-          onPress={onDelete}
+          onPress={on_delete}
           style={({ pressed }) => [
             ...pill,
             { borderColor: count ? destructive : theme.border, opacity: !count ? 0.45 : pressed ? 0.7 : 1 },
@@ -83,7 +83,7 @@ export function SelectionBar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={`Cancel ${noun.one} selection`}
-          onPress={onCancel}
+          onPress={on_cancel}
           style={({ pressed }) => [...pill, { opacity: pressed ? 0.7 : 1 }]}
         >
           <Text style={[s.pillText, { color: theme.mutedText }]}>Cancel</Text>

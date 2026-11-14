@@ -94,7 +94,7 @@ export function HomeScreenWidgetsIntro({ mode, onDone }: { mode: "setup" | "sett
         </View>
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton label={mode === "setup" ? "Continue" : "Done"} onPress={onDone} />
+        <PrimaryButton label={mode === "setup" ? "Continue" : "Done"} on_press={onDone} />
       </View>
     </SafeAreaView>
   );

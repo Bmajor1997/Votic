@@ -80,7 +80,7 @@ describe("root navigation", () => {
     expect(await render_layout()).toEqual(["welcome", "create-account", "sign-in", "forgot-password"]);
     expect(
       await after_change(() =>
-        fakeAuth.setUser({ uid: "new", email: "new@example.com", displayName: null, isNewAccount: true }),
+        fakeAuth.set_user({ uid: "new", email: "new@example.com", displayName: null, isNewAccount: true }),
       ),
     ).toEqual([
       "personalize",
@@ -106,7 +106,7 @@ describe("root navigation", () => {
     stackScreens.length = 0;
     expect((await render_layout())[0]).toBe("(tabs)");
     expect(
-      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("trial"))),
+      await after_change(() => fakeSubscriptions.set_entitlement("test-user", entitlement_of("trial"))),
     ).toEqual(APP);
   });
 
@@ -114,7 +114,7 @@ describe("root navigation", () => {
     await seed_storage({});
     expect(await render_layout()).toEqual(APP);
     expect(
-      await after_change(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired"))),
+      await after_change(() => fakeSubscriptions.set_entitlement("test-user", entitlement_of("expired"))),
     ).toEqual(APP);
   });
 
@@ -164,7 +164,7 @@ describe("root navigation", () => {
     await render_layout();
     expect(
       await after_change(() =>
-        fakeAuth.setUser({
+        fakeAuth.set_user({
           uid: "returning",
           email: "r@example.com",
           displayName: null,

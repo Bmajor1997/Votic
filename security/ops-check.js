@@ -5,7 +5,7 @@ if (!process.env.VOTIC_AI_USAGE_DB || process.env.VOTIC_AI_USAGE_DB===":memory:"
 verify_ledger(process.env.VOTIC_AI_USAGE_DB);
 const store=create_usage_store(process.env);
 try {
-  const status=store.operationalStatus();
+  const status=store.operational_status();
   const alerts=[];
   if(status.diagnostics.some(event=>event.count>0))alerts.push("Opted-in clients reported screen failures in the last two calendar days.");
   if(status.reports.open>=100)alerts.push("Answer report backlog is at least 100.");

@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const merge = require("../apps/mobile/vendor/deepmerge/index.cjs");
 const payload = () => JSON.parse('{"__proto__":{"isAdmin":true},"constructor":{"prototype":{"isAdmin":true}},"prototype":{"isAdmin":true},"safe":{"value":1}}');
 
-function assertSafe(result) {
+function assert_safe(result) {
   assert.equal(Object.getPrototypeOf(result), Object.prototype);
   assert.equal(result.isAdmin, undefined);
   for (const key of ["__proto__", "constructor", "prototype"]) {
@@ -18,14 +18,14 @@ function assertSafe(result) {
 test("vendored merge blocks prototype poisoning in both source and target, including nested placeholders", () => {
   for (const target of [{}, Object.create(null), payload()]) {
     const result = merge(target, payload());
-    assertSafe(result);
+    assert_safe(result);
     assert.deepEqual(result.safe, { value: 1 });
-    assertSafe(merge(payload(), {}));
+    assert_safe(merge(payload(), {}));
     for (const placeholder of [null, undefined, 0, false, ""]) {
-      assertSafe(merge({ session: placeholder }, { session: payload() }).session);
+      assert_safe(merge({ session: placeholder }, { session: payload() }).session);
     }
-    assertSafe(merge({ session: target }, { session: payload() }).session);
-    assertSafe(merge([], [payload()])[0]);
+    assert_safe(merge({ session: target }, { session: payload() }).session);
+    assert_safe(merge([], [payload()])[0]);
   }
 });
 

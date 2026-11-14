@@ -104,7 +104,7 @@ describe("Native feedback", () => {
     expect(title.props.style).toBeTruthy();
     expect(screen.getByLabelText("Description (required)").props.maxLength).toBe(5000);
     await fill();
-    await act(async () => fakeAuth.setUser({ uid: "other", email: null, displayName: null }));
+    await act(async () => fakeAuth.set_user({ uid: "other", email: null, displayName: null }));
     expect(screen.getByLabelText("Title (required)")).toHaveDisplayValue("");
   });
   it("updates and then clears the required-field message as each field is filled", async () => {

@@ -46,18 +46,18 @@ type WalkthroughContextValue = {
   dismiss: (id: FlowId) => void;
   /** Screens call this when a highlighted control is used for real. */
   pressed: (target: TargetId) => void;
-  isDone: (id: FlowId) => boolean;
+  is_done: (id: FlowId) => boolean;
   /** Replay: forgets one section, or every walkthrough and tip. */
   reset: (id: SectionId | "all") => void;
-  registerTarget: (id: TargetId, measure: Measure | null) => void;
+  register_target: (id: TargetId, measure: Measure | null) => void;
   /** The screen showing now registers how to scroll itself, so a control below the fold can be brought into view. */
-  registerScroller: (scroll: Scroller | null) => void;
+  register_scroller: (scroll: Scroller | null) => void;
   /** Scrolls the current screen by this many points; false when it can't scroll. */
-  scrollBy: (by: number) => boolean;
-  measureTarget: (id: TargetId) => Promise<Rect | null>;
+  scroll_by: (by: number) => boolean;
+  measure_target: (id: TargetId) => Promise<Rect | null>;
   measureNode: MeasureNode;
   /** Whether a step can show on the current screen: it needs no control, or its control is there. */
-  canShow: (step: WalkthroughStep) => boolean;
+  can_show: (step: WalkthroughStep) => boolean;
 };
 
 const WalkthroughContext = createContext<WalkthroughContextValue | null>(null);
@@ -278,14 +278,14 @@ export function WalkthroughProvider({
       skip,
       dismiss,
       pressed,
-      isDone: (id) => Boolean(state.flows[id]),
+      is_done: (id) => Boolean(state.flows[id]),
       reset,
-      registerTarget: register_target,
-      registerScroller: register_scroller,
-      scrollBy: scroll_by,
-      measureTarget: measure_target,
+      register_target: register_target,
+      register_scroller: register_scroller,
+      scroll_by: scroll_by,
+      measure_target: measure_target,
       measureNode,
-      canShow: (step: WalkthroughStep) => !step.target || targets.current.has(step.target),
+      can_show: (step: WalkthroughStep) => !step.target || targets.current.has(step.target),
     }),
     [
       hydrated,
@@ -320,10 +320,10 @@ export function useWalkthrough() {
 
 /** Attaches a walkthrough target id to a real control: `ref={useWalkthroughTarget("documents.upload")}`. */
 export function useWalkthroughTarget(id: TargetId) {
-  const { registerTarget, measureNode } = useWalkthrough();
+  const { register_target, measureNode } = useWalkthrough();
   return useCallback(
-    (node: unknown) => registerTarget(id, node ? () => measureNode(node) : null),
-    [id, registerTarget, measureNode],
+    (node: unknown) => register_target(id, node ? () => measureNode(node) : null),
+    [id, register_target, measureNode],
   );
 }
 

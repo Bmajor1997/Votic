@@ -27,17 +27,17 @@ type AuthValue = {
   configured: boolean;
   googleAvailable: boolean;
   appleAvailable: boolean;
-  createAccount: AuthBackend["createAccount"];
-  signIn: AuthBackend["signIn"];
-  sendPasswordReset: AuthBackend["sendPasswordReset"];
-  signInWithApple: AuthBackend["signInWithApple"];
-  signInWithGoogle: AuthBackend["signInWithGoogle"];
-  signOut: () => Promise<void>;
-  deleteAccount: AuthBackend["deleteAccount"];
-  prepareDeleteAccount: AuthBackend["prepareDeleteAccount"];
+  create_account: AuthBackend["create_account"];
+  sign_in: AuthBackend["sign_in"];
+  send_password_reset: AuthBackend["send_password_reset"];
+  sign_in_with_apple: AuthBackend["sign_in_with_apple"];
+  sign_in_with_google: AuthBackend["sign_in_with_google"];
+  sign_out: () => Promise<void>;
+  delete_account: AuthBackend["delete_account"];
+  prepare_delete_account: AuthBackend["prepare_delete_account"];
   /** Development and marked preview builds without Firebase can be explored. Production requires an account. */
   canContinueWithoutAccount: boolean;
-  continueWithoutAccount: () => void;
+  continue_without_account: () => void;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, [user]);
   useEffect(() => {
     let mounted = true;
-    void backend.appleAvailable().then((available) => {
+    void backend.apple_available().then((available) => {
       if (mounted) setAppleAvailable(available);
     });
     return () => {
@@ -178,20 +178,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         configured: backend.configured,
         googleAvailable: backend.googleAvailable,
         appleAvailable,
-        createAccount: backend.createAccount,
-        signIn: backend.signIn,
-        sendPasswordReset: backend.sendPasswordReset,
-        signInWithApple: backend.signInWithApple,
-        signInWithGoogle: backend.signInWithGoogle,
-        async signOut() {
+        create_account: backend.create_account,
+        sign_in: backend.sign_in,
+        send_password_reset: backend.send_password_reset,
+        sign_in_with_apple: backend.sign_in_with_apple,
+        sign_in_with_google: backend.sign_in_with_google,
+        async sign_out() {
           setDevelopmentUser(false);
           void AsyncStorage.removeItem(EXPLORE_SESSION_KEY).catch(() => {});
-          await backend.signOut();
+          await backend.sign_out();
         },
-        deleteAccount: backend.deleteAccount,
-        prepareDeleteAccount: backend.prepareDeleteAccount,
+        delete_account: backend.delete_account,
+        prepare_delete_account: backend.prepare_delete_account,
         canContinueWithoutAccount,
-        continueWithoutAccount() {
+        continue_without_account() {
           if (!canContinueWithoutAccount) return;
           setDevelopmentUser(true);
           void AsyncStorage.setItem(EXPLORE_SESSION_KEY, "1").catch(() => {});

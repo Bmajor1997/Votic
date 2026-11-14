@@ -11,9 +11,9 @@ export function useNoteDraftProtection(
   item: NoteItem,
   draft: NoteDraft,
   restore: (draft: NoteDraft) => void,
-  onClose: () => void,
+  on_close: () => void,
 ) {
-  const { uid, registerFlush } = useAccountData();
+  const { uid, register_flush } = useAccountData();
   const { flush } = useDocumentLibrary();
   const { show } = useMotionFeedback();
   const [saving, setSaving] = useState(false);
@@ -59,7 +59,7 @@ export function useNoteDraftProtection(
     const timer = setTimeout(() => void persist.current().catch(() => {}), 350);
     return () => clearTimeout(timer);
   }, [draft.note, draft.title, draft.noteType, draft.tags]);
-  useEffect(() => registerFlush(() => persist.current()), [registerFlush]);
+  useEffect(() => register_flush(() => persist.current()), [register_flush]);
   useEffect(() => {
     const subscription = AppState.addEventListener("change", () => void persist.current().catch(() => {}));
     return () => subscription.remove();
@@ -98,7 +98,7 @@ export function useNoteDraftProtection(
     close() {
       if (saving) return;
       if (initial.current === JSON.stringify(latest.current)) {
-        onClose();
+        on_close();
         return;
       }
       Alert.alert(
@@ -111,7 +111,7 @@ export function useNoteDraftProtection(
             style: "destructive",
             onPress: () =>
               void clear()
-                .then(onClose)
+                .then(on_close)
                 .catch((e) => setError(e.message)),
           },
           {
@@ -120,7 +120,7 @@ export function useNoteDraftProtection(
               void persist
                 .current()
                 .then(() => {
-                  if (!finished.current) onClose();
+                  if (!finished.current) on_close();
                 })
                 .catch(() => {}),
           },

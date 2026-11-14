@@ -35,8 +35,8 @@ export function ReadingPages({
   index,
   wordIndex,
   textStyle,
-  onLocation,
-  onReady,
+  on_location,
+  on_ready,
   findQuery = "",
 }: {
   findQuery?: string;
@@ -44,8 +44,8 @@ export function ReadingPages({
   index: number;
   wordIndex: number;
   textStyle: TextStyle;
-  onLocation: (index: number, word: number) => void;
-  onReady: () => void;
+  on_location: (index: number, word: number) => void;
+  on_ready: () => void;
 }) {
   const { theme } = useVoticTheme();
   const list = useRef<FlatList<Page>>(null);
@@ -76,10 +76,10 @@ export function ReadingPages({
     pages.findIndex((entry) => location < entry.end),
   );
   const [page, setPage] = useState(0);
-  const ready = useRef(onReady);
+  const ready = useRef(on_ready);
   useEffect(() => {
-    ready.current = onReady;
-  }, [onReady]);
+    ready.current = on_ready;
+  }, [on_ready]);
   const emitted = useRef<{ index: number; word: number; pages: Page[] } | null>(null);
   useEffect(() => {
     if (!pages.length || !size.width) return;
@@ -112,7 +112,7 @@ export function ReadingPages({
     );
     const word = first < 0 ? Math.max(0, words.length - 1) : first;
     emitted.current = { index: passage, word, pages };
-    onLocation(passage, word);
+    on_location(passage, word);
   }
   return (
     <View style={styles.container}>

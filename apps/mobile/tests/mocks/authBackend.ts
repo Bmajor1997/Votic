@@ -28,7 +28,7 @@ export const fakeAuth = {
     fakeAuth.socialCreatesAccount = true;
     listeners.clear();
   },
-  setUser(user: VoticUser | null) {
+  set_user(user: VoticUser | null) {
     fakeAuth.user = user;
     listeners.forEach((listener) => listener(user));
   },
@@ -42,17 +42,17 @@ export function create_auth_backend(): AuthBackend {
   return {
     configured: fakeAuth.configured,
     googleAvailable: fakeAuth.googleAvailable,
-    appleAvailable: async () => true,
+    apple_available: async () => true,
     subscribe(listener) {
       listeners.add(listener);
       listener(fakeAuth.user);
       return () => listeners.delete(listener);
     },
-    async createAccount(email, password) {
+    async create_account(email, password) {
       fakeAuth.calls.push("createAccount");
       if (fakeAuth.accounts.has(email)) throw failure("auth/email-already-in-use");
       fakeAuth.accounts.set(email, password);
-      fakeAuth.setUser({
+      fakeAuth.set_user({
         uid: "new-" + email,
         email,
         displayName: null,
@@ -60,43 +60,43 @@ export function create_auth_backend(): AuthBackend {
         passwordSignIn: true,
       });
     },
-    async signIn(email, password) {
+    async sign_in(email, password) {
       fakeAuth.calls.push("signIn");
       if (fakeAuth.accounts.get(email) !== password) throw failure("auth/invalid-credential");
-      fakeAuth.setUser({ uid: "user-" + email, email, displayName: null, passwordSignIn: true });
+      fakeAuth.set_user({ uid: "user-" + email, email, displayName: null, passwordSignIn: true });
     },
-    async sendPasswordReset() {
+    async send_password_reset() {
       fakeAuth.calls.push("sendPasswordReset");
     },
-    async signInWithApple() {
+    async sign_in_with_apple() {
       fakeAuth.calls.push("signInWithApple");
-      fakeAuth.setUser({
+      fakeAuth.set_user({
         uid: "apple",
         email: null,
         displayName: "Apple Reader",
         isNewAccount: fakeAuth.socialCreatesAccount,
       });
     },
-    async signInWithGoogle() {
+    async sign_in_with_google() {
       fakeAuth.calls.push("signInWithGoogle");
       if (fakeAuth.googlePending) await fakeAuth.googlePending;
       if (fakeAuth.googleFailure) throw fakeAuth.googleFailure;
-      fakeAuth.setUser({
+      fakeAuth.set_user({
         uid: "google",
         email: "g@example.com",
         displayName: "Google Reader",
         isNewAccount: fakeAuth.socialCreatesAccount,
       });
     },
-    async signOut() {
+    async sign_out() {
       fakeAuth.calls.push("signOut");
-      fakeAuth.setUser(null);
+      fakeAuth.set_user(null);
     },
-    async deleteAccount() {
+    async delete_account() {
       fakeAuth.calls.push("deleteAccount");
-      fakeAuth.setUser(null);
+      fakeAuth.set_user(null);
     },
-    prepareDeleteAccount: async () => {},
+    prepare_delete_account: async () => {},
     idToken: async () => (fakeAuth.user ? "test-token" : null),
   };
 }

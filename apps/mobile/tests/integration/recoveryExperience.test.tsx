@@ -28,24 +28,24 @@ it("recovers a document with notes and restores standalone notes without duplica
   const hook = await renderHook(() => useDocumentLibrary(), { wrapper: AppProviders });
   let id = "";
   await act(async () => {
-    id = hook.result.current.addTextDocument("original.txt", "Text.").id;
+    id = hook.result.current.add_text_document("original.txt", "Text.").id;
   });
-  await act(async () => hook.result.current.savePassage(id, note));
-  await act(async () => hook.result.current.removeDocument(id));
+  await act(async () => hook.result.current.save_passage(id, note));
+  await act(async () => hook.result.current.remove_document(id));
   expect(hook.result.current.documents).toHaveLength(0);
   expect(hook.result.current.activeDocument).toBeNull();
   expect(hook.result.current.recovery.documents[0].savedPassages).toEqual([note]);
   await act(async () => hook.result.current.recovery.restore(id));
   expect(hook.result.current.documents[0].savedPassages).toEqual([note]);
-  await act(async () => hook.result.current.removePassage(id, note.id));
+  await act(async () => hook.result.current.remove_passage(id, note.id));
   expect(hook.result.current.documents[0].savedPassages).toEqual([]);
   expect(hook.result.current.recovery.notes).toHaveLength(1);
   await act(async () => hook.result.current.recovery.restore(id, note.id));
   expect(hook.result.current.documents[0].savedPassages?.[0].tags).toEqual(["study"]);
-  await act(async () => hook.result.current.recovery.permanentlyDelete(id));
+  await act(async () => hook.result.current.recovery.permanently_delete(id));
   expect(hook.result.current.documents).toHaveLength(1); // permanent deletion cannot target a live document
-  await act(async () => hook.result.current.removeDocument(id));
-  await act(async () => hook.result.current.recovery.permanentlyDelete(id));
+  await act(async () => hook.result.current.remove_document(id));
+  await act(async () => hook.result.current.recovery.permanently_delete(id));
   expect(hook.result.current.recovery.documents).toEqual([]);
 });
 it("expires retained items after 30 days and removes quick-note text from live views", () => {
@@ -137,10 +137,10 @@ it("stops a Quick Notes playback queue before removing one of its narrated notes
   };
   jest.spyOn(playback, "notification_player").mockReturnValue(player);
   const hook = await renderHook(() => useDocumentLibrary(), { wrapper: AppProviders });
-  await act(async () => hook.result.current.addQuickNote(note));
+  await act(async () => hook.result.current.add_quick_note(note));
   playingDocument = hook.result.current.documents[0].id;
   stop.mockClear();
-  await act(async () => hook.result.current.removePassage(playingDocument, note.id));
+  await act(async () => hook.result.current.remove_passage(playingDocument, note.id));
   expect(stop).toHaveBeenCalled();
   expect(hook.result.current.documents[0].plainText).toBe("");
   expect(hook.result.current.documents[0].savedPassages).toEqual([]);

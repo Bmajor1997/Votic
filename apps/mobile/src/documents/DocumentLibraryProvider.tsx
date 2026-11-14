@@ -48,31 +48,31 @@ type Library = {
   persistenceError: string | null;
   /** False until the saved library has been read (or failed to read), so screens can show loading. */
   loaded: boolean;
-  ensureCanAddDocument: () => void;
-  renameDocument: (id: string, title: string) => void;
-  addTextDocument: (
+  ensure_can_add_document: () => void;
+  rename_document: (id: string, title: string) => void;
+  add_text_document: (
     sourceName: string,
     text: string,
     options?: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string },
   ) => VoticDocument;
-  addTextDocumentDurably: (
+  add_text_document_durably: (
     sourceName: string,
     text: string,
     options?: { playbackRate?: number; origin?: DocumentOrigin; sourceUrl?: string; importId?: string },
   ) => Promise<VoticDocument>;
-  openDocument: (id: string, sentenceIndex?: number) => void;
+  open_document: (id: string, sentenceIndex?: number) => void;
   /** Adds a collection and returns its saved name: an existing one that differs only in capitals is reused. */
-  addCollection: (name: string) => string;
-  setDocumentCollection: (id: string, collection?: string) => void;
-  removeDocument: (id: string) => void;
-  addQuickNote: (passage: SavedPassage) => boolean;
-  savePassage: (documentId: string, passage: SavedPassage) => boolean;
-  removePassage: (documentId: string, passageId: string) => void;
-  updateProgress: (id: string, progress: number, sentenceIndex?: number, wordIndex?: number) => void;
-  recordNativeActivity: (events: NativeActivityEvent[]) => Promise<void>;
-  recordActivity: (id: string, readingSeconds: number, listeningSeconds: number) => void;
-  completeDocument: (id: string, sentenceIndex: number, wordIndex: number) => void;
-  updatePlaybackRate: (id: string, rate: number) => void;
+  add_collection: (name: string) => string;
+  set_document_collection: (id: string, collection?: string) => void;
+  remove_document: (id: string) => void;
+  add_quick_note: (passage: SavedPassage) => boolean;
+  save_passage: (documentId: string, passage: SavedPassage) => boolean;
+  remove_passage: (documentId: string, passageId: string) => void;
+  update_progress: (id: string, progress: number, sentenceIndex?: number, wordIndex?: number) => void;
+  record_native_activity: (events: NativeActivityEvent[]) => Promise<void>;
+  record_activity: (id: string, readingSeconds: number, listeningSeconds: number) => void;
+  complete_document: (id: string, sentenceIndex: number, wordIndex: number) => void;
+  update_playback_rate: (id: string, rate: number) => void;
 };
 
 const C = createContext<Library | null>(null);
@@ -89,7 +89,7 @@ function title_from(sourceName: string, text: string) {
 }
 
 export function DocumentLibraryProvider({ children }: PropsWithChildren) {
-  const { uid, registerFlush, registerReload } = useAccountData();
+  const { uid, register_flush, register_reload } = useAccountData();
   const { access, checking } = useSubscription();
   const [showUpgrade, setShowUpgrade] = useState<{
     uid: string | null;
@@ -97,7 +97,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   } | null>(null);
   const [documents, setDocumentState] = useState<VoticDocument[]>([]);
   const latestDocuments = useRef(documents);
-  const setDocuments = useCallback(
+  const set_documents = useCallback(
     (update: VoticDocument[] | ((current: VoticDocument[]) => VoticDocument[])) => {
       const next = typeof update === "function" ? update(latestDocuments.current) : update;
       latestDocuments.current = next;
@@ -120,7 +120,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   const [librarySaver] = useState(() =>
     create_throttled_saver(
       async (value: VoticDocument[]) => {
-        await store.saveDocuments(value);
+        await store.save_documents(value);
         saveStatus.failed = false;
         clear_save_error(LIBRARY_SAVE_ERROR);
       },
@@ -134,7 +134,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   /** Reads this account's library; `reloading` keeps the open document, as after recovering older data. */
   function load(isCurrent: () => boolean, reloading = false) {
-    return Promise.all([store.loadDocuments(), load_collections(uid ?? "")])
+    return Promise.all([store.load_documents(), load_collections(uid ?? "")])
       .then(async ([savedDocuments, savedCollections]) => {
         if (!isCurrent()) return;
         let expiryFailed = false;
@@ -143,7 +143,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
           return savedDocuments;
         });
         if (!isCurrent()) return;
-        setDocuments(retained);
+        set_documents(retained);
         setCollections(savedCollections);
         setActiveId((current) =>
           reloading && savedDocuments.some((document) => document.id === current)
@@ -182,18 +182,18 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       mounted = false;
     };
   }, [store, uid]);
-  useEffect(() => registerReload(() => loadRef.current(() => true, true)), [registerReload]);
+  useEffect(() => register_reload(() => loadRef.current(() => true, true)), [register_reload]);
 
   useEffect(
     () =>
-      registerFlush(async () => {
+      register_flush(async () => {
         if (!hydrated) throw new Error("The library is not ready to recover older data.");
         await librarySaver.flush();
         await collectionsSaved.current;
         if (saveStatus.failed || collectionsFailed.current)
           throw new Error("Current library changes could not be saved.");
       }),
-    [registerFlush, librarySaver, hydrated, saveStatus],
+    [register_flush, librarySaver, hydrated, saveStatus],
   );
   useEffect(() => {
     if (hydrated) librarySaver.schedule(documents);
@@ -270,7 +270,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       activity: {},
       savedPassages: [],
     };
-    setDocuments((current) => [document, ...current]);
+    set_documents((current) => [document, ...current]);
     setActiveId(document.id);
     return document;
   }
@@ -289,7 +289,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function open_document(id: string, sentenceIndex?: number) {
     setActiveId(id);
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id
           ? {
@@ -320,7 +320,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   function set_document_collection(id: string, collection?: string) {
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id
           ? { ...document, collection: collection || undefined, updatedAt: Date.now() }
@@ -333,7 +333,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   function rename_document(id: string, title: string) {
     const clean = title.trim().slice(0, 200);
     if (!clean) return;
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id ? { ...document, title: clean, updatedAt: Date.now() } : document,
       ),
@@ -342,7 +342,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function remove_document(id: string) {
     if (activeId === id) void Speech.stop();
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) => (document.id === id ? { ...document, deletedAt: Date.now() } : document)),
     );
     setActiveId((current) => (current === id ? null : current));
@@ -369,7 +369,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       (document) => !document.deletedAt && document.notebookKind === "quick-notes",
     );
     if (!allow_note(notebook?.id, passage)) return false;
-    setDocuments((current) => {
+    set_documents((current) => {
       const existing = current.find(
         (document) => !document.deletedAt && document.notebookKind === "quick-notes",
       );
@@ -414,7 +414,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function save_passage(documentId: string, passage: SavedPassage) {
     if (!allow_note(documentId, passage)) return false;
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === documentId
           ? {
@@ -449,7 +449,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       const player = notification_player();
       if (player?.get_state().documentId === documentId) void player.stop();
     }
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === documentId
           ? {
@@ -477,7 +477,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   function update_progress(id: string, progress: number, sentenceIndex = 0, wordIndex = 0) {
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id
           ? {
@@ -493,7 +493,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
   }
 
   function update_playback_rate(id: string, rate: number) {
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id ? { ...document, playbackRate: rate, updatedAt: Date.now() } : document,
       ),
@@ -507,7 +507,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
       String(now.getMonth() + 1).padStart(2, "0"),
       String(now.getDate()).padStart(2, "0"),
     ].join("-");
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) => {
         if (document.id !== id) return document;
         const previous = document.activity?.[day] || { readingSeconds: 0, listeningSeconds: 0 };
@@ -527,7 +527,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
 
   function complete_document(id: string, sentenceIndex: number, wordIndex: number) {
     const now = Date.now();
-    setDocuments((current) =>
+    set_documents((current) =>
       current.map((document) =>
         document.id === id
           ? {
@@ -543,7 +543,7 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
     );
   }
 
-  const recovery = useLibraryRecovery(documents, setDocuments, uid);
+  const recovery = useLibraryRecovery(documents, set_documents, uid);
   return (
     <C.Provider
       value={{
@@ -559,35 +559,35 @@ export function DocumentLibraryProvider({ children }: PropsWithChildren) {
         activeDocument,
         persistenceError,
         loaded,
-        ensureCanAddDocument: ensure_can_add_document,
-        renameDocument: rename_document,
-        addTextDocument: add_text_document,
-        addTextDocumentDurably: add_text_document_durably,
-        openDocument: open_document,
-        addCollection: add_collection,
-        setDocumentCollection: set_document_collection,
-        removeDocument: remove_document,
-        addQuickNote: add_quick_note,
-        savePassage: save_passage,
-        removePassage: remove_passage,
-        updateProgress: update_progress,
-        recordActivity: record_activity,
-        recordNativeActivity: async (events) => {
+        ensure_can_add_document: ensure_can_add_document,
+        rename_document: rename_document,
+        add_text_document: add_text_document,
+        add_text_document_durably: add_text_document_durably,
+        open_document: open_document,
+        add_collection: add_collection,
+        set_document_collection: set_document_collection,
+        remove_document: remove_document,
+        add_quick_note: add_quick_note,
+        save_passage: save_passage,
+        remove_passage: remove_passage,
+        update_progress: update_progress,
+        record_activity: record_activity,
+        record_native_activity: async (events) => {
           if (!hydrated) throw new Error("Library is loading.");
           const next = reconcile_native_documents(latestDocuments.current, events);
           latestDocuments.current = next;
-          setDocuments(next);
+          set_documents(next);
           librarySaver.schedule(next);
           await librarySaver.flush();
           if (saveStatus.failed) throw new Error(LIBRARY_SAVE_ERROR);
         },
-        completeDocument: complete_document,
-        updatePlaybackRate: update_playback_rate,
+        complete_document: complete_document,
+        update_playback_rate: update_playback_rate,
       }}
     >
       {children}
       {showUpgrade && showUpgrade.uid === uid ? (
-        <FreeUpgradeSheet visible reason={showUpgrade.reason} onClose={() => setShowUpgrade(null)} />
+        <FreeUpgradeSheet visible reason={showUpgrade.reason} on_close={() => setShowUpgrade(null)} />
       ) : null}
     </C.Provider>
   );

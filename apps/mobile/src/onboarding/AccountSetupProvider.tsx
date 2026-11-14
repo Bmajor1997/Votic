@@ -37,18 +37,18 @@ type AccountSetupValue = {
    */
   widgetsIntroduced: boolean;
   /** Saved as answers change, so leaving mid-question loses nothing. */
-  setAnswers: (answers: PersonalizationAnswers) => void;
-  setStep: (step: number) => void;
+  set_answers: (answers: PersonalizationAnswers) => void;
+  set_step: (step: number) => void;
   /** Ends the questions (answered or skipped) and applies what can take effect now. */
-  finishPersonalization: (options: { skipped: boolean }) => void;
+  finish_personalization: (options: { skipped: boolean }) => void;
   /** Saves answers edited later from Settings and applies them. */
-  savePersonalization: (answers: PersonalizationAnswers) => void;
+  save_personalization: (answers: PersonalizationAnswers) => void;
   /** After the ready recap: setup is complete; Home still requires confirmed subscription access. */
-  completeHandoff: () => void;
+  complete_handoff: () => void;
   /** After the Home Screen widgets screen: setup moves on to "Votic is ready for you". */
-  completeWidgetsIntro: () => void;
+  complete_widgets_intro: () => void;
   /** Test builds only: this account starts setup over from the first question, as if it were new. */
-  restartSetup: () => void;
+  restart_setup: () => void;
 };
 
 const AccountSetupContext = createContext<AccountSetupValue | null>(null);
@@ -171,15 +171,15 @@ export function AccountSetupProvider({
     handedOff: Boolean(setup?.completedAt),
     widgetsIntroduced:
       Platform.OS === "web" || Boolean(setup?.widgetsIntroducedAt) || Boolean(setup?.completedAt),
-    setAnswers: (answers) => update((state) => ({ ...state, answers })),
-    setStep: (step) =>
+    set_answers: (answers) => update((state) => ({ ...state, answers })),
+    set_step: (step) =>
       update((state) => ({ ...state, currentStep: Math.min(QUESTIONS.length - 1, Math.max(0, step)) })),
-    finishPersonalization({ skipped }) {
+    finish_personalization({ skipped }) {
       if (setup) apply(setup.answers);
-      legacy.completePersonalization();
+      legacy.complete_personalization();
       update((state) => ({ ...state, personalizationCompletedAt: now(), personalizationSkipped: skipped }));
     },
-    savePersonalization(answers) {
+    save_personalization(answers) {
       apply(answers);
       update((state) => ({
         ...state,
@@ -188,13 +188,13 @@ export function AccountSetupProvider({
         personalizationSkipped: false,
       }));
     },
-    completeHandoff() {
+    complete_handoff() {
       update((state) => ({ ...state, completedAt: state.completedAt ?? now() }));
     },
-    completeWidgetsIntro() {
+    complete_widgets_intro() {
       update((state) => ({ ...state, widgetsIntroducedAt: state.widgetsIntroducedAt ?? now() }));
     },
-    restartSetup() {
+    restart_setup() {
       update(() => new_onboarding_state());
     },
   };
@@ -202,17 +202,17 @@ export function AccountSetupProvider({
     <AccountSetupContext.Provider value={value}>
       <AccountPurposePreferences
         purpose={effective.purpose}
-        setPurpose={(purpose) => change_preferences({ purpose })}
+        set_purpose={(purpose) => change_preferences({ purpose })}
         explanationStyle={effective.explanationStyle}
-        setExplanationStyle={(explanationStyle) => change_preferences({ explanationStyle })}
+        set_explanation_style={(explanationStyle) => change_preferences({ explanationStyle })}
         defaultPlaybackRate={effective.defaultPlaybackRate}
-        setDefaultPlaybackRate={(rate) =>
+        set_default_playback_rate={(rate) =>
           change_preferences({ defaultPlaybackRate: normalize_playback_rate(rate) })
         }
       >
         <AccountHighlightPreferences
           highlightMode={effective.highlightMode}
-          setHighlightMode={(highlightMode) => change_preferences({ highlightMode })}
+          set_highlight_mode={(highlightMode) => change_preferences({ highlightMode })}
         >
           {children}
         </AccountHighlightPreferences>

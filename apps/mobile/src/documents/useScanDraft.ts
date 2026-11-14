@@ -15,7 +15,7 @@ export class ScanSaveError extends Error {
 const TITLE_SAVE_DELAY_MS = 400;
 
 export function useScanDraft() {
-  const { uid, registerFlush } = useAccountData();
+  const { uid, register_flush } = useAccountData();
   const [draft, setDraft] = useState(new_scan_draft);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +46,10 @@ export function useScanDraft() {
   }, [uid]);
   useEffect(
     () =>
-      registerFlush(async () => {
+      register_flush(async () => {
         await pending.current;
       }),
-    [registerFlush],
+    [register_flush],
   );
   const titleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(titleTimer.current), []);

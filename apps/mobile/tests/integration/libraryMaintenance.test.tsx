@@ -22,7 +22,7 @@ it("quiesces consumers, restores, then remounts them with the restored library",
           accessibilityRole="button"
           accessibilityLabel="Restore"
           onPress={() => {
-            run = account.runLibraryTask(async (uid) => {
+            run = account.run_library_task(async (uid) => {
               const backup = await create_library_backup(uid);
               await gate;
               await restore_library_backup(uid, {

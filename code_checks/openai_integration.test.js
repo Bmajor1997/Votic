@@ -18,7 +18,7 @@ test("large camera photos reserve image tokens rather than base64 bytes and stil
   let calls = 0;
   const photo = Buffer.alloc(3 * 1024 * 1024);
   photo.set([255, 216, 255]);
-  await with_server({ authorize: () => ({ uid: "scan-user" }), fetchImpl: async (_url, options) => {
+  await with_server({ authorize: () => ({ uid: "scan-user" }), fetch_impl: async (_url, options) => {
     calls++;
     assert.equal(JSON.parse(options.body).input[0].content[1].image_url, `data:image/jpeg;base64,${photo.toString("base64")}`);
     return provider(result("Page text"));
@@ -30,7 +30,7 @@ test("large camera photos reserve image tokens rather than base64 bytes and stil
     assert.ok(row.reserved_tokens > 55000 && row.reserved_tokens < 60000);
     assert.equal(row.allowance_tokens, usage.total_tokens);
   });
-  await with_server({ env: { ...env, VOTIC_AI_MONTHLY_TOKENS: "1000" }, fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base) => {
+  await with_server({ env: { ...env, VOTIC_AI_MONTHLY_TOKENS: "1000" }, fetch_impl: async () => { throw new Error("must not call provider"); } }, async (base) => {
     const response = await fetch(base + "/api/scan", { method: "POST", headers: { "Content-Type": "application/octet-stream", "X-Votic-Filename": "page.jpg" }, body: photo });
     assert.equal(response.status, 429);
   });
@@ -45,7 +45,7 @@ async function with_server(options, run) {
 
 test("REST output and cached/cache-write accounting work across existing paid AI routes", async () => {
   const requests = [];
-  await with_server({ authorize: () => ({ uid: "verified-user" }), fetchImpl: async (url, options) => {
+  await with_server({ authorize: () => ({ uid: "verified-user" }), fetch_impl: async (url, options) => {
     const body = JSON.parse(options.body); requests.push({ url, options, body });
     return provider(result(body.text?.format.name === "votic_document_answer" ? JSON.stringify({ answer: "Scores improved.", sectionIndex: 0, sectionTitle: "untrusted" }) : body.text ? JSON.stringify({ summary: "Summary", takeaways: ["Scores improved"] }) : "Helpful answer"));
   } }, async (base, store) => {
@@ -98,7 +98,7 @@ test("monthly reservations survive restart, coordinate workers, and reset at UTC
 test("concurrent requests cannot overspend and monthly rejection sends no provider request", async () => {
   let entered, release, calls = 0;
   const gate = new Promise((r) => { release = r; }), started = new Promise((r) => { entered = r; });
-  await with_server({ env: { ...env, VOTIC_AI_MONTHLY_TOKENS: "4000" }, fetchImpl: async () => { calls++; entered(); await gate; return provider(result("Answer")); } }, async (base) => {
+  await with_server({ env: { ...env, VOTIC_AI_MONTHLY_TOKENS: "4000" }, fetch_impl: async () => { calls++; entered(); await gate; return provider(result("Answer")); } }, async (base) => {
     const first = post(base, "/api/help", { question: "Upload?" }); await started;
     try { assert.equal((await post(base, "/api/help", { question: "Upload?" })).status, 429); }
     finally { release(); }
@@ -134,7 +134,7 @@ function wav(seconds = 1) {
 }
 test("voice foundation authenticates, validates real duration, accounts multipart STT, and returns text only", async () => {
   let calls = 0;
-  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, authorize: (r) => r.headers.authorization ? { uid: "voice-user" } : true, fetchImpl: async (url, options) => {
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, authorize: (r) => r.headers.authorization ? { uid: "voice-user" } : true, fetch_impl: async (url, options) => {
     calls++; assert.equal(url, "https://api.openai.com/v1/audio/transcriptions");
     assert.equal(options.body.get("model"), "gpt-4o-mini-transcribe");
     assert.equal(options.body.get("file").type, "audio/wav");
@@ -181,7 +181,7 @@ test("global/user cost, shared feature rate and concurrency gates reserve atomic
 
 test("durable daily caps survive handler/process restart and identity spoofing cannot change allowance", async () => {
   const store = create_usage_store({ VOTIC_AI_CLIENT_DAILY_LIMIT: "1" });
-  const options = { usageStore: store, authorize: () => ({ uid: "verified" }), fetchImpl: async () => provider(result("Answer")) };
+  const options = { usageStore: store, authorize: () => ({ uid: "verified" }), fetch_impl: async () => provider(result("Answer")) };
   try {
     await with_server(options, async (base) => assert.equal((await post(base, "/api/help", { question: "Upload?", userId: "spoofed" })).status, 200));
     await with_server(options, async (base) => assert.equal((await post(base, "/api/help", { question: "Upload?", userId: "different" })).status, 429));
@@ -199,7 +199,7 @@ test("voice readiness fails before recording when configuration is missing, with
     [env, () => ({ uid: "voice-user" }), /^Voice questions are unavailable right now\.$/],
     [{ VOTIC_VOICE_QUESTIONS_ENABLED: "true" }, () => ({ uid: "voice-user" }), /^Voice questions are unavailable right now\.$/],
   ]) {
-    await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
+    await with_server({ env: settings, ...(authorizer ? { authorize: authorizer } : {}), fetch_impl: async () => { throw new Error("must not call provider"); } }, async (base, store) => {
       const response = await post(base, "/api/voice-question-status", {});
       assert.equal(response.status, 503);
       const { error } = await response.json();
@@ -217,7 +217,7 @@ test("voice readiness fails before recording when configuration is missing, with
 });
 
 test("voice readiness checks do not use up the transcription rate limit", async () => {
-  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true", VOTIC_HELP_RATE_LIMIT: "1" }, authorize: () => ({ uid: "voice-user" }), fetchImpl: async () => { throw new Error("must not call provider"); } }, async (base) => {
+  await with_server({ env: { ...env, VOTIC_VOICE_QUESTIONS_ENABLED: "true", VOTIC_HELP_RATE_LIMIT: "1" }, authorize: () => ({ uid: "voice-user" }), fetch_impl: async () => { throw new Error("must not call provider"); } }, async (base) => {
     assert.equal((await post(base, "/api/voice-question-status", {})).status, 200);
     const upload = await fetch(base + "/api/transcribe-question", { method: "POST", headers: { "Content-Type": "audio/wav" }, body: Buffer.from("not a wav") });
     assert.equal(upload.status, 400);
@@ -229,7 +229,7 @@ test("AI fallbacks log the provider's status and error code, never the key or pr
   const warnings = [];
   await with_server({
     logger: { warn: (...args) => warnings.push(args), error() {} },
-    fetchImpl: async () => ({ ok: false, status: 401, headers: { get: () => null }, json: async () => ({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }) }),
+    fetch_impl: async () => ({ ok: false, status: 401, headers: { get: () => null }, json: async () => ({ error: { code: "invalid_api_key", type: "invalid_request_error", message: `Incorrect API key provided: ${env.OPENAI_API_KEY}` } }) }),
   }, async (base) => {
     const answer = await (await post(base, "/api/help", { question: "What is this about?", document })).json();
     assert.match(answer.answer, /could not answer from this document/);

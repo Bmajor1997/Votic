@@ -20,7 +20,7 @@ async function sign_in_with_email() {
 
 it("fills in the last email after signing out, but never the password", async () => {
   await sign_in_with_email();
-  await act(async () => fakeAuth.setUser(null));
+  await act(async () => fakeAuth.set_user(null));
   screen.unmount();
   await render_with_providers(<SignIn />);
   await waitFor(() => expect(screen.getByLabelText("Email").props.value).toBe("reader@example.com"));
@@ -30,13 +30,13 @@ it("fills in the last email after signing out, but never the password", async ()
 
 it("keeps the email-and-password account's email when someone signs in with Google", async () => {
   await sign_in_with_email();
-  await act(async () => fakeAuth.setUser({ uid: "google", email: "g@example.com", displayName: "G" }));
+  await act(async () => fakeAuth.set_user({ uid: "google", email: "g@example.com", displayName: "G" }));
   expect(await remembered_sign_in_email()).toBe("reader@example.com");
 });
 
 it("uses an email handed to Sign in instead of the remembered one", async () => {
   await sign_in_with_email();
-  await act(async () => fakeAuth.setUser(null));
+  await act(async () => fakeAuth.set_user(null));
   screen.unmount();
   searchParams.current = { email: "other@example.com" };
   await render_with_providers(<SignIn />);

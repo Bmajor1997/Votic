@@ -146,7 +146,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
     async refresh() {
       return safely((sdk) => sdk.getCustomerInfo());
     },
-    async getPlans() {
+    async get_plans() {
       const token = generation;
       await identityQueue;
       const sdk = await load();
@@ -190,7 +190,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
           : plan;
       });
     },
-    async getUpgradePlans(productIds) {
+    async get_upgrade_plans(productIds) {
       const token = generation;
       const owner = intendedUser;
       await identityQueue;
@@ -223,7 +223,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async changePlan(planId, fromProductId) {
+    async change_plan(planId, fromProductId) {
       const token = generation;
       const owner = identifiedUser;
       const item = packages.get(planId);
@@ -252,7 +252,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async getRetentionOffer(currentProductId) {
+    async get_retention_offer(currentProductId) {
       retentionOptions.clear();
       // Google Play only: the App Store needs signed promotional offers, which Votic doesn't issue yet.
       if (Platform.OS !== "android") return null;
@@ -286,7 +286,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       }
       return null;
     },
-    async claimRetentionOffer(offerId, fromProductId) {
+    async claim_retention_offer(offerId, fromProductId) {
       const token = generation;
       const owner = identifiedUser;
       const option = retentionOptions.get(offerId);
@@ -310,7 +310,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async getFounderProduct(productId) {
+    async get_founder_product(productId) {
       const token = generation;
       const owner = intendedUser;
       await identityQueue;
@@ -324,7 +324,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
       founderProducts.set(product.identifier, product);
       return { productId: product.identifier, title: product.title, priceString: product.priceString };
     },
-    async purchaseFounder(productId) {
+    async purchase_founder(productId) {
       const token = generation;
       const owner = identifiedUser;
       const product = founderProducts.get(productId);
@@ -341,7 +341,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
         return purchase_outcome_from_error(error);
       }
     },
-    async getCreditProducts(productIds) {
+    async get_credit_products(productIds) {
       const token = generation;
       const owner = intendedUser;
       await identityQueue;
@@ -359,7 +359,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
           return { productId: product.identifier, title: product.title, priceString: product.priceString };
         });
     },
-    async purchaseCredits(productId) {
+    async purchase_credits(productId) {
       const token = generation;
       const owner = identifiedUser;
       const product = creditProducts.get(productId);
@@ -383,7 +383,7 @@ export function create_revenue_cat_service(apiKey: string, entitlementId: string
     async restore() {
       return safely((sdk) => sdk.restorePurchases());
     },
-    onChange(listener) {
+    on_change(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },
