@@ -9,26 +9,26 @@ import { NoteItem } from "../notesList";
 /** Actions for one note. Each action receives the note the menu was opened for. */
 export function NoteOptionsMenu({
   item,
-  onClose,
-  onEdit,
-  onTogglePin,
-  onOpenInReader,
-  onShare,
-  onRemove,
+  on_close,
+  on_edit,
+  on_toggle_pin,
+  on_open_in_reader,
+  on_share,
+  on_remove,
 }: {
   item: NoteItem | null;
-  onClose: () => void;
-  onEdit: (item: NoteItem) => void;
-  onTogglePin: (item: NoteItem) => void;
-  onOpenInReader: (item: NoteItem) => void;
-  onShare: (item: NoteItem) => void;
-  onRemove: (item: NoteItem) => void;
+  on_close: () => void;
+  on_edit: (item: NoteItem) => void;
+  on_toggle_pin: (item: NoteItem) => void;
+  on_open_in_reader: (item: NoteItem) => void;
+  on_share: (item: NoteItem) => void;
+  on_remove: (item: NoteItem) => void;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   function run(action: (item: NoteItem) => void) {
     if (!item) return;
-    onClose();
+    on_close();
     action(item);
   }
   return (
@@ -36,12 +36,12 @@ export function NoteOptionsMenu({
       visible={item !== null}
       transparent
       animationType={reduceMotion ? "none" : "fade"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close note options"
-        onPress={onClose}
+        onPress={on_close}
         style={s.backdrop}
       >
         <View accessibilityViewIsModal style={[s.menu, { backgroundColor: theme.surface }]}>
@@ -49,24 +49,24 @@ export function NoteOptionsMenu({
           <MenuAction
             icon="create-outline"
             label={item?.passage.note.trim() ? "Edit note" : "Add a note"}
-            onPress={() => run(onEdit)}
+            on_press={() => run(on_edit)}
           />
           <MenuAction
             icon={item?.passage.pinned ? "pin" : "pin-outline"}
             label={item?.passage.pinned ? "Unpin note" : "Pin note"}
-            onPress={() => run(onTogglePin)}
+            on_press={() => run(on_toggle_pin)}
           />
-          <MenuAction icon="book-outline" label="Open in Reader" onPress={() => run(onOpenInReader)} />
-          <MenuAction icon="share-outline" label="Share note" onPress={() => run(onShare)} />
+          <MenuAction icon="book-outline" label="Open in Reader" on_press={() => run(on_open_in_reader)} />
+          <MenuAction icon="share-outline" label="Share note" on_press={() => run(on_share)} />
           <MenuAction
             icon="trash-outline"
             label="Remove from Notes"
             destructive
-            onPress={() => run(onRemove)}
+            on_press={() => run(on_remove)}
           />
           <Pressable
             accessibilityRole="button"
-            onPress={onClose}
+            onPress={on_close}
             style={[s.cancel, { borderColor: theme.border }]}
           >
             <Text style={[s.cancelText, { color: theme.text }]}>Cancel</Text>
@@ -80,12 +80,12 @@ export function NoteOptionsMenu({
 function MenuAction({
   icon,
   label,
-  onPress,
+  on_press,
   destructive = false,
 }: {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   destructive?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -93,7 +93,7 @@ function MenuAction({
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [s.action, { backgroundColor: pressed ? theme.surfaceMuted : "transparent" }]}
     >
       <Ionicons name={icon} size={21} color={color} />

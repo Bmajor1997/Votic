@@ -6,7 +6,7 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 export type AskConversationAction = {
   label: string;
   icon: ComponentProps<typeof Ionicons>["name"];
-  onPress: () => void;
+  on_press: () => void;
   /** Shown but not pressable, such as "Conversation saved to Notes" once it's done. */
   done?: boolean;
   disabled?: boolean;
@@ -82,7 +82,7 @@ export function AskConversationMenu({ actions }: { actions: AskConversationActio
                 disabled={action.done || action.disabled}
                 onPress={() => {
                   close();
-                  action.onPress();
+                  action.on_press();
                 }}
                 style={({ pressed }) => [
                   s.item,

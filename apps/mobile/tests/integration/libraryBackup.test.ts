@@ -35,7 +35,7 @@ const document = {
   ],
 };
 async function seed(uid: string) {
-  await create_document_store(uid).saveDocuments([document]);
+  await create_document_store(uid).save_documents([document]);
 }
 describe("portable library backup", () => {
   it("rejects backup IDs that overlap another document's text chunks before restore", async () => {
@@ -50,8 +50,8 @@ describe("portable library backup", () => {
     };
     expect(() => parse_library_backup(JSON.stringify(colliding))).toThrow("supported, complete");
     await expect(restore_library_backup("destination", colliding)).rejects.toThrow("supported, complete");
-    expect(await create_document_store("destination").loadDocuments()).toEqual([]);
-    expect((await create_document_store("source").loadDocuments())[0].plainText).toBe(document.plainText);
+    expect(await create_document_store("destination").load_documents()).toEqual([]);
+    expect((await create_document_store("source").load_documents())[0].plainText).toBe(document.plainText);
   });
   it("round trips chunked documents, notes and progress into another account without credentials", async () => {
     await seed("a");
@@ -79,38 +79,38 @@ describe("portable library backup", () => {
     const backup = await create_library_backup("a");
     expect(JSON.stringify(backup)).not.toContain("secret-token");
     await restore_library_backup("b", backup);
-    expect((await create_document_store("b").loadDocuments())[0]).toMatchObject(document);
-    expect((await create_document_store("a").loadDocuments())[0].plainText).toBe(document.plainText);
+    expect((await create_document_store("b").load_documents())[0]).toMatchObject(document);
+    expect((await create_document_store("a").load_documents())[0].plainText).toBe(document.plainText);
     const copy = await create_library_backup("b");
     expect(copy.collections).toEqual(["Research"]);
     expect(copy.pronunciations[0].term).toBe("Votic");
     expect(copy.activity.buckets["2026-10-18T10"]["doc-a"].listening).toBe(30000);
     expect(copy.preferences?.defaultPlaybackRate).toBe(1.5);
     await restore_library_backup("b", backup);
-    expect(await create_document_store("b").loadDocuments()).toHaveLength(1);
+    expect(await create_document_store("b").load_documents()).toHaveLength(1);
   });
   it("keeps differing existing work and makes a stable copy on conflict", async () => {
     await seed("a");
     const backup = await create_library_backup("a");
-    await create_document_store("b").saveDocuments([{ ...document, plainText: "Existing work" }]);
+    await create_document_store("b").save_documents([{ ...document, plainText: "Existing work" }]);
     await restore_library_backup("b", backup);
     await restore_library_backup("b", backup);
-    const restored = await create_document_store("b").loadDocuments();
+    const restored = await create_document_store("b").load_documents();
     expect(restored).toHaveLength(2);
     expect(restored[0].plainText).toBe("Existing work");
     expect(restored[1].savedPassages?.[0].note).toBe("Keep this note");
   });
   it("says a combined library would be too big instead of calling a valid backup unsupported", async () => {
     const small = (id: string) => ({ ...document, id, plainText: "Short text.", savedPassages: [] });
-    await create_document_store("a").saveDocuments([small("from-backup-1"), small("from-backup-2")]);
+    await create_document_store("a").save_documents([small("from-backup-1"), small("from-backup-2")]);
     const backup = await create_library_backup("a");
-    await create_document_store("b").saveDocuments(
+    await create_document_store("b").save_documents(
       Array.from({ length: 1999 }, (_, index) => small(`existing-${index}`)),
     );
     await expect(restore_library_backup("b", backup)).rejects.toThrow(
       "Restoring this backup would give you 2001 documents; a library holds up to 2000.",
     );
-    expect(await create_document_store("b").loadDocuments()).toHaveLength(1999);
+    expect(await create_document_store("b").load_documents()).toHaveLength(1999);
   });
   it("replays a committed restore after storage interruption without losing another account", async () => {
     await seed("a");
@@ -127,8 +127,8 @@ describe("portable library backup", () => {
     expect(await library_restore_pending("b")).toBe(true);
     await resume_library_restores();
     expect(await library_restore_pending("b")).toBe(false);
-    expect((await create_document_store("b").loadDocuments())[0]).toMatchObject(document);
-    expect(await create_document_store("other").loadDocuments()).toHaveLength(1);
+    expect((await create_document_store("b").load_documents())[0]).toMatchObject(document);
+    expect(await create_document_store("other").load_documents()).toHaveLength(1);
   });
   it("does not resurrect a deleting account from its restore journal", async () => {
     await seed("a");
@@ -139,7 +139,7 @@ describe("portable library backup", () => {
   it("fails a storage-capacity preflight before committing restore intent", async () => {
     await seed("a");
     const backup = await create_library_backup("a");
-    await create_document_store("b").saveDocuments([{ ...document, plainText: "Existing work" }]);
+    await create_document_store("b").save_documents([{ ...document, plainText: "Existing work" }]);
     const real = jest.mocked(AsyncStorage.setItem).getMockImplementation()!;
     const spy = jest.spyOn(AsyncStorage, "setItem").mockImplementation(async (key, value) => {
       if (key.includes(":reserve:")) throw new Error("Storage capacity reached");
@@ -151,7 +151,7 @@ describe("portable library backup", () => {
       spy.mockImplementation(real);
     }
     expect(await library_restore_pending("b")).toBe(false);
-    expect((await create_document_store("b").loadDocuments()).map((d) => d.plainText)).toEqual([
+    expect((await create_document_store("b").load_documents()).map((d) => d.plainText)).toEqual([
       "Existing work",
     ]);
     expect(
@@ -181,7 +181,7 @@ it("round trips retained deletions, source URLs and speech checkpoints without r
     nativeCheckpoints: { "session-hour": 12000 },
     savedPassages: [{ ...document.savedPassages[0], deletedAt: Date.now() }],
   };
-  await create_document_store("a").saveDocuments([retained]);
+  await create_document_store("a").save_documents([retained]);
   const backup = await create_library_backup("a");
   const parsed = parse_library_backup(JSON.stringify(backup));
   expect(parsed.documents[0]).toMatchObject({
@@ -190,7 +190,7 @@ it("round trips retained deletions, source URLs and speech checkpoints without r
     nativeCheckpoints: { "session-hour": 12000 },
   });
   await restore_library_backup("b", parsed);
-  const restored = await create_document_store("b").loadDocuments();
+  const restored = await create_document_store("b").load_documents();
   expect(restored[0].deletedAt).toBe(retained.deletedAt);
   expect(restored[0].savedPassages?.[0].deletedAt).toBe(retained.savedPassages[0].deletedAt);
 });

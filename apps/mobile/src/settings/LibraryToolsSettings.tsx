@@ -22,7 +22,7 @@ export function LibraryToolsSettings() {
             detail="Save a backup file or restore one you saved earlier."
             hint="Opens library backup and restore"
             icon="download-outline"
-            onPress={() => router.push("/library-backup")}
+            on_press={() => router.push("/library-backup")}
           />
         ) : null}
         <SettingsRow
@@ -31,7 +31,7 @@ export function LibraryToolsSettings() {
           detail="Restore deleted documents and notes for 30 days."
           hint="Opens Recently Deleted to restore or permanently delete items"
           icon="trash-outline"
-          onPress={() => router.push("/recently-deleted")}
+          on_press={() => router.push("/recently-deleted")}
         />
         <SettingsRow
           separated
@@ -39,7 +39,7 @@ export function LibraryToolsSettings() {
           detail="Continue an unfinished note."
           hint="Opens unfinished note drafts"
           icon="create-outline"
-          onPress={() => router.push("/note-drafts")}
+          on_press={() => router.push("/note-drafts")}
         />
         {review.hasUnfinishedScan ? (
           <SettingsRow
@@ -48,7 +48,7 @@ export function LibraryToolsSettings() {
             detail="Resume recognized text and corrections."
             hint="Opens your saved scan review"
             icon="scan-outline"
-            onPress={review.resume}
+            on_press={review.resume}
           />
         ) : null}
       </SettingsGroup>

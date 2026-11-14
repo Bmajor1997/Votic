@@ -17,12 +17,12 @@ const ask = (base, body, headers = {}) => fetch(base + "/api/help", { method: "P
 function capturing_ai(answer = { answer: "Income from sales.", sectionIndex: null, sectionTitle: null }) {
   const requests = [];
   const fetch_impl = async (_url, options) => { requests.push(JSON.parse(options.body)); return { ok: true, async json() { return { output_text: JSON.stringify(answer) }; } }; };
-  return { requests, fetchImpl: fetch_impl };
+  return { requests, fetch_impl: fetch_impl };
 }
 
 test("shapes document answers with the chosen explanation style", async () => {
   const ai = capturing_ai();
-  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl: ai.fetchImpl }, async (base) => {
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetch_impl: ai.fetch_impl }, async (base) => {
     assert.equal((await ask(base, { question: "What is revenue?", document, explanationStyle: "simple" })).status, 200);
     assert.match(ai.requests[0].instructions, /plain, everyday words/);
     assert.doesNotMatch(ai.requests[0].instructions, /Be concise and accessible/);
@@ -38,7 +38,7 @@ test("shapes document answers with the chosen explanation style", async () => {
 
 test("treats a missing or unknown explanation style as no preference", async () => {
   const ai = capturing_ai();
-  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetchImpl: ai.fetchImpl }, async (base) => {
+  await with_server({ env: { OPENAI_API_KEY: "test-key" }, fetch_impl: ai.fetch_impl }, async (base) => {
     for (const explanationStyle of [undefined, "poetic", { toString: "quick" }])
       assert.equal((await ask(base, { question: "What is revenue?", document, explanationStyle })).status, 200);
     const [missing, unknown, object] = ai.requests;
@@ -86,7 +86,7 @@ test("gives each signed-in account its own AI allowance", async () => {
   const firebase = await firebase_fixture();
   const ai = capturing_ai();
   const [first, second] = [await firebase.token({}, { subject: "first" }), await firebase.token({}, { subject: "second" })];
-  await with_server({ authorize: firebase.authorize, env: { OPENAI_API_KEY: "test-key" }, config: { ai_client_daily_limit: 1 }, fetchImpl: ai.fetchImpl }, async (base) => {
+  await with_server({ authorize: firebase.authorize, env: { OPENAI_API_KEY: "test-key" }, config: { ai_client_daily_limit: 1 }, fetch_impl: ai.fetch_impl }, async (base) => {
     const answer = async (token) => (await (await ask(base, { question: "What is revenue?", document }, { Authorization: `Bearer ${token}` })).json()).answer;
     assert.equal(await answer(first), "Income from sales.");
     assert.match(await answer(first), /reached today's limit/);

@@ -50,7 +50,7 @@ export default function SignIn() {
     if (!looks_like_email(email) || !password || busy) return;
     setBusy(true);
     try {
-      await auth.signIn(email, password);
+      await auth.sign_in(email, password);
       // Signing in changes which screens exist, and the router moves on by itself.
     } catch (failure) {
       setError(auth_error_message(failure));
@@ -93,7 +93,7 @@ export default function SignIn() {
         <View style={{ alignSelf: "flex-end" }}>
           <TextButton
             label="Forgot password?"
-            onPress={() =>
+            on_press={() =>
               router.push({
                 pathname: "/forgot-password",
                 params: email.trim() ? { email: email.trim() } : {},
@@ -103,12 +103,12 @@ export default function SignIn() {
         </View>
       </View>
       {error ? <FormMessage text={error} /> : null}
-      <PrimaryButton label="Sign in" busy={busy} onPress={() => void submit()} />
+      <PrimaryButton label="Sign in" busy={busy} on_press={() => void submit()} />
       <NotConfiguredNotice />
       <SwitchPrompt
         prompt="New to Votic?"
         action="Create an account"
-        onPress={() => router.replace("/create-account")}
+        on_press={() => router.replace("/create-account")}
       />
     </AccountScaffold>
   );

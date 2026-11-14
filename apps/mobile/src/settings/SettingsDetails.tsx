@@ -50,12 +50,12 @@ function Choices<T extends string>({
   title,
   options,
   selected,
-  onSelect,
+  on_select,
 }: {
   title: string;
   options: { value: T; label: string; accessibleLabel?: string }[];
   selected: T;
-  onSelect: (value: T) => void;
+  on_select: (value: T) => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -71,7 +71,7 @@ function Choices<T extends string>({
           accessibilityLabel={item.accessibleLabel ?? item.label}
           accessibilityState={{ checked: selected === item.value }}
           onPress={() => {
-            onSelect(item.value);
+            on_select(item.value);
             AccessibilityInfo.announceForAccessibility(`${item.label} selected for ${title.toLowerCase()}.`);
           }}
           style={({ pressed }) => [
@@ -101,13 +101,13 @@ function Toggle({
   label,
   detail,
   value,
-  onChange,
+  on_change,
   disabled = false,
 }: {
   label: string;
   detail: string;
   value: boolean;
-  onChange: (value: boolean) => void;
+  on_change: (value: boolean) => void;
   disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -125,7 +125,7 @@ function Toggle({
         disabled={disabled}
         value={value}
         onValueChange={(next) => {
-          onChange(next);
+          on_change(next);
           AccessibilityInfo.announceForAccessibility(`${label} ${next ? "on" : "off"}.`);
         }}
         style={s.switch}
@@ -147,7 +147,7 @@ function AppearanceSettings() {
         <Choices<AppearanceMode>
           title="App appearance"
           selected={appearanceMode}
-          onSelect={setAppearanceMode}
+          on_select={setAppearanceMode}
           options={[
             { value: "light", label: "Light" },
             { value: "dark", label: "Dark" },
@@ -206,7 +206,7 @@ function ReadingSettings() {
         <Choices<TextSize>
           title="Text size"
           selected={a.textSize}
-          onSelect={a.setTextSize}
+          on_select={a.set_text_size}
           options={[
             { value: "default", label: "Default", accessibleLabel: "Default text size" },
             { value: "large", label: "Large", accessibleLabel: "Large text size" },
@@ -218,7 +218,7 @@ function ReadingSettings() {
         <Choices<ReadingSpacing>
           title="Reading spacing"
           selected={a.readingSpacing}
-          onSelect={a.setReadingSpacing}
+          on_select={a.set_reading_spacing}
           options={[
             { value: "compact", label: "Compact" },
             { value: "default", label: "Default", accessibleLabel: "Default reading spacing" },
@@ -233,13 +233,13 @@ function ReadingSettings() {
             detail={`${current_voice_name(voiceNames, a.voiceIdentifier)}. Hear and choose from the voices on this device.`}
             hint="Opens the list of voices, where you can preview and choose one"
             icon="person-circle-outline"
-            onPress={() => router.push("/voices")}
+            on_press={() => router.push("/voices")}
           />
         </SettingsGroup>
         <Choices
           title="Spoken-text highlight"
           selected={a.highlightMode}
-          onSelect={a.setHighlightMode}
+          on_select={a.set_highlight_mode}
           options={[
             { value: "off", label: "Off" },
             { value: "sentence", label: "Sentence" },
@@ -251,13 +251,13 @@ function ReadingSettings() {
           label="Sentence flow"
           detail="Automatically scroll to follow the narration. Turn off to move the page yourself."
           value={a.sentenceFlow}
-          onChange={a.setSentenceFlow}
+          on_change={a.set_sentence_flow}
         />
         <Toggle
           label="Emphasize current word"
           detail="Make the spoken word larger and bolder."
           value={a.wordEmphasis}
-          onChange={a.setWordEmphasis}
+          on_change={a.set_word_emphasis}
         />
         <SettingsGroup>
           <SettingsRow
@@ -265,7 +265,7 @@ function ReadingSettings() {
             detail="Teach Votic how to say names, acronyms, and technical terms."
             hint="Teach Votic how to pronounce words and names"
             icon="language-outline"
-            onPress={() => router.push("/pronunciations")}
+            on_press={() => router.push("/pronunciations")}
           />
         </SettingsGroup>
       </Section>
@@ -299,7 +299,7 @@ function AccessibilitySettings() {
           label="High contrast reading"
           detail="Darker text and clearer borders in the Reader, in Light, Dark, or Sepia."
           value={a.highContrast}
-          onChange={a.setHighContrast}
+          on_change={a.set_high_contrast}
         />
         <SettingsGroup>
           <SettingsRow
@@ -307,7 +307,9 @@ function AccessibilitySettings() {
             detail={`${TEXT_SIZE_LABELS[a.textSize]} text · ${SPACING_LABELS[a.readingSpacing]} spacing`}
             hint="Opens Reading and Listening, where Reader text size and spacing are set"
             icon="text-outline"
-            onPress={() => router.push({ pathname: "/settings/[category]", params: { category: "reading" } })}
+            on_press={() =>
+              router.push({ pathname: "/settings/[category]", params: { category: "reading" } })
+            }
           />
         </SettingsGroup>
         <Text style={[s.detail, { color: theme.mutedText }]}>
@@ -324,7 +326,7 @@ function AccessibilitySettings() {
           }
           value={a.reduceMotion}
           disabled={a.systemReduceMotion}
-          onChange={a.setReduceMotion}
+          on_change={a.set_reduce_motion}
         />
       </Section>
     </>
@@ -343,7 +345,7 @@ function PersonalizationSettings() {
           detail="Change what Votic suggests and how it helps you."
           hint="Change your answers about what Votic should help you with"
           icon="options-outline"
-          onPress={() => setEditing(true)}
+          on_press={() => setEditing(true)}
         />
       </SettingsGroup>
       <Modal
@@ -351,13 +353,13 @@ function PersonalizationSettings() {
         animationType={reduceMotion ? "none" : "slide"}
         onRequestClose={() => setEditing(false)}
       >
-        {editing ? <PersonalizationQuestions mode="edit" onClose={() => setEditing(false)} /> : null}
+        {editing ? <PersonalizationQuestions mode="edit" on_close={() => setEditing(false)} /> : null}
       </Modal>
       <Section title="Explanations">
         <Choices
           title="Explanation style"
           selected={personalization.explanationStyle}
-          onSelect={personalization.setExplanationStyle}
+          on_select={personalization.set_explanation_style}
           options={EXPLANATION_STYLES.map((item) => ({
             value: item.value,
             label: item.value === "adaptive" ? "Adapt" : item.label,
@@ -384,16 +386,16 @@ function HelpSettings() {
             detail="Try reading, voice questions, Notes, and the new Settings."
             hint="Opens the updated walkthrough as a document with listening controls"
             icon="book-outline"
-            onPress={() => {
+            on_press={() => {
               if (!library.loaded || transition.transitioning) return;
               const existing = library.documents.find(
                 (document) =>
                   document.sourceName === VOTIC_GUIDE_SOURCE_NAME &&
                   document.plainText === clean_local_document_text(VOTIC_GUIDE_TEXT),
               );
-              if (existing) library.openDocument(existing.id);
+              if (existing) library.open_document(existing.id);
               else
-                library.addTextDocument(
+                library.add_text_document(
                   VOTIC_GUIDE_SOURCE_NAME,
                   clean_local_document_text(VOTIC_GUIDE_TEXT),
                   {
@@ -415,8 +417,8 @@ function HelpSettings() {
           }
           hint="Resets the reading tips you have already seen"
           icon="bulb-outline"
-          onPress={() => {
-            onboarding.showTipsAgain();
+          on_press={() => {
+            onboarding.show_tips_again();
             setTipsReset(true);
             AccessibilityInfo.announceForAccessibility(
               "Done. Reading tips will appear again as you use Votic.",
@@ -431,7 +433,7 @@ function HelpSettings() {
             hint="Shows how to add a Votic widget"
             icon="apps-outline"
             separated
-            onPress={() => router.push("/home-screen-widgets")}
+            on_press={() => router.push("/home-screen-widgets")}
           />
         ) : null}
         <SettingsRow
@@ -440,7 +442,7 @@ function HelpSettings() {
           hint="Reading and listening time, activity, and insights"
           icon="stats-chart-outline"
           separated
-          onPress={() => router.push("/statistics")}
+          on_press={() => router.push("/statistics")}
         />
       </SettingsGroup>
       {/* Replays one walkthrough at a time: Home, Documents, Notes, or the Reader. */}

@@ -28,12 +28,12 @@ function fallback_name(mimeType: string | null) {
 export default function HandleShare() {
   const { theme } = useVoticTheme();
   const saveImported = useImportSave();
-  const { ensureCanAddDocument } = useDocumentLibrary();
-  const checkLimit = useRef(ensureCanAddDocument);
+  const { ensure_can_add_document } = useDocumentLibrary();
+  const checkLimit = useRef(ensure_can_add_document);
   useEffect(() => {
-    checkLimit.current = ensureCanAddDocument;
-  }, [ensureCanAddDocument]);
-  const { ensureAvailable } = useOcrReview();
+    checkLimit.current = ensure_can_add_document;
+  }, [ensure_can_add_document]);
+  const { ensure_available } = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
   const { resolvedSharedPayloads, isResolving, error } = useIncomingShare();
@@ -66,7 +66,7 @@ export default function HandleShare() {
         setStatus(`Importing ${name}…`);
         check_shared_import(
           { name, size: payload.contentSize, uri, mimeType: payload.contentMimeType },
-          ensureAvailable,
+          ensure_available,
         );
 
         const response = await fetch(uri);
@@ -100,7 +100,7 @@ export default function HandleShare() {
     void import_shared_document();
   }, [
     saveImported,
-    ensureAvailable,
+    ensure_available,
     defaultPlaybackRate,
     error,
     isResolving,
@@ -165,9 +165,9 @@ const s = StyleSheet.create({
 });
 
 /** Validates a shared file and, for a photo, checks a text review can open before paying for text recognition. */
-function check_shared_import(details: Parameters<typeof validate_import>[0], ensureAvailable: () => void) {
+function check_shared_import(details: Parameters<typeof validate_import>[0], ensure_available: () => void) {
   validate_import(details);
-  if (is_page_photo(details.name)) ensureAvailable();
+  if (is_page_photo(details.name)) ensure_available();
 }
 
 /** A canceled duplicate returns to the library; a photo's review manages its own navigation. */

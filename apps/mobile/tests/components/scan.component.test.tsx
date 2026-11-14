@@ -142,7 +142,7 @@ it("keeps page order and successful OCR work after a recoverable failure, withou
   const { create_document_store } = jest.requireActual<typeof import("../../src/documents/documentStorage")>(
     "../../src/documents/documentStorage",
   );
-  expect((await create_document_store("test-user").loadDocuments())[0].plainText).toBe(
+  expect((await create_document_store("test-user").load_documents())[0].plainText).toBe(
     "First captured page.\n\nCorrected second page.",
   );
 });
@@ -231,7 +231,7 @@ it("collects, reorders, retakes and rotates pages, then saves one titled documen
   const { create_document_store } = jest.requireActual<typeof import("../../src/documents/documentStorage")>(
     "../../src/documents/documentStorage",
   );
-  const documents = await create_document_store("test-user").loadDocuments();
+  const documents = await create_document_store("test-user").load_documents();
   expect(documents).toHaveLength(1);
   expect(documents[0]).toMatchObject({
     title: "My three-page notes",

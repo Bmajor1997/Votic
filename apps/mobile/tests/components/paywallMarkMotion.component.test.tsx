@@ -8,12 +8,12 @@ import { render_with_providers } from "../renderWithProviders";
 type Readable = Animated.Value & { __getValue(): number };
 
 function MotionControl() {
-  const { reduceMotion, setReduceMotion } = useAccessibilityPreferences();
+  const { reduceMotion, set_reduce_motion } = useAccessibilityPreferences();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Toggle motion"
-      onPress={() => setReduceMotion(!reduceMotion)}
+      onPress={() => set_reduce_motion(!reduceMotion)}
     >
       <Text>Toggle motion</Text>
     </Pressable>

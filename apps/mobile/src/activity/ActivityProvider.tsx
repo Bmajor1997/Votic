@@ -33,18 +33,18 @@ type ActivityValue = {
   measuredLog: ActivityLog;
   hydrated: boolean;
   loadError: string | null;
-  retryLoad: () => void;
-  recordNativeActivity: (events: NativeActivityEvent[]) => Promise<void>;
-  recordTime: (documentId: string, kind: ActivityKind, start: number, end: number) => void;
-  recordAsk: (event: AskEvent) => void;
+  retry_load: () => void;
+  record_native_activity: (events: NativeActivityEvent[]) => Promise<void>;
+  record_time: (documentId: string, kind: ActivityKind, start: number, end: number) => void;
+  record_ask: (event: AskEvent) => void;
   /** Development builds only: shows generated statistics without touching real measurements. */
   sampleData: boolean;
-  setSampleData: (documentIds: string[] | null) => void;
+  set_sample_data: (documentIds: string[] | null) => void;
 };
 const ActivityContext = createContext<ActivityValue | null>(null);
 
 export function ActivityProvider({ children }: PropsWithChildren) {
-  const { uid, registerFlush, registerReload } = useAccountData();
+  const { uid, register_flush, register_reload } = useAccountData();
   const storageKey = account_storage_key(ACTIVITY_KEY, uid ?? "");
   const [log, setLog] = useState<ActivityLog>(() => empty_log());
   const [hydrated, setHydrated] = useState(!uid);
@@ -122,7 +122,7 @@ export function ActivityProvider({ children }: PropsWithChildren) {
   // After older activity is merged in, read it again in place; changes made meanwhile are kept.
   useEffect(
     () =>
-      registerReload(async () => {
+      register_reload(async () => {
         if (!uid) return;
         hydratedRef.current = false;
         setHydrated(false);
@@ -145,16 +145,16 @@ export function ActivityProvider({ children }: PropsWithChildren) {
           throw error;
         }
       }),
-    [registerReload, uid, storageKey],
+    [register_reload, uid, storageKey],
   );
   useEffect(
     () =>
-      registerFlush(async () => {
+      register_flush(async () => {
         if (!hydratedRef.current) throw new Error("Activity is still loading.");
         await save();
         if (dirty.current) throw new Error("Activity could not be saved.");
       }),
-    [registerFlush, save],
+    [register_flush, save],
   );
 
   return (
@@ -164,23 +164,23 @@ export function ActivityProvider({ children }: PropsWithChildren) {
         measuredLog: log,
         hydrated,
         loadError,
-        retryLoad: () => {
+        retry_load: () => {
           hydratedRef.current = false;
           setHydrated(false);
           setLoadError(null);
           setLoadAttempt((attempt) => attempt + 1);
         },
-        recordNativeActivity: async (events) => {
+        record_native_activity: async (events) => {
           if (!hydratedRef.current) throw new Error("Activity is loading.");
           change((current) => reconcile_native_log(current, events));
           await save();
           if (dirty.current) throw new Error("Activity could not be saved.");
         },
-        recordTime: (documentId, kind, start, end) =>
+        record_time: (documentId, kind, start, end) =>
           change((current) => add_interval(current, documentId, kind, start, end)),
-        recordAsk: (event) => change((current) => add_ask_event(current, event)),
+        record_ask: (event) => change((current) => add_ask_event(current, event)),
         sampleData: Boolean(sample),
-        setSampleData: (documentIds) =>
+        set_sample_data: (documentIds) =>
           setSample(__DEV__ && documentIds ? sample_activity_log(documentIds) : null),
       }}
     >

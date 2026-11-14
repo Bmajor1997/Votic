@@ -19,7 +19,7 @@ describe("Phone widgets and accounts", () => {
   it("clears them when the account signs out", async () => {
     await render_with_providers(<Text>Home</Text>);
     publish.mockClear();
-    await act(async () => fakeAuth.setUser(null));
+    await act(async () => fakeAuth.set_user(null));
     expect(publish.mock.calls.some(([snapshot]) => signed_out(snapshot))).toBe(true);
   });
 });

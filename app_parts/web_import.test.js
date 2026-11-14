@@ -17,13 +17,13 @@ test("web importer rejects private-network targets", async () => {
 test("web importer validates redirects before following them", async () => {
   const lookup_impl=async(host)=>host==="public.test"?[{address:"203.0.113.10",family:4}]:[{address:"10.0.0.2",family:4}];
   const fetch_impl=async()=>new Response("",{status:302,headers:{location:"http://private.test/secret"}});
-  await assert.rejects(()=>import_public_webpage("https://public.test/article",{fetchImpl: fetch_impl,lookupImpl: lookup_impl}),/not public/);
+  await assert.rejects(()=>import_public_webpage("https://public.test/article",{fetch_impl: fetch_impl,lookup_impl: lookup_impl}),/not public/);
 });
 test("web importer returns cleaned readable text", async () => {
   const lookup_impl=async()=>[{address:"203.0.113.10",family:4}];
   const html="<title>Story</title><article><h1>Story</h1><p>This is a long public article paragraph with useful information for a Votic reader.</p><p>Another paragraph makes the page long enough to be accepted by the importer.</p></article>";
   const fetch_impl=async()=>new Response(html,{status:200,headers:{"content-type":"text/html"}});
-  const page=await import_public_webpage("https://public.test/story",{fetchImpl: fetch_impl,lookupImpl: lookup_impl});
+  const page=await import_public_webpage("https://public.test/story",{fetch_impl: fetch_impl,lookup_impl: lookup_impl});
   assert.equal(page.title,"Story"); assert.match(page.text,/long public article/);
 });
 
@@ -63,8 +63,8 @@ test("web importer rejects oversized streamed bodies without a Content-Length", 
     cancel() { cancelled = true; },
   });
   await assert.rejects(() => import_public_webpage("https://public.test", {
-    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
-    fetchImpl: async () => new Response(body, { headers: { "content-type": "text/html" } }),
+    lookup_impl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetch_impl: async () => new Response(body, { headers: { "content-type": "text/html" } }),
   }), /too large/);
   assert.equal(cancelled, true);
 });
@@ -74,8 +74,8 @@ test("web importer times out and cancels a stalled body after headers arrive", a
   const body = new ReadableStream({ cancel() { cancelled = true; } });
   await assert.rejects(() => import_public_webpage("https://public.test", {
     timeoutMs: 20,
-    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
-    fetchImpl: async (_url, options) => {
+    lookup_impl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetch_impl: async (_url, options) => {
       signal = options.signal;
       return new Response(body, { headers: { "content-type": "text/html" } });
     },
@@ -88,8 +88,8 @@ test("redirect response bodies are cancelled before downloading the next webpage
   let cancelled = false, calls = 0;
   const html = "<article>" + "A readable public article. ".repeat(6) + "</article>";
   const result = await import_public_webpage("https://public.test", {
-    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
-    fetchImpl: async () => {
+    lookup_impl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetch_impl: async () => {
       calls += 1;
       if (calls === 1) return new Response(new ReadableStream({ cancel() { cancelled = true; } }), {
         status: 302, headers: { location: "/article" },
@@ -105,8 +105,8 @@ test("redirect response bodies are cancelled before downloading the next webpage
 test("web importer preserves compressed articles and bounds their decoded size", async () => {
   const { gzipSync } = await import("node:zlib");
   const options = (html) => ({
-    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
-    fetchImpl: async () => new Response(gzipSync(html), {
+    lookup_impl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetch_impl: async () => new Response(gzipSync(html), {
       headers: { "content-type": "text/html", "content-encoding": "gzip" },
     }),
   });
@@ -303,16 +303,16 @@ test("stuck DNS cannot exceed the import deadline or start a late fetch", async 
   let fetched = false;
   await assert.rejects(() => import_public_webpage('https://public.test', {
     timeoutMs: 10,
-    lookupImpl: () => new Promise(() => {}),
-    fetchImpl: async () => { fetched = true; },
+    lookup_impl: () => new Promise(() => {}),
+    fetch_impl: async () => { fetched = true; },
   }), /too long/);
   assert.equal(fetched, false);
 });
 
 test("empty stream chunks cannot spin past the work budget", async () => {
   await assert.rejects(() => import_public_webpage("https://public.test", {
-    lookupImpl: async () => [{ address: "203.0.113.10", family: 4 }],
-    fetchImpl: async () => new Response(new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(0)); } }), {headers: {"content-type": "text/html"}}),
+    lookup_impl: async () => [{ address: "203.0.113.10", family: 4 }],
+    fetch_impl: async () => new Response(new ReadableStream({ pull(controller) { controller.enqueue(new Uint8Array(0)); } }), {headers: {"content-type": "text/html"}}),
   }), /fragmented/);
 });
 
@@ -323,13 +323,13 @@ test("oversized readable text is rejected instead of silently truncated", () => 
 test("web imports preserve BOM UTF-16, read Latin-1 pages, and refuse binary bodies", async () => {
   const html = "<article><p>Résumé 日本語 😀. " + "A useful sentence in this public article. ".repeat(5) + "</p></article>";
   const body = Buffer.concat([Buffer.from([255,254]), Buffer.from(html,"utf16le")]);
-  const options = { lookupImpl: async () => [{address:"203.0.113.10",family:4}], fetchImpl: async () => new Response(body,{headers:{"content-type":"text/html"}}) };
+  const options = { lookup_impl: async () => [{address:"203.0.113.10",family:4}], fetch_impl: async () => new Response(body,{headers:{"content-type":"text/html"}}) };
   const result = await import_public_webpage("https://public.test/article", options);
   assert.match(result.text,/Résumé 日本語 😀/);
   const latin = Buffer.from("<article><p>Caf\xe9 cr\xe8me. " + "A useful sentence in this public article. ".repeat(5) + "</p></article>", "latin1");
-  const windows = await import_public_webpage("https://public.test/article", { ...options, fetchImpl: async () => new Response(latin,{headers:{"content-type":"text/html"}}) });
+  const windows = await import_public_webpage("https://public.test/article", { ...options, fetch_impl: async () => new Response(latin,{headers:{"content-type":"text/html"}}) });
   assert.match(windows.text, /Café crème/);
-  const declared = await import_public_webpage("https://public.test/article", { ...options, fetchImpl: async () => new Response(latin,{headers:{"content-type":"text/html; charset=ISO-8859-1"}}) });
+  const declared = await import_public_webpage("https://public.test/article", { ...options, fetch_impl: async () => new Response(latin,{headers:{"content-type":"text/html; charset=ISO-8859-1"}}) });
   assert.match(declared.text, /Café crème/);
-  await assert.rejects(() => import_public_webpage("https://public.test/article", { ...options, fetchImpl: async () => new Response(Buffer.from([60,112,62,0,1,2,0,60,47,112,62]),{headers:{"content-type":"text/html"}}) }), /text encoding.*UTF-8/);
+  await assert.rejects(() => import_public_webpage("https://public.test/article", { ...options, fetch_impl: async () => new Response(Buffer.from([60,112,62,0,1,2,0,60,47,112,62]),{headers:{"content-type":"text/html"}}) }), /text encoding.*UTF-8/);
 });

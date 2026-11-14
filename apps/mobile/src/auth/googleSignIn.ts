@@ -103,7 +103,7 @@ export function create_google_sign_in(deps: GoogleSignInDeps) {
     get configured() {
       return configured;
     },
-    async signIn() {
+    async sign_in() {
       if (!deps.webClientId) throw say("noClientId");
       const google = deps.load();
       if (!google) throw say("noModule");
@@ -134,7 +134,7 @@ export function create_google_sign_in(deps: GoogleSignInDeps) {
       }
     },
     /** Forgets the Google account too, so the next Google sign-in offers the account picker again. */
-    async signOut() {
+    async sign_out() {
       if (!configured) return;
       await deps
         .load()

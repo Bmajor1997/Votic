@@ -24,7 +24,7 @@ const STEPS = 4;
  * The same four questions, for setup or for changing answers later from Settings. When editing, the answers
  * are saved together at the end, and going back from the first question (or Android's back button) closes.
  */
-export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edit"; onClose: () => void }) {
+export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edit"; on_close: () => void }) {
   const access = useAccessibilityPreferences();
   const purposePreferences = useVoticPurpose();
   const editing = props.mode === "edit";
@@ -33,26 +33,26 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   const a = editing
     ? {
         ...preview,
-        setTextSize: (textSize: typeof access.textSize) => setPreview((value) => ({ ...value, textSize })),
-        setReadingSpacing: (readingSpacing: typeof access.readingSpacing) =>
+        set_text_size: (textSize: typeof access.textSize) => setPreview((value) => ({ ...value, textSize })),
+        set_reading_spacing: (readingSpacing: typeof access.readingSpacing) =>
           setPreview((value) => ({ ...value, readingSpacing })),
-        setReaderFont: (readerFont: typeof access.readerFont) =>
+        set_reader_font: (readerFont: typeof access.readerFont) =>
           setPreview((value) => ({ ...value, readerFont })),
-        setTextSpacing: (textSpacing: typeof access.textSpacing) =>
+        set_text_spacing: (textSpacing: typeof access.textSpacing) =>
           setPreview((value) => ({ ...value, textSpacing })),
-        setReduceMotion: (reduceMotion: boolean) => setPreview((value) => ({ ...value, reduceMotion })),
-        setHighlightMode: (highlightMode: HighlightMode) =>
+        set_reduce_motion: (reduceMotion: boolean) => setPreview((value) => ({ ...value, reduceMotion })),
+        set_highlight_mode: (highlightMode: HighlightMode) =>
           setPreview((value) => ({ ...value, highlightMode })),
       }
     : access;
   const personalization = editing
     ? {
         ...purposePreview,
-        setPurpose: (purpose: NonNullable<typeof purposePreferences.purpose>) =>
+        set_purpose: (purpose: NonNullable<typeof purposePreferences.purpose>) =>
           setPurposePreview((value) => ({ ...value, purpose })),
-        setExplanationStyle: (explanationStyle: ExplanationStyle) =>
+        set_explanation_style: (explanationStyle: ExplanationStyle) =>
           setPurposePreview((value) => ({ ...value, explanationStyle })),
-        setDefaultPlaybackRate: (defaultPlaybackRate: number) =>
+        set_default_playback_rate: (defaultPlaybackRate: number) =>
           setPurposePreview((value) => ({ ...value, defaultPlaybackRate })),
       }
     : purposePreferences;
@@ -62,35 +62,35 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   const [editStep, setEditStep] = useState(0);
   const answers = editing ? draft : (setup.setup?.answers ?? EMPTY_ANSWERS);
   const step = Math.min(STEPS - 1, editing ? editStep : (setup.setup?.currentStep ?? 0));
-  const onClose = props.mode === "edit" ? props.onClose : undefined;
+  const on_close = props.mode === "edit" ? props.on_close : undefined;
 
   function go_to(next: number) {
     if (editing) setEditStep(next);
-    else setup.setStep(next);
+    else setup.set_step(next);
   }
   function finish() {
     void Speech.stop();
-    if (onClose) {
-      access.setTextSize(preview.textSize);
-      access.setReadingSpacing(preview.readingSpacing);
-      access.setReaderFont(preview.readerFont);
-      access.setTextSpacing(preview.textSpacing);
-      if (preview.reduceMotion !== access.reduceMotion) access.setReduceMotion(preview.reduceMotion);
-      if (purposePreview.purpose) purposePreferences.setPurpose(purposePreview.purpose);
-      setup.savePersonalization(draft);
+    if (on_close) {
+      access.set_text_size(preview.textSize);
+      access.set_reading_spacing(preview.readingSpacing);
+      access.set_reader_font(preview.readerFont);
+      access.set_text_spacing(preview.textSpacing);
+      if (preview.reduceMotion !== access.reduceMotion) access.set_reduce_motion(preview.reduceMotion);
+      if (purposePreview.purpose) purposePreferences.set_purpose(purposePreview.purpose);
+      setup.save_personalization(draft);
       // Explicit choices (including "No highlighting") override older saved answers.
-      access.setHighlightMode(preview.highlightMode);
-      purposePreferences.setExplanationStyle(purposePreview.explanationStyle);
-      purposePreferences.setDefaultPlaybackRate(purposePreview.defaultPlaybackRate);
-      onClose();
+      access.set_highlight_mode(preview.highlightMode);
+      purposePreferences.set_explanation_style(purposePreview.explanationStyle);
+      purposePreferences.set_default_playback_rate(purposePreview.defaultPlaybackRate);
+      on_close();
       return;
     }
     const answeredSomething =
       Boolean(purpose) || Boolean(answers.explanationStyle) || answers.listening.length > 0;
-    setup.finishPersonalization({ skipped: !answeredSomething });
+    setup.finish_personalization({ skipped: !answeredSomething });
   }
   const next = () => (step === STEPS - 1 ? finish() : go_to(step + 1));
-  const back = step > 0 ? () => go_to(step - 1) : onClose;
+  const back = step > 0 ? () => go_to(step - 1) : on_close;
 
   // Android's back button steps back through the questions rather than leaving them.
   const backRef = useRef(back);
@@ -110,10 +110,10 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
     access: a,
     personalization,
     step,
-    onBack: back,
-    onNext: next,
+    on_back: back,
+    on_next: next,
     answers,
-    setAnswers: (value: PersonalizationAnswers) => (editing ? setDraft(value) : setup.setAnswers(value)),
+    set_answers: (value: PersonalizationAnswers) => (editing ? setDraft(value) : setup.set_answers(value)),
     finishLabel: editing ? "Save" : "Continue",
   };
   if (step === 0) return <GoalStep {...stepProps} />;
@@ -126,25 +126,25 @@ type StepProps = {
   access: ReturnType<typeof useAccessibilityPreferences>;
   personalization: ReturnType<typeof useVoticPurpose>;
   step: number;
-  onBack?: () => void;
-  onNext: () => void;
+  on_back?: () => void;
+  on_next: () => void;
   answers: PersonalizationAnswers;
-  setAnswers: (answers: PersonalizationAnswers) => void;
+  set_answers: (answers: PersonalizationAnswers) => void;
   /** The last question's button: "Save" when changing answers from Settings. */
   finishLabel: string;
 };
 
-function GoalStep({ step, onBack, onNext, personalization }: StepProps) {
-  const { purpose, setPurpose } = personalization;
+function GoalStep({ step, on_back, on_next, personalization }: StepProps) {
+  const { purpose, set_purpose } = personalization;
   return (
     <StepScaffold
       step={step}
       total={STEPS}
-      onBack={onBack}
-      onSkip={onNext}
+      on_back={on_back}
+      on_skip={on_next}
       title="What should Votic help you with?"
       subtitle="We'll tune suggestions to fit. You can change this anytime."
-      footer={<PrimaryButton label="Continue" disabled={!purpose} onPress={onNext} />}
+      footer={<PrimaryButton label="Continue" disabled={!purpose} on_press={on_next} />}
     >
       <View accessibilityRole="radiogroup" style={s.options}>
         {PURPOSES.map((item) => (
@@ -154,7 +154,7 @@ function GoalStep({ step, onBack, onNext, personalization }: StepProps) {
             detail={item.detail}
             icon={item.icon}
             selected={purpose === item.value}
-            onPress={() => setPurpose(item.value)}
+            on_press={() => set_purpose(item.value)}
           />
         ))}
       </View>
@@ -162,45 +162,45 @@ function GoalStep({ step, onBack, onNext, personalization }: StepProps) {
   );
 }
 
-function ComfortStep({ step, onBack, onNext, access: a, personalization }: StepProps) {
+function ComfortStep({ step, on_back, on_next, access: a, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Each choice applies straight away, so the preview shows exactly what the Reader will look like.
   const choices = [
     {
       label: "Larger text",
       on: a.textSize !== "default",
-      toggle: () => a.setTextSize(a.textSize === "default" ? "large" : "default"),
+      toggle: () => a.set_text_size(a.textSize === "default" ? "large" : "default"),
     },
     {
       label: "More space between lines",
       on: a.readingSpacing === "extra",
-      toggle: () => a.setReadingSpacing(a.readingSpacing === "extra" ? "default" : "extra"),
+      toggle: () => a.set_reading_spacing(a.readingSpacing === "extra" ? "default" : "extra"),
     },
     {
       label: "An easier-to-read font",
       on: a.readerFont === "accessible",
-      toggle: () => a.setReaderFont(a.readerFont === "accessible" ? "system" : "accessible"),
+      toggle: () => a.set_reader_font(a.readerFont === "accessible" ? "system" : "accessible"),
     },
     {
       label: "Wider letter spacing",
       on: a.textSpacing === "wide",
-      toggle: () => a.setTextSpacing(a.textSpacing === "wide" ? "default" : "wide"),
+      toggle: () => a.set_text_spacing(a.textSpacing === "wide" ? "default" : "wide"),
     },
     {
       label: "Less motion",
       on: a.reduceMotion,
-      toggle: () => a.setReduceMotion(!a.reduceMotion),
+      toggle: () => a.set_reduce_motion(!a.reduceMotion),
     },
   ];
   return (
     <StepScaffold
       step={step}
       total={STEPS}
-      onBack={onBack}
-      onSkip={onNext}
+      on_back={on_back}
+      on_skip={on_next}
       title="Make the page your own."
       subtitle="Try a reading style. Your documents will use these settings."
-      footer={<PrimaryButton label="Continue" onPress={onNext} />}
+      footer={<PrimaryButton label="Continue" on_press={on_next} />}
     >
       <View
         accessible
@@ -224,7 +224,7 @@ function ComfortStep({ step, onBack, onNext, access: a, personalization }: StepP
             label={choice.label}
             multiple
             selected={choice.on}
-            onPress={choice.toggle}
+            on_press={choice.toggle}
           />
         ))}
       </View>
@@ -232,25 +232,25 @@ function ComfortStep({ step, onBack, onNext, access: a, personalization }: StepP
   );
 }
 
-function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personalization }: StepProps) {
+function ExplanationStep({ step, on_back, on_next, answers, set_answers, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Shows this account's current style ("Adapt to the question" until something else is chosen).
-  const { explanationStyle, setExplanationStyle, purpose } = personalization;
+  const { explanationStyle, set_explanation_style, purpose } = personalization;
   const sample = PREVIEW_SAMPLES[purpose ?? "default"];
   const answer = sample_explanation(purpose, explanationStyle);
   function choose(value: ExplanationStyle) {
-    setExplanationStyle(value);
-    setAnswers({ ...answers, explanationStyle: value });
+    set_explanation_style(value);
+    set_answers({ ...answers, explanationStyle: value });
   }
   return (
     <StepScaffold
       step={step}
       total={STEPS}
-      onBack={onBack}
-      onSkip={onNext}
+      on_back={on_back}
+      on_skip={on_next}
       title="A clearer way to understand."
       subtitle="Try an explanation style on the same sample page."
-      footer={<PrimaryButton label="Continue" onPress={onNext} />}
+      footer={<PrimaryButton label="Continue" on_press={on_next} />}
     >
       <View accessibilityRole="radiogroup" style={s.options}>
         {EXPLANATION_STYLES.map((item) => (
@@ -259,7 +259,7 @@ function ExplanationStep({ step, onBack, onNext, answers, setAnswers, personaliz
             label={item.label}
             detail={item.detail}
             selected={explanationStyle === item.value}
-            onPress={() => choose(item.value)}
+            on_press={() => choose(item.value)}
           />
         ))}
       </View>

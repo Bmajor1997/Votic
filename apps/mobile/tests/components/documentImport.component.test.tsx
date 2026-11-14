@@ -87,14 +87,14 @@ it("keeps import choices scrollable with bottom safe-area clearance and working 
 
 it("finishes the import even though the Android file picker sends Votic to the background", async () => {
   const { AppState } = jest.requireActual<typeof import("react-native")>("react-native");
-  const appState = (state: string) => {
+  const app_state = (state: string) => {
     for (const [event, listener] of jest.mocked(AppState.addEventListener).mock.calls)
       if (event === "change") (listener as (next: string) => void)(state);
   };
   // While the system picker is open Android reports "background", then "active" once a file is chosen.
   jest.mocked(DocumentPicker.getDocumentAsync).mockImplementation(async () => {
-    appState("background");
-    appState("active");
+    app_state("background");
+    app_state("active");
     return {
       canceled: false,
       assets: [
@@ -110,7 +110,7 @@ it("finishes the import even though the Android file picker sends Votic to the b
   await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
   await waitFor(async () =>
-    expect((await create_document_store("test-user").loadDocuments()).map((d) => d.plainText)).toEqual([
+    expect((await create_document_store("test-user").load_documents()).map((d) => d.plainText)).toEqual([
       "Chapter one. The picker came and went.",
     ]),
   );
@@ -146,7 +146,7 @@ it("imports BOM UTF-16 text through the picker without silently replacing Unicod
   await fireEvent.press(screen.getByRole("button", { name: "Add document" }));
   await fireEvent.press(screen.getByRole("button", { name: "Choose file or cloud storage" }));
   await waitFor(async () =>
-    expect((await create_document_store("test-user").loadDocuments())[0]?.plainText).toBe(expected),
+    expect((await create_document_store("test-user").load_documents())[0]?.plainText).toBe(expected),
   );
 });
 

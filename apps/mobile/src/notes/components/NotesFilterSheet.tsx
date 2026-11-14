@@ -28,26 +28,26 @@ const DATE_CHOICES: { label: string; value: DateFilter }[] = [
 /** What to show, type, date, and tag filters, kept in a sheet so the Notes list stays uncluttered. */
 export function NotesFilterSheet({
   visible,
-  onClose,
+  on_close,
   filter,
-  onFilterChange,
+  on_filter_change,
   dateFilter,
-  onDateFilterChange,
+  on_date_filter_change,
   tagFilter,
-  onTagFilterChange,
+  on_tag_filter_change,
   tags,
-  onReset,
+  on_reset,
 }: {
   visible: boolean;
-  onClose: () => void;
+  on_close: () => void;
   filter: NotesFilter;
-  onFilterChange: (filter: NotesFilter) => void;
+  on_filter_change: (filter: NotesFilter) => void;
   dateFilter: DateFilter;
-  onDateFilterChange: (dateFilter: DateFilter) => void;
+  on_date_filter_change: (dateFilter: DateFilter) => void;
   tagFilter: string | null;
-  onTagFilterChange: (tag: string | null) => void;
+  on_tag_filter_change: (tag: string | null) => void;
   tags: string[];
-  onReset: () => void;
+  on_reset: () => void;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -56,13 +56,13 @@ export function NotesFilterSheet({
       visible={visible}
       transparent
       animationType={reduceMotion ? "none" : "fade"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <View style={sheet.backdrop}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close filters"
-          onPress={onClose}
+          onPress={on_close}
           style={StyleSheet.absoluteFill}
         />
         <View accessibilityViewIsModal style={[s.sheet, { backgroundColor: theme.surface }]}>
@@ -79,7 +79,7 @@ export function NotesFilterSheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Close filters"
-              onPress={onClose}
+              onPress={on_close}
               style={sheet.close}
             >
               <Ionicons name="close" size={23} color={theme.text} />
@@ -93,7 +93,7 @@ export function NotesFilterSheet({
                   role="radio"
                   label={choice.label}
                   selected={filter === choice.value}
-                  onPress={() => onFilterChange(choice.value)}
+                  on_press={() => on_filter_change(choice.value)}
                 />
               ))}
             </FilterSection>
@@ -104,7 +104,7 @@ export function NotesFilterSheet({
                   role="checkbox"
                   label={choice.label}
                   selected={filter === choice.value}
-                  onPress={() => onFilterChange(filter === choice.value ? "all" : choice.value)}
+                  on_press={() => on_filter_change(filter === choice.value ? "all" : choice.value)}
                 />
               ))}
             </FilterSection>
@@ -115,7 +115,7 @@ export function NotesFilterSheet({
                   role="radio"
                   label={choice.label}
                   selected={dateFilter === choice.value}
-                  onPress={() => onDateFilterChange(choice.value)}
+                  on_press={() => on_date_filter_change(choice.value)}
                 />
               ))}
             </FilterSection>
@@ -125,7 +125,7 @@ export function NotesFilterSheet({
                   role="button"
                   label="All tags"
                   selected={!tagFilter}
-                  onPress={() => onTagFilterChange(null)}
+                  on_press={() => on_tag_filter_change(null)}
                 />
                 {tags.map((tag) => (
                   <Chip
@@ -133,7 +133,7 @@ export function NotesFilterSheet({
                     role="button"
                     label={`#${tag}`}
                     selected={tagFilter === tag}
-                    onPress={() => onTagFilterChange(tagFilter === tag ? null : tag)}
+                    on_press={() => on_tag_filter_change(tagFilter === tag ? null : tag)}
                   />
                 ))}
               </FilterSection>
@@ -142,14 +142,14 @@ export function NotesFilterSheet({
           <View style={s.actions}>
             <Pressable
               accessibilityRole="button"
-              onPress={onReset}
+              onPress={on_reset}
               style={[s.reset, { borderColor: theme.border }]}
             >
               <Text style={[s.resetText, { color: theme.text }]}>Reset</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={onClose}
+              onPress={on_close}
               style={[s.showResults, { backgroundColor: theme.accent }]}
             >
               <Text style={s.showResultsText}>Show Results</Text>
@@ -176,19 +176,19 @@ function Chip({
   role,
   label,
   selected,
-  onPress,
+  on_press,
 }: {
   role: "checkbox" | "radio" | "button";
   label: string;
   selected: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole={role}
       accessibilityState={role === "button" ? { selected } : { checked: selected }}
-      onPress={onPress}
+      onPress={on_press}
       style={[
         s.chip,
         {

@@ -22,20 +22,20 @@ test("dependency exceptions expire in the npm gate on the OSV policy date",()=>{
 test("reports paginate oldest first and respect a global storage cap",()=>{
   const store=create_usage_store({VOTIC_REPORT_MAX_ROWS:"101"});
   try{
-    for(let i=0;i<101;i++)store.recordReport({user_id:"audit",reason:"other",answer:"Private fixture"});
+    for(let i=0;i<101;i++)store.record_report({user_id:"audit",reason:"other",answer:"Private fixture"});
     const first=store.reports({status:"open"});const last=first.at(-1);
     const next=store.reports({status:"open",after:{created_at:last.created_at,id:last.id}});
     assert.equal(first.length,100);assert.equal(next.length,1);assert.ok(!first.some(r=>r.id===next[0].id));
-    assert.throws(()=>store.recordReport({user_id:"other",reason:"other",answer:"Extra"}),/busy/);
-    assert.equal(store.operationalStatus().reports.open,101);
-    store.recordClientEvent("screen-render",2);assert.deepEqual(store.operationalStatus().diagnostics.map(e=>({...e})),[{code:"screen-render",count:2}]);
+    assert.throws(()=>store.record_report({user_id:"other",reason:"other",answer:"Extra"}),/busy/);
+    assert.equal(store.operational_status().reports.open,101);
+    store.record_client_event("screen-render",2);assert.deepEqual(store.operational_status().diagnostics.map(e=>({...e})),[{code:"screen-render",count:2}]);
   }finally{store.close();}
 });
 test("online SQLite snapshot preserves data, is private, and refuses overwrite",async()=>{
   const directory=mkdtempSync(join(tmpdir(),"votic-snapshot-"));const source=join(directory,"live.sqlite"),snapshot=join(directory,"backup.sqlite");
   const store=create_usage_store({VOTIC_AI_USAGE_DB:source});
   try{
-    store.recordReport({user_id:"audit",reason:"other",answer:"Private fixture"});
+    store.record_report({user_id:"audit",reason:"other",answer:"Private fixture"});
     await snapshot_ledger(source,snapshot);assert.equal(verify_ledger(snapshot),true);
     if(process.platform === "win32") {
       const path64=Buffer.from(snapshot).toString("base64");
@@ -61,7 +61,7 @@ test("real HEIC bytes decode in the isolated worker and reach OCR as PNG",async(
   const png=await convert_heif_isolated(bytes);
   const decoded=PNG.sync.read(png);assert.equal(decoded.width,128);assert.equal(decoded.height,64);
   let called=0;
-  const server=create_votic_server({env:{OPENAI_API_KEY:"fixture-only"},authorize:()=>({uid:"audit"}),fetchImpl:async(_url,init)=>{
+  const server=create_votic_server({env:{OPENAI_API_KEY:"fixture-only"},authorize:()=>({uid:"audit"}),fetch_impl:async(_url,init)=>{
     called++;const body=JSON.parse(init.body);assert.match(JSON.stringify(body),/data:image\/png;base64/);
     return new Response(JSON.stringify({output_text:"VOTIC TEST",usage:{input_tokens:10,output_tokens:5,total_tokens:15}}),{headers:{"Content-Type":"application/json"}});
   }});

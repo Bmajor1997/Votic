@@ -97,8 +97,8 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   const { explanationStyle } = useVoticPurpose();
   const personalization = usePersonalization();
   const onboarding = useOnboarding();
-  const { recordAsk } = useActivity();
-  const { activeDocument, documents, savePassage, openDocument, addQuickNote } = useDocumentLibrary();
+  const { record_ask } = useActivity();
+  const { activeDocument, documents, save_passage, open_document, add_quick_note } = useDocumentLibrary();
   const params = useLocalSearchParams<AskVoticParams>();
   const context = resolve_ask_votic_context(documents, activeDocument, params);
   const contextKey = ask_votic_context_key(activeDocument?.id, params);
@@ -282,7 +282,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
       setMessages((v) => [...v, { role: "user", text: clean }]);
       lastQuestion.current = clean;
       // Retries resend the same question, so only first attempts are counted.
-      recordAsk(
+      record_ask(
         ask_event_for(clean, {
           newConversation: messages.length === 0,
           builtInPrompts: [...suggestedPrompts, initialQuestion].filter(Boolean),
@@ -307,7 +307,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
         answer.answer,
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
-      if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
+      if (grounded && answer.mode !== "built-in") onboarding.record_asked_votic();
       if (!current()) return;
       setError("");
       setMessages((v) => [
@@ -384,7 +384,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
   }
   function open_answer_link(link: AskLink) {
     if (!documents.some((document) => document.id === link.documentId)) return;
-    openDocument(link.documentId, link.sentenceIndex);
+    open_document(link.documentId, link.sentenceIndex);
     router.push("/reader");
   }
   function can_save_answer(message: Message) {
@@ -399,7 +399,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     const { now, id } = answer_note_stamp();
     if (message.summary && !message.source) {
       if (
-        !addQuickNote({
+        !add_quick_note({
           id,
           sentenceIndex: 0,
           text: "",
@@ -418,7 +418,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
     if (!message.source) return;
     const note = answer_note_for_source(documents, message.source, message.text, now, id);
     if (!note) return;
-    if (!savePassage(note.documentId, note.passage)) return;
+    if (!save_passage(note.documentId, note.passage)) return;
     setMessages((current) => current.map((item, i) => (i === index ? { ...item, saved: true } : item)));
   }
   function animate_retry(toValue: number) {
@@ -462,7 +462,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
             </View>
             <AskConversationMenu
               actions={[
-                { label: "Quick notes", icon: "create-outline", onPress: quickNote.open_quick_note },
+                { label: "Quick notes", icon: "create-outline", on_press: quickNote.open_quick_note },
                 {
                   label: "Summarize",
                   icon: "sparkles-outline",
@@ -471,7 +471,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                     launching ||
                     voiceBusy ||
                     !messages.some((message) => message.role === "votic" && !message.fallback),
-                  onPress: () => void summarize_conversation(),
+                  on_press: () => void summarize_conversation(),
                 },
               ]}
             />
@@ -554,7 +554,7 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                                     section={m.sectionTitle}
                                     documentTitle={readable_title(target.title)}
                                     filename={target.sourceName}
-                                    onPress={() => open_answer_link(link)}
+                                    on_press={() => open_answer_link(link)}
                                   />
                                 </View>
                               ) : null;
@@ -579,11 +579,11 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
                         playing: answerListening.playingKey === String(i),
                         failed: answerListening.errorKey === String(i),
                         disabled: voiceBusy,
-                        onPress: () => void answerListening.toggle(String(i), m.text),
+                        on_press: () => void answerListening.toggle(String(i), m.text),
                       }}
                       save={
                         can_save_answer(m)
-                          ? { saved: Boolean(m.saved), onPress: () => save_answer_to_notes(i) }
+                          ? { saved: Boolean(m.saved), on_press: () => save_answer_to_notes(i) }
                           : null
                       }
                     />
@@ -701,13 +701,13 @@ export function AskVotic({ embedded = false }: { embedded?: boolean }) {
               <KeyboardDictationButton
                 key={contextKey}
                 value={question}
-                onPhaseChange={(phase) => {
+                on_phase_change={(phase) => {
                   if (phase === "starting") void answerListening.stop();
                   setVoicePhase(phase);
                 }}
-                onLevelChange={(value) => setVoiceLevel({ value, at: Date.now() })}
-                onErrorChange={setVoiceError}
-                onRevealChange={setVoiceReveal}
+                on_level_change={(value) => setVoiceLevel({ value, at: Date.now() })}
+                on_error_change={setVoiceError}
+                on_reveal_change={setVoiceReveal}
                 onChangeText={setQuestion}
                 onFocus={() => inputRef.current?.focus()}
                 disabled={sending || launching}

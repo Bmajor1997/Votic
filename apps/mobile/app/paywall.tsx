@@ -67,9 +67,9 @@ function useFounderProduct(subscription: ReturnType<typeof useSubscription>, att
   const [product, setProduct] = useState<FounderProduct | null>(null);
 
   useEffect(() => {
-    if (unavailable || !productId || !service.getFounderProduct) return;
+    if (unavailable || !productId || !service.get_founder_product) return;
     let current = true;
-    store_deadline(service.getFounderProduct(productId)).then(
+    store_deadline(service.get_founder_product(productId)).then(
       (found) => {
         if (current) setProduct(found);
       },
@@ -127,7 +127,7 @@ function ContinueButton({ subscribed, disabled }: { subscribed: boolean; disable
     <SecondaryButton
       label={subscribed ? "Continue to Votic" : "Continue with Votic Free"}
       disabled={disabled}
-      onPress={leave}
+      on_press={leave}
     />
   );
 }
@@ -156,7 +156,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
   useEffect(() => {
     if (unavailable) return;
     let current = true;
-    store_deadline(service.getPlans()).then(
+    store_deadline(service.get_plans()).then(
       (found) => {
         if (!current) return;
         setPlans(found);
@@ -203,7 +203,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             title: "You're in.",
             detail: "Welcome to Votic Plus. Your library is ready.",
           });
-          subscription.setEntitlement(outcome.entitlement);
+          subscription.set_entitlement(outcome.entitlement);
           router.replace("/(tabs)");
         } else
           setMessage({
@@ -226,19 +226,19 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
     }
   }
   async function buy_founder() {
-    if (!founder || !service.purchaseFounder || busy.current) return;
+    if (!founder || !service.purchase_founder || busy.current) return;
     busy.current = true;
     setBuyingFounder(true);
     setMessage(null);
     try {
-      const outcome = await service.purchaseFounder(founder.productId);
+      const outcome = await service.purchase_founder(founder.productId);
       if (outcome.kind === "purchased") {
         if (has_access(outcome.entitlement.status)) {
           await celebration.celebrate({
             title: "Welcome, founder.",
             detail: "Votic Plus is yours for good. Thank you for helping build Votic.",
           });
-          subscription.setEntitlement(outcome.entitlement);
+          subscription.set_entitlement(outcome.entitlement);
           // Lets Votic's server confirm the purchase with the store and count the founder spot.
           void subscription.refresh().catch(() => {});
           router.replace("/(tabs)");
@@ -273,7 +273,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           title: "Welcome back.",
           detail: "Your Votic Plus subscription is restored.",
         });
-        subscription.setEntitlement(restored);
+        subscription.set_entitlement(restored);
         router.replace("/(tabs)");
       } else if (restored.status === "unknown")
         setMessage({ text: "Votic couldn't reach the store. Check your connection and try again." });
@@ -308,7 +308,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
         subscription.canBypass ? (
           <SecondaryButton
             label="Continue without a subscription (testing build)"
-            onPress={subscription.bypass}
+            on_press={subscription.bypass}
           />
         ) : null
       ) : plans === null ? (
@@ -322,7 +322,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
               ? "Votic couldn't load Votic Plus. Check your connection and try again."
               : "Votic Plus isn't available to buy right now. Please try again later."}
           </Text>
-          <SecondaryButton label="Try again" onPress={retry} />
+          <SecondaryButton label="Try again" on_press={retry} />
         </>
       ) : (
         <>
@@ -336,7 +336,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             busy={purchasing}
             disabled={!selected || restoring || buyingFounder}
             accessibilityHint={selected ? billing_summary(selected, STORE) : undefined}
-            onPress={() => void purchase()}
+            on_press={() => void purchase()}
           />
         </>
       )}
@@ -359,7 +359,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
             product={founder}
             busy={buyingFounder}
             disabled={purchasing || restoring}
-            onBuy={() => void buy_founder()}
+            on_buy={() => void buy_founder()}
           />
         ) : null}
         <Text accessibilityRole="header" style={[p.sectionTitle, s.plansTitle, { color: theme.text }]}>
@@ -379,7 +379,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           <BillingSelector
             plans={shown}
             selectedId={selected?.id ?? null}
-            onSelect={setSelectedId}
+            on_select={setSelectedId}
             disabled={working}
           />
         ) : null}
@@ -400,7 +400,7 @@ export default function Paywall({ now = () => new Date() }: { now?: () => Date }
           accessibilityRole="button"
           accessibilityLabel={`Sign out${auth.user?.email ? ` of ${auth.user.email}` : ""}`}
           disabled={working}
-          onPress={() => void auth.signOut()}
+          onPress={() => void auth.sign_out()}
           style={({ pressed }) => [s.signOut, { opacity: pressed ? 0.6 : 1 }]}
         >
           <Text style={[s.signOutText, { color: theme.mutedText }]}>
@@ -451,7 +451,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
           <Text accessibilityRole="header" style={[p.sectionTitle, { color: theme.text }]}>
             {plans.length > 1 ? "Your trial" : offer_title(plan)}
           </Text>
-          {trial_timeline(plan, { now, formatDate: format_long_date }).map((item, index) => (
+          {trial_timeline(plan, { now, format_date: format_long_date }).map((item, index) => (
             <View key={item.when} style={s.timelineRow}>
               <View style={[s.stepNumber, { backgroundColor: theme.brandTint }]}>
                 <Text style={[p.benefitTitle, { color: theme.accentText }]}>{index + 1}</Text>
@@ -465,7 +465,7 @@ function OfferCard({ plan, plans, now }: { plan: SubscriptionPlan; plans: Subscr
         </View>
       ) : null}
       <Text accessibilityLiveRegion="polite" style={[s.terms, { color: theme.mutedText }]}>
-        {billing_terms(plan, { now, store: STORE, formatDate: format_long_date })}
+        {billing_terms(plan, { now, store: STORE, format_date: format_long_date })}
       </Text>
     </View>
   );
@@ -491,7 +491,7 @@ function CheckoutLinks({
         <FooterLink
           label={`Manage or cancel in ${STORE}`}
           disabled={working}
-          onPress={() =>
+          on_press={() =>
             void Linking.openURL(STORE_SUBSCRIPTIONS_URL).catch(() =>
               onMessage({
                 text: `Couldn't open ${STORE}. Open your store app's subscription settings to manage or cancel.`,
@@ -501,19 +501,19 @@ function CheckoutLinks({
         />
       ) : null}
       <View style={s.links}>
-        <FooterLink label="Manage account" disabled={working} onPress={() => router.push("/account")} />
+        <FooterLink label="Manage account" disabled={working} on_press={() => router.push("/account")} />
         {!unavailable ? (
           <FooterLink
             label={restoring ? "Restoring…" : "Restore Purchases"}
             disabled={working}
-            onPress={() => void restore()}
+            on_press={() => void restore()}
           />
         ) : null}
         {legal.termsUrl ? (
-          <FooterLink label="Terms" onPress={() => void Linking.openURL(legal.termsUrl!)} />
+          <FooterLink label="Terms" on_press={() => void Linking.openURL(legal.termsUrl!)} />
         ) : null}
         {legal.privacyUrl ? (
-          <FooterLink label="Privacy" onPress={() => void Linking.openURL(legal.privacyUrl!)} />
+          <FooterLink label="Privacy" on_press={() => void Linking.openURL(legal.privacyUrl!)} />
         ) : null}
       </View>
     </>
@@ -522,11 +522,11 @@ function CheckoutLinks({
 
 function FooterLink({
   label,
-  onPress,
+  on_press,
   disabled,
 }: {
   label: string;
-  onPress: () => void;
+  on_press: () => void;
   disabled?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -536,7 +536,7 @@ function FooterLink({
       accessibilityLabel={label}
       accessibilityState={{ disabled: Boolean(disabled) }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={on_press}
       hitSlop={6}
       style={({ pressed }) => [s.link, { opacity: disabled ? 0.5 : pressed ? 0.6 : 1 }]}
     >

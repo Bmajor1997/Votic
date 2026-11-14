@@ -2,7 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 // Fail closed when an SDK upgrade changes the reviewed source. Repeated prebuild/pod install is safe.
-function replaceOnce(source, before, after, label) {
+function replace_once(source, before, after, label) {
   if (source.split(after).length === 2 && !source.replace(after, "").includes(before)) return source;
   if (source.split(before).length !== 2) {
     throw new Error(`Native hardening needs review: ${label}`);
@@ -10,12 +10,12 @@ function replaceOnce(source, before, after, label) {
   return source.replace(before, after);
 }
 
-function hardenFiles(root, patches) {
+function harden_files(root, patches) {
   // Validate every input before writing any file.
   const updates = patches.map(([relative, before, after]) => {
     const file = path.join(root, relative);
     const source = fs.readFileSync(file, "utf8");
-    return { file, source, hardened: replaceOnce(source, before, after, relative) };
+    return { file, source, hardened: replace_once(source, before, after, relative) };
   });
   for (const { file, source, hardened } of updates) {
     if (source === hardened) continue;
@@ -30,8 +30,8 @@ function hardenFiles(root, patches) {
   }
 }
 
-function hardenAndroid(projectRoot) {
-  hardenFiles(projectRoot, [
+function harden_android(projectRoot) {
+  harden_files(projectRoot, [
     [
       "node_modules/@expo/log-box/android/src/main/expo/modules/logbox/ExpoLogBoxWebViewWrapper.kt",
       "    setWebContentsDebuggingEnabled(true)",
@@ -40,8 +40,8 @@ function hardenAndroid(projectRoot) {
   ]);
 }
 
-function hardenIos(projectRoot) {
-  hardenFiles(path.join(projectRoot, "ios/Pods/RevenueCat/Sources"), [
+function harden_ios(projectRoot) {
+  harden_files(path.join(projectRoot, "ios/Pods/RevenueCat/Sources"), [
     [
       "Error Handling/ErrorUtils.swift",
       "            localizedDescription: localizedDescription,\n            fileName: fileName, functionName: functionName, line: line",
@@ -60,16 +60,16 @@ function hardenIos(projectRoot) {
   ]);
 }
 
-function hardenPodfile(source) {
+function harden_podfile(source) {
   const hook = "  post_install do |installer|";
   const hardened = `${hook}\n    # Votic: redact dependency diagnostics before native compilation and analysis.\n    system('node', File.join(__dir__, '../plugins/nativeDependencyHardening.cjs'), 'ios', File.expand_path('..', __dir__)) || raise('Votic native hardening failed')`;
-  return replaceOnce(source, hook, hardened, "Podfile post_install hook");
+  return replace_once(source, hook, hardened, "Podfile post_install hook");
 }
 
-module.exports = { hardenAndroid, hardenIos, hardenPodfile, replaceOnce };
+module.exports = { harden_android, harden_ios, harden_podfile, replace_once };
 
 if (require.main === module) {
   const [, , platform, root] = process.argv;
   if (!root || platform !== "ios") throw new Error("Usage: nativeDependencyHardening.cjs ios <mobile-root>");
-  hardenIos(root);
+  harden_ios(root);
 }

@@ -17,7 +17,7 @@ describe("document library persistence", () => {
     await AsyncStorage.setItem(account_storage_key(LIBRARY_KEY, "test-user"), "{not json");
     const { result } = await render_library();
     expect(result.current.persistenceError).toMatch(/Your stored data has not been overwritten/);
-    await act(async () => result.current.addTextDocument("new.txt", "New text."));
+    await act(async () => result.current.add_text_document("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(2000));
     expect(await AsyncStorage.getItem(account_storage_key(LIBRARY_KEY, "test-user"))).toBe("{not json");
   });
@@ -27,7 +27,7 @@ describe("document library persistence", () => {
     expect(result.current.persistenceError).toBeNull();
     // The AsyncStorage test mock is already a jest.fn, so fail only the next write instead of spying.
     jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error("disk full"));
-    await act(async () => result.current.addTextDocument("new.txt", "New text."));
+    await act(async () => result.current.add_text_document("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(1500));
     expect(result.current.persistenceError).toMatch(/could not save your library changes/);
   });
@@ -35,7 +35,7 @@ describe("document library persistence", () => {
   it("titles a new import without its extension but keeps the original filename", async () => {
     const { result } = await render_library();
     await act(async () =>
-      result.current.addTextDocument("first 25 days CWAT Schedule.PDF", "Schedule text."),
+      result.current.add_text_document("first 25 days CWAT Schedule.PDF", "Schedule text."),
     );
     const [document] = result.current.documents;
     expect(document.title).toBe("first 25 days CWAT Schedule");
@@ -44,7 +44,7 @@ describe("document library persistence", () => {
 
   it("saves changes after the throttle interval", async () => {
     const { result } = await render_library();
-    await act(async () => result.current.addTextDocument("new.txt", "New text."));
+    await act(async () => result.current.add_text_document("new.txt", "New text."));
     expect(await AsyncStorage.getItem(account_storage_key(LIBRARY_KEY, "test-user"))).toBeNull();
     // waitFor advances the fake timers until the throttled save has been written.
     await waitFor(async () =>
@@ -57,10 +57,10 @@ describe("document library persistence", () => {
   it("clears a save error once a later save succeeds", async () => {
     const { result } = await render_library();
     jest.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error("disk full"));
-    await act(async () => result.current.addTextDocument("new.txt", "New text."));
+    await act(async () => result.current.add_text_document("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(1500));
     expect(result.current.persistenceError).toMatch(/could not save your library changes/);
-    await act(async () => result.current.addTextDocument("second.txt", "Second text."));
+    await act(async () => result.current.add_text_document("second.txt", "Second text."));
     await act(async () => jest.advanceTimersByTime(1500));
     expect(result.current.persistenceError).toBeNull();
     expect(
@@ -89,7 +89,7 @@ describe("document library persistence", () => {
     expect(result.current.documents.map((document) => document.title)).toEqual(["Kept Book"]);
     expect(result.current.persistenceError).toMatch(/“Lost Book” could not be opened/);
     // Library changes still save, and the unreadable document is kept.
-    await act(async () => result.current.addTextDocument("new.txt", "New text."));
+    await act(async () => result.current.add_text_document("new.txt", "New text."));
     await act(async () => jest.advanceTimersByTime(1500));
     const saved = JSON.parse(
       (await AsyncStorage.getItem(account_storage_key(LIBRARY_KEY, "test-user"))) || "[]",

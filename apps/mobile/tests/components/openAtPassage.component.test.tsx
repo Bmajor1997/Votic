@@ -15,7 +15,7 @@ it("moves progress with the place when a document is opened at a passage, so car
     return null;
   }
   await render_with_providers(<Probe />, { documents: [article] });
-  await act(async () => library!.openDocument("article", 2));
+  await act(async () => library!.open_document("article", 2));
   const opened = library!.documents.find((document) => document.id === "article")!;
   expect(opened.sentenceIndex).toBe(2);
   expect(opened.progress).toBeCloseTo(6 / 11);
@@ -30,8 +30,8 @@ it("keeps a finished document finished and leaves progress alone when no passage
   }
   const finished = { ...article, id: "done", progress: 1, completedAt: 5 };
   await render_with_providers(<Probe />, { documents: [article, finished] });
-  await act(async () => library!.openDocument("done", 1));
-  await act(async () => library!.openDocument("article"));
+  await act(async () => library!.open_document("done", 1));
+  await act(async () => library!.open_document("article"));
   expect(library!.documents.find((document) => document.id === "done")!.progress).toBe(1);
   expect(library!.documents.find((document) => document.id === "article")!.progress).toBe(0);
 });

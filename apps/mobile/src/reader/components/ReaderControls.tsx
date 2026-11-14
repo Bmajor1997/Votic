@@ -11,12 +11,12 @@ export function Choice<T extends string>({
   label,
   value,
   current,
-  onChange,
+  on_change,
 }: {
   label: string;
   value: T;
   current: T;
-  onChange: (value: T) => void;
+  on_change: (value: T) => void;
 }) {
   const { theme } = useVoticTheme();
   const selected = value === current;
@@ -24,7 +24,7 @@ export function Choice<T extends string>({
     <Pressable
       accessibilityRole="radio"
       accessibilityState={{ checked: selected }}
-      onPress={() => onChange(value)}
+      onPress={() => on_change(value)}
       style={({ pressed }) => [
         s.choice,
         {
@@ -53,13 +53,13 @@ export function Setting({ label, children }: { label: string; children: ReactNod
 export function SeekableProgress({
   value,
   compact = false,
-  onSeekStart,
-  onSeek,
+  on_seek_start,
+  on_seek,
 }: {
   value: number;
   compact?: boolean;
-  onSeekStart: () => void;
-  onSeek: (value: number) => void;
+  on_seek_start: () => void;
+  on_seek: (value: number) => void;
 }) {
   const { theme } = useVoticTheme();
   const [draft, setDraft] = useState<number | null>(null);
@@ -70,7 +70,7 @@ export function SeekableProgress({
   }
   function begin(event: GestureResponderEvent) {
     const next = value_from_event(event);
-    onSeekStart();
+    on_seek_start();
     setDraft(next);
   }
   function move(event: GestureResponderEvent) {
@@ -79,11 +79,11 @@ export function SeekableProgress({
   function finish(event: GestureResponderEvent) {
     const next = value_from_event(event);
     setDraft(null);
-    onSeek(next);
+    on_seek(next);
   }
   function adjust(direction: "increment" | "decrement") {
-    onSeekStart();
-    onSeek(Math.max(0, Math.min(1, value + (direction === "increment" ? 0.05 : -0.05))));
+    on_seek_start();
+    on_seek(Math.max(0, Math.min(1, value + (direction === "increment" ? 0.05 : -0.05))));
   }
   return (
     <View
@@ -131,16 +131,16 @@ export function VoiceChoice({
   detail,
   selected,
   previewing,
-  onPreview,
-  onSelect,
+  on_preview,
+  on_select,
 }: {
   name: string;
   /** Accent and connection needs, e.g. "British English", read after the name. */
   detail?: string;
   selected: boolean;
   previewing: boolean;
-  onPreview: () => void;
-  onSelect: () => void;
+  on_preview: () => void;
+  on_select: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -156,7 +156,7 @@ export function VoiceChoice({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={previewing ? `Stop ${name} voice preview` : `Preview ${name} voice`}
-        onPress={onPreview}
+        onPress={on_preview}
         style={({ pressed }) => [
           s.voicePreview,
           { backgroundColor: selected ? theme.accent : theme.surfaceMuted, opacity: pressed ? 0.7 : 1 },
@@ -172,7 +172,7 @@ export function VoiceChoice({
         accessibilityRole="radio"
         accessibilityState={{ checked: selected }}
         accessibilityLabel={detail ? `Select ${name} voice, ${detail}` : `Select ${name} voice`}
-        onPress={onSelect}
+        onPress={on_select}
         style={({ pressed }) => [s.voiceSelect, { opacity: pressed ? 0.7 : 1 }]}
       >
         <View style={s.voiceCopy}>
@@ -190,14 +190,14 @@ export function ToolButton({
   label,
   accessibilityLabel,
   active,
-  onPress,
+  on_press,
 }: {
   icon: IconName;
   label: string;
   /** Spoken name when it should differ from the visible label. */
   accessibilityLabel?: string;
   active: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -205,7 +205,7 @@ export function ToolButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ expanded: active }}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.tool,
         { backgroundColor: active ? theme.sentenceHighlight : "transparent", opacity: pressed ? 0.65 : 1 },

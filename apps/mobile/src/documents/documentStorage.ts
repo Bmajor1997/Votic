@@ -203,8 +203,8 @@ export function create_document_store(uid?: string) {
   }
 
   return {
-    loadDocuments: () => write_account_data(uid, load_documents).then((value) => value ?? []),
-    saveDocuments: (documents: VoticDocument[]) => write_account_data(uid, () => save_documents(documents)),
+    load_documents: () => write_account_data(uid, load_documents).then((value) => value ?? []),
+    save_documents: (documents: VoticDocument[]) => write_account_data(uid, () => save_documents(documents)),
     unavailableDocuments: unavailable_documents,
   };
 }

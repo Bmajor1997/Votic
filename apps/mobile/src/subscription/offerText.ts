@@ -94,13 +94,13 @@ export function offer_title(plan: SubscriptionPlan | null) {
 /** "Today" and the day billing starts, for the trial timeline. Only shown when the plan has a trial. */
 export function trial_timeline(
   plan: SubscriptionPlan,
-  { now, formatDate }: { now: Date; formatDate: (date: Date) => string },
+  { now, format_date }: { now: Date; format_date: (date: Date) => string },
 ) {
   if (!plan.trial) return [];
   return [
     { when: "Today", what: "Your free trial starts. Get everything in Votic Plus." },
     {
-      when: `Around ${formatDate(trial_end_date(plan.trial, now))}`,
+      when: `Around ${format_date(trial_end_date(plan.trial, now))}`,
       what: `Billing begins at ${price_sequence(plan)}. The store confirms the exact date before you subscribe.`,
     },
   ];
@@ -115,8 +115,8 @@ export function billing_terms(
   {
     now,
     store,
-    formatDate,
-  }: { now: Date; store: "App Store" | "Google Play"; formatDate: (date: Date) => string },
+    format_date,
+  }: { now: Date; store: "App Store" | "Google Play"; format_date: (date: Date) => string },
 ) {
   const per = billing_period_label(plan.billingPeriod) || "billing period";
   const renew = `Your subscription renews automatically at ${plan.priceString} per ${per} until you cancel.`;
@@ -127,6 +127,6 @@ export function billing_terms(
     const introductory = intro ? ` Introductory pricing: ${price_sequence(plan)}.` : "";
     return `You'll be charged ${charge} when you subscribe.${introductory} ${renew} ${cancel}`;
   }
-  const end = formatDate(trial_end_date(plan.trial, now));
+  const end = format_date(trial_end_date(plan.trial, now));
   return `Your ${period_adjective(plan.trial)} free trial starts when you subscribe. Estimated first charge: ${end}, at ${price_sequence(plan)}. The store confirms the exact date and terms before purchase. ${renew} ${cancel}`;
 }

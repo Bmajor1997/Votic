@@ -49,7 +49,9 @@ function AccountUpgradeOptions() {
       .then(async (options) => {
         const ids = options.upgrades.map((item) => item.productId);
         const plans = ids.length
-          ? await store_deadline(service.getUpgradePlans ? service.getUpgradePlans(ids) : service.getPlans())
+          ? await store_deadline(
+              service.get_upgrade_plans ? service.get_upgrade_plans(ids) : service.get_plans(),
+            )
           : [];
         return { options, plans };
       })
@@ -123,7 +125,7 @@ function AccountUpgradeOptions() {
           <Text accessibilityRole="alert" style={[s.detail, { color: theme.text }]}>
             Votic could not load upgrade options. You can still manage your subscription in the store.
           </Text>
-          <SecondaryButton label="Try again" onPress={reload} />
+          <SecondaryButton label="Try again" on_press={reload} />
         </>
       ) : !loaded ? (
         <ActivityIndicator accessibilityLabel="Loading subscription options" color={theme.accent} />
@@ -148,7 +150,7 @@ function AccountUpgradeOptions() {
               <PrimaryButton
                 label={`Review upgrade to ${offer.name}`}
                 disabled={opening}
-                onPress={() => void open_store()}
+                on_press={() => void open_store()}
               />
             </View>
           ))}
@@ -168,11 +170,11 @@ function AccountUpgradeOptions() {
         <SecondaryButton
           label="Manage subscription in store"
           disabled={opening}
-          onPress={() => void open_store()}
+          on_press={() => void open_store()}
         />
       ) : null}
       {!service.unavailableReason ? (
-        <SecondaryButton label="Refresh subscription options" onPress={reload} />
+        <SecondaryButton label="Refresh subscription options" on_press={reload} />
       ) : null}
       {message ? (
         <Text accessibilityLiveRegion="polite" style={[s.detail, { color: theme.text }]}>

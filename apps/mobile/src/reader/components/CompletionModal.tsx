@@ -37,34 +37,34 @@ const CONTENT_MS = MOTION.finish.totals;
  */
 export function CompletionModal({
   visible,
-  onClose,
+  on_close,
   title,
   timeSpentSeconds,
   passageCount,
   canSummarize,
   summary,
-  onSummarize,
+  on_summarize,
   summaryListen,
-  onSaveSummary,
-  onAskFollowUp,
+  on_save_summary,
+  on_ask_follow_up,
   nextUpTitle,
-  onNextUp,
-  onAddDocument,
+  on_next_up,
+  on_add_document,
 }: {
   visible: boolean;
-  onClose: () => void;
+  on_close: () => void;
   title?: string;
   timeSpentSeconds: number;
   passageCount: number;
   canSummarize: boolean;
   summary: FinishSummary;
-  onSummarize: () => void;
-  summaryListen: { playing: boolean; failed: boolean; onPress: () => void };
-  onSaveSummary: () => void;
-  onAskFollowUp: () => void;
+  on_summarize: () => void;
+  summaryListen: { playing: boolean; failed: boolean; on_press: () => void };
+  on_save_summary: () => void;
+  on_ask_follow_up: () => void;
   nextUpTitle: string | null;
-  onNextUp: () => void;
-  onAddDocument: () => void;
+  on_next_up: () => void;
+  on_add_document: () => void;
 }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
@@ -80,7 +80,7 @@ export function CompletionModal({
       visible={visible}
       transparent
       animationType={reduceMotion ? "none" : "fade"}
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <View style={s.backdrop}>
         <View
@@ -90,7 +90,7 @@ export function CompletionModal({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close completion experience"
-            onPress={onClose}
+            onPress={on_close}
             style={s.close}
           >
             <Ionicons name="close" size={23} color={theme.mutedText} />
@@ -138,16 +138,16 @@ export function CompletionModal({
                 {canSummarize ? (
                   <SummarySection
                     summary={summary}
-                    onSummarize={onSummarize}
+                    on_summarize={on_summarize}
                     listen={summaryListen}
-                    onSave={onSaveSummary}
+                    on_save={on_save_summary}
                   />
                 ) : null}
                 <View style={s.actions}>
                   <CompletionAction
                     icon="chatbubble-ellipses-outline"
                     label="Ask a follow-up"
-                    onPress={onAskFollowUp}
+                    on_press={on_ask_follow_up}
                   />
                   {nextUpTitle ? (
                     <CompletionAction
@@ -155,13 +155,13 @@ export function CompletionModal({
                       label="Next up"
                       detail={nextUpTitle}
                       accessibilityLabel={`Next up: ${nextUpTitle}`}
-                      onPress={onNextUp}
+                      on_press={on_next_up}
                     />
                   ) : (
                     <CompletionAction
                       icon="add-circle-outline"
                       label="Add a document"
-                      onPress={onAddDocument}
+                      on_press={on_add_document}
                     />
                   )}
                 </View>
@@ -280,14 +280,14 @@ function FinishMark({ motion }: { motion: FinishMotion }) {
 
 function SummarySection({
   summary,
-  onSummarize,
+  on_summarize,
   listen,
-  onSave,
+  on_save,
 }: {
   summary: FinishSummary;
-  onSummarize: () => void;
-  listen: { playing: boolean; failed: boolean; onPress: () => void };
-  onSave: () => void;
+  on_summarize: () => void;
+  listen: { playing: boolean; failed: boolean; on_press: () => void };
+  on_save: () => void;
 }) {
   const { theme } = useVoticTheme();
   if (summary.status === "idle")
@@ -295,7 +295,7 @@ function SummarySection({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Summarize this document"
-        onPress={onSummarize}
+        onPress={on_summarize}
         style={({ pressed }) => [s.summarize, { backgroundColor: pressed ? theme.accentText : theme.accent }]}
       >
         <Ionicons name="sparkles-outline" size={20} color={theme.onAccent} />
@@ -317,7 +317,7 @@ function SummarySection({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Try summarizing again"
-          onPress={onSummarize}
+          onPress={on_summarize}
           style={s.link}
         >
           <Text style={[s.linkText, { color: theme.accentText }]}>Try again</Text>
@@ -335,7 +335,7 @@ function SummarySection({
           accessibilityRole="button"
           accessibilityLabel={listen.playing ? "Stop reading summary" : "Read summary aloud"}
           accessibilityState={{ selected: listen.playing }}
-          onPress={listen.onPress}
+          onPress={listen.on_press}
           style={[s.summaryButton, { borderColor: theme.border }]}
         >
           <Ionicons
@@ -352,7 +352,7 @@ function SummarySection({
           accessibilityLabel={summary.saved ? "Summary saved to Notes" : "Save summary to Notes"}
           accessibilityState={{ disabled: summary.saved }}
           disabled={summary.saved}
-          onPress={onSave}
+          onPress={on_save}
           style={[s.summaryButton, { borderColor: theme.border, opacity: summary.saved ? 0.7 : 1 }]}
         >
           <Ionicons
@@ -379,20 +379,20 @@ function CompletionAction({
   label,
   detail,
   accessibilityLabel,
-  onPress,
+  on_press,
 }: {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
   detail?: string;
   accessibilityLabel?: string;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.action,
         { borderColor: theme.border, backgroundColor: pressed ? theme.surfaceMuted : theme.surface },

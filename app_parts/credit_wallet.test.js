@@ -71,7 +71,7 @@ test("refund ordering survives restart, equal-time delivery and duplicate grants
     wallet.refund({ ...event, event_timestamp_ms: 3000 });
     wallet.refund({ ...event, id: "reverse", type: "REFUND_REVERSED", event_timestamp_ms: 3000 });
     assert.equal(wallet.balance("buyer"), 0);
-    wallet.deleteAccount("buyer");
+    wallet.delete_account("buyer");
     // New isolated grant is not affected by deleted personal refund history.
     wallet.grant({ ...event, id: "purchase", type: "NON_RENEWING_PURCHASE" });
     assert.equal(wallet.balance("buyer"), 500);
@@ -87,7 +87,7 @@ test("wallet mutations roll back invalid identities and leave no personal refund
     assert.throws(() => wallet.grant({ ...purchase, app_user_id: "$RCAnonymousID:test" }), /verified/);
     wallet.grant(purchase); // The rejected grant must not leave a transaction/lock open.
     wallet.refund({ ...purchase, type: "CANCELLATION", event_timestamp_ms: 2000 });
-    wallet.deleteAccount("buyer");
+    wallet.delete_account("buyer");
     db.prepare("INSERT INTO account_deletions(uid_hash,anonymous_id,requested_at) VALUES(?,?,?)").run(account_deletion_key("buyer"), "deleted", new Date().toISOString());
     assert.equal(wallet.grant(purchase).processed, false);
     assert.equal(wallet.refund({ ...purchase, type: "REFUND_REVERSED", event_timestamp_ms: 3000 }).processed, false);

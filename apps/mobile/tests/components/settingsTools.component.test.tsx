@@ -55,7 +55,7 @@ describe("Settings support and library tools", () => {
   });
   it("measures only the current account and requires confirmation before clearing temporary files", async () => {
     jest.mocked(files.clear_old_temporary_files).mockClear();
-    await create_document_store("other-user").saveDocuments([
+    await create_document_store("other-user").save_documents([
       test_document("private", "Other account private"),
     ]);
     await render_with_providers(<SettingsDetailScreen category="storage" />, {
@@ -73,8 +73,8 @@ describe("Settings support and library tools", () => {
     });
     await waitFor(() => expect(files.clear_old_temporary_files).toHaveBeenCalledTimes(1));
     expect(await screen.findByText(/Old temporary files cleared/)).toBeTruthy();
-    expect((await create_document_store("test-user").loadDocuments())[0].title).toBe("My saved document");
-    expect((await create_document_store("other-user").loadDocuments())[0].title).toBe(
+    expect((await create_document_store("test-user").load_documents())[0].title).toBe("My saved document");
+    expect((await create_document_store("other-user").load_documents())[0].title).toBe(
       "Other account private",
     );
   });

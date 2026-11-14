@@ -9,7 +9,7 @@ export function FeedbackRow({ separated = false }: { separated?: boolean }) {
       hint="Opens native Votic feedback options"
       icon="chatbubble-ellipses-outline"
       separated={separated}
-      onPress={() => router.push("/feedback")}
+      on_press={() => router.push("/feedback")}
     />
   );
 }

@@ -80,7 +80,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
     );`);
   const credits = create_credit_ledger(db, { now });
   const founder = create_founder_store(db, { now });
-  const feedback = create_feedback_store(db, { now, accountDeleted: uid => Boolean(db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid))) });
+  const feedback = create_feedback_store(db, { now, account_deleted: uid => Boolean(db.prepare("SELECT 1 FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid))) });
   // Keep only the bounded financial-control window for anonymized deleted-account rows.
   const prune = () => {
     feedback.prune();
@@ -118,7 +118,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       const reserved_cost = estimate_cost({ input_tokens: input_bound, output_tokens: output_bound, cached_tokens: 0, cache_write_tokens: 0 }, { ...rates, input: Math.max(rates.input, rates.cached, rates.cache_write) });
       db.exec("BEGIN IMMEDIATE");
       try {
-        if (user_id.startsWith("user:") && this.accountDeletion(user_id.slice(5))) throw new AiLimitError("This account is being deleted.");
+        if (user_id.startsWith("user:") && this.account_deletion(user_id.slice(5))) throw new AiLimitError("This account is being deleted.");
         // A dead request stops consuming execution capacity, but retains its full cost/token reservation.
         const expired = new Date(Date.parse(started_at) - AI_EXECUTION_LEASE_MS).toISOString();
         db.prepare("UPDATE ai_usage SET status='unknown',completed_at=? WHERE status='pending' AND started_at<=?").run(started_at, expired);
@@ -152,13 +152,13 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
           usage?.total_tokens ?? (rejected ? 0 : row.reserved_tokens), estimated_cost_usd, usage ? 1 : 0, request_id);
     },
     records() { return db.prepare("SELECT * FROM ai_usage ORDER BY started_at, request_id").all(); },
-    purgeReports() { db.prepare("DELETE FROM ai_reports WHERE created_at<?").run(new Date(now().getTime() - 30 * 86400000).toISOString()); },
-    recordReport({ user_id, reason, answer }) {
-      this.purgeReports();
+    purge_reports() { db.prepare("DELETE FROM ai_reports WHERE created_at<?").run(new Date(now().getTime() - 30 * 86400000).toISOString()); },
+    record_report({ user_id, reason, answer }) {
+      this.purge_reports();
       const id = randomUUID();
       db.exec("BEGIN IMMEDIATE");
       try {
-        if (this.accountDeletion(user_id)) throw new Error("This account is being deleted.");
+        if (this.account_deletion(user_id)) throw new Error("This account is being deleted.");
         const size = db.prepare("SELECT COUNT(*) AS rows,COALESCE(SUM(length(CAST(answer AS BLOB))),0) AS bytes FROM ai_reports").get();
         if (size.rows >= limits.report_rows || size.bytes + Buffer.byteLength(answer,"utf8") > limits.report_bytes)
           throw new AiLimitError("Answer reporting is busy. Please try again later or contact Votic support.");
@@ -168,7 +168,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       return id;
     },
     reports({ limit = 100, after = null, status = "all" } = {}) {
-      this.purgeReports();
+      this.purge_reports();
       if (!Number.isSafeInteger(limit) || limit<1 || limit>100 || !["open","reviewed","all"].includes(status) ||
           (after && (typeof after.created_at!=="string" || typeof after.id!=="string"))) throw new Error("Invalid report page.");
       const where = [status==="all" ? "1=1" : "status=?"];
@@ -176,8 +176,8 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       if (after) {where.push("(created_at>? OR (created_at=? AND id>?))");args.push(after.created_at,after.created_at,after.id);}
       return db.prepare(`SELECT * FROM ai_reports WHERE ${where.join(" AND ")} ORDER BY created_at ASC,id ASC LIMIT ?`).all(...args,limit);
     },
-    operationalStatus() {
-      this.purgeReports();
+    operational_status() {
+      this.purge_reports();
       const reports = db.prepare("SELECT COUNT(*) AS total,SUM(status='open') AS open,COALESCE(SUM(length(CAST(answer AS BLOB))),0) AS bytes,MIN(CASE WHEN status='open' THEN created_at END) AS oldest_open FROM ai_reports").get();
       const month = now().toISOString().slice(0,7)+"-01T00:00:00.000Z";
       const usage = db.prepare("SELECT COALESCE(SUM(estimated_cost_usd),0) AS reserved_usd,SUM(status='pending') AS pending FROM ai_usage WHERE started_at>=?").get(month);
@@ -186,15 +186,15 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
       const diagnostics=db.prepare("SELECT code,SUM(count) AS count FROM client_events WHERE day>=? GROUP BY code").all(new Date(now().getTime()-86400000).toISOString().slice(0,10));
       return {reports:{...reports,open:reports.open||0,capacity:limits.report_rows,byte_capacity:limits.report_bytes},ai:{...usage,pending:usage.pending||0,monthly_budget_usd:limits.global_cost},database_bytes:pages*pageSize,diagnostics};
     },
-    recordClientEvent(code,count) {
+    record_client_event(code,count) {
       if(code!=="screen-render" || !Number.isSafeInteger(count) || count<1 || count>50)throw new Error("Invalid client event.");
       db.prepare("INSERT INTO client_events(day,code,count) VALUES(?,?,?) ON CONFLICT(day,code) DO UPDATE SET count=MIN(10000,count+excluded.count)")
         .run(now().toISOString().slice(0,10),code,count);
     },
     ready() { return db.prepare("SELECT 1 AS ready").get().ready===1; },
-    resolveReport(id) { db.prepare("UPDATE ai_reports SET status='reviewed' WHERE id=?").run(id); },
-    accountDeletion(uid) { return db.prepare("SELECT completed_at FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid)) || null; },
-    beginAccountDeletion(uid) {
+    resolve_report(id) { db.prepare("UPDATE ai_reports SET status='reviewed' WHERE id=?").run(id); },
+    account_deletion(uid) { return db.prepare("SELECT completed_at FROM account_deletions WHERE uid_hash=?").get(deletion_key(uid)) || null; },
+    begin_account_deletion(uid) {
       db.exec("BEGIN IMMEDIATE");
       try {
         db.prepare("INSERT OR IGNORE INTO account_deletions(uid_hash,anonymous_id,requested_at) VALUES(?,?,?)")
@@ -210,7 +210,7 @@ export function create_usage_store(env = {}, { now = () => new Date(), path = en
         db.exec("COMMIT");
       } catch (error) { db.exec("ROLLBACK"); throw error; }
     },
-    completeAccountDeletion(uid) {
+    complete_account_deletion(uid) {
       // Unlink the financial alias from the retained revocation hash after cleanup.
       db.prepare("UPDATE account_deletions SET completed_at=?,anonymous_id=? WHERE uid_hash=?")
         .run(now().toISOString(), "deleted:" + randomUUID(), deletion_key(uid));

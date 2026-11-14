@@ -54,13 +54,13 @@ import { useVoticTheme } from "../../src/theme/ThemeProvider";
 function DocumentTypeFilters({
   hasDocuments,
   selected,
-  onSelect,
+  on_select,
   theme,
   scrollRef,
 }: {
   hasDocuments: boolean;
   selected: DocumentTypeFilter;
-  onSelect: (filter: DocumentTypeFilter) => void;
+  on_select: (filter: DocumentTypeFilter) => void;
   theme: ReturnType<typeof useVoticTheme>["theme"];
   scrollRef: RefObject<ScrollView | null>;
 }) {
@@ -79,7 +79,7 @@ function DocumentTypeFilters({
           accessibilityRole="radio"
           accessibilityLabel={`${item.label} filter`}
           accessibilityState={{ checked: selected === item.value }}
-          onPress={() => onSelect(item.value)}
+          onPress={() => on_select(item.value)}
           style={[
             s.typeFilter,
             { backgroundColor: selected === item.value ? theme.accent : theme.brandTint },
@@ -107,10 +107,10 @@ export default function Documents() {
   const uploadRef = useRef<View>(null);
   const typeFiltersRef = useRef<ScrollView>(null);
   const library = useDocumentLibrary();
-  const { collections, loaded, openDocument, addCollection } = library;
+  const { collections, loaded, open_document, add_collection } = library;
   // Quick Notes lives in Notes; it isn't a document to read.
   const documents = useMemo(() => readable_documents(library.documents), [library.documents]);
-  const { importing, processingName, failure, dismissFailure, importDocument } = useDocumentImport(
+  const { importing, processingName, failure, dismiss_failure, importDocument } = useDocumentImport(
     uploadRef,
     {
       inlineErrors: true,
@@ -162,7 +162,7 @@ export default function Documents() {
     return sort_documents(matching, sort);
   }, [documents, collection, finishedOnly, query, sort, typeFilter]);
   const visibleIds = useMemo(() => visible.map((document) => document.id), [visible]);
-  const choosing = useDocumentSelection(visibleIds, library.removeDocument);
+  const choosing = useDocumentSelection(visibleIds, library.remove_document);
   // The first time someone starts choosing documents, explain what they can do with them.
   const selection = {
     ...choosing,
@@ -177,7 +177,7 @@ export default function Documents() {
     const source = cardRefs.current[document.id];
     if (transition.transitioning) return;
     setOpeningDocument(null);
-    openDocument(document.id);
+    open_document(document.id);
     open_from(
       { current: source },
       transition,
@@ -191,7 +191,7 @@ export default function Documents() {
     const clean = collectionName.trim();
     if (!clean) return;
     // Reuse an existing collection whose name differs only in capitals, rather than filtering on a name that isn't saved.
-    setCollection(addCollection(clean));
+    setCollection(add_collection(clean));
     setCollectionName("");
     setCreateOpen(false);
   }
@@ -282,7 +282,7 @@ export default function Documents() {
       <DocumentTypeFilters
         hasDocuments={documents.length > 0}
         selected={typeFilter}
-        onSelect={setTypeFilter}
+        on_select={setTypeFilter}
         theme={theme}
         scrollRef={typeFiltersRef}
       />
@@ -326,7 +326,7 @@ export default function Documents() {
               >
                 <Text style={[s.textButtonLabel, { color: theme.accentText }]}>Choose another file</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" onPress={dismissFailure} style={s.textButton}>
+              <Pressable accessibilityRole="button" onPress={dismiss_failure} style={s.textButton}>
                 <Text style={[s.textButtonLabel, { color: theme.mutedText }]}>Dismiss</Text>
               </Pressable>
             </View>
@@ -522,10 +522,14 @@ export default function Documents() {
 
       <DocumentActionsSheet
         document={menuDocument}
-        onClose={() => setMenuDocument(null)}
-        onOpen={setOpeningDocument}
+        on_close={() => setMenuDocument(null)}
+        on_open={setOpeningDocument}
       />
-      <DocumentOpenSheet document={openingDocument} onClose={() => setOpeningDocument(null)} onOpen={open} />
+      <DocumentOpenSheet
+        document={openingDocument}
+        on_close={() => setOpeningDocument(null)}
+        on_open={open}
+      />
 
       <Modal
         visible={addDocumentOpen}
@@ -693,7 +697,7 @@ export default function Documents() {
                     key={item.value}
                     label={item.label}
                     selected={sort === item.value}
-                    onPress={() => setSort(item.value)}
+                    on_press={() => setSort(item.value)}
                   />
                 ))}
               </View>
@@ -702,28 +706,28 @@ export default function Documents() {
                 <Choice
                   label="All progress"
                   selected={!finishedOnly}
-                  onPress={() => setFinishedOnly(false)}
+                  on_press={() => setFinishedOnly(false)}
                 />
-                <Choice label="Finished" selected={finishedOnly} onPress={() => setFinishedOnly(true)} />
+                <Choice label="Finished" selected={finishedOnly} on_press={() => setFinishedOnly(true)} />
               </View>
               <Text style={[s.groupLabel, { color: theme.mutedText }]}>COLLECTION</Text>
               <View accessibilityRole="radiogroup">
                 <Choice
                   label="All documents"
                   selected={collection === "all"}
-                  onPress={() => setCollection("all")}
+                  on_press={() => setCollection("all")}
                 />
                 <Choice
                   label="Unfiled"
                   selected={collection === "unfiled"}
-                  onPress={() => setCollection("unfiled")}
+                  on_press={() => setCollection("unfiled")}
                 />
                 {collections.map((name) => (
                   <Choice
                     key={name}
                     label={name}
                     selected={collection === name}
-                    onPress={() => setCollection(name)}
+                    on_press={() => setCollection(name)}
                   />
                 ))}
               </View>
@@ -817,14 +821,14 @@ export default function Documents() {
   );
 }
 
-function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
+function Choice({ label, selected, on_press }: { label: string; selected: boolean; on_press: () => void }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="radio"
       accessibilityLabel={label}
       accessibilityState={{ checked: selected }}
-      onPress={onPress}
+      onPress={on_press}
       style={[s.choice, { borderBottomColor: theme.border }]}
     >
       <Ionicons

@@ -26,36 +26,36 @@ async function render_transition() {
 describe("Reader open/close transition", () => {
   it("opens from the tapped card, then closes back to it", async () => {
     const { result } = await render_transition();
-    const openReader = jest.fn();
-    const closeReader = jest.fn();
-    await act(async () => result.current.openReader(card, openReader));
-    expect(openReader).toHaveBeenCalledTimes(1);
+    const open_reader = jest.fn();
+    const close_reader = jest.fn();
+    await act(async () => result.current.open_reader(card, open_reader));
+    expect(open_reader).toHaveBeenCalledTimes(1);
     expect(result.current.sourceRect).toEqual(card);
-    await act(async () => result.current.beginReader());
+    await act(async () => result.current.begin_reader());
     await act(async () => jest.advanceTimersByTime(300));
     expect(result.current.transitioning).toBe(false);
-    await act(async () => result.current.closeReader(closeReader));
-    expect(closeReader).not.toHaveBeenCalled();
+    await act(async () => result.current.close_reader(close_reader));
+    expect(close_reader).not.toHaveBeenCalled();
     await act(async () => jest.advanceTimersByTime(300));
-    expect(closeReader).toHaveBeenCalledTimes(1);
+    expect(close_reader).toHaveBeenCalledTimes(1);
   });
 
   it("still closes when Close is pressed while the Reader is opening", async () => {
     const { result } = await render_transition();
-    const closeReader = jest.fn();
-    await act(async () => result.current.openReader(card, () => {}));
-    await act(async () => result.current.beginReader());
-    await act(async () => result.current.closeReader(closeReader));
+    const close_reader = jest.fn();
+    await act(async () => result.current.open_reader(card, () => {}));
+    await act(async () => result.current.begin_reader());
+    await act(async () => result.current.close_reader(close_reader));
     await act(async () => jest.advanceTimersByTime(600));
-    expect(closeReader).toHaveBeenCalledTimes(1);
+    expect(close_reader).toHaveBeenCalledTimes(1);
   });
 
   it("ignores a second open while the first is still running", async () => {
     const { result } = await render_transition();
     const first = jest.fn();
     const second = jest.fn();
-    await act(async () => result.current.openReader(card, first));
-    await act(async () => result.current.openReader(card, second));
+    await act(async () => result.current.open_reader(card, first));
+    await act(async () => result.current.open_reader(card, second));
     expect(first).toHaveBeenCalledTimes(1);
     expect(second).not.toHaveBeenCalled();
   });
@@ -63,11 +63,11 @@ describe("Reader open/close transition", () => {
   it("closes immediately with Reduce Motion", async () => {
     await AsyncStorage.setItem("votic.mobile.accessibility.v1", JSON.stringify({ reduceMotion: true }));
     const { result } = await render_transition();
-    const closeReader = jest.fn();
-    await act(async () => result.current.openReader(card, () => {}));
-    await act(async () => result.current.beginReader());
-    await act(async () => result.current.closeReader(closeReader));
-    expect(closeReader).toHaveBeenCalledTimes(1);
+    const close_reader = jest.fn();
+    await act(async () => result.current.open_reader(card, () => {}));
+    await act(async () => result.current.begin_reader());
+    await act(async () => result.current.close_reader(close_reader));
+    expect(close_reader).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -82,22 +82,22 @@ describe("Interrupted navigation", () => {
       reset: jest.fn(),
     }));
     const { result } = await render_transition();
-    await act(async () => result.current.openReader(card, () => {}));
-    await act(async () => result.current.beginReader());
+    await act(async () => result.current.open_reader(card, () => {}));
+    await act(async () => result.current.begin_reader());
     await act(async () => complete!({ finished: false }));
     expect(result.current.transitioning).toBe(false);
     const reopen = jest.fn();
-    await act(async () => result.current.openReader(card, reopen));
+    await act(async () => result.current.open_reader(card, reopen));
     expect(reopen).toHaveBeenCalledTimes(1);
   });
 
   it("ignores duplicate Close and late readiness callbacks", async () => {
     const close = jest.fn();
     const { result } = await render_transition();
-    await act(async () => result.current.openReader(card, () => {}));
-    await act(async () => result.current.closeReader(close));
-    await act(async () => result.current.closeReader(close));
-    await act(async () => result.current.beginReader());
+    await act(async () => result.current.open_reader(card, () => {}));
+    await act(async () => result.current.close_reader(close));
+    await act(async () => result.current.close_reader(close));
+    await act(async () => result.current.begin_reader());
     await act(async () => jest.advanceTimersByTime(1000));
     expect(close).toHaveBeenCalledTimes(1);
     expect(result.current.transitioning).toBe(false);
@@ -123,9 +123,9 @@ it.each(["preparing", "opening", "closing"])(
     }));
     const { result } = await render_transition();
     const close = jest.fn();
-    await act(async () => result.current.openReader(card, () => {}));
-    if (phase !== "preparing") await act(async () => result.current.beginReader());
-    if (phase === "closing") await act(async () => result.current.closeReader(close));
+    await act(async () => result.current.open_reader(card, () => {}));
+    if (phase !== "preparing") await act(async () => result.current.begin_reader());
+    if (phase === "closing") await act(async () => result.current.close_reader(close));
     await act(async () => change("background"));
     await act(async () => change("active"));
     await act(async () => callbacks.forEach((callback) => callback({ finished: false })));
@@ -133,7 +133,7 @@ it.each(["preparing", "opening", "closing"])(
     expect(close).toHaveBeenCalledTimes(phase === "closing" ? 1 : 0);
     expect(result.current.sourceRect).toEqual(phase === "closing" ? null : card);
     const reopen = jest.fn();
-    await act(async () => result.current.openReader(card, reopen));
+    await act(async () => result.current.open_reader(card, reopen));
     expect(reopen).toHaveBeenCalledTimes(1);
   },
 );
@@ -149,7 +149,7 @@ it("does not navigate from animation callbacks after the provider unmounts", asy
   }));
   const { result, unmount } = await render_transition();
   const close = jest.fn();
-  await act(async () => result.current.closeReader(close));
+  await act(async () => result.current.close_reader(close));
   await unmount();
   await act(async () => complete!({ finished: true }));
   expect(close).not.toHaveBeenCalled();

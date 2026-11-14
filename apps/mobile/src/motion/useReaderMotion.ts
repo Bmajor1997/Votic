@@ -20,7 +20,7 @@ export function useReaderMotion() {
   function start_reader_transition() {
     if (transitionStarted.current || closing.current) return;
     transitionStarted.current = true;
-    transition.beginReader();
+    transition.begin_reader();
   }
   return {
     closing,

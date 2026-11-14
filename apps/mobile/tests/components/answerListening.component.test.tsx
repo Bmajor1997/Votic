@@ -29,7 +29,7 @@ function Answers({ context = "book", enabled = true, first = "**First** answer."
             playing: listening.playingKey === String(i),
             failed: listening.errorKey === String(i),
             disabled: !enabled,
-            onPress: () => void listening.toggle(String(i), text),
+            on_press: () => void listening.toggle(String(i), text),
           }}
         />
       ))}

@@ -33,7 +33,7 @@ async function final_deletion() {
   await open_deletion();
   await fireEvent.press(screen.getByRole("button", { name: "Continue" }));
 }
-function fail_action(action: "prepareDeleteAccount" | "deleteAccount" | "signOut", failure: unknown) {
+function fail_action(action: "prepare_delete_account" | "delete_account" | "sign_out", failure: unknown) {
   const create = backend.create_auth_backend;
   jest.spyOn(backend, "create_auth_backend").mockImplementation(() => ({
     ...create(),
@@ -51,14 +51,14 @@ describe("Settings account management", () => {
       const original = create();
       return {
         ...original,
-        async deleteAccount(uid) {
+        async delete_account(uid) {
           attempts += 1;
           if (attempts === 1) throw new Error("Backend deletion interrupted");
-          await original.deleteAccount(uid);
+          await original.delete_account(uid);
         },
       };
     });
-    await create_document_store("other-user").saveDocuments([
+    await create_document_store("other-user").save_documents([
       test_document("other", "Other private document"),
     ]);
     await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
@@ -69,7 +69,7 @@ describe("Settings account management", () => {
     expect(
       (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
     ).toEqual([]);
-    await create_document_store("test-user").saveDocuments([test_document("stale", "Stale result")]);
+    await create_document_store("test-user").save_documents([test_document("stale", "Stale result")]);
     expect(
       (await AsyncStorage.getAllKeys()).filter((key) => key.startsWith("votic.mobile.account:test-user:")),
     ).toEqual([]);
@@ -80,7 +80,7 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Retry deletion" }));
     await waitFor(() => expect(backend.fakeAuth.user).toBeNull());
     await waitFor(async () => expect(await account_deletion_pending("test-user")).toBe(false));
-    expect((await create_document_store("other-user").loadDocuments())[0].title).toBe(
+    expect((await create_document_store("other-user").load_documents())[0].title).toBe(
       "Other private document",
     );
   });
@@ -99,7 +99,7 @@ describe("Settings account management", () => {
 
   it("signs out to retry later when this device's sign-in is too old to finish the deletion", async () => {
     fail_action(
-      "deleteAccount",
+      "delete_account",
       Object.assign(new Error("Sign in again"), { code: "auth/requires-recent-login" }),
     );
     await render_with_providers(<Settings />, { documents: [test_document("saved", "Private document")] });
@@ -161,7 +161,7 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     expect(backend.fakeAuth.calls).toEqual(["signOut"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await create_document_store("test-user").loadDocuments()).toEqual([doc]);
+    expect(await create_document_store("test-user").load_documents()).toEqual([doc]);
   });
   it("does not delete on the first tap, Cancel, Continue, or Keep account", async () => {
     await render_with_providers(<Settings />);
@@ -186,7 +186,7 @@ describe("Settings account management", () => {
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
     expect(backend.fakeAuth.calls).toEqual(["deleteAccount"]);
     expect(backend.fakeAuth.user).toBeNull();
-    expect(await create_document_store("test-user").loadDocuments()).toEqual([]);
+    expect(await create_document_store("test-user").load_documents()).toEqual([]);
   });
   it.each([
     ["auth/requires-recent-login", /sign back in using your usual sign-in method/],
@@ -194,7 +194,7 @@ describe("Settings account management", () => {
     ["auth/too-many-requests", /Wait a few minutes/],
     ["unknown", /couldn't delete your account/],
   ])("handles deletion error %s without signing out or clearing data", async (code, message) => {
-    fail_action("prepareDeleteAccount", { code });
+    fail_action("prepare_delete_account", { code });
     const announcement = jest.spyOn(AccessibilityInfo, "announceForAccessibility");
     await render_with_providers(<Settings />);
     await final_deletion();
@@ -207,7 +207,7 @@ describe("Settings account management", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
   it("shows a useful sign-out error and allows cancelling", async () => {
-    fail_action("signOut", new Error("provider detail"));
+    fail_action("sign_out", new Error("provider detail"));
     await render_with_providers(<Settings />);
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
     await fireEvent.press(screen.getByRole("button", { name: "Sign out" }));
@@ -226,7 +226,7 @@ describe("Settings account management", () => {
     const create = backend.create_auth_backend;
     jest
       .spyOn(backend, "create_auth_backend")
-      .mockImplementation(() => ({ ...create(), deleteAccount: deletion }));
+      .mockImplementation(() => ({ ...create(), delete_account: deletion }));
     await render_with_providers(<Settings />);
     await final_deletion();
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));
@@ -269,7 +269,7 @@ it("recovers an older device library only after the owner confirms, keeping curr
       },
     ],
   });
-  await create_document_store().saveDocuments([legacy]);
+  await create_document_store().save_documents([legacy]);
   // Nobody was signed in when this version first ran, so the older library waits for its owner to recover it.
   await AsyncStorage.setItem(AUTO_OWNER_KEY, JSON.stringify({ uid: null }));
   function Probe() {
@@ -293,14 +293,14 @@ it("recovers an older device library only after the owner confirms, keeping curr
   await waitFor(() =>
     expect(screen.getByTestId("recovery-library").props.children).toBe("Current book|Older book"),
   );
-  expect(await create_document_store().loadDocuments()).toEqual([legacy]);
+  expect(await create_document_store().load_documents()).toEqual([legacy]);
   expect(screen.queryByRole("button", { name: "Recover older device library" })).toBeNull();
   // The library reloads in place: Settings stays open instead of the whole app reloading.
   expect(screen.getByRole("button", { name: "Delete account" })).toBeTruthy();
 });
 
 it("moves the older library automatically into the account that was signed in when Votic updated", async () => {
-  await create_document_store().saveDocuments([test_document("legacy", "Older book")]);
+  await create_document_store().save_documents([test_document("legacy", "Older book")]);
   await render_with_providers(<LibraryProbe />, { documents: [test_document("current", "Current book")] });
   await waitFor(() =>
     expect(screen.getByTestId("library-titles").props.children).toBe("Current book|Older book"),
@@ -311,7 +311,7 @@ it("moves the older library automatically into the account that was signed in wh
 
 it("lets the development account copy the older library without claiming it", async () => {
   backend.fakeAuth.reset({ uid: "development", email: null, displayName: null });
-  await create_document_store().saveDocuments([test_document("legacy", "Older book")]);
+  await create_document_store().save_documents([test_document("legacy", "Older book")]);
   await render_with_providers(<LibraryProbe />);
   await waitFor(() => expect(screen.getByTestId("library-titles").props.children).toBe("Older book"));
   // A real account can still recover it later, and the development account doesn't copy it twice.
@@ -580,7 +580,7 @@ describe("Delete account while the store is slow", () => {
     const service = billing.create_subscription_service;
     jest.spyOn(billing, "create_subscription_service").mockImplementation(() => ({
       ...service(),
-      getRetentionOffer: () => slow,
+      get_retention_offer: () => slow,
     }));
     await render_with_providers(<Settings />);
     await fireEvent.press(screen.getByRole("button", { name: "Delete account" }));

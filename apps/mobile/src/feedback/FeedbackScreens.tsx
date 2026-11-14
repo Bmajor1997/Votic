@@ -21,7 +21,7 @@ export function FeedbackScreen() {
           detail="Suggest improvements to make Votic work better for you."
           icon="bulb-outline"
           hint="Opens the feature suggestion form"
-          onPress={() => router.push("/feedback/feature")}
+          on_press={() => router.push("/feedback/feature")}
         />
         <SettingsRow
           label="Report a Bug"
@@ -29,7 +29,7 @@ export function FeedbackScreen() {
           icon="bug-outline"
           hint="Opens the bug report form"
           separated
-          onPress={() => router.push("/feedback/bug")}
+          on_press={() => router.push("/feedback/bug")}
         />
       </SettingsGroup>
       {Platform.OS === "android" ? (
@@ -39,7 +39,7 @@ export function FeedbackScreen() {
             detail="Leave a public rating or review on Votic's Google Play page."
             icon="star-outline"
             hint="Opens Votic in Google Play"
-            onPress={() =>
+            on_press={() =>
               void Linking.openURL(PLAY_STORE_APP).catch(() =>
                 Linking.openURL(PLAY_STORE_WEB).catch(() => {}),
               )
@@ -147,7 +147,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
         title={title}
         backLabel="Back to Feedback"
         backHint="Returns to the two feedback options"
-        onBack={back_to_feedback}
+        on_back={back_to_feedback}
       >
         {sent ? (
           <View style={s.fields}>
@@ -160,7 +160,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
                 ? "Thanks for your suggestion! Your feedback helps make Votic better."
                 : "Thanks for reporting this issue! Your feedback helps us improve Votic."}
             </Text>
-            <PrimaryButton label="Back to Feedback" onPress={back_to_feedback} />
+            <PrimaryButton label="Back to Feedback" on_press={back_to_feedback} />
           </View>
         ) : (
           <View style={s.fields}>
@@ -211,7 +211,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
                 {error}
               </Text>
             ) : null}
-            {sessionExpired ? <PrimaryButton label="Sign in again" onPress={sign_in_again} /> : null}
+            {sessionExpired ? <PrimaryButton label="Sign in again" on_press={sign_in_again} /> : null}
             {!signedIn ? (
               <Text style={[s.text, { color: theme.text }]}>
                 Sign in with your Votic account to submit feedback.
@@ -220,7 +220,7 @@ function OwnedFeedbackForm({ category }: { category: "feature" | "bug" }) {
             <PrimaryButton
               label={signedIn ? "Submit" : "Sign in to submit feedback"}
               busy={busy}
-              onPress={() => void submit()}
+              on_press={() => void submit()}
             />
           </View>
         )}

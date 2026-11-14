@@ -78,7 +78,7 @@ it("does not show another account a notice from an old request", async () => {
   await render_with_providers(<UsageLimitNotice />);
   const oldRequest = allowance_notifier();
   await act(async () => {
-    fakeAuth.setUser({ uid: "other-user", email: "other@example.test", displayName: null });
+    fakeAuth.set_user({ uid: "other-user", email: "other@example.test", displayName: null });
   });
   await act(async () => oldRequest({ code: "AI_MONTHLY_ALLOWANCE", resetsAt: "2026-11-01T00:00:00Z" }));
   expect(screen.queryByTestId("ai-usage-notice")).toBeNull();
@@ -91,8 +91,8 @@ it("resets notice suppression for a new sign-in and respects Less motion", async
   await act(async () => allowance_notifier()(result));
   await fireEvent.press(screen.getByRole("button", { name: "Dismiss AI usage notice" }));
   const user = fakeAuth.user;
-  await act(async () => fakeAuth.setUser(null));
-  await act(async () => fakeAuth.setUser(user));
+  await act(async () => fakeAuth.set_user(null));
+  await act(async () => fakeAuth.set_user(user));
   await act(async () => allowance_notifier()(result));
   expect(screen.getByTestId("ai-usage-notice")).toBeTruthy();
 });
@@ -109,7 +109,7 @@ it("drops late offer loading when the account changes", async () => {
     )
     .mockResolvedValue({ current: null, upgrades: [] });
   await render_with_providers(<UpgradeOptions />);
-  await act(async () => fakeAuth.setUser({ uid: "other", email: null, displayName: null }));
+  await act(async () => fakeAuth.set_user({ uid: "other", email: null, displayName: null }));
   await act(async () => resolve(options));
   expect(screen.queryByRole("button", { name: "Review upgrade to Plus" })).toBeNull();
 });

@@ -6,10 +6,10 @@ import { ReportAnswerButton } from "./ReportAnswerButton";
 
 type Props = {
   /** Where the answer came from in a document. Opens the Reader at that passage. */
-  source?: { filename?: string; label: string; accessibilityLabel: string; onPress: () => void } | null;
+  source?: { filename?: string; label: string; accessibilityLabel: string; on_press: () => void } | null;
   /** Saving this one answer to Notes. Left out when the answer can't be saved (such as a limit notice). */
-  save?: { saved: boolean; onPress: () => void; label?: string; savedLabel?: string } | null;
-  listen?: { playing: boolean; failed: boolean; disabled?: boolean; onPress: () => void } | null;
+  save?: { saved: boolean; on_press: () => void; label?: string; savedLabel?: string } | null;
+  listen?: { playing: boolean; failed: boolean; disabled?: boolean; on_press: () => void } | null;
   style?: StyleProp<ViewStyle>;
   reportText?: string;
 };
@@ -28,7 +28,7 @@ export function AskAnswerFooter({ source, save, listen, style, reportText }: Pro
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={source.accessibilityLabel}
-            onPress={source.onPress}
+            onPress={source.on_press}
             hitSlop={6}
             style={({ pressed }) => [s.source, { opacity: pressed ? 0.6 : 1 }]}
           >
@@ -46,7 +46,7 @@ export function AskAnswerFooter({ source, save, listen, style, reportText }: Pro
             accessibilityLabel={listen.playing ? "Stop reading answer" : "Read answer aloud"}
             accessibilityState={{ selected: listen.playing, disabled: Boolean(listen.disabled) }}
             disabled={listen.disabled}
-            onPress={listen.onPress}
+            onPress={listen.on_press}
             style={({ pressed }) => [s.listen, { opacity: listen.disabled ? 0.4 : pressed ? 0.6 : 1 }]}
           >
             <Ionicons
@@ -64,7 +64,7 @@ export function AskAnswerFooter({ source, save, listen, style, reportText }: Pro
             }
             accessibilityState={{ disabled: save.saved, selected: save.saved }}
             disabled={save.saved}
-            onPress={save.onPress}
+            onPress={save.on_press}
             style={({ pressed }) => [s.save, { opacity: pressed ? 0.6 : 1 }]}
           >
             {save.saved ? (

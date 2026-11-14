@@ -78,7 +78,7 @@ export default function RecentlyDeletedScreen() {
                       style: "destructive",
                       onPress: () =>
                         void recovery
-                          .permanentlyDelete(item.documentId, item.passageId)
+                          .permanently_delete(item.documentId, item.passageId)
                           .then(flush)
                           .catch(() =>
                             setError(

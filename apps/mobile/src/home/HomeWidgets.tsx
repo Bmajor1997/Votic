@@ -23,11 +23,11 @@ type Target = (node: View | null) => void;
 export function SectionHeader({
   title,
   actionLabel,
-  onAction,
+  on_action,
 }: {
   title: string;
   actionLabel?: string;
-  onAction?: () => void;
+  on_action?: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
@@ -35,11 +35,11 @@ export function SectionHeader({
       <Text accessibilityRole="header" style={[s.sectionTitle, { color: theme.text }]}>
         {title}
       </Text>
-      {actionLabel && onAction ? (
+      {actionLabel && on_action ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
-          onPress={onAction}
+          onPress={on_action}
           hitSlop={8}
           style={s.seeAll}
         >
@@ -55,11 +55,11 @@ export function SectionHeader({
 /** Home points to Documents when there is no unfinished document to continue. */
 export function EmptyContinueWidget({
   hasDocuments,
-  onBrowse,
+  on_browse,
   targetRef,
 }: {
   hasDocuments: boolean;
-  onBrowse: () => void;
+  on_browse: () => void;
   targetRef?: Target;
 }) {
   const { theme } = useVoticTheme();
@@ -95,7 +95,7 @@ export function EmptyContinueWidget({
           accessibilityRole="button"
           accessibilityLabel="Browse documents"
           accessibilityHint="Opens Documents, where you can choose a file or add one"
-          onPress={onBrowse}
+          onPress={on_browse}
           style={({ pressed }) => [
             s.emptyAdd,
             { backgroundColor: colors.strong, opacity: pressed ? 0.88 : 1 },
@@ -274,18 +274,18 @@ export function WeekWidget() {
 /** Recently opened documents as a short horizontal shelf. The Documents tab has the full library. */
 export function RecentShelf({
   documents,
-  onOpen,
-  onMore,
+  on_open,
+  on_more,
   targetRef,
   optionsTargetRef,
 }: {
   documents: VoticDocument[];
-  onOpen: (
+  on_open: (
     document: VoticDocument,
     source: React.RefObject<View | null>,
     heading: { text: string; node: Text | null },
   ) => void;
-  onMore: (document: VoticDocument) => void;
+  on_more: (document: VoticDocument) => void;
   targetRef?: Target;
   optionsTargetRef?: Target;
 }) {
@@ -307,15 +307,15 @@ export function RecentShelf({
       <SectionHeader
         title="Recent files"
         actionLabel="See all documents"
-        onAction={() => router.push("/documents")}
+        on_action={() => router.push("/documents")}
       />
       <Shelf>
         {documents.map((document, index) => (
           <RecentCard
             key={document.id}
             document={document}
-            onOpen={(source, heading) => onOpen(document, source, heading)}
-            onMore={() => onMore(document)}
+            on_open={(source, heading) => on_open(document, source, heading)}
+            on_more={() => on_more(document)}
             moreRef={index === 0 ? optionsTargetRef : undefined}
           />
         ))}
@@ -326,13 +326,13 @@ export function RecentShelf({
 
 function RecentCard({
   document,
-  onOpen,
-  onMore,
+  on_open,
+  on_more,
   moreRef,
 }: {
   document: VoticDocument;
-  onOpen: (source: React.RefObject<View | null>, heading: { text: string; node: Text | null }) => void;
-  onMore: () => void;
+  on_open: (source: React.RefObject<View | null>, heading: { text: string; node: Text | null }) => void;
+  on_more: () => void;
   moreRef?: Target;
 }) {
   const { theme } = useVoticTheme();
@@ -358,7 +358,7 @@ function RecentCard({
         accessibilityRole="button"
         accessibilityLabel={`Open ${title}`}
         accessibilityHint={`${document_type_label(document)}. ${progress_label(document)}`}
-        onPress={() => onOpen(ref, { text: title, node: titleRef.current })}
+        onPress={() => on_open(ref, { text: title, node: titleRef.current })}
         style={({ pressed }) => [s.recentMain, { opacity: pressed ? 0.7 : 1 }]}
       >
         <View style={s.recentCover}>
@@ -393,7 +393,7 @@ function RecentCard({
         accessibilityRole="button"
         accessibilityLabel={`More options for ${title}`}
         accessibilityHint="Shows document actions"
-        onPress={onMore}
+        onPress={on_more}
         hitSlop={4}
         style={s.recentMore}
       >
@@ -411,7 +411,7 @@ function RecentCard({
  * Notes worth coming back to: pinned ones first, then the newest. Each opens its document at the exact spot.
  * Not shown until there's at least one note.
  */
-export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item: NoteItem) => void }) {
+export function NotesShelf({ notes, on_open }: { notes: NoteItem[]; on_open: (item: NoteItem) => void }) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "notes");
   const { fontScale } = useWindowDimensions();
@@ -421,7 +421,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
       <SectionHeader
         title="Recent notes"
         actionLabel={notes.length ? "See all notes" : undefined}
-        onAction={() => router.push("/notes")}
+        on_action={() => router.push("/notes")}
       />
       {!notes.length ? (
         <EmptyPanel
@@ -448,7 +448,7 @@ export function NotesShelf({ notes, onOpen }: { notes: NoteItem[]; onOpen: (item
               accessibilityHint={
                 document.notebookKind ? "Opens this note" : "Opens the document at this passage"
               }
-              onPress={() => onOpen(item)}
+              onPress={() => on_open(item)}
               style={({ pressed }) => [
                 s.note,
                 {

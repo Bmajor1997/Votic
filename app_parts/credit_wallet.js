@@ -116,7 +116,7 @@ export function create_credit_wallet(env, { now = Date.now } = {}) {
     restore(transactionId) {
       db.prepare("UPDATE credit_grants SET revoked=0 WHERE transaction_id=?").run(transactionId);
     },
-    deleteAccount(uid) {
+    delete_account(uid) {
       db.prepare("DELETE FROM credit_refund_states WHERE uid=?").run(uid);
       db.prepare("DELETE FROM credit_spends WHERE uid=?").run(uid);
       db.prepare("DELETE FROM credit_grants WHERE uid=?").run(uid);

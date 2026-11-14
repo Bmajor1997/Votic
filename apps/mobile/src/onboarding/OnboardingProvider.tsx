@@ -69,11 +69,11 @@ export async function load_onboarding_state(): Promise<OnboardingState> {
 }
 
 type OnboardingValue = OnboardingState & {
-  completePersonalization: () => void;
-  markTipSeen: (id: TipId) => void;
-  recordAskedVotic: () => void;
+  complete_personalization: () => void;
+  mark_tip_seen: (id: TipId) => void;
+  record_asked_votic: () => void;
   /** Brings back in-context reading tips. */
-  showTipsAgain: () => void;
+  show_tips_again: () => void;
 };
 const OnboardingContext = createContext<OnboardingValue | null>(null);
 
@@ -105,14 +105,14 @@ export function OnboardingProvider({ children }: PropsWithChildren) {
     <OnboardingContext.Provider
       value={{
         ...state,
-        completePersonalization: () => update((current) => ({ ...current, personalized: true })),
-        markTipSeen: (id) =>
+        complete_personalization: () => update((current) => ({ ...current, personalized: true })),
+        mark_tip_seen: (id) =>
           update((current) =>
             current.tipsSeen.includes(id) ? current : { ...current, tipsSeen: [...current.tipsSeen, id] },
           ),
-        recordAskedVotic: () =>
+        record_asked_votic: () =>
           update((current) => (current.askedVotic ? current : { ...current, askedVotic: true })),
-        showTipsAgain: () => update((current) => ({ ...current, tipsSeen: [], checklistDismissed: false })),
+        show_tips_again: () => update((current) => ({ ...current, tipsSeen: [], checklistDismissed: false })),
       }}
     >
       {children}

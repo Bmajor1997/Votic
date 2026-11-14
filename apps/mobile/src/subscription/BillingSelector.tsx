@@ -15,12 +15,12 @@ import { SubscriptionPlan } from "./subscriptionTypes";
 export function BillingSelector({
   plans,
   selectedId,
-  onSelect,
+  on_select,
   disabled,
 }: {
   plans: SubscriptionPlan[];
   selectedId: string | null;
-  onSelect: (id: string) => void;
+  on_select: (id: string) => void;
   disabled: boolean;
 }) {
   const { width, fontScale } = useWindowDimensions();
@@ -34,7 +34,7 @@ export function BillingSelector({
           plans={plans}
           active={plan.id === selectedId}
           disabled={disabled}
-          onPress={() => onSelect(plan.id)}
+          on_press={() => on_select(plan.id)}
         />
       ))}
     </View>
@@ -46,13 +46,13 @@ function BillingOption({
   plans,
   active,
   disabled,
-  onPress,
+  on_press,
 }: {
   plan: SubscriptionPlan;
   plans: SubscriptionPlan[];
   active: boolean;
   disabled: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   // "Save 33%" and "$6.67/month" only when both store prices are known in the same currency.
@@ -71,7 +71,7 @@ function BillingOption({
       accessibilityLabel={label}
       accessibilityState={{ checked: active, disabled }}
       disabled={disabled}
-      onPress={onPress}
+      onPress={on_press}
       style={[
         s.option,
         {

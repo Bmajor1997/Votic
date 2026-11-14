@@ -2,9 +2,9 @@ const fs = require("node:fs/promises");
 const path = require("node:path");
 const { Buffer } = require("node:buffer");
 const { AndroidConfig, withFinalizedMod, withAppBuildGradle } = require("@expo/config-plugins");
-const { configureLauncherBackground } = require("./androidLauncherResources.cjs");
+const { configure_launcher_background } = require("./androidLauncherResources.cjs");
 
-async function updateXml(file, transform) {
+async function update_xml(file, transform) {
   const before = await fs.readFile(file, "utf8");
   const after = transform(before);
   if (after !== before) await fs.writeFile(file, after);
@@ -39,21 +39,21 @@ android { lint { warningsAsErrors = true } }
       const res = path.join(app, "res");
       const manifestPath = path.join(app, "AndroidManifest.xml");
       const manifest = await AndroidConfig.Manifest.readAndroidManifestAsync(manifestPath);
-      configureManifest(manifest);
+      configure_manifest(manifest);
       await AndroidConfig.Manifest.writeAndroidManifestAsync(manifestPath, manifest);
 
       const resources = path.join(mod.modRequest.projectRoot, "plugins/android-res");
       await fs.cp(resources, res, { recursive: true });
       // Preserve RN's disabled/focused text-field visuals using owned copies of
       // AppCompat's Apache-licensed resources instead of its private identifiers.
-      await updateXml(path.join(res, "drawable/rn_edit_text_material.xml"), (xml) =>
+      await update_xml(path.join(res, "drawable/rn_edit_text_material.xml"), (xml) =>
         xml
           .replaceAll("@dimen/abc_edit_text_inset_", "@dimen/votic_edit_text_inset_")
           .replaceAll("@drawable/abc_textfield_", "@drawable/votic_textfield_"),
       );
 
-      await configureIcons(res);
-      await configureLauncherBackground(res, Boolean(mod.android?.adaptiveIcon?.backgroundImage));
+      await configure_icons(res);
+      await configure_launcher_background(res, Boolean(mod.android?.adaptiveIcon?.backgroundImage));
       // These names are resolved dynamically by Expo Sharing and RN dev support.
       await fs.writeFile(
         path.join(res, "raw/votic_resource_keep.xml"),
@@ -67,7 +67,7 @@ android { lint { warningsAsErrors = true } }
   ]);
 };
 
-function configureManifest(manifest) {
+function configure_manifest(manifest) {
   // Keep the removal marker for dependency manifests. A legacy SDK bound also
   // prevents source lint from interpreting it as a request on modern Android.
   for (const permission of manifest.manifest["uses-permission"] || []) {
@@ -97,7 +97,7 @@ function configureManifest(manifest) {
   }
 }
 
-async function configureIcons(res) {
+async function configure_icons(res) {
   // Expo emits PNG bytes with .webp filenames. Match the extension to the bytes.
   for (const dir of await fs.readdir(res)) {
     if (!dir.startsWith("mipmap-")) continue;

@@ -20,9 +20,9 @@ export type DocumentSourceRect = {
   heading?: { text: string; x: number; y: number; width: number; height: number };
 };
 type TransitionContextValue = {
-  openReader: (source: DocumentSourceRect, navigate: () => void) => void;
-  beginReader: () => void;
-  closeReader: (navigate: () => void) => void;
+  open_reader: (source: DocumentSourceRect, navigate: () => void) => void;
+  begin_reader: () => void;
+  close_reader: (navigate: () => void) => void;
   sourceRect: DocumentSourceRect | null;
   progress: Animated.Value;
   transitioning: boolean;
@@ -122,9 +122,9 @@ export function DocumentTransitionProvider({ children }: PropsWithChildren) {
 
   const value = useMemo(
     () => ({
-      openReader: open_reader,
-      beginReader: begin_reader,
-      closeReader: close_reader,
+      open_reader,
+      begin_reader,
+      close_reader,
       sourceRect,
       progress,
       transitioning,

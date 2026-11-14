@@ -134,7 +134,7 @@ describe("Colorful Home cards", () => {
   it("preserves recent-document and options callbacks with the original document", async () => {
     const open = jest.fn(),
       more = jest.fn();
-    await render_with_providers(<RecentShelf documents={[recent]} onOpen={open} onMore={more} />);
+    await render_with_providers(<RecentShelf documents={[recent]} on_open={open} on_more={more} />);
     await fireEvent.press(screen.getByRole("button", { name: "Open Field Guide" }));
     expect(open).toHaveBeenCalledWith(
       recent,
@@ -156,8 +156,8 @@ describe("Colorful Home cards", () => {
       const open = jest.fn();
       await render_with_providers(
         <>
-          <RecentShelf documents={[document]} onOpen={open} onMore={() => {}} />
-          <NotesShelf notes={home_notes([featured])} onOpen={() => {}} />
+          <RecentShelf documents={[document]} on_open={open} on_more={() => {}} />
+          <NotesShelf notes={home_notes([featured])} on_open={() => {}} />
         </>,
       );
       expect(screen.getByText(longTitle).props.numberOfLines).toBeUndefined();
@@ -178,7 +178,7 @@ describe("Colorful Home cards", () => {
   it("preserves pinned-note selection and its original passage", async () => {
     const open = jest.fn();
     const notes = home_notes([featured]);
-    await render_with_providers(<NotesShelf notes={notes} onOpen={open} />);
+    await render_with_providers(<NotesShelf notes={notes} on_open={open} />);
     await fireEvent.press(screen.getByRole("button", { name: /Pinned note. An idea to revisit/ }));
     expect(open).toHaveBeenCalledWith(notes[0]);
   });
@@ -314,7 +314,7 @@ it("shows retained content as decorative recent-file pages with secondary format
     { ...recent, id: "pdf", sourceName: "Field Guide.pdf", plainText: "A real PDF excerpt." },
     { ...recent, id: "book", sourceName: "Field Guide.epub", plainText: "A real book excerpt." },
   ];
-  await render_with_providers(<RecentShelf documents={documents} onOpen={() => {}} onMore={() => {}} />);
+  await render_with_providers(<RecentShelf documents={documents} on_open={() => {}} on_more={() => {}} />);
   expect(screen.getAllByTestId("home-page-preview", { includeHiddenElements: true })).toHaveLength(3);
   for (const kind of ["browser", "pdf", "book"])
     expect(screen.getByTestId(`home-preview-${kind}`, { includeHiddenElements: true })).toBeTruthy();
@@ -326,7 +326,7 @@ it("shows retained content as decorative recent-file pages with secondary format
 });
 it("keeps recent files usable when retained preview text is empty", async () => {
   await render_with_providers(
-    <RecentShelf documents={[{ ...recent, plainText: "" }]} onOpen={() => {}} onMore={() => {}} />,
+    <RecentShelf documents={[{ ...recent, plainText: "" }]} on_open={() => {}} on_more={() => {}} />,
   );
   expect(screen.getByText("Preview unavailable", { includeHiddenElements: true })).toBeTruthy();
   expect(screen.getByRole("button", { name: "Open Field Guide" })).toBeTruthy();
@@ -337,7 +337,7 @@ it.each(["light", "dark"])(
   async (appearanceMode) => {
     await AsyncStorage.setItem("votic.mobile.theme.v1", JSON.stringify({ appearanceMode }));
     const doc = { ...recent, sourceName: "sample.pdf", plainText: "Actual retained document content." };
-    await render_with_providers(<RecentShelf documents={[doc]} onOpen={() => {}} onMore={() => {}} />);
+    await render_with_providers(<RecentShelf documents={[doc]} on_open={() => {}} on_more={() => {}} />);
     const frame = screen.getByTestId("home-preview-pdf", { includeHiddenElements: true });
     expect(StyleSheet.flatten(frame.props.style).backgroundColor).toBe("#FFFFFF");
     expect(

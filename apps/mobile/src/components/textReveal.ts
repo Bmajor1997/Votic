@@ -6,13 +6,13 @@ export function reveal_completed_text(
   {
     startAt = 0,
     animate = true,
-    onFrame,
-    onComplete,
+    on_frame,
+    on_complete,
   }: {
     startAt?: number;
     animate?: boolean;
-    onFrame: (frame: TextRevealFrame) => void;
-    onComplete: () => void;
+    on_frame: (frame: TextRevealFrame) => void;
+    on_complete: () => void;
   },
 ): () => void {
   const boundaries = Array.from(
@@ -25,12 +25,12 @@ export function reveal_completed_text(
   let cancelled = false;
   const step = Math.max(1, Math.ceil(boundaries.length / 60));
   function publish(complete: boolean, highlightStart: number) {
-    onFrame({ text, visible: text.slice(0, end), highlightStart, complete });
+    on_frame({ text, visible: text.slice(0, end), highlightStart, complete });
   }
   if (!animate || !boundaries.length) {
     end = text.length;
     publish(true, text.length);
-    onComplete();
+    on_complete();
   } else {
     publish(false, startAt);
     timer = setInterval(() => {
@@ -41,7 +41,7 @@ export function reveal_completed_text(
       const complete = count === boundaries.length;
       if (complete) clearInterval(timer);
       publish(complete, previousEnd);
-      if (complete) onComplete();
+      if (complete) on_complete();
     }, 40);
   }
   return () => {
@@ -71,7 +71,7 @@ const LAY_DOWN_TICK_MS = 33;
  */
 export function lay_down_text(
   text: string,
-  { onFrame, onComplete }: { onFrame: (frame: TextRevealFrame) => void; onComplete: () => void },
+  { on_frame, on_complete }: { on_frame: (frame: TextRevealFrame) => void; on_complete: () => void },
 ): () => void {
   // Character boundaries by code point, so emoji and accented letters are never split.
   const ends = Array.from(text.matchAll(/[\s\S]/gu), (match) => match.index + match[0].length);
@@ -83,7 +83,7 @@ export function lay_down_text(
   const at = (count: number) => (count < 1 ? 0 : ends[Math.min(Math.floor(count), ends.length) - 1]);
   const publish = () => {
     const complete = written >= total;
-    onFrame({
+    on_frame({
       text,
       visible: text.slice(0, at(written)),
       highlightStart: complete ? text.length : at(written - INK_TAIL),
@@ -92,8 +92,8 @@ export function lay_down_text(
     return complete;
   };
   if (!ends.length) {
-    onFrame({ text, visible: text, highlightStart: text.length, complete: true });
-    onComplete();
+    on_frame({ text, visible: text, highlightStart: text.length, complete: true });
+    on_complete();
     return () => {};
   }
   publish();
@@ -102,7 +102,7 @@ export function lay_down_text(
     written = Math.min(total, written + per_tick);
     if (publish()) {
       clearInterval(timer);
-      onComplete();
+      on_complete();
     }
   }, LAY_DOWN_TICK_MS);
   return () => {

@@ -27,8 +27,8 @@ const ICONS: Record<SectionId, ComponentProps<typeof Ionicons>["name"]> = {
 export function LearnVoticSettings() {
   const { theme } = useVoticTheme();
   const { reset } = useWalkthrough();
-  const { showTipsAgain } = useOnboarding();
-  const { documents, openDocument } = useDocumentLibrary();
+  const { show_tips_again } = useOnboarding();
+  const { documents, open_document } = useDocumentLibrary();
   const [message, setMessage] = useState("");
 
   function replay(section: SectionId) {
@@ -39,7 +39,7 @@ export function LearnVoticSettings() {
       (a, b) => (b.lastOpenedAt || b.updatedAt) - (a.lastOpenedAt || a.updatedAt),
     )[0];
     if (!latest) return setMessage("Add a document, and the Reader walkthrough will start when it opens.");
-    openDocument(latest.id);
+    open_document(latest.id);
     router.push("/reader");
   }
 
@@ -67,7 +67,7 @@ export function LearnVoticSettings() {
         accessibilityLabel="Show all walkthroughs and tips again"
         onPress={() => {
           reset("all");
-          showTipsAgain();
+          show_tips_again();
           setMessage("Walkthroughs and tips will appear again as you use Votic.");
         }}
         style={s.resetAll}

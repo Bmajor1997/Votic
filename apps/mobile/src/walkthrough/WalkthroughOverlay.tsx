@@ -30,10 +30,10 @@ function shown_key(step: StepLike | undefined, rect: Rect | null, key: string | 
 }
 
 /** Steps whose control isn't on this screen are skipped, so they aren't counted either: the count never jumps. */
-function step_count<T>(steps: T[], index: number, canShow: (step: T) => boolean) {
+function step_count<T>(steps: T[], index: number, can_show: (step: T) => boolean) {
   return {
-    position: steps.slice(0, index + 1).filter(canShow).length,
-    total: steps.filter(canShow).length,
+    position: steps.slice(0, index + 1).filter(can_show).length,
+    total: steps.filter(can_show).length,
   };
 }
 
@@ -46,7 +46,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const walkthrough = useWalkthrough();
-  const { active, measureTarget, measureNode, next, skip, scrollBy } = walkthrough;
+  const { active, measure_target, measureNode, next, skip, scroll_by } = walkthrough;
   const window = useWindowDimensions();
   const rootRef = useRef<View>(null);
   const titleRef = useRef<Text>(null);
@@ -73,7 +73,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     async function locate() {
       if (!step?.target) return setRect(null);
-      const [target, origin] = await Promise.all([measureTarget(step.target), measureNode(rootRef.current)]);
+      const [target, origin] = await Promise.all([measure_target(step.target), measureNode(rootRef.current)]);
       if (!current) return;
       if (!target) return next();
       const local = { ...target, x: target.x - (origin?.x ?? 0), y: target.y - (origin?.y ?? 0) };
@@ -82,7 +82,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
         // Below (or above) the visible part of the screen: scroll it into view once, then measure again.
         // If the screen can't scroll, or it's still out of view, skip this step rather than dim the screen
         // around a card that can't be seen.
-        if (scrolled || !scrollBy(by)) return next();
+        if (scrolled || !scroll_by(by)) return next();
         scrolled = true;
         setRect(null);
         timer = setTimeout(() => void locate(), SCROLL_SETTLE_MS);
@@ -131,7 +131,7 @@ export function WalkthroughOverlay({ host }: { host: WalkthroughHost }) {
   const placement = spotlight ? card_placement(spotlight, screen, GUTTER) : null;
   const last = flow.index === flow.steps.length - 1;
   const primaryLabel = step.primaryLabel ?? (last ? "Got it" : "Next");
-  const { position, total } = step_count(flow.steps, flow.index, walkthrough.canShow);
+  const { position, total } = step_count(flow.steps, flow.index, walkthrough.can_show);
   const dim = theme.isDark ? "rgba(0,0,0,0.55)" : "rgba(17,24,39,0.38)";
   const blocking = !screenReader;
   const cardPosition = placement

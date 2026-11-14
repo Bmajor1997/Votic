@@ -36,15 +36,15 @@ export function create_founder_store(db, { now = () => new Date() } = {}) {
   const key = account_deletion_key;
   return {
     /** Remember that this account used Votic during the beta, so it stays eligible after beta access ends. */
-    rememberBetaTester(uid) {
+    remember_beta_tester(uid) {
       db.prepare("INSERT OR IGNORE INTO founder_beta_testers(uid_hash, first_seen_at) VALUES (?, ?)").run(key(uid), now().toISOString());
     },
-    wasBetaTester(uid) { return Boolean(db.prepare("SELECT 1 FROM founder_beta_testers WHERE uid_hash=?").get(key(uid))); },
+    was_beta_tester(uid) { return Boolean(db.prepare("SELECT 1 FROM founder_beta_testers WHERE uid_hash=?").get(key(uid))); },
     /** Counted once per account, the first time the server verifies its founder purchase with the store. */
-    recordPurchase(uid, productId) {
+    record_purchase(uid, productId) {
       db.prepare("INSERT OR IGNORE INTO founder_purchases(uid_hash, product_id, recorded_at) VALUES (?, ?, ?)").run(key(uid), productId, now().toISOString());
     },
-    purchaseCount() { return db.prepare("SELECT COUNT(*) AS count FROM founder_purchases").get().count; },
+    purchase_count() { return db.prepare("SELECT COUNT(*) AS count FROM founder_purchases").get().count; },
     /** Deleting an account forgets its beta-tester mark. A founder spot it used stays taken (only the hash is kept). */
     remove_user(uid) { db.prepare("DELETE FROM founder_beta_testers WHERE uid_hash=?").run(key(uid)); },
   };
@@ -54,8 +54,8 @@ export function create_founder_store(db, { now = () => new Date() } = {}) {
 export function founder_offer_for(config, store, { uid, betaAllowed, nowMs = Date.now() }) {
   if (!config || !store || typeof uid !== "string" || !uid) return null;
   if (nowMs >= config.endsAt) return null;
-  if (!betaAllowed && !store.wasBetaTester(uid)) return null;
-  const remaining = config.limit - store.purchaseCount();
+  if (!betaAllowed && !store.was_beta_tester(uid)) return null;
+  const remaining = config.limit - store.purchase_count();
   if (remaining <= 0) return null;
   return { productId: config.productId, endsAt: new Date(config.endsAt).toISOString(), remaining };
 }

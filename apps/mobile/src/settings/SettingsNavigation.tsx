@@ -29,14 +29,14 @@ export function SettingsRow({
   label,
   detail,
   icon,
-  onPress,
+  on_press,
   hint,
   separated = false,
 }: {
   label: string;
   detail: string;
   icon: ComponentProps<typeof Ionicons>["name"];
-  onPress: () => void;
+  on_press: () => void;
   hint: string;
   separated?: boolean;
 }) {
@@ -48,7 +48,7 @@ export function SettingsRow({
       accessibilityLabel={label}
       accessibilityValue={{ text: detail }}
       accessibilityHint={hint}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.row,
         {
@@ -89,12 +89,12 @@ export function SettingsGroup({ children, title }: PropsWithChildren<{ title?: s
 export function SettingsPage({
   title,
   children,
-  onBack,
+  on_back,
   backLabel = "Back to Settings",
   backHint = "Returns to the Settings categories",
 }: PropsWithChildren<{
   title: string;
-  onBack?: () => void;
+  on_back?: () => void;
   backLabel?: string;
   backHint?: string;
 }>) {
@@ -117,7 +117,7 @@ export function SettingsPage({
           accessibilityLabel={backLabel}
           accessibilityHint={backHint}
           onPress={
-            onBack ?? (() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings")))
+            on_back ?? (() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/settings")))
           }
           style={({ pressed }) => [
             s.back,

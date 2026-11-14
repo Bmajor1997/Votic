@@ -14,10 +14,10 @@ import { useNoteListening } from "../useNoteListening";
 
 type Props = {
   item: NoteItem | null;
-  onClose: () => void;
-  onEdit: (item: NoteItem) => void;
-  onMore: (item: NoteItem) => void;
-  onOpenInReader: (item: NoteItem) => void;
+  on_close: () => void;
+  on_edit: (item: NoteItem) => void;
+  on_more: (item: NoteItem) => void;
+  on_open_in_reader: (item: NoteItem) => void;
 };
 
 /** A focused reading, listening, and understanding workspace for one saved note. */
@@ -27,7 +27,7 @@ export function NoteViewer(props: Props) {
     <Modal
       visible={props.item !== null}
       animationType={reduceMotion ? "none" : "fade"}
-      onRequestClose={props.onClose}
+      onRequestClose={props.on_close}
     >
       {props.item ? (
         <NoteWorkspace
@@ -40,7 +40,7 @@ export function NoteViewer(props: Props) {
   );
 }
 
-function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props & { item: NoteItem }) {
+function NoteWorkspace({ item, on_close, on_edit, on_more, on_open_in_reader }: Props & { item: NoteItem }) {
   const { theme } = useVoticTheme();
   const accessibility = useAccessibilityPreferences();
   const colors = note_palette(item.document);
@@ -60,7 +60,7 @@ function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props 
           accessibilityRole="button"
           accessibilityLabel="Close note"
           accessibilityHint="Return to your notebook"
-          onPress={onClose}
+          onPress={on_close}
           style={s.icon}
         >
           <Ionicons name="arrow-back" size={24} color={theme.text} />
@@ -71,7 +71,7 @@ function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props 
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Note workspace options"
-          onPress={() => onMore(item)}
+          onPress={() => on_more(item)}
           style={s.icon}
         >
           <Ionicons name="ellipsis-horizontal" size={24} color={theme.text} />
@@ -101,14 +101,14 @@ function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props 
           <WorkspaceAction
             icon={playing ? "stop" : "headset-outline"}
             label={playing ? "Stop listening" : "Listen"}
-            onPress={() => void toggle()}
+            on_press={() => void toggle()}
             primary
           />
           <WorkspaceAction
             icon="create-outline"
             label="Edit"
             accessibilityLabel="Edit this note"
-            onPress={() => onEdit(item)}
+            on_press={() => on_edit(item)}
           />
         </View>
         {playing ? (
@@ -143,7 +143,7 @@ function NoteWorkspace({ item, onClose, onEdit, onMore, onOpenInReader }: Props 
               icon="book-outline"
               label="Open in Reader"
               accessibilityLabel="Open this passage in Reader"
-              onPress={() => onOpenInReader(item)}
+              on_press={() => on_open_in_reader(item)}
             />
           </View>
         ) : null}
@@ -156,13 +156,13 @@ function WorkspaceAction({
   icon,
   label,
   accessibilityLabel = label,
-  onPress,
+  on_press,
   primary = false,
 }: {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
   accessibilityLabel?: string;
-  onPress: () => void;
+  on_press: () => void;
   primary?: boolean;
 }) {
   const { theme } = useVoticTheme();
@@ -171,7 +171,7 @@ function WorkspaceAction({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.action,
         {

@@ -13,12 +13,12 @@ type Tracker = ReturnType<typeof create_session_tracker>;
  * calls when someone scrolls, touches the page, or uses a control.
  */
 export function useReaderActivity(documentId: string | null | undefined, playing: boolean) {
-  const { recordTime } = useActivity();
-  const { recordActivity } = useDocumentLibrary();
+  const { record_time } = useActivity();
+  const { record_activity } = useDocumentLibrary();
   // The tracker outlives renders, so it reads the latest recorders through a ref.
-  const recorders = useRef({ recordTime, recordActivity });
+  const recorders = useRef({ record_time, record_activity });
   useEffect(() => {
-    recorders.current = { recordTime, recordActivity };
+    recorders.current = { record_time, record_activity };
   });
   const tracker = useRef<Tracker | null>(null);
   // Closing the Reader is a natural moment to ask for a store review, when it's due (see storeReview.ts).
@@ -30,11 +30,11 @@ export function useReaderActivity(documentId: string | null | undefined, playing
     const carry = new Map<string, number>();
     const created = create_session_tracker((id, kind, start, end) => {
       if (kind === "listening" && notification_player()?.activity_events) return;
-      recorders.current.recordTime(id, kind, start, end);
+      recorders.current.record_time(id, kind, start, end);
       const ms = end - start + (carry.get(id) ?? 0);
       const seconds = Math.floor(ms / 1000);
       carry.set(id, ms - seconds * 1000);
-      if (seconds > 0) recorders.current.recordActivity(id, seconds, kind === "listening" ? seconds : 0);
+      if (seconds > 0) recorders.current.record_activity(id, seconds, kind === "listening" ? seconds : 0);
     });
     tracker.current = created;
     const interval = setInterval(() => created.tick(), TICK_MS);

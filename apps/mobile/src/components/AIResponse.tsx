@@ -55,7 +55,7 @@ export function AIResponse({
   const complete = reduceMotion || !animate || skipped || (frame.text === text && frame.complete);
   useEffect(() => {
     if (reduceMotion || !animate || skipped) return;
-    return lay_down_text(text, { onFrame: setFrame, onComplete: () => {} });
+    return lay_down_text(text, { on_frame: setFrame, on_complete: () => {} });
   }, [text, reduceMotion, animate, skipped]);
   const instant = reduceMotion || !animate || skipped;
   return (
@@ -64,7 +64,7 @@ export function AIResponse({
         complete={complete}
         skipped={instant}
         header={header}
-        onSkip={() => setSkippedText(text)}
+        on_skip={() => setSkippedText(text)}
       />
       {reduceMotion || !animate || skipped ? (
         <Text selectable accessibilityLabel={text} style={style}>
@@ -84,13 +84,13 @@ function AnswerStatus({
   complete,
   skipped,
   header,
-  onSkip,
+  on_skip,
 }: {
   complete: boolean;
   /** No melt: Less motion, a saved answer, or Show all. */
   skipped: boolean;
   header?: ReactNode;
-  onSkip: () => void;
+  on_skip: () => void;
 }) {
   const { theme } = useVoticTheme();
   const [phase, setPhase] = useState<"writing" | "melting" | "done">(complete ? "done" : "writing");
@@ -125,7 +125,7 @@ function AnswerStatus({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Show full response"
-        onPress={onSkip}
+        onPress={on_skip}
         style={s.skip}
       >
         <Text style={[s.status, { color: theme.accentText }]}>Show all</Text>

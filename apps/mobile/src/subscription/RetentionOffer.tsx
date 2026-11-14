@@ -76,9 +76,9 @@ type PanelProps = {
   preview: boolean;
   claiming: boolean;
   message: string | null;
-  onClaim: () => void;
-  onContinue: () => void;
-  onClose: () => void;
+  on_claim: () => void;
+  on_continue: () => void;
+  on_close: () => void;
 };
 
 /** How long the sheet takes to rise: slow enough to read as moving up the screen, not popping in. */
@@ -129,7 +129,7 @@ export function RetentionOfferSheet({ visible, ...panel }: PanelProps & { visibl
       transparent
       animationType="none"
       statusBarTranslucent
-      onRequestClose={panel.onClose}
+      onRequestClose={panel.on_close}
       onShow={focus_heading}
     >
       <Animated.View
@@ -171,12 +171,12 @@ export const RetentionOfferPanel = forwardRef<
     preview: boolean;
     claiming: boolean;
     message: string | null;
-    onClaim: () => void;
-    onContinue: () => void;
-    onClose: () => void;
+    on_claim: () => void;
+    on_continue: () => void;
+    on_close: () => void;
   }
 >(function RetentionOfferPanel(
-  { offer, store, preview, claiming, message, onClaim, onContinue, onClose },
+  { offer, store, preview, claiming, message, on_claim, on_continue, on_close },
   heading,
 ) {
   const { theme } = useVoticTheme();
@@ -189,7 +189,7 @@ export const RetentionOfferPanel = forwardRef<
           accessibilityLabel="Close"
           accessibilityHint="Closes this without deleting your account"
           disabled={claiming}
-          onPress={onClose}
+          onPress={on_close}
           hitSlop={8}
           style={[s.close, { backgroundColor: theme.surface, borderColor: theme.border }]}
         >
@@ -235,7 +235,7 @@ export const RetentionOfferPanel = forwardRef<
         accessibilityLabel={`Claim offer, ${text.price} ${text.length}`}
         accessibilityState={{ disabled: preview || claiming, busy: claiming }}
         disabled={preview || claiming}
-        onPress={onClaim}
+        onPress={on_claim}
         style={({ pressed }) => [
           s.button,
           {
@@ -256,7 +256,7 @@ export const RetentionOfferPanel = forwardRef<
         accessibilityLabel="Continue to delete account"
         accessibilityHint="Opens the account deletion steps. Your account is not deleted yet"
         disabled={claiming}
-        onPress={onContinue}
+        onPress={on_continue}
         style={({ pressed }) => [
           s.button,
           { backgroundColor: theme.surface, borderColor: theme.border, opacity: pressed ? 0.7 : 1 },

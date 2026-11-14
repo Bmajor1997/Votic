@@ -88,7 +88,7 @@ it("stops native playback on sign-out so another account cannot control or hear 
   await render_with_providers(<OpenedReader />, { documents: [document], reduceMotion: true });
   await state_change(playing);
   mockPlayer.stop.mockClear();
-  await act(async () => fakeAuth.setUser(null));
+  await act(async () => fakeAuth.set_user(null));
   expect(mockPlayer.stop).toHaveBeenCalled();
 });
 

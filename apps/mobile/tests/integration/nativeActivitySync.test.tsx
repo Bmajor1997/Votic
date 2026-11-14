@@ -57,7 +57,7 @@ it("persists native background speech in both production providers before acknow
   await waitFor(() => expect(screen.getByTestId("measured").props.children).toBe(10_000));
   await waitFor(() => expect(mockPlayer.ack_activity).toHaveBeenCalled());
   expect(screen.getByTestId("document-time").props.children).toBe(10);
-  const stored = await create_document_store("test-user").loadDocuments();
+  const stored = await create_document_store("test-user").load_documents();
   expect(Object.values(stored[0].activity!)[0].listeningSeconds).toBe(10);
   const raw = JSON.parse((await AsyncStorage.getItem(account_storage_key(ACTIVITY_KEY, "test-user")))!);
   expect(raw.nativeCheckpoints["speech-hour"]).toBe(10_000);

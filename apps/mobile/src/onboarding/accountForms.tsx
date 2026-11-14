@@ -76,18 +76,18 @@ type Provider = "apple" | "google";
  */
 export function SocialSignIn({
   disabled,
-  onBusyChange,
+  on_busy_change,
   onError,
-  beforeGoogle,
-  afterGoogleStopped,
+  before_google,
+  after_google_stopped,
 }: {
   disabled?: boolean;
-  onBusyChange?: (busy: boolean) => void;
+  on_busy_change?: (busy: boolean) => void;
   onError: (message: string) => void;
   /** Runs first when Continue with Google is tapped (Welcome's V flight); false stops before the account picker. */
-  beforeGoogle?: () => Promise<boolean>;
+  before_google?: () => Promise<boolean>;
   /** Google sign-in was cancelled or failed: put the screen back (Welcome reassembles its V). */
-  afterGoogleStopped?: () => void;
+  after_google_stopped?: () => void;
 }) {
   const { theme } = useVoticTheme();
   const auth = useAuth();
@@ -105,13 +105,13 @@ export function SocialSignIn({
     onError("");
     setGoogleError("");
     setBusy(provider);
-    onBusyChange?.(true);
+    on_busy_change?.(true);
     let signedIn = false;
     try {
-      if (provider === "apple") await auth.signInWithApple();
+      if (provider === "apple") await auth.sign_in_with_apple();
       else {
-        if (beforeGoogle && !(await beforeGoogle())) return;
-        await auth.signInWithGoogle();
+        if (before_google && !(await before_google())) return;
+        await auth.sign_in_with_google();
       }
       signedIn = true;
       // Signing in changes which screens exist, and the router moves on by itself.
@@ -122,10 +122,10 @@ export function SocialSignIn({
         else onError(message);
       }
     } finally {
-      if (provider === "google" && !signedIn) afterGoogleStopped?.();
+      if (provider === "google" && !signedIn) after_google_stopped?.();
       started.current = false;
       setBusy(null);
-      onBusyChange?.(false);
+      on_busy_change?.(false);
     }
   }
 
@@ -148,7 +148,7 @@ export function SocialSignIn({
         <GoogleButton
           busy={busy === "google"}
           disabled={busy !== null || Boolean(disabled)}
-          onPress={() => void continue_with("google")}
+          on_press={() => void continue_with("google")}
         />
       ) : null}
       {showGoogle && googleError ? (
@@ -179,11 +179,11 @@ const GOOGLE_G = require("../../assets/google-g.png");
 function GoogleButton({
   busy,
   disabled,
-  onPress,
+  on_press,
 }: {
   busy: boolean;
   disabled: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   const colors = theme.isDark
@@ -195,7 +195,7 @@ function GoogleButton({
       accessibilityLabel="Continue with Google"
       accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
-      onPress={onPress}
+      onPress={on_press}
       testID="google-sign-in"
       style={({ pressed }) => [
         s.googleButton,
@@ -359,18 +359,18 @@ export function FormMessage({
 export function SwitchPrompt({
   prompt,
   action,
-  onPress,
+  on_press,
 }: {
   prompt: string;
   action: string;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${prompt} ${action}`}
-      onPress={onPress}
+      onPress={on_press}
       hitSlop={8}
       style={({ pressed }) => [s.switch, { opacity: pressed ? 0.6 : 1 }]}
     >
@@ -393,7 +393,7 @@ export function NotConfiguredNotice() {
         <>
           <Pressable
             accessibilityRole="button"
-            onPress={auth.continueWithoutAccount}
+            onPress={auth.continue_without_account}
             hitSlop={8}
             style={s.noticeAction}
           >

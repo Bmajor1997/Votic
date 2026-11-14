@@ -12,7 +12,7 @@ import { widget_link_target } from "../src/widgets/widgetLinks";
 export default function WidgetLink() {
   const { theme } = useVoticTheme();
   const params = useLocalSearchParams<{ open?: string; id?: string }>();
-  const { documents, loaded, openDocument } = useDocumentLibrary();
+  const { documents, loaded, open_document } = useDocumentLibrary();
   const handled = useRef(false);
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function WidgetLink() {
     const target = widget_link_target(params, documents);
     router.replace("/");
     if (target.kind === "document") {
-      openDocument(target.id);
+      open_document(target.id);
       // Listen opens with narration controls and starts playing; Read opens without audio controls.
       router.push({
         pathname: "/reader",
@@ -29,7 +29,7 @@ export default function WidgetLink() {
       });
     } else if (target.kind === "statistics") router.push("/statistics");
     else if (target.kind === "documents") router.push("/documents");
-  }, [loaded, documents, params, openDocument]);
+  }, [loaded, documents, params, open_document]);
 
   return (
     <View

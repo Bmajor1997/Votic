@@ -26,7 +26,7 @@ test("RevenueCat checks use only the authenticated UID, encoded safely, and a ba
   const requests = [];
   const authorize = create_premium_authorizer({ REVENUECAT_SECRET_API_KEY: "test-backend-key" }, {
     now: () => now,
-    fetchImpl: async (url, init) => { requests.push({ url, init }); return { ok: true, json: async () => customer({}) }; },
+    fetch_impl: async (url, init) => { requests.push({ url, init }); return { ok: true, json: async () => customer({}) }; },
   });
   assert.equal(await authorize("firebase/user?#"), true);
   assert.equal(requests[0].url, "https://api.revenuecat.com/v1/subscribers/firebase%2Fuser%3F%23");
@@ -38,13 +38,13 @@ test("RevenueCat checks use only the authenticated UID, encoded safely, and a ba
 
 test("RevenueCat outages, missing keys and malformed bodies fail closed without exposing credentials", async () => {
   const settings = { REVENUECAT_SECRET_API_KEY: "test-backend-key" };
-  for (const fetchImpl of [
+  for (const fetch_impl of [
     async () => { throw new Error("secret upstream detail"); },
     async () => ({ ok: false, status: 401 }),
     async () => ({ ok: true, json: async () => { throw new Error("parse error"); } }),
     async () => ({ ok: true, json: async () => ({}) }),
   ]) {
-    await assert.rejects(create_premium_authorizer(settings, { fetchImpl })("user"), (error) =>
+    await assert.rejects(create_premium_authorizer(settings, { fetch_impl })("user"), (error) =>
       error.status === 503 && !/secret|detail|parse|key/.test(error.message));
   }
   await assert.rejects(create_premium_authorizer({})("user"), /could not verify your Votic Plus/);
@@ -54,7 +54,7 @@ test("Premium verification deadlines cover a stalled response body, even if abor
   let signal;
   const authorize = create_premium_authorizer({ REVENUECAT_SECRET_API_KEY: "test-key" }, {
     timeoutMs: 15,
-    fetchImpl: async (_url, init) => { signal = init.signal; return { ok: true, json: () => new Promise(() => {}) }; },
+    fetch_impl: async (_url, init) => { signal = init.signal; return { ok: true, json: () => new Promise(() => {}) }; },
   });
   await assert.rejects(authorize("user"), (error) => error.status === 503);
   assert.equal(signal.aborted, true);
@@ -69,7 +69,7 @@ async function with_server(options, run) {
 }
 
 test("an unpaid signed-in account receives Free access without a Plus entitlement", async () => {
-  await with_server({ revenueCatFetchImpl: async () => ({ ok: true, json: async () => customer(undefined) }) }, async (base) => {
+  await with_server({ revenue_cat_fetch_impl: async () => ({ ok: true, json: async () => customer(undefined) }) }, async (base) => {
     const access = await fetch(`${base}/api/access`, { method: "POST" });
     assert.equal((await access.json()).allowed, false);
     const response = await fetch(`${base}/api/ai-usage`, { method: "POST" });
@@ -84,7 +84,7 @@ test("an unpaid signed-in account receives Free access without a Plus entitlemen
 test("Premium verification errors return curated 503; public pages and signed-out 401 remain independent", async () => {
   let checks = 0;
   await with_server({ authorize: (request, path) => path.startsWith("/api/") ? (request.headers.authorization ? { uid: "user" } : false) : true,
-    revenueCatFetchImpl: async () => { checks++; throw new Error("private upstream detail"); },
+    revenue_cat_fetch_impl: async () => { checks++; throw new Error("private upstream detail"); },
   }, async (base) => {
     assert.equal((await fetch(base)).status, 200);
     assert.equal((await fetch(`${base}/api/help`, { method: "POST" })).status, 401);
@@ -98,8 +98,8 @@ test("Premium verification errors return curated 503; public pages and signed-ou
 
 test("subscribed accounts retain API access and RevenueCat checks cannot spend the AI allowance", async () => {
   let checks = 0, ai = 0;
-  await with_server({ revenueCatFetchImpl: async () => { checks++; return { ok: true, json: async () => customer({ expires_date: null }) }; },
-    fetchImpl: async () => { ai++; throw new Error("AI is not configured for this test"); },
+  await with_server({ revenue_cat_fetch_impl: async () => { checks++; return { ok: true, json: async () => customer({ expires_date: null }) }; },
+    fetch_impl: async () => { ai++; throw new Error("AI is not configured for this test"); },
   }, async (base) => {
     const response = await fetch(`${base}/api/help`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: "How do I upload?" }) });
     assert.equal(response.status, 200);

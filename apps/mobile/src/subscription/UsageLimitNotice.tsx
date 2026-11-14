@@ -46,14 +46,14 @@ export function useUsageLimitNotice() {
       };
     }, [enabled, homeEntrance, generation, access]),
   );
-  const setNotice = useCallback(() => setState(null), []);
+  const set_notice = useCallback(() => setState(null), []);
   useEffect(() => {
     if (!notice) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const expire = () => {
       clearTimeout(timer);
       const remaining = Date.parse(notice.resetsAt) - Date.now();
-      if (remaining <= 0) setNotice();
+      if (remaining <= 0) set_notice();
       else timer = setTimeout(expire, Math.min(remaining, 86_400_000));
     };
     expire();
@@ -64,8 +64,8 @@ export function useUsageLimitNotice() {
       clearTimeout(timer);
       listener.remove();
     };
-  }, [notice, setNotice]);
-  return { notice: enabled ? notice : null, dismiss: setNotice };
+  }, [notice, set_notice]);
+  return { notice: enabled ? notice : null, dismiss: set_notice };
 }
 
 /** `sheetOnly` keeps the Votic Plus sheet but leaves out the card (the scanner's camera view has no room for it). */
@@ -97,7 +97,7 @@ export function UsageLimitNoticeCard({
   return (
     <>
       {offer ? (
-        <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} onClose={dismiss} />
+        <FreeUpgradeSheet visible reason={reason} resetsAt={notice.resetsAt} on_close={dismiss} />
       ) : null}
       {sheetOnly ? null : (
         <View

@@ -40,11 +40,11 @@ export function NotificationPlaybackSync() {
       if (state.completed) {
         if (completed !== doc.id) {
           completed = doc.id;
-          current.completeDocument(doc.id, state.passageIndex, state.wordIndex);
+          current.complete_document(doc.id, state.passageIndex, state.wordIndex);
         }
       } else {
         completed = null;
-        current.updateProgress(
+        current.update_progress(
           doc.id,
           progress_for_location(cached.passages, state.passageIndex, state.wordIndex),
           state.passageIndex,

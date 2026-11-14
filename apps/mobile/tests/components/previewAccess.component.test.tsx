@@ -25,14 +25,14 @@ function Session() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Attempt entry"
-        onPress={auth.continueWithoutAccount}
+        onPress={auth.continue_without_account}
       >
         <Text>Attempt entry</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="End session"
-        onPress={() => void auth.signOut()}
+        onPress={() => void auth.sign_out()}
       >
         <Text>End session</Text>
       </Pressable>

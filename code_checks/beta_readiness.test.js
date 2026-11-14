@@ -38,7 +38,7 @@ test("beta uses verified UID, gates all feature routes, and preserves paid prior
   unpaid.subscription = async () => ({ allowed: false });
   const store = create_usage_store(env);
   try {
-    await server({ env, usageStore: store, authorize: () => ({ uid }), authorizePremium: unpaid }, async base => {
+    await server({ env, usageStore: store, authorize: () => ({ uid }), authorize_premium: unpaid }, async base => {
       assert.equal((await post(base + "/api/access", { uid: "tester", beta: true })).status, 200);
       assert.equal((await (await post(base + "/api/access")).json()).allowed, false);
       const free = await (await post(base + "/api/ai-usage", { uid: "tester", beta: true })).json();
@@ -57,7 +57,7 @@ test("beta uses verified UID, gates all feature routes, and preserves paid prior
     });
     const paid = async () => true;
     paid.subscription = async () => ({ allowed: true, periodStart: "2026-01-01T00:00:00Z", periodEnd: null });
-    await server({ env, usageStore: store, authorize: () => ({ uid: "tester" }), authorizePremium: paid }, async base => {
+    await server({ env, usageStore: store, authorize: () => ({ uid: "tester" }), authorize_premium: paid }, async base => {
       assert.deepEqual(await (await post(base + "/api/access")).json(), { uid: "tester", allowed: true, beta: false });
     });
   } finally { store.close(); rmSync(folder, { recursive: true, force: true }); }
@@ -68,7 +68,7 @@ test("beta credit exhaustion survives restart, blocks provider spend, and consen
   const env = { FIREBASE_PROJECT_ID: "fixture", VOTIC_AI_USAGE_DB: join(folder, "ledger.sqlite"), VOTIC_BETA_ACCESS_MODE: "all-signed-in", VOTIC_MONTHLY_CREDITS: "1", OPENAI_API_KEY: "fixture", VOTIC_REQUIRE_AI_CONSENT: "true" };
   let work = 0;
   const options = { env, authorize: () => ({ uid: "tester" }),
-    fetchImpl: async () => { work++; return { ok: true, headers: new Headers(), json: async () => ({ id: "resp-fixture", output_text: "Helpful response", usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 } }) }; } };
+    fetch_impl: async () => { work++; return { ok: true, headers: new Headers(), json: async () => ({ id: "resp-fixture", output_text: "Helpful response", usage: { input_tokens: 10, output_tokens: 10, total_tokens: 20 } }) }; } };
   try {
     const store = create_usage_store(env);
     try {
@@ -93,7 +93,7 @@ test("beta credit exhaustion survives restart, blocks provider spend, and consen
 
 test("entitlement fallback uses premium and rejects empty configuration", async () => {
   assert.throws(() => create_premium_authorizer({ REVENUECAT_ENTITLEMENT_ID: "  " }), /ENTITLEMENT_ID/);
-  const verify = create_premium_authorizer({ REVENUECAT_SECRET_API_KEY: "fixture" }, { fetchImpl: async () => ({ ok: true, json: async () => ({ subscriber: { entitlements: { premium: { purchase_date: "2026-01-01T00:00:00Z", expires_date: null } } } }) }) });
+  const verify = create_premium_authorizer({ REVENUECAT_SECRET_API_KEY: "fixture" }, { fetch_impl: async () => ({ ok: true, json: async () => ({ subscriber: { entitlements: { premium: { purchase_date: "2026-01-01T00:00:00Z", expires_date: null } } } }) }) });
   assert.equal(await verify("tester"), true);
 });
 

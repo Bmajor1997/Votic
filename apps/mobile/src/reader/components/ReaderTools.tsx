@@ -13,14 +13,14 @@ export function ReaderTools({
   stop,
   find,
   voiceName,
-  onVoice,
+  on_voice,
 }: {
   listening: boolean;
   stop: () => Promise<void>;
   find: ReturnType<typeof useReaderFind>;
   /** The voice reading this document, always shown while listening so people know they can change it. */
   voiceName: string;
-  onVoice: () => void;
+  on_voice: () => void;
 }) {
   const { theme } = useVoticTheme();
   const modeProgress = useMotionValue(listening ? 1 : 0, MOTION.mode.duration);
@@ -93,7 +93,7 @@ export function ReaderTools({
             ref={voiceTarget}
             accessibilityRole="button"
             accessibilityLabel={`Voice: ${voiceName}. Change voice`}
-            onPress={onVoice}
+            onPress={on_voice}
             style={[button, { flexDirection: "row", alignItems: "center", gap: 6 }]}
           >
             <Ionicons name="person-circle-outline" size={18} color={theme.accentText} />
@@ -113,7 +113,7 @@ export function ReaderTools({
             placeholderTextColor={theme.mutedText}
             value={find.query}
             maxLength={120}
-            onChangeText={find.setQuery}
+            onChangeText={find.set_query}
             style={{
               minHeight: 48,
               color: theme.text,

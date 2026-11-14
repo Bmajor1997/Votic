@@ -49,10 +49,10 @@ export type ListeningStepProps = {
   personalization: ReturnType<typeof useVoticPurpose>;
   step: number;
   total: number;
-  onBack?: () => void;
-  onNext: () => void;
+  on_back?: () => void;
+  on_next: () => void;
   answers: PersonalizationAnswers;
-  setAnswers: (answers: PersonalizationAnswers) => void;
+  set_answers: (answers: PersonalizationAnswers) => void;
   finishLabel: string;
 };
 
@@ -63,10 +63,10 @@ export type ListeningStepProps = {
 export function ListeningStep({
   step,
   total,
-  onBack,
-  onNext,
+  on_back,
+  on_next,
   answers,
-  setAnswers,
+  set_answers,
   finishLabel,
   access: a,
   personalization,
@@ -75,7 +75,7 @@ export function ListeningStep({
   const { width, fontScale } = useWindowDimensions();
   // Large text or a narrow screen stacks the cards so nothing is squeezed.
   const roomy = width >= 360 && fontScale < 1.3;
-  const { defaultPlaybackRate, setDefaultPlaybackRate } = personalization;
+  const { defaultPlaybackRate, set_default_playback_rate } = personalization;
   const sample = PREVIEW_SAMPLES[personalization.purpose ?? "default"];
   const listenWords = sample.text.split(" ");
   const [playing, setPlaying] = useState(false);
@@ -138,17 +138,17 @@ export function ListeningStep({
 
   /** Choosing a voice saves it for every document and plays the sample in it, so it can be heard at once. */
   function choose_voice(identifier: string) {
-    a.setVoiceIdentifier(identifier);
+    a.set_voice_identifier(identifier);
     play(defaultPlaybackRate, identifier);
   }
   /** Choosing a speed always replays the sample at that speed: pace is easier to judge by ear. */
   function choose_speed(rate: number) {
-    setDefaultPlaybackRate(rate);
+    set_default_playback_rate(rate);
     play(rate);
   }
   function choose_highlight(mode: HighlightMode) {
-    a.setHighlightMode(mode);
-    setAnswers({ ...answers, listening: LISTENING_FOR[mode] });
+    a.set_highlight_mode(mode);
+    set_answers({ ...answers, listening: LISTENING_FOR[mode] });
   }
   function open_voice_settings() {
     void Linking.sendIntent(ANDROID_TTS_SETTINGS).catch(() => Linking.openSettings().catch(() => {}));
@@ -160,21 +160,21 @@ export function ListeningStep({
     <StepScaffold
       step={step}
       total={total}
-      onBack={() => {
+      on_back={() => {
         stop();
-        onBack?.();
+        on_back?.();
       }}
-      onSkip={() => {
+      on_skip={() => {
         stop();
-        onNext();
+        on_next();
       }}
       title="Find your listening rhythm."
       footer={
         <PrimaryButton
           label={finishLabel}
-          onPress={() => {
+          on_press={() => {
             stop();
-            onNext();
+            on_next();
           }}
         />
       }
@@ -189,8 +189,8 @@ export function ListeningStep({
         current={current}
         rate={defaultPlaybackRate}
         progress={progress}
-        onStop={stop}
-        onPlay={play}
+        on_stop={stop}
+        on_play={play}
       />
 
       {shownVoices.length > 1 ? (
@@ -250,7 +250,7 @@ export function ListeningStep({
         </>
       ) : null}
 
-      {suggestBetterVoices ? <BetterVoicesNotice onOpenSettings={open_voice_settings} /> : null}
+      {suggestBetterVoices ? <BetterVoicesNotice on_open_settings={open_voice_settings} /> : null}
 
       <Text style={[s.groupLabel, { color: theme.text }]}>Speed</Text>
       <View
@@ -346,8 +346,8 @@ function ListeningPlayer({
   current,
   rate,
   progress,
-  onStop,
-  onPlay,
+  on_stop,
+  on_play,
 }: {
   access: ListeningStepProps["access"];
   sample: (typeof PREVIEW_SAMPLES)[keyof typeof PREVIEW_SAMPLES];
@@ -358,8 +358,8 @@ function ListeningPlayer({
   current: ReturnType<typeof useDeviceVoices>["voices"][number] | undefined;
   rate: number;
   progress: number;
-  onStop: () => void;
-  onPlay: () => void;
+  on_stop: () => void;
+  on_play: () => void;
 }) {
   const { theme } = useVoticTheme();
   const type = reader_type(a.textSize, a.readingSpacing, a.readerFont, a.textSpacing);
@@ -416,7 +416,7 @@ function ListeningPlayer({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={playing ? "Stop sample" : "Play sample"}
-          onPress={() => (playing ? onStop() : onPlay())}
+          onPress={() => (playing ? on_stop() : on_play())}
           style={({ pressed }) => [s.play, { opacity: pressed ? 0.85 : 1 }]}
         >
           <Ionicons name={playing ? "pause" : "play"} size={26} color={theme.spotlight} />
@@ -442,7 +442,7 @@ function ListeningPlayer({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Play the sample from the start"
-          onPress={onPlay}
+          onPress={on_play}
           hitSlop={6}
           style={({ pressed }) => [s.replay, { opacity: pressed ? 0.7 : 1 }]}
         >
@@ -453,7 +453,7 @@ function ListeningPlayer({
   );
 }
 
-function BetterVoicesNotice({ onOpenSettings }: { onOpenSettings: () => void }) {
+function BetterVoicesNotice({ on_open_settings }: { on_open_settings: () => void }) {
   const { theme } = useVoticTheme();
   return (
     <View
@@ -474,7 +474,7 @@ function BetterVoicesNotice({ onOpenSettings }: { onOpenSettings: () => void }) 
           accessibilityRole="button"
           accessibilityLabel="Get more natural voices"
           accessibilityHint="Opens your phone's text-to-speech settings"
-          onPress={onOpenSettings}
+          onPress={on_open_settings}
           hitSlop={8}
           style={({ pressed }) => [s.nudgeAction, { opacity: pressed ? 0.6 : 1 }]}
         >

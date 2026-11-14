@@ -24,8 +24,8 @@ import {
 } from "./scanAllowance";
 export function useScanner() {
   const { theme } = useVoticTheme();
-  const { ensureCanAddDocument } = useDocumentLibrary();
-  const { review, resume, ensureAvailable } = useOcrReview();
+  const { ensure_can_add_document } = useDocumentLibrary();
+  const { review, resume, ensure_available } = useOcrReview();
   const { defaultPlaybackRate } = useVoticPurpose();
   const [permission, requestPermission] = useCameraPermissions();
   const cameraRef = useRef<CameraView>(null);
@@ -183,8 +183,8 @@ export function useScanner() {
   async function finish_scan() {
     if (!pages.length) return;
     await run(async () => {
-      ensureCanAddDocument();
-      ensureAvailable();
+      ensure_can_add_document();
+      ensure_available();
       const snapshot = draft.latest.current;
       await draft.commit(snapshot);
       const needed = snapshot.pages.filter(
@@ -215,7 +215,7 @@ export function useScanner() {
           playbackRate: defaultPlaybackRate,
           origin: "scan",
           importId: snapshot.id,
-          onPrepared: async () => {
+          on_prepared: async () => {
             await draft.clear();
             completedPages.current.clear();
             setCameraMode(true);

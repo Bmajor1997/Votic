@@ -55,7 +55,8 @@ const NOTE_NOUN = { one: "note", many: "notes" };
 export default function Notes() {
   const { theme } = useVoticTheme();
   const { width, fontScale } = useWindowDimensions();
-  const { documents, loaded, openDocument, savePassage, removePassage, addQuickNote } = useDocumentLibrary();
+  const { documents, loaded, open_document, save_passage, remove_passage, add_quick_note } =
+    useDocumentLibrary();
   const [query, setQuery] = useState("");
   const [notebookId, setNotebookId] = useState<string | null>(null);
   const [filter, setFilter] = useState<NotesFilter>("all");
@@ -138,7 +139,7 @@ export default function Notes() {
   }
   function open_in_reader({ document, passage }: NoteItem) {
     setViewing(null);
-    openDocument(document.id, passage.sentenceIndex);
+    open_document(document.id, passage.sentenceIndex);
     router.push("/reader");
   }
   function start_quick_note() {
@@ -147,18 +148,18 @@ export default function Notes() {
   function save_note({ document, passage }: NoteItem, draft: NoteDraft) {
     if (!passage.text && !draft.note.trim()) return;
     if (document.id === "new-quick-note") {
-      if (!addQuickNote(note_from_draft(passage, draft))) throw new Error("Free note limit reached");
+      if (!add_quick_note(note_from_draft(passage, draft))) throw new Error("Free note limit reached");
       setEditing(null);
       setQuery("");
       clear_filters();
       return;
     }
-    if (!savePassage(document.id, note_from_draft(passage, draft)))
+    if (!save_passage(document.id, note_from_draft(passage, draft)))
       throw new Error("Free note limit reached");
     setEditing(null);
   }
   function toggle_pin({ document, passage }: NoteItem) {
-    savePassage(document.id, { ...passage, pinned: !passage.pinned, updatedAt: Date.now() });
+    save_passage(document.id, { ...passage, pinned: !passage.pinned, updatedAt: Date.now() });
     // Shown after the options menu has closed, the first time something is pinned.
     if (!passage.pinned) setTimeout(() => walkthrough.request("notes.pinned"), 400);
   }
@@ -182,7 +183,7 @@ export default function Notes() {
           text: "Remove",
           style: "destructive",
           onPress: () => {
-            items.forEach(({ document, passage }) => removePassage(document.id, passage.id));
+            items.forEach(({ document, passage }) => remove_passage(document.id, passage.id));
             setSelectedIds([]);
             setSelecting(false);
             AccessibilityInfo.announceForAccessibility(
@@ -199,7 +200,7 @@ export default function Notes() {
       "This note and its saved passage move to Recently Deleted for 30 days. Restore them from Settings → Help.",
       [
         { text: "Cancel", style: "cancel" },
-        { text: "Remove", style: "destructive", onPress: () => removePassage(document.id, passage.id) },
+        { text: "Remove", style: "destructive", onPress: () => remove_passage(document.id, passage.id) },
       ],
     );
   }
@@ -213,7 +214,7 @@ export default function Notes() {
     <Screen
       title="Notes"
       titleAction={
-        <QuickNoteAction visible={canQuickNote} onPress={start_quick_note} target={quickNoteTarget} />
+        <QuickNoteAction visible={canQuickNote} on_press={start_quick_note} target={quickNoteTarget} />
       }
     >
       <MissingNoteNotice visible={requested.missing} />
@@ -230,8 +231,8 @@ export default function Notes() {
       {notebook ? (
         <NotebookHeader
           notebook={notebook}
-          onBack={() => setNotebookId(null)}
-          onShare={() =>
+          on_back={() => setNotebookId(null)}
+          on_share={() =>
             share_items(
               (notebook.savedPassages || []).map((passage) => ({ document: notebook, passage })),
               `${notebook.title} — Votic Notebook`,
@@ -293,12 +294,14 @@ export default function Notes() {
           {activeFilterCount ? (
             <View style={s.activeFilters}>
               {is_advanced_filter(filter) ? (
-                <ActiveFilter label={filter_label(filter)} onPress={() => setFilter("all")} />
+                <ActiveFilter label={filter_label(filter)} on_press={() => setFilter("all")} />
               ) : null}
               {dateFilter !== "all" ? (
-                <ActiveFilter label={date_filter_label(dateFilter)} onPress={() => setDateFilter("all")} />
+                <ActiveFilter label={date_filter_label(dateFilter)} on_press={() => setDateFilter("all")} />
               ) : null}
-              {tagFilter ? <ActiveFilter label={`#${tagFilter}`} onPress={() => setTagFilter(null)} /> : null}
+              {tagFilter ? (
+                <ActiveFilter label={`#${tagFilter}`} on_press={() => setTagFilter(null)} />
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Clear all filters"
@@ -316,9 +319,9 @@ export default function Notes() {
                 total={selectableIds.length}
                 noun={NOTE_NOUN}
                 prompt="Choose notes to share or delete"
-                onToggleAll={toggle_all_notes}
-                onDelete={confirm_remove_selected}
-                onCancel={() => {
+                on_toggle_all={toggle_all_notes}
+                on_delete={confirm_remove_selected}
+                on_cancel={() => {
                   setSelecting(false);
                   setSelectedIds([]);
                 }}
@@ -364,7 +367,7 @@ export default function Notes() {
               key={document.id}
               document={document}
               fullWidth={width < 360 || fontScale > 1.3}
-              onPress={() => setNotebookId(document.id)}
+              on_press={() => setNotebookId(document.id)}
             />
           ))}
         </View>
@@ -378,10 +381,10 @@ export default function Notes() {
                 inNotebook={Boolean(notebook)}
                 selecting={selecting}
                 selectedIds={selectedIds}
-                onOpenNotebook={() => setNotebookId(document.id)}
-                onToggleSelected={toggle_selected}
-                onView={setViewing}
-                onMore={setMenuItem}
+                on_open_notebook={() => setNotebookId(document.id)}
+                on_toggle_selected={toggle_selected}
+                on_view={setViewing}
+                on_more={setMenuItem}
               />
             </View>
           ))}
@@ -395,8 +398,8 @@ export default function Notes() {
       ) : notebook ? (
         <NotebookEmptyState
           notebook={notebook}
-          onOpenDocument={() => {
-            openDocument(notebook.id);
+          on_open_document={() => {
+            open_document(notebook.id);
             router.push("/reader");
           }}
         />
@@ -423,47 +426,47 @@ export default function Notes() {
               })()
             : null
         }
-        onClose={requested.close_viewer}
-        onEdit={setEditing}
-        onMore={setMenuItem}
-        onOpenInReader={(item) => {
+        on_close={requested.close_viewer}
+        on_edit={setEditing}
+        on_more={setMenuItem}
+        on_open_in_reader={(item) => {
           setViewing(null);
           open_in_reader(item);
         }}
       />
       <NotesFilterSheet
         visible={filterOpen}
-        onClose={() => setFilterOpen(false)}
+        on_close={() => setFilterOpen(false)}
         filter={filter}
-        onFilterChange={setFilter}
+        on_filter_change={setFilter}
         dateFilter={dateFilter}
-        onDateFilterChange={setDateFilter}
+        on_date_filter_change={setDateFilter}
         tagFilter={tagFilter}
-        onTagFilterChange={setTagFilter}
+        on_tag_filter_change={setTagFilter}
         tags={tags}
-        onReset={clear_filters}
+        on_reset={clear_filters}
       />
       <NoteOptionsMenu
         item={menuItem}
-        onClose={() => setMenuItem(null)}
-        onEdit={setEditing}
-        onTogglePin={toggle_pin}
-        onOpenInReader={open_in_reader}
-        onShare={(item) => void share_items([item], automatic_note_title(item.passage))}
-        onRemove={confirm_remove}
+        on_close={() => setMenuItem(null)}
+        on_edit={setEditing}
+        on_toggle_pin={toggle_pin}
+        on_open_in_reader={open_in_reader}
+        on_share={(item) => void share_items([item], automatic_note_title(item.passage))}
+        on_remove={confirm_remove}
       />
-      <NoteEditor item={editing} onClose={() => setEditing(null)} onSave={save_note} />
+      <NoteEditor item={editing} on_close={() => setEditing(null)} on_save={save_note} />
     </Screen>
   );
 }
 
 function QuickNoteAction({
   visible,
-  onPress,
+  on_press,
   target,
 }: {
   visible: boolean;
-  onPress: () => void;
+  on_press: () => void;
   target: (node: View | null) => void;
 }) {
   const { theme } = useVoticTheme();
@@ -473,7 +476,7 @@ function QuickNoteAction({
       ref={target}
       accessibilityRole="button"
       accessibilityLabel="Quick Note"
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [s.askSelected, { backgroundColor: theme.accent, opacity: pressed ? 0.85 : 1 }]}
     >
       <Ionicons name="add-outline" size={20} color="#FFF" />
@@ -489,13 +492,13 @@ function filter_label(filter: NotesFilter) {
   return note_type_label(filter as NoteType);
 }
 
-function ActiveFilter({ label, onPress }: { label: string; onPress: () => void }) {
+function ActiveFilter({ label, on_press }: { label: string; on_press: () => void }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Remove ${label} filter`}
-      onPress={onPress}
+      onPress={on_press}
       style={[s.activeFilter, { borderColor: theme.accent, backgroundColor: theme.sentenceHighlight }]}
     >
       <Text numberOfLines={1} style={[s.activeFilterText, { color: theme.accentText }]}>

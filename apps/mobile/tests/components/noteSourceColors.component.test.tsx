@@ -32,9 +32,9 @@ describe("Notes inherit source identity", () => {
     const open = jest.fn();
     await render_with_providers(
       <>
-        <NotesShelf notes={documents.map((document) => ({ document, passage }))} onOpen={open} />
+        <NotesShelf notes={documents.map((document) => ({ document, passage }))} on_open={open} />
         {documents.map((document) => (
-          <NotebookCard key={document.id} document={document} fullWidth={false} onPress={() => {}} />
+          <NotebookCard key={document.id} document={document} fullWidth={false} on_press={() => {}} />
         ))}
       </>,
     );
@@ -63,10 +63,10 @@ describe("Notes inherit source identity", () => {
           inNotebook={false}
           selecting={false}
           selectedIds={[]}
-          onOpenNotebook={() => {}}
-          onToggleSelected={() => {}}
-          onView={view}
-          onMore={() => {}}
+          on_open_notebook={() => {}}
+          on_toggle_selected={() => {}}
+          on_view={view}
+          on_more={() => {}}
         />,
       );
       expect(

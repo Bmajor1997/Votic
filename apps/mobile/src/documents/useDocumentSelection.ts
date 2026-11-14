@@ -8,7 +8,7 @@ export const DOCUMENT_NOUN = { one: "document", many: "documents" };
  * Choosing documents in the library: one, several, or every document the list is showing, then deleting them
  * together. Deleting asks first and moves them (and their notes) to Recently Deleted, like deleting one document.
  */
-export function useDocumentSelection(visibleIds: readonly string[], removeDocument: (id: string) => void) {
+export function useDocumentSelection(visibleIds: readonly string[], remove_document: (id: string) => void) {
   const [selecting, setSelecting] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
   // Only documents the list still shows count, so a filter or search change never deletes something hidden.
@@ -42,7 +42,7 @@ export function useDocumentSelection(visibleIds: readonly string[], removeDocume
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            ids.forEach(removeDocument);
+            ids.forEach(remove_document);
             cancel();
             AccessibilityInfo.announceForAccessibility(
               `${count_label(ids.length, DOCUMENT_NOUN)} moved to Recently Deleted.`,

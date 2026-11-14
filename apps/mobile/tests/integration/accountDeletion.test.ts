@@ -15,8 +15,8 @@ import { load_pronunciations, save_pronunciations } from "../../src/reader/pronu
 import { test_document } from "../renderWithProviders";
 
 it("erases account-owned data and owned legacy backups while preserving another account", async () => {
-  await create_document_store("a").saveDocuments([test_document("private-a", "Private A")]);
-  await create_document_store("b").saveDocuments([test_document("private-b", "Private B")]);
+  await create_document_store("a").save_documents([test_document("private-a", "Private A")]);
+  await create_document_store("b").save_documents([test_document("private-b", "Private B")]);
   await AsyncStorage.multiSet([
     ["votic.mobile.onboarding.v1:a", "private setup"],
     ["votic.mobile.personalization-preferences.v1:a", "private preference"],
@@ -36,8 +36,8 @@ it("erases account-owned data and owned legacy backups while preserving another 
         k === "votic.mobile.document-text.v1:old",
     ),
   ).toBe(false);
-  expect((await create_document_store("b").loadDocuments())[0].title).toBe("Private B");
-  await create_document_store("a").saveDocuments([test_document("late", "Late stale save")]);
+  expect((await create_document_store("b").load_documents())[0].title).toBe("Private B");
+  await create_document_store("a").save_documents([test_document("late", "Late stale save")]);
   expect((await AsyncStorage.getAllKeys()).some((k) => k.startsWith("votic.mobile.account:a:"))).toBe(false);
 });
 

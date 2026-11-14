@@ -73,10 +73,10 @@ function ExploreProbe() {
   return (
     <>
       <Text testID="explore-user">{auth.hydrated ? (auth.user?.uid ?? "signed out") : "loading"}</Text>
-      <Text accessibilityRole="button" onPress={auth.continueWithoutAccount}>
+      <Text accessibilityRole="button" onPress={auth.continue_without_account}>
         Explore
       </Text>
-      <Text accessibilityRole="button" onPress={() => void auth.signOut()}>
+      <Text accessibilityRole="button" onPress={() => void auth.sign_out()}>
         Leave
       </Text>
     </>
@@ -546,11 +546,11 @@ it("recaps actual reading and listening preferences before the final paywall", a
     NOT_HANDED_OFF,
   );
   await act(async () => {
-    purpose.setPurpose("work");
-    purpose.setExplanationStyle("simple");
-    purpose.setDefaultPlaybackRate(1.5);
-    access.setTextSize("large");
-    access.setHighlightMode("off");
+    purpose.set_purpose("work");
+    purpose.set_explanation_style("simple");
+    purpose.set_default_playback_rate(1.5);
+    access.set_text_size("large");
+    access.set_highlight_mode("off");
   });
   expect(screen.getByText("Work")).toBeTruthy();
   expect(screen.getByLabelText("Your reading. Large text · system font")).toBeTruthy();

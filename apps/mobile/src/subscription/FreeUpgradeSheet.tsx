@@ -11,7 +11,7 @@ type Props = {
   visible: boolean;
   reason: "documents" | "notes" | "credits" | "summaries" | "scans" | "pdf";
   resetsAt?: string;
-  onClose: () => void;
+  on_close: () => void;
 };
 
 function reset_text(resetsAt?: string) {
@@ -54,7 +54,7 @@ function sheet_copy(reason: Props["reason"], resetsAt?: string): { title: string
 }
 
 /** An upgrade invitation; the next screen displays the store's plans and confirms the purchase. */
-export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) {
+export function FreeUpgradeSheet({ visible, reason, resetsAt, on_close }: Props) {
   const { theme } = useVoticTheme();
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
@@ -65,7 +65,7 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
       transparent
       animationType={reduceMotion ? "none" : "slide"}
       statusBarTranslucent
-      onRequestClose={onClose}
+      onRequestClose={on_close}
     >
       <View style={s.backdrop}>
         <View
@@ -78,7 +78,7 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Close upgrade offer"
-                onPress={onClose}
+                onPress={on_close}
                 style={[s.close, { borderColor: theme.border, backgroundColor: theme.surface }]}
               >
                 <Ionicons name="close" size={22} color={theme.text} />
@@ -105,7 +105,7 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                onClose();
+                on_close();
                 router.push("/paywall");
               }}
               style={[s.button, { backgroundColor: theme.accent, borderColor: theme.accent }]}
@@ -114,7 +114,7 @@ export function FreeUpgradeSheet({ visible, reason, resetsAt, onClose }: Props) 
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              onPress={onClose}
+              onPress={on_close}
               style={[s.button, { backgroundColor: theme.surface, borderColor: theme.border }]}
             >
               <Text style={[s.buttonText, { color: theme.text }]}>Continue with Votic Free</Text>

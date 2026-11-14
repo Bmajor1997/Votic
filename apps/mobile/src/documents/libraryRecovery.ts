@@ -121,7 +121,7 @@ export function useLibraryRecovery(
         }),
       );
     },
-    async permanentlyDelete(documentId: string, passageId?: string) {
+    async permanently_delete(documentId: string, passageId?: string) {
       const document = latest.current.find((d) => d.id === documentId);
       const deleted = passageId
         ? document?.savedPassages?.some((n) => n.id === passageId && n.deletedAt)

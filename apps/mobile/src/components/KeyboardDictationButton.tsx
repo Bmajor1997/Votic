@@ -22,20 +22,20 @@ export function KeyboardDictationButton({
   value,
   onChangeText,
   onFocus,
-  onPhaseChange,
-  onLevelChange,
-  onRevealChange,
-  onErrorChange,
+  on_phase_change,
+  on_level_change,
+  on_reveal_change,
+  on_error_change,
   active = true,
   disabled = false,
 }: {
   value: string;
   onChangeText: (text: string) => void;
   onFocus: () => void;
-  onPhaseChange?: (phase: VoiceInputPhase) => void;
-  onLevelChange?: (level: number) => void;
-  onRevealChange?: (frame: TextRevealFrame | null) => void;
-  onErrorChange?: (message: string) => void;
+  on_phase_change?: (phase: VoiceInputPhase) => void;
+  on_level_change?: (level: number) => void;
+  on_reveal_change?: (frame: TextRevealFrame | null) => void;
+  on_error_change?: (message: string) => void;
   active?: boolean;
   disabled?: boolean;
 }) {
@@ -99,7 +99,7 @@ export function KeyboardDictationButton({
         sum += amplitude * amplitude;
         count += 1;
       }
-      onLevelChange?.(Math.min(1, Math.sqrt(sum / Math.max(1, count)) * 7));
+      on_level_change?.(Math.min(1, Math.sqrt(sum / Math.max(1, count)) * 7));
     },
   });
   const stream = useRef(streamResult.stream);
@@ -115,13 +115,13 @@ export function KeyboardDictationButton({
    */
   function report_error(message: string) {
     errorShownFor.current = value;
-    if (onErrorChange) onErrorChange(message);
+    if (on_error_change) on_error_change(message);
     else Alert.alert("Voice question", message);
   }
 
   function clear_error() {
     errorShownFor.current = null;
-    onErrorChange?.("");
+    on_error_change?.("");
   }
 
   // Typing a question means the person has moved on from the microphone, so an earlier voice message (such as
@@ -139,7 +139,7 @@ export function KeyboardDictationButton({
     phaseRef.current = next;
     if (!mounted.current) return;
     setPhase(next);
-    onPhaseChange?.(next);
+    on_phase_change?.(next);
   }
 
   function clear_timer() {
@@ -172,9 +172,9 @@ export function KeyboardDictationButton({
     pendingTranscript.current = null;
     void release_microphone();
     if (mounted.current) {
-      onRevealChange?.(null);
+      on_reveal_change?.(null);
       clear_error();
-      onLevelChange?.(0);
+      on_level_change?.(0);
       change_phase("idle");
     }
   }
@@ -215,8 +215,8 @@ export function KeyboardDictationButton({
     if (!reduceMotion || phase !== "reviewing" || pendingTranscript.current === null) return;
     revealCancel.current?.();
     onChangeText(pendingTranscript.current);
-    onRevealChange?.(null);
-  }, [reduceMotion, phase, onChangeText, onRevealChange]);
+    on_reveal_change?.(null);
+  }, [reduceMotion, phase, onChangeText, on_reveal_change]);
 
   async function reveal_transcript(transcript: string) {
     if (!mounted.current) return;
@@ -236,12 +236,12 @@ export function KeyboardDictationButton({
     await new Promise<void>((resolve) => {
       const cancel = reveal_completed_text(text, {
         startAt: Math.min(text.length, prefix.length + separator.length),
-        onFrame: (frame) => {
+        on_frame: (frame) => {
           if (!mounted.current) return;
-          onRevealChange?.(frame);
+          on_reveal_change?.(frame);
           onChangeText(frame.visible);
         },
-        onComplete: resolve,
+        on_complete: resolve,
       });
       revealCancel.current = () => {
         cancel();
@@ -250,7 +250,7 @@ export function KeyboardDictationButton({
     });
     revealCancel.current = null;
     pendingTranscript.current = null;
-    if (mounted.current) onRevealChange?.(null);
+    if (mounted.current) on_reveal_change?.(null);
   }
 
   async function stop_and_transcribe() {
@@ -346,7 +346,7 @@ export function KeyboardDictationButton({
       captureError.current = "";
       baseText.current = value;
       lastLevelAt.current = -1;
-      onLevelChange?.(0);
+      on_level_change?.(0);
       Keyboard.dismiss();
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       if (!current()) {

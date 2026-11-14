@@ -85,11 +85,11 @@ export const fakeSubscriptions = {
     fakeSubscriptions.founderProduct = null;
   },
   /** The store reports a change (renewal, expiry, refund) for an account. */
-  setEntitlement(userId: string, entitlement: Entitlement) {
+  set_entitlement(userId: string, entitlement: Entitlement) {
     server.set(userId, entitlement);
     if (userId === currentUser) listeners.forEach((listener) => listener(entitlement, userId));
   },
-  entitlementFor(userId: string) {
+  entitlement_for(userId: string) {
     return server.get(userId) ?? fakeSubscriptions.defaultEntitlement;
   },
 };
@@ -101,7 +101,7 @@ function throw_if_requested(action: "purchase" | "restore") {
 }
 
 export function create_subscription_service(): SubscriptionService {
-  const read = () => (currentUser ? fakeSubscriptions.entitlementFor(currentUser) : UNKNOWN_ENTITLEMENT);
+  const read = () => (currentUser ? fakeSubscriptions.entitlement_for(currentUser) : UNKNOWN_ENTITLEMENT);
   return {
     get unavailableReason() {
       return fakeSubscriptions.unavailableReason;
@@ -118,12 +118,12 @@ export function create_subscription_service(): SubscriptionService {
     async refresh() {
       return read();
     },
-    async getFounderProduct(productId) {
+    async get_founder_product(productId) {
       fakeSubscriptions.calls.push("getFounderProduct:" + productId);
       const product = fakeSubscriptions.founderProduct;
       return product?.productId === productId ? product : null;
     },
-    async purchaseFounder(productId) {
+    async purchase_founder(productId) {
       fakeSubscriptions.calls.push("purchaseFounder:" + productId);
       const outcome = fakeSubscriptions.nextPurchase ?? {
         kind: "purchased",
@@ -133,7 +133,7 @@ export function create_subscription_service(): SubscriptionService {
       if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
       return outcome;
     },
-    async getPlans() {
+    async get_plans() {
       fakeSubscriptions.calls.push("getPlans");
       if (fakeSubscriptions.plans instanceof Error) throw fakeSubscriptions.plans;
       return fakeSubscriptions.plans;
@@ -149,13 +149,13 @@ export function create_subscription_service(): SubscriptionService {
       if (outcome.kind === "purchased" && currentUser) server.set(currentUser, outcome.entitlement);
       return outcome;
     },
-    async changePlan(planId, fromProductId) {
+    async change_plan(planId, fromProductId) {
       fakeSubscriptions.calls.push(`changePlan:${planId}:from:${fromProductId}`);
       const outcome = fakeSubscriptions.nextPurchase ?? { kind: "purchased", entitlement: read() };
       fakeSubscriptions.nextPurchase = null;
       return outcome;
     },
-    async getRetentionOffer(currentProductId) {
+    async get_retention_offer(currentProductId) {
       fakeSubscriptions.calls.push(
         currentProductId ? `getRetentionOffer:${currentProductId}` : "getRetentionOffer",
       );
@@ -171,17 +171,17 @@ export function create_subscription_service(): SubscriptionService {
         ) ?? null
       );
     },
-    async claimRetentionOffer(offerId, fromProductId) {
+    async claim_retention_offer(offerId, fromProductId) {
       fakeSubscriptions.calls.push(`claimRetentionOffer:${offerId}:from:${fromProductId}`);
       const outcome = fakeSubscriptions.nextPurchase ?? { kind: "purchased", entitlement: read() };
       fakeSubscriptions.nextPurchase = null;
       return outcome;
     },
-    async getCreditProducts(productIds) {
+    async get_credit_products(productIds) {
       fakeSubscriptions.calls.push("getCreditProducts:" + productIds.join(","));
       return fakeSubscriptions.creditProducts.filter((product) => productIds.includes(product.productId));
     },
-    async purchaseCredits(productId) {
+    async purchase_credits(productId) {
       fakeSubscriptions.calls.push("purchaseCredits:" + productId);
       return fakeSubscriptions.nextCreditPurchase;
     },
@@ -192,7 +192,7 @@ export function create_subscription_service(): SubscriptionService {
         server.set(currentUser, fakeSubscriptions.restoreResult);
       return read();
     },
-    onChange(listener) {
+    on_change(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
     },

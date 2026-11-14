@@ -38,11 +38,11 @@ type Value = {
   canRecover: boolean;
   recover: () => Promise<void>;
   /** Saves pending changes before older data is merged in. */
-  registerFlush: (flush: () => Promise<void>) => () => void;
+  register_flush: (flush: () => Promise<void>) => () => void;
   /** Reads this account's data again after older data is merged in, without reloading the app. */
-  registerReload: (reload: () => Promise<void>) => () => void;
-  deleteAccount: () => Promise<void>;
-  runLibraryTask: <T>(task: (account: string) => Promise<T>) => Promise<T>;
+  register_reload: (reload: () => Promise<void>) => () => void;
+  delete_account: () => Promise<void>;
+  run_library_task: <T>(task: (account: string) => Promise<T>) => Promise<T>;
 };
 const Context = createContext<Value | null>(null);
 
@@ -115,13 +115,13 @@ function AccountDataSession({
     deletingRef.current = true;
     try {
       // A stale login or unconfigured backend must fail before erasing device data.
-      await auth.prepareDeleteAccount(uid);
+      await auth.prepare_delete_account(uid);
       await mark_account_deletion(uid);
       setDeletionPending(true);
       setDeleting(true);
       setDeletionError(null);
       await erase_device_data(uid);
-      await auth.deleteAccount(uid);
+      await auth.delete_account(uid);
       await finish_local_deletion(uid);
     } catch (error) {
       if (mounted.current)
@@ -155,13 +155,13 @@ function AccountDataSession({
           // the next time someone signs in here (the backend keeps refusing this account meanwhile).
           let finished = false;
           try {
-            await auth.deleteAccount(uid);
+            await auth.delete_account(uid);
             finished = true;
           } catch {
             /* Needs a recent sign-in; signing out below lets the next sign-in finish it. */
           }
           await finish_local_deletion(uid);
-          if (!finished && mounted.current) await auth.signOut();
+          if (!finished && mounted.current) await auth.sign_out();
         } catch {
           if (mounted.current)
             setDeletionError("Device cleanup could not finish. Restart Votic and retry account deletion.");
@@ -224,10 +224,10 @@ function AccountDataSession({
       value={{
         uid,
         canRecover,
-        registerFlush,
-        registerReload,
-        deleteAccount: delete_account,
-        async runLibraryTask(task) {
+        register_flush: registerFlush,
+        register_reload: registerReload,
+        delete_account: delete_account,
+        async run_library_task(task) {
           if (!uid || maintenanceRunning.current || deletingRef.current || !account_writable(uid))
             throw new Error("Your library is busy. Please try again.");
           maintenanceRunning.current = true;
@@ -323,7 +323,7 @@ function AccountDataSession({
             <Pressable
               accessibilityRole="button"
               disabled={deleting}
-              onPress={() => void auth.signOut()}
+              onPress={() => void auth.sign_out()}
               style={{ minHeight: 48, justifyContent: "center" }}
             >
               <Text style={{ color: theme.accentText }}>Sign out to sign in again</Text>

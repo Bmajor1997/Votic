@@ -11,11 +11,11 @@ import { notebook_counts_label } from "../notebookCounts";
 export function NotebookCard({
   document,
   fullWidth,
-  onPress,
+  on_press,
 }: {
   document: VoticDocument;
   fullWidth: boolean;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   const entries = document.savedPassages || [];
@@ -33,7 +33,7 @@ export function NotebookCard({
       accessibilityRole="button"
       accessibilityLabel={`Open ${title} notebook`}
       accessibilityHint={`${filename ? `From ${filename}. ` : ""}${counts}. Opens this document’s notes.`}
-      onPress={onPress}
+      onPress={on_press}
       style={({ pressed }) => [
         s.card,
         {

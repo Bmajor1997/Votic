@@ -22,7 +22,7 @@ import { useWalkthroughTarget, useWalkthroughTrigger } from "../../src/walkthrou
 
 export default function Home() {
   const { theme } = useVoticTheme();
-  const { documents: everything, loaded, openDocument } = useDocumentLibrary();
+  const { documents: everything, loaded, open_document } = useDocumentLibrary();
   // Quick Notes is a notebook: its notes still show under Recent notes, but it isn't a document to continue.
   const documents = readable_documents(everything);
   const transition = useDocumentTransition();
@@ -68,17 +68,17 @@ export default function Home() {
       {loaded && !featured ? (
         <EmptyContinueWidget
           hasDocuments={documents.length > 0}
-          onBrowse={() => router.push("/documents")}
+          on_browse={() => router.push("/documents")}
           targetRef={startTarget}
         />
       ) : null}
       {featured ? (
         <ContinueCard
           document={featured}
-          targetRef={continueTarget}
-          onOpen={(source, listen, heading) => {
+          target_ref={continueTarget}
+          on_open={(source, listen, heading) => {
             if (transition.transitioning) return;
-            openDocument(featured.id);
+            open_document(featured.id);
             // Listen opens with narration controls and starts playing; Read opens without audio controls.
             open_from(
               source,
@@ -95,18 +95,18 @@ export default function Home() {
           documents={recent}
           targetRef={recentTarget}
           optionsTargetRef={optionsTarget}
-          onOpen={(document, source, heading) => {
+          on_open={(document, source, heading) => {
             if (transition.transitioning) return;
-            openDocument(document.id);
+            open_document(document.id);
             open_from(source, transition, { mode: "read" }, heading);
           }}
-          onMore={setMenuDocument}
+          on_more={setMenuDocument}
         />
       ) : null}
       {loaded ? (
         <NotesShelf
           notes={notes}
-          onOpen={({ document, passage }) => {
+          on_open={({ document, passage }) => {
             if (transition.transitioning) return;
             // A Quick Note has no document passage to show; open that one note instead of the whole notebook.
             if (document.notebookKind) {
@@ -116,16 +116,16 @@ export default function Home() {
               });
               return;
             }
-            openDocument(document.id, passage.sentenceIndex);
+            open_document(document.id, passage.sentenceIndex);
             router.push("/reader");
           }}
         />
       ) : null}
       <DocumentActionsSheet
         document={menuDocument}
-        onClose={() => setMenuDocument(null)}
-        onOpen={(document) => {
-          openDocument(document.id);
+        on_close={() => setMenuDocument(null)}
+        on_open={(document) => {
+          open_document(document.id);
           router.push("/reader");
         }}
       />
@@ -136,16 +136,16 @@ export default function Home() {
 /** The one thing Home is for: picking up where you left off. */
 function ContinueCard({
   document,
-  onOpen,
-  targetRef,
+  on_open,
+  target_ref,
 }: {
   document: VoticDocument;
-  onOpen: (
+  on_open: (
     source: React.RefObject<View | null>,
     listen: boolean,
     heading: { text: string; node: Text | null },
   ) => void;
-  targetRef?: (node: View | null) => void;
+  target_ref?: (node: View | null) => void;
 }) {
   const { theme } = useVoticTheme();
   const colors = widget_palette(theme.isDark, "chapter");
@@ -163,7 +163,7 @@ function ContinueCard({
     <View
       ref={(node) => {
         cardRef.current = node;
-        targetRef?.(node);
+        target_ref?.(node);
       }}
       collapsable={false}
       testID="home-continue-card"
@@ -210,7 +210,7 @@ function ContinueCard({
             accessibilityRole="button"
             accessibilityLabel={`${listenLabel}: ${title}`}
             accessibilityHint="Opens the Reader and plays from where you left off"
-            onPress={() => onOpen(cardRef, true, { text: title, node: titleRef.current })}
+            onPress={() => on_open(cardRef, true, { text: title, node: titleRef.current })}
             style={({ pressed }) => [
               s.primary,
               s.featuredButton,
@@ -229,7 +229,7 @@ function ContinueCard({
             accessibilityRole="button"
             accessibilityLabel={`${readLabel}: ${title}`}
             accessibilityHint="Opens the document for reading, without audio controls"
-            onPress={() => onOpen(cardRef, false, { text: title, node: titleRef.current })}
+            onPress={() => on_open(cardRef, false, { text: title, node: titleRef.current })}
             style={({ pressed }) => [
               s.secondary,
               s.featuredButton,

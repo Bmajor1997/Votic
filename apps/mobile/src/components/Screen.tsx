@@ -33,15 +33,15 @@ export function Screen({
   const scrollRef = useRef<ScrollView>(null);
   const offset = useRef(0);
   // While this screen is showing, the walkthrough can scroll it to bring a control below the fold into view.
-  const registerScroller = useOptionalWalkthrough()?.registerScroller;
+  const register_scroller = useOptionalWalkthrough()?.register_scroller;
   useFocusEffect(
     useCallback(() => {
-      if (!registerScroller) return;
-      registerScroller((by) =>
+      if (!register_scroller) return;
+      register_scroller((by) =>
         scrollRef.current?.scrollTo({ y: Math.max(0, offset.current + by), animated: false }),
       );
-      return () => registerScroller(null);
-    }, [registerScroller]),
+      return () => register_scroller(null);
+    }, [register_scroller]),
   );
   const screenOpacity = transition.progress.interpolate({
     inputRange: [0, 0.7, 1],
@@ -53,7 +53,7 @@ export function Screen({
       <Animated.View style={[s.safe, { opacity: transition.transitioning ? screenOpacity : 1 }]}>
         <FadingScrollView
           ref={scrollRef}
-          onOffset={(y) => {
+          on_offset={(y) => {
             offset.current = y;
           }}
           contentContainerStyle={[s.content, floatingAction ? s.contentWithFloatingAction : null]}

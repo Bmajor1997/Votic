@@ -8,16 +8,16 @@ import { account_storage_key } from "../../src/storage/accountStorage";
 import { render_with_providers } from "../renderWithProviders";
 
 function ActivityProbe() {
-  const { hydrated, loadError, retryLoad, recordAsk, measuredLog } = useActivity();
+  const { hydrated, loadError, retry_load, record_ask, measuredLog } = useActivity();
   return (
     <View>
       <Text>{loadError ?? (hydrated ? "Loaded" : "Loading")}</Text>
       <Text testID="history">{JSON.stringify(measuredLog)}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Retry" onPress={retryLoad} />
+      <Pressable accessibilityRole="button" accessibilityLabel="Retry" onPress={retry_load} />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Record"
-        onPress={() => recordAsk({ at: 1, category: "summary", newConversation: true })}
+        onPress={() => record_ask({ at: 1, category: "summary", newConversation: true })}
       />
     </View>
   );

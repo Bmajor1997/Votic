@@ -20,7 +20,7 @@ function minutes(value: number) {
 
 export default function Recap() {
   const { theme } = useVoticTheme();
-  const { documents, openDocument } = useDocumentLibrary();
+  const { documents, open_document } = useDocumentLibrary();
   const { current, change } = weekly_comparison(documents);
   const weeks = recent_week_activity(documents);
   const recent = most_recent_incomplete(documents);
@@ -36,7 +36,7 @@ export default function Recap() {
           ? `You read ${change}% more than last week.`
           : `You read ${Math.abs(change)}% less than last week.`;
   function open(documentId: string, sentenceIndex?: number) {
-    openDocument(documentId, sentenceIndex);
+    open_document(documentId, sentenceIndex);
     router.push("/reader");
   }
   return (

@@ -22,8 +22,8 @@ test("the private external-request command erases the configured persistent data
   const dir = mkdtempSync(join(tmpdir(), "votic-operator-delete-")), path = join(dir, "usage.sqlite");
   let store = create_usage_store({}, { path });
   try {
-    store.recordReport({ user_id: "account-a", reason: "other", answer: "private" });
-    store.recordReport({ user_id: "account-b", reason: "other", answer: "keep" });
+    store.record_report({ user_id: "account-a", reason: "other", answer: "private" });
+    store.record_report({ user_id: "account-b", reason: "other", answer: "keep" });
     store.close();
     const output = execFileSync(process.execPath, ["--import", "data:text/javascript,globalThis.fetch=async()=>({ok:true,status:200})", "security/delete-account-data.js", "--uid=account-a", "--confirmed-owner"], {
       cwd: new URL("..", import.meta.url), encoding: "utf8",
@@ -32,7 +32,7 @@ test("the private external-request command erases the configured persistent data
     assert.match(output, /Complete Firebase user deletion/);
     store = create_usage_store({}, { path });
     assert.deepEqual(store.reports().map(r => r.user_id), ["account-b"]);
-    assert.ok(store.accountDeletion("account-a").completed_at);
+    assert.ok(store.account_deletion("account-a").completed_at);
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -64,11 +64,11 @@ test("deletion erases only the authenticated account's reports, anonymizes costs
   const reserve = uid => store.reserve({ user_id: "user:" + uid, feature: "ask", model: "gpt-6-luna", input_bound: 100, output_bound: 100, rates: model_prices("gpt-6-luna") });
   try {
     const id = reserve("account-a"); reserve("account-b");
-    store.recordReport({ user_id: "account-a", reason: "harmful", answer: "private answer a" });
-    store.recordReport({ user_id: "account-b", reason: "other", answer: "private answer b" });
+    store.record_report({ user_id: "account-a", reason: "harmful", answer: "private answer a" });
+    store.record_report({ user_id: "account-b", reason: "other", answer: "private answer b" });
     const cost = store.records().reduce((n, r) => n + r.estimated_cost_usd, 0);
     let calls = 0;
-    await server({ env, usageStore: store, authorize: identity, authorizePremium: () => { throw new Error("Deletion must not require Premium"); }, accountDeletionFetchImpl: async (url, init) => {
+    await server({ env, usageStore: store, authorize: identity, authorize_premium: () => { throw new Error("Deletion must not require Premium"); }, account_deletion_fetch_impl: async (url, init) => {
       assert.equal(url, "https://api.revenuecat.com/v1/subscribers/account-a"); assert.equal(init.method, "DELETE");
       calls++; return { ok: true, status: 200 };
     } }, async base => {
@@ -84,21 +84,21 @@ test("deletion erases only the authenticated account's reports, anonymizes costs
     store.finish(id, { status: "completed", provider_request_id: "late-provider-id", result: { id: "late-response", usage: { input_tokens: 1, output_tokens: 1, total_tokens: 2 } } });
     assert.equal(store.records().find(r => r.request_id === id).provider_request_id, null);
     assert.throws(() => reserve("account-a"), /being deleted/);
-    assert.throws(() => store.recordReport({ user_id: "account-a", reason: "other", answer: "late" }), /being deleted/);
-    store.close(); store = create_usage_store({}, { path }); assert.ok(store.accountDeletion("account-a"));
-    assert.equal(store.accountDeletion("account-b"), null);
+    assert.throws(() => store.record_report({ user_id: "account-a", reason: "other", answer: "late" }), /being deleted/);
+    store.close(); store = create_usage_store({}, { path }); assert.ok(store.account_deletion("account-a"));
+    assert.equal(store.account_deletion("account-b"), null);
   } finally { store.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
 test("vendor failures never acknowledge completion; retry handles an already-deleted vendor profile", async () => {
   const store = create_usage_store(); let failing = true;
   try {
-    await server({ env, usageStore: store, authorize: identity, accountDeletionFetchImpl: async () => ({ ok: false, status: failing ? 403 : 404 }) }, async base => {
+    await server({ env, usageStore: store, authorize: identity, account_deletion_fetch_impl: async () => ({ ok: false, status: failing ? 403 : 404 }) }, async base => {
       assert.equal((await post(base, "complete")).status, 503);
-      assert.equal(store.accountDeletion("account-a").completed_at, null);
+      assert.equal(store.account_deletion("account-a").completed_at, null);
       failing = false;
       assert.equal((await post(base, "complete")).status, 200);
-      assert.ok(store.accountDeletion("account-a").completed_at);
+      assert.ok(store.account_deletion("account-a").completed_at);
     });
   } finally { store.close(); }
 });

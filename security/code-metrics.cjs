@@ -5,14 +5,14 @@ const cp = require("node:child_process");
 const root = path.resolve(__dirname, "..");
 const ts = require(path.join(root, "apps/mobile/node_modules/typescript"));
 const baselinePath = path.join(__dirname, "complexity-baseline.json");
-const sourceFiles = () => cp.execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {cwd: root, encoding: "utf8"})
+const source_files = () => cp.execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {cwd: root, encoding: "utf8"})
   .trim().split("\n").filter(f => /\.(?:js|cjs|ts|tsx)$/.test(f) && !/(?:\.test\.|^code_checks\/|^browser_checks\/|\/tests\/)/.test(f));
-function functionName(node) {
+function function_name(node) {
   if (node.name) return node.name.getText();
   if (ts.isVariableDeclaration(node.parent)) return node.parent.name.getText();
   return "callback";
 }
-function bodyMetrics(node, source) {
+function body_metrics(node, source) {
   let complexity = 1, statements = 0;
   function visit(child) {
     if (ts.isFunctionLike(child)) return;
@@ -34,11 +34,11 @@ function collect(file, text) {
     const ordinals = new Map();
     function visit(child) {
       if (ts.isFunctionLike(child) && child.body) {
-        const name = functionName(child);
+        const name = function_name(child);
         const ordinal = (ordinals.get(name) || 0) + 1;
         ordinals.set(name, ordinal);
         const key = `${prefix}/${name}#${ordinal}`;
-        results[key] = bodyMetrics(child, source);
+        results[key] = body_metrics(child, source);
         scope(child.body, key);
       } else ts.forEachChild(child, visit);
     }
@@ -48,7 +48,7 @@ function collect(file, text) {
   return results;
 }
 const refArg = process.argv.find(arg => arg.startsWith("--write-baseline="));
-let files = sourceFiles(), ref;
+let files = source_files(), ref;
 if (refArg) {
   ref = refArg.split("=")[1];
   files = cp.execFileSync("git", ["ls-tree", "-r", "--name-only", ref], {cwd: root, encoding: "utf8"})

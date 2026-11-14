@@ -62,7 +62,7 @@ export function useReaderFind(
             ),
           }
         : null,
-    setQuery: (text: string) => {
+    set_query: (text: string) => {
       setQuery(text);
       setSelected(0);
       setMatches([]);

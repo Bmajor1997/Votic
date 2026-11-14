@@ -182,11 +182,11 @@ const PURCHASE_MESSAGES = {
 function BuyMore({
   productIds,
   exhausted,
-  onPurchased,
+  on_purchased,
 }: {
   productIds: string[];
   exhausted: boolean;
-  onPurchased: () => void;
+  on_purchased: () => void;
 }) {
   const { theme } = useVoticTheme();
   const { service } = useSubscription();
@@ -194,12 +194,12 @@ function BuyMore({
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const supported =
-    !service.unavailableReason && Boolean(service.getCreditProducts && service.purchaseCredits);
+    !service.unavailableReason && Boolean(service.get_credit_products && service.purchase_credits);
   const key = productIds.join(",");
   useEffect(() => {
     if (!supported || !key) return;
     let current = true;
-    service.getCreditProducts!(key.split(",")).then(
+    service.get_credit_products!(key.split(",")).then(
       (found) => current && setProducts(found),
       () => current && setProducts([]),
     );
@@ -215,7 +215,7 @@ function BuyMore({
       const current = await ai_usage();
       if (current.plan?.free || !current.purchaseProducts.includes(product.productId)) {
         setMessage("Extra credits are available with Votic Plus. Refresh your plan and try again.");
-        onPurchased();
+        on_purchased();
         setBusy(null);
         return;
       }
@@ -224,14 +224,14 @@ function BuyMore({
       setBusy(null);
       return;
     }
-    const outcome = await service.purchaseCredits!(product.productId).catch(() => ({
+    const outcome = await service.purchase_credits!(product.productId).catch(() => ({
       kind: "failed" as const,
       message: "Your purchase couldn't be confirmed. Please try again.",
     }));
     setBusy(null);
     if (outcome.kind === "purchased" || outcome.kind === "pending") {
       setMessage(PURCHASE_MESSAGES[outcome.kind]);
-      onPurchased();
+      on_purchased();
     } else if (outcome.kind === "failed") setMessage(outcome.message);
   }
   const unavailable = !productIds.length || !supported || products?.length === 0;
@@ -258,7 +258,7 @@ function BuyMore({
             busy={busy === product.productId}
             disabled={Boolean(busy) && busy !== product.productId}
             accessibilityHint={`One-time purchase of ${product.priceString}. It doesn't change your subscription.`}
-            onPress={() => void buy(product)}
+            on_press={() => void buy(product)}
           />
         ))
       )}
@@ -285,7 +285,7 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
           <BuyMore
             productIds={usage.purchaseProducts}
             exhausted={usage.monthly.percentRemaining === 0 && !usage.purchased?.remaining}
-            onPurchased={refresh}
+            on_purchased={refresh}
           />
         )}
       </>
@@ -304,7 +304,7 @@ function UsageState({ usage, refresh }: { usage: AiUsage; refresh: () => void })
         <Text style={[s.detail, { color: theme.text }]}>{message}</Text>
       </View>
       {usage.status === "not-subscribed" ? (
-        <SecondaryButton label="See Votic Plus" onPress={() => router.push("/paywall")} />
+        <SecondaryButton label="See Votic Plus" on_press={() => router.push("/paywall")} />
       ) : null}
     </>
   );
@@ -330,7 +330,7 @@ function AccountAiUsage() {
           <Text accessibilityRole="alert" style={[s.detail, { color: theme.text }]}>
             {load.message}
           </Text>
-          <SecondaryButton label="Try again" onPress={refresh} />
+          <SecondaryButton label="Try again" on_press={refresh} />
         </View>
       ) : (
         <UsageState usage={load.usage} refresh={refresh} />

@@ -16,29 +16,29 @@ type AccessibilityPreferences = {
   /** Initial device motion preference and local settings have both loaded. */
   motionReady: boolean;
   textSize: TextSize;
-  setTextSize: (value: TextSize) => void;
+  set_text_size: (value: TextSize) => void;
   readingSpacing: ReadingSpacing;
-  setReadingSpacing: (value: ReadingSpacing) => void;
+  set_reading_spacing: (value: ReadingSpacing) => void;
   readerFont: ReaderFont;
-  setReaderFont: (value: ReaderFont) => void;
+  set_reader_font: (value: ReaderFont) => void;
   textSpacing: TextSpacing;
-  setTextSpacing: (value: TextSpacing) => void;
+  set_text_spacing: (value: TextSpacing) => void;
   highlightMode: HighlightMode;
-  setHighlightMode: (value: HighlightMode) => void;
+  set_highlight_mode: (value: HighlightMode) => void;
   voiceIdentifier: string | null;
-  setVoiceIdentifier: (value: string | null) => void;
+  set_voice_identifier: (value: string | null) => void;
   /** True when Votic or the device asks for less motion. */
   reduceMotion: boolean;
   /** The device's own Reduce Motion setting, which Votic always follows. */
   systemReduceMotion: boolean;
-  setReduceMotion: (value: boolean) => void;
+  set_reduce_motion: (value: boolean) => void;
   sentenceFlow: boolean;
-  setSentenceFlow: (value: boolean) => void;
+  set_sentence_flow: (value: boolean) => void;
   wordEmphasis: boolean;
-  setWordEmphasis: (value: boolean) => void;
+  set_word_emphasis: (value: boolean) => void;
   /** Stronger text and border contrast for the Reader's page, in every reader theme. */
   highContrast: boolean;
-  setHighContrast: (value: boolean) => void;
+  set_high_contrast: (value: boolean) => void;
 };
 
 const AccessibilityContext = createContext<AccessibilityPreferences | null>(null);
@@ -123,26 +123,26 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
         hydrated,
         motionReady: hydrated && systemMotionReady,
         textSize,
-        setTextSize,
+        set_text_size: setTextSize,
         readingSpacing,
-        setReadingSpacing,
+        set_reading_spacing: setReadingSpacing,
         readerFont,
-        setReaderFont,
+        set_reader_font: setReaderFont,
         textSpacing,
-        setTextSpacing,
+        set_text_spacing: setTextSpacing,
         highlightMode,
-        setHighlightMode,
+        set_highlight_mode: setHighlightMode,
         voiceIdentifier,
-        setVoiceIdentifier,
+        set_voice_identifier: setVoiceIdentifier,
         reduceMotion,
         systemReduceMotion,
-        setReduceMotion,
+        set_reduce_motion: setReduceMotion,
         sentenceFlow,
         wordEmphasis,
-        setSentenceFlow,
-        setWordEmphasis,
+        set_sentence_flow: setSentenceFlow,
+        set_word_emphasis: setWordEmphasis,
         highContrast,
-        setHighContrast,
+        set_high_contrast: setHighContrast,
       }}
     >
       {children}
@@ -154,14 +154,14 @@ export function AccessibilityProvider({ children }: PropsWithChildren) {
 export function AccountHighlightPreferences({
   children,
   highlightMode,
-  setHighlightMode,
+  set_highlight_mode,
 }: PropsWithChildren<{
   highlightMode: HighlightMode;
-  setHighlightMode: (value: HighlightMode) => void;
+  set_highlight_mode: (value: HighlightMode) => void;
 }>) {
   const parent = useAccessibilityPreferences();
   return (
-    <AccessibilityContext.Provider value={{ ...parent, highlightMode, setHighlightMode }}>
+    <AccessibilityContext.Provider value={{ ...parent, highlightMode, set_highlight_mode }}>
       {children}
     </AccessibilityContext.Provider>
   );

@@ -192,12 +192,12 @@ function ReaderContent() {
     activeDocument,
     flush,
     documents,
-    openDocument,
-    savePassage,
-    removePassage,
-    updateProgress,
-    completeDocument,
-    updatePlaybackRate,
+    open_document,
+    save_passage,
+    remove_passage,
+    update_progress,
+    complete_document,
+    update_playback_rate,
   } = useDocumentLibrary();
   const {
     showSaved,
@@ -302,7 +302,7 @@ function ReaderContent() {
     },
     index,
   );
-  const { recordAsk } = useActivity();
+  const { record_ask } = useActivity();
   const hasAskConversation =
     askMessages.length > 0 || askSending || Boolean(askError) || Boolean(conversationSummary) || summarizing;
   // Answers drawn from the document (not notices such as a daily limit) can be saved and summarized.
@@ -312,12 +312,12 @@ function ReaderContent() {
   // What applies to the whole conversation sits in the header's menu rather than under the answers.
   // Summaries cover both sides of the conversation; Quick notes opens the Notes editor.
   const conversationActions: AskConversationAction[] = [
-    { label: "Quick notes", icon: "create-outline", onPress: quickNote.open_quick_note },
+    { label: "Quick notes", icon: "create-outline", on_press: quickNote.open_quick_note },
     {
       label: "Summarize",
       icon: "sparkles-outline",
       disabled: !documentAnswers || summarizing || askSending,
-      onPress: () => void summarize_conversation(),
+      on_press: () => void summarize_conversation(),
     },
     ...(documentAnswers
       ? [
@@ -325,7 +325,7 @@ function ReaderContent() {
             label: conversationSaved ? "Conversation saved to Notes" : "Save conversation to Notes",
             icon: "bookmark-outline" as const,
             done: conversationSaved,
-            onPress: save_conversation_to_notes,
+            on_press: save_conversation_to_notes,
           },
         ]
       : []),
@@ -344,7 +344,7 @@ function ReaderContent() {
   // Word-by-word progress stays local; the library (and storage) hears about it every couple of seconds and on pause/close.
   const [progressSync] = useState(() =>
     create_throttled_saver<{ id: string; progress: number; index: number; wordIndex: number }>((value) => {
-      if (!completedRef.current) updateProgress(value.id, value.progress, value.index, value.wordIndex);
+      if (!completedRef.current) update_progress(value.id, value.progress, value.index, value.wordIndex);
     }, PROGRESS_SYNC_INTERVAL_MS),
   );
   const readingType = reader_type(
@@ -391,21 +391,21 @@ function ReaderContent() {
   }, [nativePlayer, activeId, listening]);
 
   // Effect events read the latest render's functions without restarting the effects that call them.
-  const onHardwareBack = useEffectEvent(() => {
+  const on_hardware_back = useEffectEvent(() => {
     // With Ask Votic open, Back closes it (the same way as its X) and the Reader stays open.
     if (find.open) find.close();
     else if (askOpen) close_ask_votic();
     else void close_reader();
     return true;
   });
-  const onAskSettled = useEffectEvent((opened: boolean) => {
+  const on_ask_settled = useEffectEvent((opened: boolean) => {
     if (opened) setAskPhase("open");
     else finish_ask_close();
   });
-  const onAskClosed = useEffectEvent(() => finish_ask_close());
+  const on_ask_closed = useEffectEvent(() => finish_ask_close());
   // Listen mode keeps the spoken word in view. In Read mode the reader's own scrolling sets the
   // position, so the page only moves for an explicit jump such as a seek.
-  const onPositionChange = useEffectEvent(() => {
+  const on_position_change = useEffectEvent(() => {
     if (scrollToPosition.current) {
       scrollToPosition.current = false;
       follow_active_word(true);
@@ -423,7 +423,7 @@ function ReaderContent() {
     [],
   );
   useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => onHardwareBack());
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => on_hardware_back());
     return () => subscription.remove();
   }, []);
   useEffect(() => {
@@ -452,10 +452,10 @@ function ReaderContent() {
     [progressSync],
   );
   useEffect(() => {
-    onPositionChange();
+    on_position_change();
   }, [index, wordIndex, accessibility.reduceMotion, accessibility.sentenceFlow]);
   // Read entry cancels queued utterances and voice previews without moving the saved position.
-  const onReadEntry = useEffectEvent(() => {
+  const on_read_entry = useEffectEvent(() => {
     void progressSync.flush();
     setPlaying(false);
     setPreviewVoiceIdentifier(null);
@@ -467,12 +467,12 @@ function ReaderContent() {
     speechSession.current += 1;
     void Speech.stop();
     void nativePlayer?.pause().catch(() => {});
-    const frame = requestAnimationFrame(() => onReadEntry());
+    const frame = requestAnimationFrame(() => on_read_entry());
     return () => cancelAnimationFrame(frame);
   }, [listening, nativePlayer]);
   // Continue Listening from Home starts narration once it is ready.
   const autoplayed = useRef(false);
-  const onReadyToAutoplay = useEffectEvent(() => {
+  const on_ready_to_autoplay = useEffectEvent(() => {
     const state = nativePlayer?.get_state();
     if (state && valid_playback_state(state, uid) && state.documentId === activeId && state.playing) return;
     speak();
@@ -481,12 +481,12 @@ function ReaderContent() {
     if (!listening || !readerReady || autoplayed.current || params.autoplay !== "1" || !passages.length)
       return;
     autoplayed.current = true;
-    onReadyToAutoplay();
+    on_ready_to_autoplay();
   }, [listening, readerReady, params.autoplay, passages.length]);
   useEffect(() => {
     askGeneration.current += 1;
     const frame = requestAnimationFrame(() => {
-      onAskClosed();
+      on_ask_closed();
       setAskQuestion("");
       setAskMessages([]);
       setAskSending(false);
@@ -527,14 +527,14 @@ function ReaderContent() {
       useNativeDriver: true,
     });
     animation.start(({ finished }) => {
-      if (finished) onAskSettled(opening);
+      if (finished) on_ask_settled(opening);
     });
     return () => animation.stop();
   }, [askPhase, askProgress]);
 
   function open_ask_votic() {
     if (askPhase === "opening" || askPhase === "open") return;
-    onboarding.markTipSeen("reader-ask");
+    onboarding.mark_tip_seen("reader-ask");
     void stop();
     if (accessibility.reduceMotion) {
       askProgress.stopAnimation();
@@ -583,7 +583,7 @@ function ReaderContent() {
     const generation = askGeneration.current;
     const context = resolve_ask_votic_context(documents, activeDocument, {});
     const history = askMessages;
-    recordAsk(ask_event_for(clean, { newConversation: history.length === 0 }));
+    record_ask(ask_event_for(clean, { newConversation: history.length === 0 }));
     setAskQuestion("");
     setAskError("");
     setAskMessages((current) => [...current, { role: "user", text: clean }]);
@@ -600,7 +600,7 @@ function ReaderContent() {
         answer.answer,
       );
       // Only a real answer counts toward "Ask Votic a question"; a notice (such as a limit) doesn't.
-      if (grounded && answer.mode !== "built-in") onboarding.recordAskedVotic();
+      if (grounded && answer.mode !== "built-in") onboarding.record_asked_votic();
       if (generation !== askGeneration.current) return;
       setAskMessages((current) => [
         ...current,
@@ -656,7 +656,7 @@ function ReaderContent() {
               playing: answerListening.playingKey === String(messageIndex),
               failed: answerListening.errorKey === String(messageIndex),
               disabled: askVoiceBusy,
-              onPress: () => void answerListening.toggle(String(messageIndex), message.text, stop),
+              on_press: () => void answerListening.toggle(String(messageIndex), message.text, stop),
             }}
           />
         </View>
@@ -684,7 +684,7 @@ function ReaderContent() {
                 section={message.sectionTitle}
                 documentTitle={document_heading(activeDocument, "this document")}
                 filename={activeDocument?.sourceName}
-                onPress={message.link ? () => open_ask_answer_link(message.link!) : undefined}
+                on_press={message.link ? () => open_ask_answer_link(message.link!) : undefined}
               />
             </View>
           }
@@ -695,13 +695,13 @@ function ReaderContent() {
             playing: answerListening.playingKey === String(messageIndex),
             failed: answerListening.errorKey === String(messageIndex),
             disabled: askVoiceBusy,
-            onPress: () => void answerListening.toggle(String(messageIndex), message.text, stop),
+            on_press: () => void answerListening.toggle(String(messageIndex), message.text, stop),
           }}
           save={
             message.source
               ? {
                   saved: Boolean(message.saved),
-                  onPress: () => save_ask_answer(messageIndex),
+                  on_press: () => save_ask_answer(messageIndex),
                 }
               : null
           }
@@ -736,13 +736,13 @@ function ReaderContent() {
               playing: answerListening.playingKey === "summary",
               failed: answerListening.errorKey === "summary",
               disabled: askVoiceBusy,
-              onPress: () => void answerListening.toggle("summary", conversationSummary.text, stop),
+              on_press: () => void answerListening.toggle("summary", conversationSummary.text, stop),
             }}
             save={
               conversationSummary.source
                 ? {
                     saved: Boolean(conversationSummary.saved),
-                    onPress: save_conversation_summary,
+                    on_press: save_conversation_summary,
                     label: "Save conversation summary to Notes",
                     savedLabel: "Conversation summary saved to Notes",
                   }
@@ -766,7 +766,7 @@ function ReaderContent() {
       `votic-note-${now}-${Math.random().toString(36).slice(2, 7)}`,
     );
     if (!note) return;
-    if (!savePassage(note.documentId, note.passage)) return;
+    if (!save_passage(note.documentId, note.passage)) return;
     setAskMessages((current) =>
       current.map((item, index) => (index === messageIndex ? { ...item, saved: true } : item)),
     );
@@ -827,7 +827,7 @@ function ReaderContent() {
     );
     if (!note) return;
     if (
-      !savePassage(note.documentId, {
+      !save_passage(note.documentId, {
         ...note.passage,
         title: "Ask Votic conversation summary",
         noteType: "key-point",
@@ -857,7 +857,7 @@ function ReaderContent() {
     );
     if (!note) return;
     if (
-      !savePassage(note.documentId, {
+      !save_passage(note.documentId, {
         ...note.passage,
         title: "Ask Votic conversation",
         noteType: "note",
@@ -870,7 +870,7 @@ function ReaderContent() {
 
   function open_ask_answer_link(link: AskLink) {
     if (!documents.some((document) => document.id === link.documentId)) return;
-    openDocument(link.documentId, link.sentenceIndex);
+    open_document(link.documentId, link.sentenceIndex);
     // The Reader keeps its own position, so a link into the open document has to move it here too.
     if (link.documentId === activeId && passages[link.sentenceIndex] !== undefined) {
       setIndex(link.sentenceIndex);
@@ -891,7 +891,7 @@ function ReaderContent() {
       void stop().catch(() => {});
     }
     // Cleanup starts immediately; a slow native speech promise must not hold navigation hostage.
-    transition.closeReader(() => router.back());
+    transition.close_reader(() => router.back());
   }
   function prepare_reader() {
     if (!viewportHeight.current) return;
@@ -1006,7 +1006,7 @@ function ReaderContent() {
       completedRef.current = false;
       setIndex(at);
       setWordIndex(startWord);
-      onboarding.markTipSeen("reader-listen");
+      onboarding.mark_tip_seen("reader-listen");
       // The service's state event sets playing after TTS is ready, rather than pretending audio started.
     } catch {
       if (session !== speechSession.current) return;
@@ -1037,7 +1037,7 @@ function ReaderContent() {
     setIndex(at);
     setWordIndex(segment.startWord);
     setPlaying(true);
-    onboarding.markTipSeen("reader-listen");
+    onboarding.mark_tip_seen("reader-listen");
     // The device's speech engine can fail without a callback (for example with no voices installed), so a passage that
     // never starts is reported instead of leaving Play silently doing nothing.
     const guard = speech_start_guard(() => {
@@ -1120,7 +1120,7 @@ function ReaderContent() {
     setIndex(location.sentenceIndex);
     setWordIndex(location.wordIndex);
     completedRef.current = false;
-    updateProgress(activeDocument.id, value, location.sentenceIndex, location.wordIndex);
+    update_progress(activeDocument.id, value, location.sentenceIndex, location.wordIndex);
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
@@ -1134,7 +1134,7 @@ function ReaderContent() {
     const resumeAt = { index, wordIndex };
     if (resume) await stop();
     setRate(nextRate);
-    if (activeDocument) updatePlaybackRate(activeDocument.id, nextRate);
+    if (activeDocument) update_playback_rate(activeDocument.id, nextRate);
     if (resume) {
       const session = speechSession.current + 1;
       speechSession.current = session;
@@ -1154,7 +1154,7 @@ function ReaderContent() {
     setPlaying(false);
     setIndex(finalIndex);
     setWordIndex(finalWord);
-    completeDocument(activeDocument.id, finalIndex, finalWord);
+    complete_document(activeDocument.id, finalIndex, finalWord);
     setCompletionOpen(true);
   }
 
@@ -1197,7 +1197,7 @@ function ReaderContent() {
     const note = answer_note_for_source(documents, source, finishSummary.text, now, `votic-summary-${now}`);
     if (!note) return;
     if (
-      !savePassage(note.documentId, {
+      !save_passage(note.documentId, {
         ...note.passage,
         noteType: "key-point",
         tags: ["votic", "summary"],
@@ -1221,7 +1221,7 @@ function ReaderContent() {
   function open_next_up(id: string) {
     close_completion();
     void stop();
-    openDocument(id);
+    open_document(id);
     router.replace({ pathname: "/reader", params: { mode: listening ? "listen" : "read" } });
   }
   const { totalSeconds, elapsedSeconds } = useReaderDuration(activeDocument?.plainText, rate, progress);
@@ -1231,7 +1231,7 @@ function ReaderContent() {
   const passageId = "passage-" + index;
   const savedPassage = activeDocument?.savedPassages?.find((saved) => saved.id === passageId);
   function open_save_passage() {
-    onboarding.markTipSeen("reader-bookmark");
+    onboarding.mark_tip_seen("reader-bookmark");
     void stop();
     setSaveOpen(true);
   }
@@ -1255,7 +1255,7 @@ function ReaderContent() {
     if (!activeDocument || !passages[index]) return;
     const now = Date.now();
     if (
-      !savePassage(activeDocument.id, {
+      !save_passage(activeDocument.id, {
         id: passageId,
         sentenceIndex: index,
         text: passages[index],
@@ -1278,7 +1278,7 @@ function ReaderContent() {
   }
   function confirm_remove_passage() {
     if (!activeDocument || !savedPassage) return;
-    removePassage(activeDocument.id, savedPassage.id);
+    remove_passage(activeDocument.id, savedPassage.id);
     setSaveOpen(false);
   }
 
@@ -1390,7 +1390,7 @@ function ReaderContent() {
                   stop={stop}
                   find={find}
                   voiceName={current_voice_name(voiceNames, accessibility.voiceIdentifier)}
-                  onVoice={() => setSheet("voice")}
+                  on_voice={() => setSheet("voice")}
                 />
                 <View
                   ref={progressTarget}
@@ -1425,8 +1425,8 @@ function ReaderContent() {
                   </View>
                   <SeekableProgress
                     value={progress}
-                    onSeekStart={begin_seek}
-                    onSeek={(value) => void seek_to(value)}
+                    on_seek_start={begin_seek}
+                    on_seek={(value) => void seek_to(value)}
                   />
                 </View>
                 {!listening ? (
@@ -1437,20 +1437,20 @@ function ReaderContent() {
                       wordIndex={find.location?.word ?? wordIndex}
                       findQuery={find.open ? find.query.trim() : ""}
                       textStyle={readingType}
-                      onReady={() => {
+                      on_ready={() => {
                         if (!readerPrepared.current) {
                           readerPrepared.current = true;
                           setReaderReady(true);
                           start_reader_transition();
                         }
                       }}
-                      onLocation={(at, word) => {
+                      on_location={(at, word) => {
                         if (find.open) return;
                         engaged();
                         setIndex(at);
                         setWordIndex(word);
                         if (activeId)
-                          updateProgress(activeId, progress_for_location(passages, at, word), at, word);
+                          update_progress(activeId, progress_for_location(passages, at, word), at, word);
                       }}
                     />
                   </View>
@@ -1716,27 +1716,27 @@ function ReaderContent() {
                           icon="text-outline"
                           label="Text"
                           active={sheet === "text"}
-                          onPress={() => setSheet("text")}
+                          on_press={() => setSheet("text")}
                         />
                         <ToolButton
                           icon="color-palette-outline"
                           label="Color"
                           active={sheet === "color"}
-                          onPress={() => setSheet("color")}
+                          on_press={() => setSheet("color")}
                         />
                         {listening ? (
                           <ToolButton
                             icon="headset-outline"
                             label="Listen"
                             active={sheet === "listen" || playing}
-                            onPress={() => setSheet("listen")}
+                            on_press={() => setSheet("listen")}
                           />
                         ) : null}
                         <ToolButton
                           icon={savedPassage ? "bookmark" : "bookmark-outline"}
                           label="Bookmark"
                           active={saveOpen}
-                          onPress={open_save_passage}
+                          on_press={open_save_passage}
                         />
                         {listening ? (
                           // Reading focus only adjusts the spoken-text highlight, so it belongs to Listen mode.
@@ -1744,7 +1744,7 @@ function ReaderContent() {
                             icon="ellipsis-horizontal"
                             label="More"
                             active={sheet === "focus"}
-                            onPress={() => setSheet("focus")}
+                            on_press={() => setSheet("focus")}
                           />
                         ) : null}
                       </View>
@@ -1890,16 +1890,16 @@ function ReaderContent() {
                         key={activeId}
                         active={!askClosing}
                         value={askQuestion}
-                        onPhaseChange={(phase) => {
+                        on_phase_change={(phase) => {
                           if (phase === "starting") {
                             void answerListening.stop();
                             void stop();
                           }
                           setAskVoicePhase(phase);
                         }}
-                        onLevelChange={(value) => setAskVoiceLevel({ value, at: Date.now() })}
-                        onErrorChange={setAskVoiceError}
-                        onRevealChange={setAskVoiceReveal}
+                        on_level_change={(value) => setAskVoiceLevel({ value, at: Date.now() })}
+                        on_error_change={setAskVoiceError}
+                        on_reveal_change={setAskVoiceReveal}
                         onChangeText={setAskQuestion}
                         onFocus={() => askInputRef.current?.focus()}
                         disabled={askSending || summarizing}
@@ -1930,43 +1930,43 @@ function ReaderContent() {
 
             <ReaderSettingsSheet
               sheet={sheet}
-              onClose={() => setSheet(null)}
+              on_close={() => setSheet(null)}
               rate={rate}
-              onRateChange={change_rate}
+              on_rate_change={change_rate}
               voices={voices}
               voiceNames={voiceNames}
               voicesLoaded={voicesLoaded}
               previewVoiceIdentifier={previewVoiceIdentifier}
-              onPreviewVoice={(voice, name) => {
+              on_preview_voice={(voice, name) => {
                 if (previewVoiceIdentifier === voice.identifier) void stop();
                 else void preview_voice(voice, name);
               }}
-              onSelectVoice={(voice) => {
+              on_select_voice={(voice) => {
                 void stop();
-                accessibility.setVoiceIdentifier(voice.identifier);
+                accessibility.set_voice_identifier(voice.identifier);
               }}
             />
             <CompletionModal
               visible={completionOpen}
-              onClose={close_completion}
+              on_close={close_completion}
               title={document_heading(activeDocument, "")}
               timeSpentSeconds={document_time_spent(activeDocument)}
               passageCount={passages.length}
               canSummarize={passages.length >= MIN_PASSAGES_TO_SUMMARIZE}
               summary={finishSummary}
-              onSummarize={() => void summarize_finished_document()}
+              on_summarize={() => void summarize_finished_document()}
               summaryListen={{
                 playing: summaryListening.playingKey === "finish-summary",
                 failed: summaryListening.errorKey === "finish-summary",
-                onPress: () =>
+                on_press: () =>
                   finishSummary.status === "ready" &&
                   void summaryListening.toggle("finish-summary", finishSummary.text, stop),
               }}
-              onSaveSummary={save_finish_summary}
-              onAskFollowUp={ask_follow_up}
+              on_save_summary={save_finish_summary}
+              on_ask_follow_up={ask_follow_up}
               nextUpTitle={nextUp ? document_heading(nextUp, "Next document") : null}
-              onNextUp={() => nextUp && open_next_up(nextUp.id)}
-              onAddDocument={() => {
+              on_next_up={() => nextUp && open_next_up(nextUp.id)}
+              on_add_document={() => {
                 close_completion();
                 router.replace("/documents");
               }}
@@ -1975,9 +1975,9 @@ function ReaderContent() {
               visible={saveOpen}
               passageText={passages[index] || ""}
               savedPassage={savedPassage}
-              onClose={() => setSaveOpen(false)}
-              onSave={confirm_save_passage}
-              onRemove={confirm_remove_passage}
+              on_close={() => setSaveOpen(false)}
+              on_save={confirm_save_passage}
+              on_remove={confirm_remove_passage}
             />
             {quickNote.editor}
           </SafeAreaView>

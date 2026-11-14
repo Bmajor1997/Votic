@@ -48,12 +48,12 @@ test("only beta testers see the founder offer, it survives the end of beta, and 
   const store = create_usage_store(beta_env);
   try {
     // During the beta, testers get in free and the paywall (and founder offer) never shows.
-    await server({ env: beta_env, usageStore: store, authorize: () => ({ uid }), authorizePremium: premium }, async (base) => {
+    await server({ env: beta_env, usageStore: store, authorize: () => ({ uid }), authorize_premium: premium }, async (base) => {
       assert.deepEqual(await access(base), { uid: "tester", allowed: true, beta: true });
       uid = "tester2"; await access(base);
     });
     // Beta access switched off at launch: testers hit the paywall and see the founder offer; others don't.
-    await server({ env: launch_env, usageStore: store, authorize: () => ({ uid }), authorizePremium: premium }, async (base) => {
+    await server({ env: launch_env, usageStore: store, authorize: () => ({ uid }), authorize_premium: premium }, async (base) => {
       uid = "tester";
       const offered = await access(base);
       assert.equal(offered.allowed, false);
@@ -73,13 +73,13 @@ test("only beta testers see the founder offer, it survives the end of beta, and 
     });
     // After the end date the offer is gone even below the cap.
     const closed = { ...launch_env, VOTIC_FOUNDER_LIMIT: "100", VOTIC_FOUNDER_ENDS_AT: new Date(Date.now() - 1000).toISOString() };
-    await server({ env: closed, usageStore: store, authorize: () => ({ uid: "tester2" }), authorizePremium: premium }, async (base) => {
+    await server({ env: closed, usageStore: store, authorize: () => ({ uid: "tester2" }), authorize_premium: premium }, async (base) => {
       assert.equal((await access(base)).founderOffer, undefined);
     });
     // Deleting an account forgets that it was a beta tester.
-    store.beginAccountDeletion("tester2");
-    assert.equal(store.founder.wasBetaTester("tester2"), false);
-    assert.equal(store.founder.purchaseCount(), 2);
+    store.begin_account_deletion("tester2");
+    assert.equal(store.founder.was_beta_tester("tester2"), false);
+    assert.equal(store.founder.purchase_count(), 2);
   } finally { store.close(); rmSync(folder, { recursive: true, force: true }); }
 });
 
@@ -97,7 +97,7 @@ test("founders get every future upgrade free: the highest plan and its AI allowa
   premium.subscription = async () => ({ allowed: true, productId: product, store: "play_store", periodStart: "2026-11-01T00:00:00Z", periodEnd: null });
   const store = create_usage_store(env);
   try {
-    await server({ env, usageStore: store, authorize: () => ({ uid: "founder" }), authorizePremium: premium }, async (base) => {
+    await server({ env, usageStore: store, authorize: () => ({ uid: "founder" }), authorize_premium: premium }, async (base) => {
       const usage = await (await post(base + "/api/ai-usage")).json();
       assert.equal(usage.plan.name, "Votic Founder");
       assert.equal(usage.monthly.allowance, 4000);

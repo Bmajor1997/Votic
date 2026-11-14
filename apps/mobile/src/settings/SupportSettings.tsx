@@ -32,7 +32,7 @@ export function SupportSettings() {
           detail={SUPPORT_EMAIL}
           hint="Opens your email app with a new message to Votic support"
           icon="mail-outline"
-          onPress={() => void compose()}
+          on_press={() => void compose()}
         />
       </SettingsGroup>
       <Text selectable style={{ color: theme.mutedText, fontSize: 15, lineHeight: 23 }}>

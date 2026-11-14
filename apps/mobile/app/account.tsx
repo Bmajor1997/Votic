@@ -9,7 +9,7 @@ export default function AccountManagement() {
       title="Account & Membership"
       backLabel="Back to Votic"
       backHint="Returns to Votic without changing your account"
-      onBack={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+      on_back={() => (router.canGoBack() ? router.back() : router.replace("/"))}
     >
       <AccountSettings />
     </SettingsPage>

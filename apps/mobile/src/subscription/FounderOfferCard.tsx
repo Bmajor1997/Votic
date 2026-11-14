@@ -16,13 +16,13 @@ export function FounderOfferCard({
   product,
   busy,
   disabled,
-  onBuy,
+  on_buy,
 }: {
   offer: FounderOffer;
   product: FounderProduct;
   busy: boolean;
   disabled: boolean;
-  onBuy: () => void;
+  on_buy: () => void;
 }) {
   const { theme } = useVoticTheme();
   const availability = founder_availability(offer);
@@ -55,7 +55,7 @@ export function FounderOfferCard({
         busy={busy}
         disabled={disabled}
         accessibilityHint={`One-time payment of ${product.priceString}. ${availability}.`}
-        onPress={onBuy}
+        on_press={on_buy}
       />
     </View>
   );

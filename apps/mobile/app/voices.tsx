@@ -27,10 +27,10 @@ export default function VoicesScreen() {
           loaded={loaded}
           selected={accessibility.voiceIdentifier}
           previewing={preview.previewing}
-          onPreview={(voice, name) => void preview.toggle(voice, name)}
-          onSelect={(voice) => {
+          on_preview={(voice, name) => void preview.toggle(voice, name)}
+          on_select={(voice) => {
             preview.stop();
-            accessibility.setVoiceIdentifier(voice.identifier);
+            accessibility.set_voice_identifier(voice.identifier);
           }}
         />
       </ScrollView>

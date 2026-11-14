@@ -10,16 +10,16 @@ import { useWordmarkEntrance } from "./WordmarkEntrance";
  */
 export function HomeLogoEntrance({ ready }: { ready: boolean }) {
   const entrance = useWordmarkEntrance();
-  const { setHomeReady, setHomeFocused } = entrance;
+  const { set_home_ready, set_home_focused } = entrance;
   useEffect(() => {
-    setHomeReady(ready);
-    return () => setHomeReady(false);
-  }, [ready, setHomeReady]);
+    set_home_ready(ready);
+    return () => set_home_ready(false);
+  }, [ready, set_home_ready]);
   useFocusEffect(
     useCallback(() => {
-      setHomeFocused(true);
-      return () => setHomeFocused(false);
-    }, [setHomeFocused]),
+      set_home_focused(true);
+      return () => set_home_focused(false);
+    }, [set_home_focused]),
   );
   return (
     <Animated.View testID="home-logo-entrance" pointerEvents="none">

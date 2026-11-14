@@ -20,7 +20,7 @@ export type ImportFailure = { name: string | null; message: string };
  */
 export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErrors = false } = {}) {
   const saveImported = useImportSave();
-  const { ensureCanAddDocument } = useDocumentLibrary();
+  const { ensure_can_add_document } = useDocumentLibrary();
   const ocrReview = useOcrReview();
   const session = useImportSession();
   const { defaultPlaybackRate } = useVoticPurpose();
@@ -65,9 +65,9 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
       name = asset.name;
       setProcessingName(asset.name);
       validate_import({ name: asset.name, size: asset.size, uri: asset.uri, mimeType: asset.mimeType });
-      ensureCanAddDocument();
+      ensure_can_add_document();
       // A photo needs a text review afterwards; check that one can open before paying for text recognition.
-      if (is_page_photo(asset.name)) ocrReview.ensureAvailable();
+      if (is_page_photo(asset.name)) ocrReview.ensure_available();
       const response = await fetch(asset.uri, { signal: job.signal });
       if (!response.ok)
         throw new Error("Votic could not access this file. Please choose it again from your device.");
@@ -93,7 +93,7 @@ export function useDocumentImport(sourceRef: RefObject<View | null>, { inlineErr
     importing,
     processingName,
     failure,
-    dismissFailure: () => setFailure(null),
+    dismiss_failure: () => setFailure(null),
     importDocument: import_document,
   };
 }
@@ -113,11 +113,11 @@ export function open_from(
   }
   source.measureInWindow((x, y, width, height) => {
     if (!heading?.node) {
-      transition.openReader({ x, y, width, height }, () => router.push(target));
+      transition.open_reader({ x, y, width, height }, () => router.push(target));
       return;
     }
     heading.node.measureInWindow((tx, ty, tw, th) =>
-      transition.openReader(
+      transition.open_reader(
         { x, y, width, height, heading: { text: heading.text, x: tx, y: ty, width: tw, height: th } },
         () => router.push(target),
       ),

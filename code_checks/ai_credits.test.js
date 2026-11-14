@@ -254,7 +254,7 @@ test("account deletion removes the account's credit history and later purchases 
     store.credits.reserve({ uid: "gone", request_id: "r1", feature: "help", credits: 1001, period });
     store.credits.charge("r1");
     wallet.refund({ ...event, id: "refund", type: "CANCELLATION", event_timestamp_ms: 2000 });
-    store.beginAccountDeletion("gone");
+    store.begin_account_deletion("gone");
     assert.equal(wallet.refund({ ...event, id: "reversal", type: "REFUND_REVERSED", event_timestamp_ms: 3000 }).processed, false);
     assert.deepEqual(store.credits.records("gone"), []);
     assert.equal(wallet.balance("gone"), 0);

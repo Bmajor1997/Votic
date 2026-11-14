@@ -26,7 +26,7 @@ it("waits for a plan check before showing the five-document upgrade", async () =
   });
   await waitFor(() => expect(screen.getByText("Documents: 5")).toBeTruthy());
   await act(() => {
-    expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/checking your plan/i);
+    expect(() => library.add_text_document("Six.txt", "Example text")).toThrow(/checking your plan/i);
   });
   expect(screen.queryByText("Upgrade to Votic Plus to upload more files")).toBeNull();
   expect(screen.getByText("Documents: 5")).toBeTruthy();
@@ -36,7 +36,7 @@ it("waits for a plan check before showing the five-document upgrade", async () =
       <Probe />
     </AppProviders>,
   );
-  await act(() => library.addTextDocument("Six.txt", "Example text"));
+  await act(() => library.add_text_document("Six.txt", "Example text"));
   expect(screen.getByText("Documents: 6")).toBeTruthy();
 });
 
@@ -50,11 +50,11 @@ it("allows five new Free documents and rejects a sixth", async () => {
   await render_with_providers(<Probe />);
   await waitFor(() => expect(screen.getByText("Documents: 0")).toBeTruthy());
   await act(() => {
-    for (let n = 0; n < 5; n++) library.addTextDocument(`Document ${n}.txt`, "Example text");
+    for (let n = 0; n < 5; n++) library.add_text_document(`Document ${n}.txt`, "Example text");
   });
   expect(screen.getByText("Documents: 5")).toBeTruthy();
   await act(() => {
-    expect(() => library.addTextDocument("Six.txt", "Example text")).toThrow(/five saved documents/i);
+    expect(() => library.add_text_document("Six.txt", "Example text")).toThrow(/five saved documents/i);
   });
   expect(screen.getByText("Upgrade to Votic Plus to upload more files")).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Subscribe to Votic Plus" }));
@@ -86,14 +86,14 @@ it("keeps existing notes editable and blocks a 26th Free note", async () => {
     updatedAt: 1,
   });
   await act(() => {
-    for (let i = 0; i < 25; i++) expect(library.addQuickNote(note(String(i)))).toBe(true);
+    for (let i = 0; i < 25; i++) expect(library.add_quick_note(note(String(i)))).toBe(true);
   });
   expect(screen.getByText("Notes: 25")).toBeTruthy();
   await act(() => {
-    expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true);
+    expect(library.add_quick_note({ ...note("0"), note: "Edited" })).toBe(true);
   });
   await act(() => {
-    expect(library.addQuickNote(note("26"))).toBe(false);
+    expect(library.add_quick_note(note("26"))).toBe(false);
   });
   expect(screen.getByRole("header", { name: "Keep more notes and bookmarks" })).toBeTruthy();
   expect(screen.getByText("Notes: 25")).toBeTruthy();
@@ -111,7 +111,7 @@ it("lets Plus save more than 25 notes", async () => {
   await act(() => {
     for (let i = 0; i < 26; i++)
       expect(
-        library.addQuickNote({
+        library.add_quick_note({
           id: String(i),
           text: "",
           note: "Note",
@@ -148,22 +148,22 @@ it("keeps existing notes after Plus ends and prevents new ones", async () => {
     updatedAt: 1,
   });
   await act(() => {
-    for (let i = 0; i < 26; i++) expect(library.addQuickNote(note(String(i)))).toBe(true);
+    for (let i = 0; i < 26; i++) expect(library.add_quick_note(note(String(i)))).toBe(true);
   });
-  await act(() => fakeSubscriptions.setEntitlement("test-user", entitlement_of("expired")));
+  await act(() => fakeSubscriptions.set_entitlement("test-user", entitlement_of("expired")));
   expect(screen.getByText("Notes: 26")).toBeTruthy();
   await act(() => {
-    expect(library.addQuickNote(note("new"))).toBe(false);
+    expect(library.add_quick_note(note("new"))).toBe(false);
   });
   expect(screen.getByText("Notes: 26")).toBeTruthy();
   await act(() => {
-    expect(library.addQuickNote({ ...note("0"), note: "Edited" })).toBe(true);
+    expect(library.add_quick_note({ ...note("0"), note: "Edited" })).toBe(true);
   });
 });
 
 it("offers only Votic Plus at the Free scan limit, with no credits for sale", async () => {
   fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
-  await render_with_providers(<FreeUpgradeSheet visible reason="scans" onClose={() => {}} />);
+  await render_with_providers(<FreeUpgradeSheet visible reason="scans" on_close={() => {}} />);
   expect(screen.getByText("Keep scanning")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Subscribe to Votic Plus" })).toBeTruthy();
   expect(screen.queryByText(/Buy credits/i)).toBeNull();

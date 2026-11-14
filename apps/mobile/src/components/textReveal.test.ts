@@ -15,7 +15,7 @@ describe("completed text reveal", () => {
     const text = "  First, word.\n\nNext\tline: https://votic.app/help\n";
     const frames: TextRevealFrame[] = [];
     const complete = vi.fn();
-    reveal_completed_text(text, { onFrame: (frame) => frames.push(frame), onComplete: complete });
+    reveal_completed_text(text, { on_frame: (frame) => frames.push(frame), on_complete: complete });
     vi.runAllTimers();
     expect(frames.at(-1)).toEqual(expect.objectContaining({ visible: text, complete: true }));
     expect(frames.every((frame) => text.startsWith(frame.visible))).toBe(true);
@@ -26,8 +26,8 @@ describe("completed text reveal", () => {
     const frames: TextRevealFrame[] = [];
     reveal_completed_text(prefix + "One two.", {
       startAt: prefix.length,
-      onFrame: (frame) => frames.push(frame),
-      onComplete: vi.fn(),
+      on_frame: (frame) => frames.push(frame),
+      on_complete: vi.fn(),
     });
     expect(frames[0].visible).toBe(prefix);
     vi.advanceTimersByTime(40);
@@ -37,34 +37,34 @@ describe("completed text reveal", () => {
   });
   it("finishes long text in at most 2.4 seconds", () => {
     const complete = vi.fn();
-    reveal_completed_text("word ".repeat(10000), { onFrame: vi.fn(), onComplete: complete });
+    reveal_completed_text("word ".repeat(10000), { on_frame: vi.fn(), on_complete: complete });
     vi.advanceTimersByTime(2400);
     expect(complete).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
   it("cancels without publishing more words or invoking completion", () => {
-    const onFrame = vi.fn();
-    const onComplete = vi.fn();
-    const cancel = reveal_completed_text("One two three.", { onFrame, onComplete });
+    const on_frame = vi.fn();
+    const on_complete = vi.fn();
+    const cancel = reveal_completed_text("One two three.", { on_frame: on_frame, on_complete: on_complete });
     vi.advanceTimersByTime(40);
     cancel();
-    const calls = onFrame.mock.calls.length;
+    const calls = on_frame.mock.calls.length;
     vi.runAllTimers();
-    expect(onFrame).toHaveBeenCalledTimes(calls);
-    expect(onComplete).not.toHaveBeenCalled();
+    expect(on_frame).toHaveBeenCalledTimes(calls);
+    expect(on_complete).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });
   it("publishes full text immediately without scheduling a timer when animation is disabled", () => {
-    const onFrame = vi.fn();
-    const onComplete = vi.fn();
-    reveal_completed_text("Full text.", { animate: false, onFrame, onComplete });
-    expect(onFrame).toHaveBeenCalledWith({
+    const on_frame = vi.fn();
+    const on_complete = vi.fn();
+    reveal_completed_text("Full text.", { animate: false, on_frame: on_frame, on_complete: on_complete });
+    expect(on_frame).toHaveBeenCalledWith({
       text: "Full text.",
       visible: "Full text.",
       highlightStart: 10,
       complete: true,
     });
-    expect(onComplete).toHaveBeenCalledOnce();
+    expect(on_complete).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);
   });
 });
@@ -74,7 +74,7 @@ describe("laying an answer down", () => {
     const text = "Braille has six dots 👆 in two columns.\nEach letter is a pattern.";
     const frames: TextRevealFrame[] = [];
     const complete = vi.fn();
-    lay_down_text(text, { onFrame: (frame) => frames.push(frame), onComplete: complete });
+    lay_down_text(text, { on_frame: (frame) => frames.push(frame), on_complete: complete });
     vi.runAllTimers();
     for (const frame of frames) {
       expect(text.startsWith(frame.visible)).toBe(true);
@@ -91,15 +91,15 @@ describe("laying an answer down", () => {
   it("lays words down at a reading pace: a short answer takes several seconds, a long one at most 15", () => {
     const short = vi.fn();
     lay_down_text("Braille was invented by Louis Braille, a Frenchman, in 1824. It uses six dots.", {
-      onFrame: vi.fn(),
-      onComplete: short,
+      on_frame: vi.fn(),
+      on_complete: short,
     });
     vi.advanceTimersByTime(1500);
     expect(short).not.toHaveBeenCalled();
     vi.advanceTimersByTime(2500);
     expect(short).toHaveBeenCalledOnce();
     const long = vi.fn();
-    lay_down_text("word ".repeat(5000), { onFrame: vi.fn(), onComplete: long });
+    lay_down_text("word ".repeat(5000), { on_frame: vi.fn(), on_complete: long });
     vi.advanceTimersByTime(15_100);
     expect(long).toHaveBeenCalledOnce();
     expect(vi.getTimerCount()).toBe(0);

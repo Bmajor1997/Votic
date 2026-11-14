@@ -65,7 +65,7 @@ describe("document storage", () => {
   it("recovers partially applied chunks before a retry restores the original text", async () => {
     const store = create_document_store("owner");
     const original = doc("a", "Original text.");
-    await store.saveDocuments([original]);
+    await store.save_documents([original]);
     const multiSet = vi.mocked(AsyncStorage.multiSet).getMockImplementation()!;
     let failText = true;
     vi.mocked(AsyncStorage.multiSet).mockImplementation(async (pairs) => {
@@ -78,53 +78,53 @@ describe("document storage", () => {
     });
     try {
       await expect(
-        store.saveDocuments([doc("a", "N".repeat(TEXT_CHUNK_CHARS) + "new tail")]),
+        store.save_documents([doc("a", "N".repeat(TEXT_CHUNK_CHARS) + "new tail")]),
       ).rejects.toThrow("interrupted write");
-      await store.saveDocuments([original]);
-      expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe(original.plainText);
+      await store.save_documents([original]);
+      expect((await create_document_store("owner").load_documents())[0].plainText).toBe(original.plainText);
     } finally {
       vi.mocked(AsyncStorage.multiSet).mockImplementation(multiSet);
     }
   });
   it("keeps replacement text when its ID reuses a removed document chunk key", async () => {
     const store = create_document_store("owner");
-    await store.saveDocuments([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
-    await store.saveDocuments([doc("x:1", "Replacement text.")]);
-    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Replacement text.");
+    await store.save_documents([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
+    await store.save_documents([doc("x:1", "Replacement text.")]);
+    expect((await create_document_store("owner").load_documents())[0].plainText).toBe("Replacement text.");
   });
   it("replays the complete staged save after a metadata failure instead of mixing text chunks", async () => {
     const store = create_document_store("owner");
-    await store.saveDocuments([doc("a", "A".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
+    await store.save_documents([doc("a", "A".repeat(TEXT_CHUNK_CHARS) + "old tail")]);
     const setItem = vi.mocked(AsyncStorage.setItem).getMockImplementation()!;
     let failMetadata = true;
     vi.mocked(AsyncStorage.setItem).mockImplementation(async (key, value) => {
       if (failMetadata && key === account_storage_key(LIBRARY_KEY, "owner")) throw new Error("disk full");
       return setItem(key, value);
     });
-    await expect(store.saveDocuments([doc("a", "New text.")])).rejects.toThrow("disk full");
+    await expect(store.save_documents([doc("a", "New text.")])).rejects.toThrow("disk full");
     failMetadata = false;
-    const reopened = await create_document_store("owner").loadDocuments();
+    const reopened = await create_document_store("owner").load_documents();
     expect(reopened[0].plainText).toBe("New text.");
     expect(memory.has(account_storage_key("votic.mobile.document-save.v1", "owner"))).toBe(false);
     vi.mocked(AsyncStorage.setItem).mockImplementation(setItem);
   });
   it("preserves the old library when staging a replacement fails", async () => {
     const store = create_document_store("owner");
-    await store.saveDocuments([doc("a", "Original text.")]);
+    await store.save_documents([doc("a", "Original text.")]);
     vi.mocked(AsyncStorage.multiSet).mockRejectedValueOnce(new Error("disk full"));
-    await expect(store.saveDocuments([doc("a", "Replacement text.")])).rejects.toThrow("disk full");
-    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Original text.");
+    await expect(store.save_documents([doc("a", "Replacement text.")])).rejects.toThrow("disk full");
+    expect((await create_document_store("owner").load_documents())[0].plainText).toBe("Original text.");
   });
   it("rejects colliding chunk IDs before touching the existing library", async () => {
     const store = create_document_store("owner");
-    await store.saveDocuments([doc("a", "Original text.")]);
+    await store.save_documents([doc("a", "Original text.")]);
     await expect(
-      store.saveDocuments([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "tail"), doc("x:1", "Other document")]),
+      store.save_documents([doc("x", "X".repeat(TEXT_CHUNK_CHARS) + "tail"), doc("x:1", "Other document")]),
     ).rejects.toThrow("identifiers overlap");
-    expect((await create_document_store("owner").loadDocuments())[0].plainText).toBe("Original text.");
+    expect((await create_document_store("owner").load_documents())[0].plainText).toBe("Original text.");
   });
   it("finishes delayed orphan cleanup before exposing a library that can be saved", async () => {
-    await create_document_store().saveDocuments([doc("a", "Alpha text.")]);
+    await create_document_store().save_documents([doc("a", "Alpha text.")]);
     let release!: (keys: string[]) => void;
     vi.mocked(AsyncStorage.getAllKeys).mockImplementationOnce(
       () =>
@@ -134,7 +134,7 @@ describe("document storage", () => {
     );
     const store = create_document_store();
     let loaded = false;
-    const loading = store.loadDocuments().then((documents) => {
+    const loading = store.load_documents().then((documents) => {
       loaded = true;
       return documents;
     });
@@ -142,9 +142,9 @@ describe("document storage", () => {
     expect(loaded).toBe(false);
     release([...memory.keys()]);
     const documents = await loading;
-    await store.saveDocuments([...documents, doc("b", "New text and notes.")]);
+    await store.save_documents([...documents, doc("b", "New text and notes.")]);
     expect(memory.get(document_text_key("b"))).toBe("New text and notes.");
-    expect(await create_document_store().loadDocuments()).toEqual([
+    expect(await create_document_store().load_documents()).toEqual([
       doc("a", "Alpha text."),
       doc("b", "New text and notes."),
     ]);
@@ -152,8 +152,8 @@ describe("document storage", () => {
 
   it("stores metadata without document text, and each text under its own key", async () => {
     const store = create_document_store();
-    await store.loadDocuments();
-    await store.saveDocuments([doc("a", "Alpha text."), doc("b", "Beta text.")]);
+    await store.load_documents();
+    await store.save_documents([doc("a", "Alpha text."), doc("b", "Beta text.")]);
     expect(memory.get(LIBRARY_KEY)).not.toContain("Alpha text.");
     expect(memory.get(document_text_key("a"))).toBe("Alpha text.");
     expect(memory.get(document_text_key("b"))).toBe("Beta text.");
@@ -169,124 +169,124 @@ describe("document storage", () => {
         ],
       }),
     ];
-    await create_document_store().saveDocuments(library);
-    expect(await create_document_store().loadDocuments()).toEqual(library);
+    await create_document_store().save_documents(library);
+    expect(await create_document_store().load_documents()).toEqual(library);
   });
   it("does not rewrite document text when only reading progress changes", async () => {
     const bigText = "word ".repeat(100_000);
     const store = create_document_store();
-    await store.loadDocuments();
-    await store.saveDocuments([doc("a", bigText)]);
+    await store.load_documents();
+    await store.save_documents([doc("a", bigText)]);
     vi.mocked(AsyncStorage.multiSet).mockClear();
     vi.mocked(AsyncStorage.setItem).mockClear();
     for (let word = 1; word <= 20; word += 1)
-      await store.saveDocuments([doc("a", bigText, { wordIndex: word, progress: word / 1000 })]);
+      await store.save_documents([doc("a", bigText, { wordIndex: word, progress: word / 1000 })]);
     expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
     const writes = vi.mocked(AsyncStorage.setItem).mock.calls;
     expect(writes.every(([key, value]) => key === LIBRARY_KEY && value.length < 1000)).toBe(true);
   });
   it("does not rewrite text that was just loaded", async () => {
-    await create_document_store().saveDocuments([doc("a", "Alpha text.")]);
+    await create_document_store().save_documents([doc("a", "Alpha text.")]);
     const store = create_document_store();
-    const loaded = await store.loadDocuments();
+    const loaded = await store.load_documents();
     vi.mocked(AsyncStorage.multiSet).mockClear();
-    await store.saveDocuments([{ ...loaded[0], progress: 0.5 }]);
+    await store.save_documents([{ ...loaded[0], progress: 0.5 }]);
     expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
   });
   it("writes text for newly added documents only", async () => {
     const store = create_document_store();
-    await store.loadDocuments();
-    await store.saveDocuments([doc("a", "Alpha text.")]);
+    await store.load_documents();
+    await store.save_documents([doc("a", "Alpha text.")]);
     vi.mocked(AsyncStorage.multiSet).mockClear();
-    await store.saveDocuments([doc("b", "Beta text."), doc("a", "Alpha text.")]);
+    await store.save_documents([doc("b", "Beta text."), doc("a", "Alpha text.")]);
     expect(AsyncStorage.multiSet).toHaveBeenCalledWith([[document_text_key("b"), "Beta text."]]);
   });
   it("deletes the text of removed documents", async () => {
     const store = create_document_store();
-    await store.loadDocuments();
-    await store.saveDocuments([doc("a", "Alpha text."), doc("b", "Beta text.")]);
-    await store.saveDocuments([doc("b", "Beta text.")]);
+    await store.load_documents();
+    await store.save_documents([doc("a", "Alpha text."), doc("b", "Beta text.")]);
+    await store.save_documents([doc("b", "Beta text.")]);
     expect(memory.has(document_text_key("a"))).toBe(false);
     expect(memory.get(document_text_key("b"))).toBe("Beta text.");
   });
   it("migrates a v1 library to split storage and removes the legacy copy", async () => {
     const legacy = [doc("a", "Alpha text.", { progress: 0.25, sentenceIndex: 4 }), doc("b", "Beta text.")];
     memory.set(LEGACY_KEY, JSON.stringify(legacy));
-    expect(await create_document_store().loadDocuments()).toEqual(legacy);
+    expect(await create_document_store().load_documents()).toEqual(legacy);
     expect(memory.has(LEGACY_KEY)).toBe(false);
     expect(memory.get(document_text_key("a"))).toBe("Alpha text.");
-    expect(await create_document_store().loadDocuments()).toEqual(legacy);
+    expect(await create_document_store().load_documents()).toEqual(legacy);
   });
   it("keeps the legacy copy if migration is interrupted", async () => {
     memory.set(LEGACY_KEY, JSON.stringify([doc("a", "Alpha text.")]));
     vi.mocked(AsyncStorage.setItem).mockRejectedValueOnce(new Error("disk full"));
-    await expect(create_document_store().loadDocuments()).rejects.toThrow("disk full");
+    await expect(create_document_store().load_documents()).rejects.toThrow("disk full");
     expect(memory.has(LEGACY_KEY)).toBe(true);
     expect(memory.has(LIBRARY_KEY)).toBe(false);
   });
   it("starts empty when nothing is saved", async () => {
-    expect(await create_document_store().loadDocuments()).toEqual([]);
+    expect(await create_document_store().load_documents()).toEqual([]);
   });
   it("fails instead of loading an empty library when saved data is corrupt", async () => {
     memory.set(LIBRARY_KEY, "{not json");
-    await expect(create_document_store().loadDocuments()).rejects.toThrow(/could not be read/);
+    await expect(create_document_store().load_documents()).rejects.toThrow(/could not be read/);
   });
   it("sets aside a document whose text is missing without losing it or the rest of the library", async () => {
     const notes = [
       { id: "passage-0", sentenceIndex: 0, text: "Alpha.", note: "keep", createdAt: 1, updatedAt: 1 },
     ];
-    await create_document_store().saveDocuments([
+    await create_document_store().save_documents([
       doc("a", "Alpha text.", { savedPassages: notes }),
       doc("b", "Beta text."),
     ]);
     memory.delete(document_text_key("a"));
     const store = create_document_store();
-    expect(await store.loadDocuments()).toEqual([doc("b", "Beta text.")]);
+    expect(await store.load_documents()).toEqual([doc("b", "Beta text.")]);
     expect(store.unavailableDocuments()).toEqual(["a"]);
     // Saving the readable library keeps the unreadable document's metadata and notes.
-    await store.saveDocuments([doc("b", "Beta text.", { progress: 0.5 })]);
+    await store.save_documents([doc("b", "Beta text.", { progress: 0.5 })]);
     const saved = JSON.parse(memory.get(LIBRARY_KEY) || "[]");
     expect(saved.map((item: VoticDocument) => item.id)).toEqual(["b", "a"]);
     expect(saved[1].savedPassages).toEqual(notes);
     // Once its text is back, it loads again.
     memory.set(document_text_key("a"), "Alpha text.");
     const reloaded = create_document_store();
-    expect((await reloaded.loadDocuments()).map((item) => item.id)).toEqual(["b", "a"]);
+    expect((await reloaded.load_documents()).map((item) => item.id)).toEqual(["b", "a"]);
     expect(reloaded.unavailableDocuments()).toEqual([]);
   });
   it("reads documents one at a time when reading the whole library at once fails", async () => {
-    await create_document_store().saveDocuments([doc("a", "Alpha text."), doc("b", "Beta text.")]);
+    await create_document_store().save_documents([doc("a", "Alpha text."), doc("b", "Beta text.")]);
     vi.mocked(AsyncStorage.multiGet)
       .mockRejectedValueOnce(new Error("Row too big to fit into CursorWindow"))
       .mockRejectedValueOnce(new Error("Row too big to fit into CursorWindow"));
     const store = create_document_store();
-    expect((await store.loadDocuments()).map((item) => item.id)).toEqual(["b"]);
+    expect((await store.load_documents()).map((item) => item.id)).toEqual(["b"]);
     expect(store.unavailableDocuments()).toEqual(["a"]);
   });
   it("splits long text across several stored values and reads it back", async () => {
     const long = "a".repeat(TEXT_CHUNK_CHARS * 2 + 10);
-    await create_document_store().saveDocuments([doc("a", long)]);
+    await create_document_store().save_documents([doc("a", long)]);
     expect(memory.get(document_text_key("a"))).toHaveLength(TEXT_CHUNK_CHARS);
     expect(memory.get(document_text_key("a", 2))).toHaveLength(10);
     for (const value of memory.values()) expect(value.length).toBeLessThanOrEqual(TEXT_CHUNK_CHARS);
-    expect(await create_document_store().loadDocuments()).toEqual([doc("a", long)]);
+    expect(await create_document_store().load_documents()).toEqual([doc("a", long)]);
   });
   it("deletes every chunk of a removed document, and extra chunks when a text gets shorter", async () => {
     const store = create_document_store();
-    await store.loadDocuments();
-    await store.saveDocuments([
+    await store.load_documents();
+    await store.save_documents([
       doc("a", "a".repeat(TEXT_CHUNK_CHARS * 3)),
       doc("b", "b".repeat(TEXT_CHUNK_CHARS + 1)),
     ]);
-    await store.saveDocuments([doc("a", "Short now.")]);
+    await store.save_documents([doc("a", "Short now.")]);
     expect([...memory.keys()].filter((key) => key !== LIBRARY_KEY)).toEqual([document_text_key("a")]);
-    expect(await create_document_store().loadDocuments()).toEqual([doc("a", "Short now.")]);
+    expect(await create_document_store().load_documents()).toEqual([doc("a", "Short now.")]);
   });
   it("removes text left behind by an interrupted save when the library loads", async () => {
-    await create_document_store().saveDocuments([doc("a", "Alpha text.")]);
+    await create_document_store().save_documents([doc("a", "Alpha text.")]);
     memory.set(document_text_key("never-saved"), "Orphaned text.");
     memory.set(document_text_key("a", 1), "Stale chunk.");
-    await create_document_store().loadDocuments();
+    await create_document_store().load_documents();
     await vi.waitFor(() => expect(memory.has(document_text_key("never-saved"))).toBe(false));
     expect(memory.has(document_text_key("a", 1))).toBe(false);
     expect(memory.get(document_text_key("a"))).toBe("Alpha text.");
@@ -304,25 +304,25 @@ describe("account library isolation and recovery", () => {
       updatedAt: 1,
     };
     const a = create_document_store("A");
-    await a.saveDocuments([doc("same-id", "Alpha.", { savedPassages: [note] })]);
+    await a.save_documents([doc("same-id", "Alpha.", { savedPassages: [note] })]);
     const b = create_document_store("B");
-    expect(await b.loadDocuments()).toEqual([]);
-    await b.saveDocuments([doc("same-id", "Beta.")]);
-    await b.loadDocuments();
-    await b.saveDocuments([]);
-    expect(await create_document_store("A").loadDocuments()).toEqual([
+    expect(await b.load_documents()).toEqual([]);
+    await b.save_documents([doc("same-id", "Beta.")]);
+    await b.load_documents();
+    await b.save_documents([]);
+    expect(await create_document_store("A").load_documents()).toEqual([
       doc("same-id", "Alpha.", { savedPassages: [note] }),
     ]);
-    expect(await create_document_store("B").loadDocuments()).toEqual([]);
+    expect(await create_document_store("B").load_documents()).toEqual([]);
   });
 
   it("quarantines the old library until its owner explicitly recovers it, retaining the backup", async () => {
-    await create_document_store().saveDocuments([doc("old", "Older private text.")]);
-    expect(await create_document_store("A").loadDocuments()).toEqual([]);
-    expect(await create_document_store("B").loadDocuments()).toEqual([]);
+    await create_document_store().save_documents([doc("old", "Older private text.")]);
+    expect(await create_document_store("A").load_documents()).toEqual([]);
+    expect(await create_document_store("B").load_documents()).toEqual([]);
     await recover_legacy_device_data("A");
-    expect(await create_document_store("A").loadDocuments()).toEqual([doc("old", "Older private text.")]);
-    expect(await create_document_store("B").loadDocuments()).toEqual([]);
+    expect(await create_document_store("A").load_documents()).toEqual([doc("old", "Older private text.")]);
+    expect(await create_document_store("B").load_documents()).toEqual([]);
     expect(memory.get(document_text_key("old"))).toBe("Older private text.");
     await expect(recover_legacy_device_data("B")).rejects.toThrow(/another account/);
     expect(await legacy_recovery_available("B")).toBe(false);
@@ -340,11 +340,11 @@ describe("account library isolation and recovery", () => {
         ask: [],
       }),
     );
-    await create_document_store("A").saveDocuments([doc("new", "Current text.")]);
+    await create_document_store("A").save_documents([doc("new", "Current text.")]);
     await save_collections(["Current collection"], "A");
     await recover_legacy_device_data("A");
     await recover_legacy_device_data("A");
-    expect((await create_document_store("A").loadDocuments()).map((document) => document.id)).toEqual([
+    expect((await create_document_store("A").load_documents()).map((document) => document.id)).toEqual([
       "new",
       "old",
     ]);
@@ -358,7 +358,7 @@ describe("account library isolation and recovery", () => {
   });
 
   it("retries interrupted recovery only for the original owner without deleting backup text", async () => {
-    await create_document_store().saveDocuments([doc("old", "Private text.")]);
+    await create_document_store().save_documents([doc("old", "Private text.")]);
     vi.mocked(AsyncStorage.setItem)
       .mockImplementationOnce(async (key, value) => {
         memory.set(key, value);
@@ -369,7 +369,7 @@ describe("account library isolation and recovery", () => {
     expect(await legacy_recovery_available("B")).toBe(false);
     expect(memory.get(document_text_key("old"))).toBe("Private text.");
     await recover_legacy_device_data("A");
-    expect(await create_document_store("A").loadDocuments()).toEqual([doc("old", "Private text.")]);
+    expect(await create_document_store("A").load_documents()).toEqual([doc("old", "Private text.")]);
   });
 
   it("preserves unreadable document metadata and notes during recovery", async () => {
@@ -381,13 +381,15 @@ describe("account library isolation and recovery", () => {
       createdAt: 1,
       updatedAt: 1,
     };
-    await create_document_store().saveDocuments([doc("missing", "Missing text.", { savedPassages: [note] })]);
+    await create_document_store().save_documents([
+      doc("missing", "Missing text.", { savedPassages: [note] }),
+    ]);
     memory.delete(document_text_key("missing"));
     await recover_legacy_device_data("A");
     const store = create_document_store("A");
-    expect(await store.loadDocuments()).toEqual([]);
+    expect(await store.load_documents()).toEqual([]);
     expect(store.unavailableDocuments()).toEqual(["missing"]);
-    await store.saveDocuments([]);
+    await store.save_documents([]);
     expect(JSON.parse(memory.get(account_storage_key(LIBRARY_KEY, "A"))!)[0].savedPassages).toEqual([note]);
   });
 });
@@ -399,7 +401,7 @@ describe("damaged library resource limits", () => {
       const raw = JSON.stringify([{ ...doc("kept", ""), textChunks }]);
       memory.set(LIBRARY_KEY, raw);
       memory.set(document_text_key("kept"), "Original text");
-      await expect(create_document_store().loadDocuments()).rejects.toThrow(/invalid/);
+      await expect(create_document_store().load_documents()).rejects.toThrow(/invalid/);
       expect(memory.get(LIBRARY_KEY)).toBe(raw);
       expect(memory.get(document_text_key("kept"))).toBe("Original text");
       expect(AsyncStorage.multiGet).not.toHaveBeenCalled();
@@ -409,13 +411,13 @@ describe("damaged library resource limits", () => {
     "rejects invalid positions %j",
     async (extra) => {
       memory.set(LIBRARY_KEY, JSON.stringify([doc("kept", "", extra)]));
-      await expect(create_document_store().loadDocuments()).rejects.toThrow(/invalid/);
+      await expect(create_document_store().load_documents()).rejects.toThrow(/invalid/);
       expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();
     },
   );
   it("rejects over-limit saves before any storage writes", async () => {
     await expect(
-      create_document_store().saveDocuments([doc("large", "x".repeat(10_000_001))]),
+      create_document_store().save_documents([doc("large", "x".repeat(10_000_001))]),
     ).rejects.toThrow(/safe limits/);
     expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
   });
@@ -425,7 +427,7 @@ it("rejects oversized metadata before writing document text", async () => {
   const documents = Array.from({ length: 1600 }, (_, i) =>
     doc(String(i), "text", { title: "x".repeat(1000) }),
   );
-  await expect(create_document_store().saveDocuments(documents)).rejects.toThrow(
+  await expect(create_document_store().save_documents(documents)).rejects.toThrow(
     /metadata exceeds safe limits/,
   );
   expect(AsyncStorage.multiSet).not.toHaveBeenCalled();
@@ -433,7 +435,7 @@ it("rejects oversized metadata before writing document text", async () => {
 it("preserves oversized stored metadata without cleanup or text allocation", async () => {
   const raw = JSON.stringify([{ ...doc("kept", ""), savedPassages: [{ note: "x".repeat(1_500_000) }] }]);
   memory.set(LIBRARY_KEY, raw);
-  await expect(create_document_store().loadDocuments()).rejects.toThrow(/data has been kept/);
+  await expect(create_document_store().load_documents()).rejects.toThrow(/data has been kept/);
   expect(memory.get(LIBRARY_KEY)).toBe(raw);
   expect(AsyncStorage.multiGet).not.toHaveBeenCalled();
   expect(AsyncStorage.multiRemove).not.toHaveBeenCalled();

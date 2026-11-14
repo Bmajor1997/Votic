@@ -11,12 +11,12 @@ import { notebook_counts_label } from "../notebookCounts";
 /** A notebook's summary and sharing controls, shown above its notes. */
 export function NotebookHeader({
   notebook,
-  onBack,
-  onShare,
+  on_back,
+  on_share,
 }: {
   notebook: VoticDocument;
-  onBack: () => void;
-  onShare: () => void;
+  on_back: () => void;
+  on_share: () => void;
 }) {
   const { theme } = useVoticTheme();
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -28,7 +28,7 @@ export function NotebookHeader({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Back to all notes"
-        onPress={onBack}
+        onPress={on_back}
         style={s.back}
       >
         <Ionicons name="chevron-back" size={20} color={theme.accentText} />
@@ -62,7 +62,7 @@ export function NotebookHeader({
         {toolsOpen ? (
           <View style={[s.actions, { borderTopColor: theme.border }]}>
             <Text style={[s.toolsCopy, { color: theme.mutedText }]}>Work with this notebook</Text>
-            <NotebookAction icon="share-outline" label="Share notebook" onPress={onShare} />
+            <NotebookAction icon="share-outline" label="Share notebook" on_press={on_share} />
           </View>
         ) : null}
       </View>
@@ -73,18 +73,18 @@ export function NotebookHeader({
 function NotebookAction({
   icon,
   label,
-  onPress,
+  on_press,
 }: {
   icon: ComponentProps<typeof Ionicons>["name"];
   label: string;
-  onPress: () => void;
+  on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={onPress}
+      onPress={on_press}
       style={[s.action, { borderColor: theme.border }]}
     >
       <Ionicons name={icon} size={17} color={theme.accent} />

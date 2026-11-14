@@ -62,7 +62,7 @@ export default function TabLayout() {
   const { reduceMotion } = useAccessibilityPreferences();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
-  const { registerTarget, pressed } = useWalkthrough();
+  const { register_target, pressed } = useWalkthrough();
   // Tab buttons are drawn by the navigator, so the walkthrough locates them from the bar's layout.
   useEffect(() => {
     const tab_rect = (index: number) => async () => ({
@@ -71,13 +71,13 @@ export default function TabLayout() {
       width: window.width / VISIBLE_TABS,
       height: TAB_BAR_HEIGHT,
     });
-    registerTarget("tab.documents", tab_rect(1));
-    registerTarget("tab.notes", tab_rect(2));
+    register_target("tab.documents", tab_rect(1));
+    register_target("tab.notes", tab_rect(2));
     return () => {
-      registerTarget("tab.documents", null);
-      registerTarget("tab.notes", null);
+      register_target("tab.documents", null);
+      register_target("tab.notes", null);
     };
-  }, [registerTarget, window.width, window.height, insets.bottom]);
+  }, [register_target, window.width, window.height, insets.bottom]);
   return (
     <View style={[s.navigator, { backgroundColor: theme.background }]}>
       <Tabs

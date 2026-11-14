@@ -15,8 +15,8 @@ function Harness() {
         index={0}
         wordIndex={word}
         textStyle={{ fontSize: 18 }}
-        onLocation={(_, next) => setWord(next)}
-        onReady={() => {}}
+        on_location={(_, next) => setWord(next)}
+        on_ready={() => {}}
       />
       <Text>{`Saved word ${word}`}</Text>
       <Pressable
@@ -64,8 +64,8 @@ it("opens a saved spot on its own page, so the page shown matches the page label
       index={0}
       wordIndex={4}
       textStyle={{ fontSize: 18 }}
-      onLocation={() => {}}
-      onReady={() => {}}
+      on_location={() => {}}
+      on_ready={() => {}}
     />,
   );
   await fireEvent(screen.getByTestId("reading-pages"), "layout", {
