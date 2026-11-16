@@ -55,17 +55,29 @@ export function normalize_pronunciation_entry(term: string, pronunciation: strin
 function is_word_character(value: string | undefined) {
   return Boolean(value && /[\p{L}\p{N}]/u.test(value));
 }
-function escape_pattern(value: string) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
 /** An all-capitals entry (an acronym such as "US" or "NASA") only matches capitals, so it never changes "us". */
 function is_acronym(term: string) {
   return /\p{Lu}/u.test(term) && !/\p{Ll}/u.test(term);
 }
-function entry_pattern(term: string) {
-  // Words of a phrase may be split by any spacing in the document, including line breaks from PDFs.
-  const source = term.trim().split(/\s+/).map(escape_pattern).join("\\s+");
-  return new RegExp(source, is_acronym(term) ? "uy" : "iuy");
+function is_space(value: string | undefined) {
+  return Boolean(value && /\s/.test(value));
+}
+/**
+ * Where a term ends if it starts at `start`, or -1. Words of a phrase may be split by any spacing in the document,
+ * including line breaks from PDFs. Compared character by character, so a typed term is never run as a pattern.
+ */
+function match_end(text: string, start: number, words: string[], exact: boolean) {
+  let at = start;
+  for (let i = 0; i < words.length; i += 1) {
+    if (i > 0) {
+      if (!is_space(text[at])) return -1;
+      while (is_space(text[at])) at += 1;
+    }
+    const piece = text.slice(at, at + words[i].length);
+    if (exact ? piece !== words[i] : piece.toLocaleLowerCase() !== words[i].toLocaleLowerCase()) return -1;
+    at += words[i].length;
+  }
+  return at;
 }
 
 type SpokenPiece = { spokenStart: number; sourceStart: number; replaced: boolean };
@@ -79,7 +91,11 @@ export function pronounce(text: string, entries: PronunciationEntry[]) {
   const matchers = [...entries]
     .filter((entry) => entry.term.trim() && entry.pronunciation.trim())
     .sort((a, b) => b.term.length - a.term.length)
-    .map((entry) => ({ pattern: entry_pattern(entry.term), pronunciation: entry.pronunciation }));
+    .map((entry) => ({
+      words: entry.term.trim().split(/\s+/),
+      exact: is_acronym(entry.term),
+      pronunciation: entry.pronunciation,
+    }));
   const pieces: SpokenPiece[] = [];
   let spoken = "";
   let copiedFrom = 0;
@@ -87,10 +103,8 @@ export function pronounce(text: string, entries: PronunciationEntry[]) {
     for (let cursor = 0; cursor < text.length; cursor += 1) {
       if (cursor > 0 && is_word_character(text[cursor - 1])) continue;
       for (const matcher of matchers) {
-        matcher.pattern.lastIndex = cursor;
-        const match = matcher.pattern.exec(text);
-        if (!match || !match[0]) continue;
-        const end = cursor + match[0].length;
+        const end = match_end(text, cursor, matcher.words, matcher.exact);
+        if (end <= cursor) continue;
         if (end < text.length && is_word_character(text[end]) && is_word_character(text[end - 1])) continue;
         if (cursor > copiedFrom) {
           pieces.push({ spokenStart: spoken.length, sourceStart: copiedFrom, replaced: false });
