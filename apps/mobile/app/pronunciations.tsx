@@ -40,9 +40,13 @@ export default function PronunciationDictionaryScreen() {
     }
   }
   async function remove(id: string) {
-    const next = entries.filter((item) => item.id !== id);
-    await save_pronunciations(uid, next);
-    setEntries(next);
+    try {
+      const next = entries.filter((item) => item.id !== id);
+      await save_pronunciations(uid, next);
+      setEntries(next);
+    } catch (error) {
+      Alert.alert("Could not delete pronunciation", error instanceof Error ? error.message : "Try again.");
+    }
   }
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>

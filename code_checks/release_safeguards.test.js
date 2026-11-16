@@ -16,8 +16,8 @@ import { convert_heif } from "../app_parts/heif_image.js";
 
 test("dependency exceptions expire in the npm gate on the OSV policy date",()=>{
   const report={vulnerabilities:{braces:{severity:"high",via:[{severity:"high",url:"https://github.com/advisories/GHSA-vfj7-8cjw-p6xm"}]}}};
-  assert.equal(checker.blocking_mobile_findings(report,{now:new Date("2026-11-14T23:59:59Z")}).length,0);
-  assert.equal(checker.blocking_mobile_findings(report,{now:new Date("2026-11-15T00:00:00Z")}).length,1);
+  assert.equal(checker.blocking_mobile_findings(report,{now:new Date("2026-12-14T23:59:59Z")}).length,0);
+  assert.equal(checker.blocking_mobile_findings(report,{now:new Date("2026-12-15T00:00:00Z")}).length,1);
 });
 test("reports paginate oldest first and respect a global storage cap",()=>{
   const store=create_usage_store({VOTIC_REPORT_MAX_ROWS:"101"});

@@ -1,6 +1,6 @@
 import { requireOptionalNativeModule } from "expo";
 import { Platform } from "react-native";
-import { apply_pronunciations, type PronunciationEntry } from "../reader/pronunciationDictionary";
+import { pronounce, type PronunciationEntry } from "../reader/pronunciationDictionary";
 import { word_matches } from "../reader/readerText";
 import { normalize_playback_rate } from "./rates";
 
@@ -47,19 +47,13 @@ export function notification_player(): NotificationPlayback | null {
 /** Keeps native boundaries aligned with the original text, including custom pronunciations. */
 export function notification_passages(passages: string[], pronunciations: PronunciationEntry[]) {
   return passages.map((source) => {
-    const text = apply_pronunciations(source, pronunciations);
-    const matches = word_matches(text);
-    const sourceCount = word_matches(source).length;
+    const spoken = pronounce(source, pronunciations);
+    const matches = word_matches(spoken.text);
     return {
-      text,
+      text: spoken.text,
       offsets: matches.map((word) => word.index ?? 0),
-      words: matches.map((_word, index) =>
-        source === text
-          ? index
-          : Math.min(
-              sourceCount - 1,
-              Math.round((index / Math.max(1, matches.length - 1)) * Math.max(0, sourceCount - 1)),
-            ),
+      words: matches.map((word, index) =>
+        source === spoken.text ? index : spoken.source_word_at(word.index ?? 0),
       ),
     };
   });
