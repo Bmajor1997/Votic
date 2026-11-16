@@ -108,7 +108,8 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, votic_voice_preview } from "../src/reader/voices";
 import { current_voice_name, useDeviceVoices } from "../src/voices/useDeviceVoices";
-import { load_pronunciations, pronounce, PronunciationEntry } from "../src/reader/pronunciationDictionary";
+import { pronounce } from "../src/reader/pronunciationDictionary";
+import { PronunciationSheet, usePronunciationEditor } from "../src/reader/components/PronunciationSheet";
 import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
 import {
@@ -264,7 +265,11 @@ function ReaderContent() {
   const [conversationSaved, setConversationSaved] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const { voices, names: voiceNames, loaded: voicesLoaded } = useDeviceVoices();
-  const [pronunciations, setPronunciations] = useState<PronunciationEntry[]>([]);
+  // The saved pronunciations, and the word pressed and held in Listen mode while its sheet is open. Opening it pauses.
+  const pronunciationEditor = usePronunciationEditor(uid, () => {
+    if (playing) void stop();
+  });
+  const pronunciations = pronunciationEditor.entries;
   const [previewVoiceIdentifier, setPreviewVoiceIdentifier] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
   const askScrollRef = useRef<ScrollView>(null);
@@ -407,9 +412,6 @@ function ReaderContent() {
     } else if (listening && accessibility.sentenceFlow) follow_active_word();
   });
 
-  useEffect(() => {
-    void load_pronunciations(uid).then(setPronunciations);
-  }, [uid]);
   useEffect(
     () => () => {
       speechSession.current += 1;
@@ -1493,6 +1495,18 @@ function ReaderContent() {
                           <Text
                             key={passageIndex}
                             onLayout={(event) => measure_sentence(passageIndex, event)}
+                            {...(current &&
+                              listening && {
+                                accessibilityActions: [
+                                  { name: "fix_pronunciation", label: "Fix how the current word is said" },
+                                ],
+                                onAccessibilityAction: (event: { nativeEvent: { actionName: string } }) => {
+                                  if (event.nativeEvent.actionName === "fix_pronunciation")
+                                    pronunciationEditor.open(
+                                      tokens.find((token) => token.word === wordIndex)?.text,
+                                    );
+                                },
+                              })}
                             style={[
                               s.sentence,
                               readingType,
@@ -1512,6 +1526,7 @@ function ReaderContent() {
                                 return (
                                   <Text
                                     key={tokenIndex}
+                                    onLongPress={() => pronunciationEditor.open(token.text)}
                                     style={
                                       active && wordHighlight
                                         ? {
@@ -1976,6 +1991,15 @@ function ReaderContent() {
               on_close={() => setSaveOpen(false)}
               on_save={confirm_save_passage}
               on_remove={confirm_remove_passage}
+            />
+            <PronunciationSheet
+              visible={pronunciationEditor.word !== null}
+              word={pronunciationEditor.word ?? ""}
+              uid={uid ?? ""}
+              entries={pronunciations}
+              playbackRate={rate}
+              on_close={pronunciationEditor.close}
+              on_saved={pronunciationEditor.set_entries}
             />
             {quickNote.editor}
           </SafeAreaView>

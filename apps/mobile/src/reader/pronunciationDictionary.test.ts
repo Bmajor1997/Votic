@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { apply_pronunciations, normalize_pronunciation_entry, pronounce } from "./pronunciationDictionary";
+import {
+  apply_pronunciations,
+  find_pronunciation,
+  normalize_pronunciation_entry,
+  pronounce,
+  term_from_word,
+  with_pronunciation,
+} from "./pronunciationDictionary";
 
 // vi.mock calls are hoisted above the imports.
 
@@ -70,5 +77,22 @@ describe("pronunciation dictionary", () => {
     const spoken = pronounce("Plain words here", []);
     expect(spoken.text).toBe("Plain words here");
     expect(spoken.source_word_at(6)).toBe(1);
+  });
+
+  it("takes the word to teach from a held word without punctuation or a possessive", () => {
+    expect(term_from_word("clearly.")).toBe("clearly");
+    expect(term_from_word("“Votic,”")).toBe("Votic");
+    expect(term_from_word("Votic's")).toBe("Votic");
+    expect(term_from_word("(NASA)")).toBe("NASA");
+    expect(term_from_word("C++")).toBe("C++");
+    expect(term_from_word("…")).toBe("");
+  });
+
+  it("finds and replaces a saved entry whatever its capitalization", () => {
+    const first = with_pronunciation([], entry("Votic", "VOH-tick"));
+    expect(find_pronunciation(first, "votic")?.pronunciation).toBe("VOH-tick");
+    const next = with_pronunciation(first, entry("VOTIC", "voe tick"));
+    expect(next).toHaveLength(1);
+    expect(next[0].pronunciation).toBe("voe tick");
   });
 });
