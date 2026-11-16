@@ -144,3 +144,23 @@ export function pronounce(text: string, entries: PronunciationEntry[]) {
 export function apply_pronunciations(text: string, entries: PronunciationEntry[]) {
   return pronounce(text, entries).text;
 }
+
+/** The word to teach from one a reader pressed: without surrounding punctuation or a possessive "'s". */
+export function term_from_word(word: string) {
+  return word
+    .trim()
+    .replace(/^[\s"'“”‘’()[\]{}<>.,;:!?…—–-]+/u, "")
+    .replace(/[\s"'“”‘’()[\]{}<>.,;:!?…—–-]+$/u, "")
+    .replace(/['’]s$/iu, "");
+}
+
+/** The saved entry for a term, matched the same way the entry would be stored. */
+export function find_pronunciation(entries: PronunciationEntry[], term: string) {
+  const id = term.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  return entries.find((entry) => entry.id === id);
+}
+
+/** Adds or replaces one entry (newest first) and returns the new list to save. */
+export function with_pronunciation(entries: PronunciationEntry[], entry: PronunciationEntry) {
+  return [entry, ...entries.filter((item) => item.id !== entry.id)];
+}
