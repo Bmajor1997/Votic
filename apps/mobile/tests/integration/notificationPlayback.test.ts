@@ -17,6 +17,13 @@ describe("notification narration", () => {
     expect(passage.words.at(-1)).toBe(2);
     expect(passage.words.every((word) => word >= 0 && word <= 2)).toBe(true);
   });
+  it("follows the right word on the lock screen after a long pronunciation", () => {
+    const [passage] = notification_passages(
+      ["NASA launched a rocket."],
+      [{ id: "nasa", term: "NASA", pronunciation: "national aeronautics and space administration" }],
+    );
+    expect(passage.words).toEqual([0, 0, 0, 0, 0, 1, 2, 3]);
+  });
   it("passes the complete document queue and selected voice to native playback", () => {
     const payload = JSON.parse(
       notification_payload(

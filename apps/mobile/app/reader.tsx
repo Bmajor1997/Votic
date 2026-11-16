@@ -108,12 +108,7 @@ import {
 } from "../src/reader/readerText";
 import { DeviceVoice, votic_voice_preview } from "../src/reader/voices";
 import { current_voice_name, useDeviceVoices } from "../src/voices/useDeviceVoices";
-import {
-  apply_pronunciations,
-  load_pronunciations,
-  PronunciationEntry,
-  source_word_at_spoken_offset,
-} from "../src/reader/pronunciationDictionary";
+import { load_pronunciations, pronounce, PronunciationEntry } from "../src/reader/pronunciationDictionary";
 import { ReaderThemeProvider, useVoticTheme } from "../src/theme/ThemeProvider";
 import { WalkthroughOverlay } from "../src/walkthrough/WalkthroughOverlay";
 import {
@@ -1029,7 +1024,8 @@ function ReaderContent() {
     if (session !== speechSession.current) return;
     const passage = passages[at];
     const segment = speech_segment(passage, startWord);
-    const spokenText = apply_pronunciations(segment.text, pronunciations);
+    const spoken = pronounce(segment.text, pronunciations);
+    const spokenText = spoken.text;
     // Keep each passage continuous so the voice retains sentence rhythm and pronunciation.
     // Each utterance has its own token: late callbacks from a finished passage are stale.
     const utterance = ++speechUtterance.current;
@@ -1060,7 +1056,9 @@ function ReaderContent() {
         const next =
           spokenText === segment.text
             ? word_at_speech_offset(segment, boundary)
-            : segment.startWord + source_word_at_spoken_offset(segment.text, spokenText, boundary);
+            : Number.isFinite(boundary)
+              ? segment.startWord + spoken.source_word_at(boundary)
+              : null;
         if (next !== null) setWordIndex(next);
       },
       onDone: () => {

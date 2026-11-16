@@ -55,50 +55,78 @@ export function normalize_pronunciation_entry(term: string, pronunciation: strin
 function is_word_character(value: string | undefined) {
   return Boolean(value && /[\p{L}\p{N}]/u.test(value));
 }
-function replace_whole_term(text: string, term: string, pronunciation: string) {
-  if (!term) return text;
-  const lowerText = text.toLocaleLowerCase();
-  const lowerTerm = term.toLocaleLowerCase();
-  let cursor = 0;
-  let result = "";
-  while (cursor < text.length) {
-    const index = lowerText.indexOf(lowerTerm, cursor);
-    if (index < 0) {
-      result += text.slice(cursor);
-      break;
-    }
-    const end = index + term.length;
-    const hasBoundaryBefore = index === 0 || !is_word_character(text[index - 1]);
-    const hasBoundaryAfter = end === text.length || !is_word_character(text[end]);
-    if (hasBoundaryBefore && hasBoundaryAfter) {
-      result += text.slice(cursor, index) + pronunciation;
-      cursor = end;
-    } else {
-      result += text.slice(cursor, end);
-      cursor = end;
-    }
-  }
-  return result;
+function escape_pattern(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
-export function apply_pronunciations(text: string, entries: PronunciationEntry[]) {
-  let spoken = text;
-  for (const entry of [...entries].sort((a, b) => b.term.length - a.term.length)) {
-    spoken = replace_whole_term(spoken, entry.term, entry.pronunciation);
-  }
-  return spoken;
+/** An all-capitals entry (an acronym such as "US" or "NASA") only matches capitals, so it never changes "us". */
+function is_acronym(term: string) {
+  return /\p{Lu}/u.test(term) && !/\p{Ll}/u.test(term);
+}
+function entry_pattern(term: string) {
+  // Words of a phrase may be split by any spacing in the document, including line breaks from PDFs.
+  const source = term.trim().split(/\s+/).map(escape_pattern).join("\\s+");
+  return new RegExp(source, is_acronym(term) ? "uy" : "iuy");
 }
 
-export function source_word_at_spoken_offset(sourceText: string, spokenText: string, charIndex: number) {
-  const sourceWords = [...sourceText.matchAll(/\S+/g)];
-  const spokenWords = [...spokenText.matchAll(/\S+/g)];
-  if (!sourceWords.length || !spokenWords.length) return 0;
-  let spokenIndex = 0;
-  for (let i = 0; i < spokenWords.length; i += 1) {
-    if ((spokenWords[i].index ?? 0) > Math.max(0, charIndex)) break;
-    spokenIndex = i;
+type SpokenPiece = { spokenStart: number; sourceStart: number; replaced: boolean };
+
+/**
+ * The text to speak with custom pronunciations applied, in one pass (a replacement is never replaced again), and a map
+ * from a character the speech engine reports back to the word of the original text, so the highlight follows the voice
+ * even when a pronunciation has a different number of words.
+ */
+export function pronounce(text: string, entries: PronunciationEntry[]) {
+  const matchers = [...entries]
+    .filter((entry) => entry.term.trim() && entry.pronunciation.trim())
+    .sort((a, b) => b.term.length - a.term.length)
+    .map((entry) => ({ pattern: entry_pattern(entry.term), pronunciation: entry.pronunciation }));
+  const pieces: SpokenPiece[] = [];
+  let spoken = "";
+  let copiedFrom = 0;
+  if (matchers.length) {
+    for (let cursor = 0; cursor < text.length; cursor += 1) {
+      if (cursor > 0 && is_word_character(text[cursor - 1])) continue;
+      for (const matcher of matchers) {
+        matcher.pattern.lastIndex = cursor;
+        const match = matcher.pattern.exec(text);
+        if (!match || !match[0]) continue;
+        const end = cursor + match[0].length;
+        if (end < text.length && is_word_character(text[end]) && is_word_character(text[end - 1])) continue;
+        if (cursor > copiedFrom) {
+          pieces.push({ spokenStart: spoken.length, sourceStart: copiedFrom, replaced: false });
+          spoken += text.slice(copiedFrom, cursor);
+        }
+        pieces.push({ spokenStart: spoken.length, sourceStart: cursor, replaced: true });
+        spoken += matcher.pronunciation;
+        copiedFrom = end;
+        cursor = end - 1;
+        break;
+      }
+    }
   }
-  return Math.min(
-    sourceWords.length - 1,
-    Math.round((spokenIndex / Math.max(1, spokenWords.length - 1)) * Math.max(0, sourceWords.length - 1)),
-  );
+  if (copiedFrom < text.length || !pieces.length) {
+    pieces.push({ spokenStart: spoken.length, sourceStart: copiedFrom, replaced: false });
+    spoken += text.slice(copiedFrom);
+  }
+  const sourceWordStarts = [...text.matchAll(/\S+/g)].map((word) => word.index ?? 0);
+  function source_word_at(charIndex: number) {
+    const at = Math.max(0, Number.isFinite(charIndex) ? charIndex : 0);
+    let piece = pieces[0];
+    for (const candidate of pieces) {
+      if (candidate.spokenStart > at) break;
+      piece = candidate;
+    }
+    const sourceOffset = piece.replaced ? piece.sourceStart : piece.sourceStart + (at - piece.spokenStart);
+    let word = 0;
+    for (let i = 0; i < sourceWordStarts.length; i += 1) {
+      if (sourceWordStarts[i] > sourceOffset) break;
+      word = i;
+    }
+    return word;
+  }
+  return { text: spoken, source_word_at };
+}
+
+export function apply_pronunciations(text: string, entries: PronunciationEntry[]) {
+  return pronounce(text, entries).text;
 }
