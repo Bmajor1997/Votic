@@ -12,7 +12,7 @@ import { useVoticTheme } from "../theme/ThemeProvider";
 import { useDeviceVoices } from "../voices/useDeviceVoices";
 import { featured_voices, is_high_quality, voice_accent } from "../voices/voiceDetails";
 import { PrimaryButton, StepScaffold } from "./components";
-import { ListeningPreference, PersonalizationAnswers } from "./onboardingModel";
+import { LISTENING_FOR, PersonalizationAnswers } from "./onboardingModel";
 import { PREVIEW_SAMPLES } from "./sampleDocument";
 
 /** Each speed with a word for how it feels, so the choice is about pace rather than a number. */
@@ -33,13 +33,6 @@ const HIGHLIGHTS: { value: HighlightMode; label: string; short: string; detail: 
   { value: "sentence", label: "Sentences only", short: "Sentences", detail: "A calmer highlight" },
   { value: "off", label: "No highlighting", short: "None", detail: "Just listen" },
 ];
-/** The listening answers saved with this account for each highlight choice. */
-const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
-  both: ["highlight-words", "highlight-sentence"],
-  word: ["highlight-words"],
-  sentence: ["highlight-sentence"],
-  off: [],
-};
 const AVATAR_COLORS = ["#2563EB", "#1F5C4D", "#9333EA", "#C2410C"];
 /** Where Android keeps its text-to-speech engine and voice downloads. */
 const ANDROID_TTS_SETTINGS = "com.android.settings.TTS_SETTINGS";
@@ -78,9 +71,6 @@ export function ListeningStep({
   const { defaultPlaybackRate, set_default_playback_rate } = personalization;
   const sample = PREVIEW_SAMPLES[personalization.purpose ?? "default"];
   const listenWords = sample.text.split(" ");
-  const [playing, setPlaying] = useState(false);
-  const [word, setWord] = useState(-1);
-  const session = useRef(0);
   const highlightMode = a.highlightMode === "word" ? "both" : a.highlightMode;
   const { voices, loaded, names } = useDeviceVoices();
   // A few voices to try here, ordered once so choosing one doesn't reshuffle them; the full list is in
@@ -92,49 +82,10 @@ export function ListeningStep({
   // Only suggest better voices when the phone has none: most people never see this.
   const suggestBetterVoices = loaded && voices.length > 0 && !voices.some(is_high_quality);
 
-  function stop() {
-    session.current += 1;
-    setPlaying(false);
-    setWord(-1);
-    void Speech.stop();
-  }
+  const { playing, word, play: play_sample, stop } = useSamplePlayback(sample.text);
   function play(rate = defaultPlaybackRate, voice = a.voiceIdentifier) {
-    const id = session.current + 1;
-    session.current = id;
-    setPlaying(true);
-    setWord(0);
-    const done = () => {
-      if (session.current !== id) return;
-      setPlaying(false);
-      setWord(-1);
-    };
-    void Speech.stop()
-      .then(() => {
-        if (session.current !== id) return;
-        Speech.speak(sample.text, {
-          rate,
-          voice: voice || undefined,
-          onBoundary: (event: { charIndex?: number }) => {
-            if (session.current !== id) return;
-            const offset = Number(event?.charIndex);
-            if (!Number.isFinite(offset)) return;
-            setWord(sample.text.slice(0, offset).split(" ").length - 1);
-          },
-          onDone: done,
-          onStopped: done,
-          onError: done,
-        });
-      })
-      .catch(done);
+    play_sample(rate, voice);
   }
-  // Leaving this step (or setup) always stops the sample.
-  useEffect(
-    () => () => {
-      session.current += 1;
-      void Speech.stop();
-    },
-    [],
-  );
 
   /** Choosing a voice saves it for every document and plays the sample in it, so it can be heard at once. */
   function choose_voice(identifier: string) {
@@ -336,7 +287,7 @@ export function ListeningStep({
 }
 
 /** Sample rendering stays separate from the step's voice, speed and preference controls. */
-function ListeningPlayer({
+export function ListeningPlayer({
   access: a,
   sample,
   playing,
@@ -593,3 +544,56 @@ const s = StyleSheet.create({
   miniText: { fontSize: 13, lineHeight: 19 },
   followLabel: { fontSize: 14, fontWeight: "700", textAlign: "center" },
 });
+
+/**
+ * Plays a sample passage and reports which word is being spoken, so it can be highlighted. Starting again (or a new
+ * sample) replaces what was playing; leaving the screen always stops it.
+ */
+export function useSamplePlayback(text: string) {
+  const [playing, setPlaying] = useState(false);
+  const [word, setWord] = useState(-1);
+  const session = useRef(0);
+  function stop() {
+    session.current += 1;
+    setPlaying(false);
+    setWord(-1);
+    void Speech.stop();
+  }
+  function play(rate: number, voice: string | null | undefined) {
+    const id = session.current + 1;
+    session.current = id;
+    setPlaying(true);
+    setWord(0);
+    const done = () => {
+      if (session.current !== id) return;
+      setPlaying(false);
+      setWord(-1);
+    };
+    void Speech.stop()
+      .then(() => {
+        if (session.current !== id) return;
+        Speech.speak(text, {
+          rate,
+          voice: voice || undefined,
+          onBoundary: (event: { charIndex?: number }) => {
+            if (session.current !== id) return;
+            const offset = Number(event?.charIndex);
+            if (!Number.isFinite(offset)) return;
+            setWord(text.slice(0, offset).split(" ").length - 1);
+          },
+          onDone: done,
+          onStopped: done,
+          onError: done,
+        });
+      })
+      .catch(done);
+  }
+  useEffect(
+    () => () => {
+      session.current += 1;
+      void Speech.stop();
+    },
+    [],
+  );
+  return { playing, word, play, stop };
+}

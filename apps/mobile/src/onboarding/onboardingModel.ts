@@ -52,8 +52,10 @@ export type OnboardingState = {
   /** Set when the person finishes or skips personalization. */
   personalizationCompletedAt: number | null;
   personalizationSkipped: boolean;
-  /** Set when the person has seen the Home Screen widgets screen during setup. */
+  /** Set when the person has seen the Home Screen widgets screen (during setup, or after their first document). */
   widgetsIntroducedAt: number | null;
+  /** Setup finished in a version that shows the widgets screen after the first document instead of during setup. */
+  widgetsAfterFirstDocument: boolean;
   /** Set when the person finishes the ready recap; subscription access is checked separately. */
   completedAt: number | null;
 };
@@ -74,6 +76,7 @@ export function new_onboarding_state(): OnboardingState {
     personalizationCompletedAt: null,
     personalizationSkipped: false,
     widgetsIntroducedAt: null,
+    widgetsAfterFirstDocument: false,
     completedAt: null,
   };
 }
@@ -238,6 +241,7 @@ export function parse_onboarding_state(raw: string | null): OnboardingState | nu
     personalizationCompletedAt: time(value.personalizationCompletedAt),
     personalizationSkipped: value.personalizationSkipped === true,
     widgetsIntroducedAt: time(value.widgetsIntroducedAt),
+    widgetsAfterFirstDocument: value.widgetsAfterFirstDocument === true,
     completedAt: time(value.completedAt),
   };
 }
@@ -254,3 +258,11 @@ export function highlight_mode_for(listening: ListeningPreference[]): HighlightM
   if (sentence) return "sentence";
   return null;
 }
+
+/** The listening answers saved with this account for each highlight choice. */
+export const LISTENING_FOR: Record<HighlightMode, ListeningPreference[]> = {
+  both: ["highlight-words", "highlight-sentence"],
+  word: ["highlight-words"],
+  sentence: ["highlight-sentence"],
+  off: [],
+};

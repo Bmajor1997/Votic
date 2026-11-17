@@ -34,11 +34,17 @@ export const WIDGET_STEPS: Record<"ios" | "android", Step[]> = {
  * Tells people Votic has Home Screen widgets and how to add one. Shown once during setup (`mode="setup"`,
  * before "Votic is ready for you"), and any time from Settings → Help (`mode="settings"`).
  */
-export function HomeScreenWidgetsIntro({ mode, onDone }: { mode: "setup" | "settings"; onDone: () => void }) {
+export function HomeScreenWidgetsIntro({
+  mode,
+  onDone,
+}: {
+  mode: "setup" | "later" | "settings";
+  onDone: () => void;
+}) {
   const { theme } = useVoticTheme();
   const platform = Platform.OS === "android" ? "android" : "ios";
   useEffect(() => {
-    if (mode === "setup") AccessibilityInfo.announceForAccessibility?.("Votic on your Home Screen.");
+    if (mode !== "settings") AccessibilityInfo.announceForAccessibility?.("Votic on your Home Screen.");
   }, [mode]);
   return (
     <SafeAreaView style={[s.fill, { backgroundColor: theme.background }]}>
@@ -94,7 +100,10 @@ export function HomeScreenWidgetsIntro({ mode, onDone }: { mode: "setup" | "sett
         </View>
       </ScrollView>
       <View style={[s.footer, { borderTopColor: theme.border }]}>
-        <PrimaryButton label={mode === "setup" ? "Continue" : "Done"} on_press={onDone} />
+        <PrimaryButton
+          label={mode === "setup" ? "Continue" : mode === "later" ? "Got it" : "Done"}
+          on_press={onDone}
+        />
       </View>
     </SafeAreaView>
   );

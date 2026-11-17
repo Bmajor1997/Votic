@@ -16,6 +16,7 @@ import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvide
 import { VoticDocument } from "../src/documents/types";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { AccountSetupProvider } from "../src/onboarding/AccountSetupProvider";
+import { IntroProvider } from "../src/onboarding/IntroProvider";
 import {
   OnboardingState as AccountSetupState,
   new_onboarding_state,
@@ -59,25 +60,27 @@ export function AppProviders({ children, measureNode }: PropsWithChildren<{ meas
             <PurposeProvider>
               <AuthProvider>
                 <SubscriptionProvider checkAccess={test_access}>
-                  <AccountSetupProvider>
-                    <AiConsentProvider>
-                      <AccountDataProvider>
-                        <ActivityProvider>
-                          <DocumentLibraryProvider>
-                            <MotionFeedbackProvider>
-                              <OcrReviewProvider>
-                                <DocumentTransitionProvider>
-                                  <WalkthroughProvider measureNode={measureNode}>
-                                    {children}
-                                  </WalkthroughProvider>
-                                </DocumentTransitionProvider>
-                              </OcrReviewProvider>
-                            </MotionFeedbackProvider>
-                          </DocumentLibraryProvider>
-                        </ActivityProvider>
-                      </AccountDataProvider>
-                    </AiConsentProvider>
-                  </AccountSetupProvider>
+                  <IntroProvider>
+                    <AccountSetupProvider>
+                      <AiConsentProvider>
+                        <AccountDataProvider>
+                          <ActivityProvider>
+                            <DocumentLibraryProvider>
+                              <MotionFeedbackProvider>
+                                <OcrReviewProvider>
+                                  <DocumentTransitionProvider>
+                                    <WalkthroughProvider measureNode={measureNode}>
+                                      {children}
+                                    </WalkthroughProvider>
+                                  </DocumentTransitionProvider>
+                                </OcrReviewProvider>
+                              </MotionFeedbackProvider>
+                            </DocumentLibraryProvider>
+                          </ActivityProvider>
+                        </AccountDataProvider>
+                      </AiConsentProvider>
+                    </AccountSetupProvider>
+                  </IntroProvider>
                 </SubscriptionProvider>
               </AuthProvider>
             </PurposeProvider>

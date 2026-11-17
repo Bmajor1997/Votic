@@ -56,12 +56,14 @@ function eligible(
   subscribed: boolean,
   handedOff = subscribed,
   widgetsIntroduced = handedOff,
+  { tourDone = true, widgetsLater = false } = {},
 ) {
   const state = {
     signedIn,
     personalized,
     subscribed,
-    setup: { handedOff, widgetsIntroduced },
+    setup: { handedOff, widgetsIntroduced, widgetsLater },
+    tour: { intro: { done: tourDone } },
   };
   const active = screens.filter((s) => vm.runInNewContext(s.guard, state));
   const protectedNames = new Set(screens.filter((s) => !active.includes(s)).map((s) => s.name));
@@ -113,6 +115,24 @@ describe("filesystem route access using Expo Router", () => {
     expect(completed).toContain("(tabs)");
     expect(completed).not.toContain("ready");
     expect(completed).not.toContain("widgets-intro");
+  });
+  it("shows a new install the tour before the account screens, and never after signing in", () => {
+    const firstLaunch = eligible(false, false, false, false, false, { tourDone: false });
+    expect(firstLaunch).toContain("intro");
+    expect(firstLaunch).not.toContain("welcome");
+    expect(firstLaunch).not.toContain("sign-in");
+    const afterTour = eligible(false, false, false);
+    expect(afterTour).toEqual(expect.arrayContaining(["welcome", "create-account", "sign-in"]));
+    expect(afterTour).not.toContain("intro");
+    expect(eligible(true, false, false, false, false, { tourDone: false })).not.toContain("intro");
+  });
+  it("skips the widgets screen in setup when it comes after the first document", () => {
+    const setup = eligible(true, true, false, false, false, { widgetsLater: true });
+    expect(setup).toContain("ready");
+    expect(setup).not.toContain("widgets-intro");
+    const app = eligible(true, true, true, true, false, { widgetsLater: true });
+    expect(app).toContain("widgets-tip");
+    expect(eligible(true, true, false, false, false)).not.toContain("widgets-tip");
   });
   it("allows paid routes only after setup and entitlement confirmation", () => {
     expect(eligible(true, true, true)).toEqual(
