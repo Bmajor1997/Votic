@@ -122,7 +122,7 @@ export function PersonalizationQuestions(props: { mode: "setup" } | { mode: "edi
   return <ListeningStep {...stepProps} total={STEPS} />;
 }
 
-type StepProps = {
+export type StepProps = {
   access: ReturnType<typeof useAccessibilityPreferences>;
   personalization: ReturnType<typeof useVoticPurpose>;
   step: number;
@@ -134,7 +134,7 @@ type StepProps = {
   finishLabel: string;
 };
 
-function GoalStep({ step, on_back, on_next, personalization }: StepProps) {
+export function GoalStep({ step, on_back, on_next, personalization }: StepProps) {
   const { purpose, set_purpose } = personalization;
   return (
     <StepScaffold
@@ -162,7 +162,7 @@ function GoalStep({ step, on_back, on_next, personalization }: StepProps) {
   );
 }
 
-function ComfortStep({ step, on_back, on_next, access: a, personalization }: StepProps) {
+export function ComfortStep({ step, on_back, on_next, access: a, personalization }: StepProps) {
   const { theme } = useVoticTheme();
   // Each choice applies straight away, so the preview shows exactly what the Reader will look like.
   const choices = [

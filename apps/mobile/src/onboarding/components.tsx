@@ -210,7 +210,8 @@ export function StepScaffold({
   step: number;
   total: number;
   on_back?: () => void;
-  on_skip: () => void;
+  /** Leave it out on a last step, which has nothing to skip to. */
+  on_skip?: () => void;
   title: string;
   subtitle?: string;
   children: ReactNode;
@@ -238,14 +239,16 @@ export function StepScaffold({
         </View>
         <ProgressSegments step={step} total={total} />
         <View style={[s.topSide, s.topRight]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Skip this step"
-            onPress={on_skip}
-            style={({ pressed }) => [s.skip, { opacity: pressed ? 0.55 : 1 }]}
-          >
-            <Text style={[s.skipText, { color: theme.mutedText }]}>Skip</Text>
-          </Pressable>
+          {on_skip ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip this step"
+              onPress={on_skip}
+              style={({ pressed }) => [s.skip, { opacity: pressed ? 0.55 : 1 }]}
+            >
+              <Text style={[s.skipText, { color: theme.mutedText }]}>Skip</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
       <ScrollView contentContainerStyle={s.stepContent} showsVerticalScrollIndicator={false}>

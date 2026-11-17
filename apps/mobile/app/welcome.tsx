@@ -1,12 +1,13 @@
 import { editorial } from "../src/design/editorial";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
+import { useIntro } from "../src/onboarding/IntroProvider";
 import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
 import { useVoticTheme } from "../src/theme/ThemeProvider";
 
@@ -21,6 +22,15 @@ export default function Welcome() {
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
   const mark = useMarkFlight();
+  const { intro } = useIntro();
+  // Straight after the tour: "Create my account" lands here, and "I already have an account" opens Sign in.
+  const fromTour = intro.toured && intro.entry === "create" && !intro.claimedBy;
+  const sentToSignIn = useRef(false);
+  useEffect(() => {
+    if (!intro.toured || intro.entry !== "sign-in" || sentToSignIn.current) return;
+    sentToSignIn.current = true;
+    router.push("/sign-in");
+  }, [intro.toured, intro.entry]);
   return (
     <SafeAreaView style={[s.safe, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
@@ -33,13 +43,27 @@ export default function Welcome() {
         </View>
         <View style={s.bottom}>
           <View style={s.copy}>
-            <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
-              Make room for{"\n"}
-              <Text style={{ color: theme.accentText }}>what matters.</Text>
-            </Text>
-            <Text style={[s.subtitle, { color: theme.mutedText }]}>
-              A place to read, listen, and keep your ideas.
-            </Text>
+            {fromTour ? (
+              <>
+                <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+                  Create your{"\n"}
+                  <Text style={{ color: theme.accentText }}>free account.</Text>
+                </Text>
+                <Text style={[s.subtitle, { color: theme.mutedText }]}>
+                  Your choices from the tour are saved to it.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
+                  Make room for{"\n"}
+                  <Text style={{ color: theme.accentText }}>what matters.</Text>
+                </Text>
+                <Text style={[s.subtitle, { color: theme.mutedText }]}>
+                  A place to read, listen, and keep your ideas.
+                </Text>
+              </>
+            )}
           </View>
           <SocialSignIn
             on_busy_change={setSocialBusy}

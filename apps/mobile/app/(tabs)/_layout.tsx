@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Animated, ColorValue, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAccessibilityPreferences } from "../../src/accessibility/AccessibilityProvider";
+import { useWidgetsTip } from "../../src/onboarding/useWidgetsTip";
 import { useVoticTheme } from "../../src/theme/ThemeProvider";
 import { WalkthroughOverlay } from "../../src/walkthrough/WalkthroughOverlay";
 import { useWalkthrough } from "../../src/walkthrough/WalkthroughProvider";
@@ -63,6 +64,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
   const { register_target, pressed } = useWalkthrough();
+  useWidgetsTip();
   // Tab buttons are drawn by the navigator, so the walkthrough locates them from the bar's layout.
   useEffect(() => {
     const tab_rect = (index: number) => async () => ({

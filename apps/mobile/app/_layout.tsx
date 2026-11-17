@@ -19,6 +19,7 @@ import { AuthProvider, useAuth } from "../src/auth/AuthProvider";
 import { DocumentLibraryProvider } from "../src/documents/DocumentLibraryProvider";
 import { DocumentTransitionProvider } from "../src/navigation/DocumentTransitionProvider";
 import { AccountSetupProvider, useAccountSetup } from "../src/onboarding/AccountSetupProvider";
+import { IntroProvider, useIntro } from "../src/onboarding/IntroProvider";
 import { OnboardingProvider } from "../src/onboarding/OnboardingProvider";
 import { PurposeProvider } from "../src/personalization/PurposeProvider";
 import { SubscriptionProvider, useSubscription } from "../src/subscription/SubscriptionProvider";
@@ -58,11 +59,12 @@ function ThemedStack() {
   const { theme } = useVoticTheme();
   const { user, hydrated } = useAuth();
   const setup = useAccountSetup();
+  const tour = useIntro();
   const subscription = useSubscription();
   const { reduceMotion } = useAccessibilityPreferences();
   useEffect(() => {
-    if (hydrated) Promise.resolve(SplashScreen.hideAsync?.()).catch(() => {});
-  }, [hydrated]);
+    if (hydrated && tour.hydrated) Promise.resolve(SplashScreen.hideAsync?.()).catch(() => {});
+  }, [hydrated, tour.hydrated]);
   useEffect(() => {
     if (!user || !hydrated || setup.loading || subscription.checking) return;
     const frame = requestAnimationFrame(() => {
@@ -71,7 +73,7 @@ function ThemedStack() {
     });
     return () => cancelAnimationFrame(frame);
   }, [user, hydrated, setup.loading, subscription.checking]);
-  if (!hydrated) return null;
+  if (!hydrated || !tour.hydrated) return null;
   const { signedIn, personalized, subscribed, waiting } = app_stage(Boolean(user), setup, subscription);
   if (waiting)
     return (
@@ -108,7 +110,11 @@ function ThemedStack() {
                     }}
                   >
                     {/* Only the screens for the current stage exist, so the router always lands on the right one. */}
-                    <Stack.Protected guard={!signedIn}>
+                    {/* A new install's first launch: the tour, then the account screens. */}
+                    <Stack.Protected guard={!signedIn && !tour.intro.done}>
+                      <Stack.Screen name="intro" />
+                    </Stack.Protected>
+                    <Stack.Protected guard={!signedIn && tour.intro.done}>
                       <Stack.Screen name="welcome" />
                       <Stack.Screen name="create-account" options={slide} />
                       <Stack.Screen name="sign-in" options={slide} />
@@ -117,10 +123,18 @@ function ThemedStack() {
                     <Stack.Protected guard={signedIn && !personalized}>
                       <Stack.Screen name="personalize" options={fade} />
                     </Stack.Protected>
-                    <Stack.Protected guard={personalized && !setup.handedOff && !setup.widgetsIntroduced}>
+                    <Stack.Protected
+                      guard={
+                        personalized && !setup.handedOff && !setup.widgetsIntroduced && !setup.widgetsLater
+                      }
+                    >
                       <Stack.Screen name="widgets-intro" options={fade} />
                     </Stack.Protected>
-                    <Stack.Protected guard={personalized && !setup.handedOff && setup.widgetsIntroduced}>
+                    <Stack.Protected
+                      guard={
+                        personalized && !setup.handedOff && (setup.widgetsIntroduced || setup.widgetsLater)
+                      }
+                    >
                       <Stack.Screen name="ready" options={fade} />
                     </Stack.Protected>
                     <Stack.Protected guard={subscribed && setup.handedOff}>
@@ -146,6 +160,7 @@ function ThemedStack() {
                       <Stack.Screen name="statistics" options={slide} />
                       <Stack.Screen name="ai-usage" options={slide} />
                       <Stack.Screen name="home-screen-widgets" options={slide} />
+                      <Stack.Screen name="widgets-tip" options={slide} />
                       {/* Taps on a home-screen widget arrive here and are sent on to the right screen. */}
                       <Stack.Screen name="widget" options={{ animation: "none" }} />
                     </Stack.Protected>
@@ -180,15 +195,17 @@ export default function RootLayout() {
           <PurposeProvider>
             <AuthProvider>
               <SubscriptionProvider>
-                <AccountSetupProvider>
-                  <AiConsentProvider>
-                    <AccountDataProvider>
-                      <ActivityProvider>
-                        <ThemedStack />
-                      </ActivityProvider>
-                    </AccountDataProvider>
-                  </AiConsentProvider>
-                </AccountSetupProvider>
+                <IntroProvider>
+                  <AccountSetupProvider>
+                    <AiConsentProvider>
+                      <AccountDataProvider>
+                        <ActivityProvider>
+                          <ThemedStack />
+                        </ActivityProvider>
+                      </AccountDataProvider>
+                    </AiConsentProvider>
+                  </AccountSetupProvider>
+                </IntroProvider>
               </SubscriptionProvider>
             </AuthProvider>
           </PurposeProvider>

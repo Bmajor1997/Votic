@@ -3,6 +3,8 @@ import { describe, expect, it } from "@jest/globals";
 import { act, render, screen } from "@testing-library/react-native";
 import RootLayout from "../../app/_layout";
 import { ONBOARDING_KEY } from "../../src/onboarding/OnboardingProvider";
+import { load_account_preferences } from "../../src/onboarding/accountPreferences";
+import { INTRO_KEY, parse_intro } from "../../src/onboarding/introModel";
 import { load_account_setup } from "../../src/onboarding/onboardingStorage";
 import { fakeAuth } from "../mocks/authBackend";
 import { stackScreens } from "../mocks/expoRouter";
@@ -41,6 +43,7 @@ const APP = [
   "statistics",
   "ai-usage",
   "home-screen-widgets",
+  "widgets-tip",
   "widget",
   "support",
   "subscription",
@@ -230,5 +233,80 @@ describe("root navigation", () => {
       "feedback/bug",
     ]);
     expect((await load_account_setup("test-user"))?.currentStep).toBe(3);
+  });
+
+  describe("first-launch tour", () => {
+    const NEW_ACCOUNT = { uid: "new", email: "new@example.com", displayName: null, isNewAccount: true };
+    const SIGNED_IN_ONLY = [
+      "support",
+      "subscription",
+      "account",
+      "library-backup",
+      "recently-deleted",
+      "note-drafts",
+      "feedback/index",
+      "feedback/feature",
+      "feedback/bug",
+    ];
+    async function finished_tour(entry: "create" | "sign-in") {
+      await AsyncStorage.setItem(
+        INTRO_KEY,
+        JSON.stringify({
+          done: true,
+          toured: true,
+          entry,
+          purpose: "work",
+          highlightMode: "sentence",
+          defaultPlaybackRate: 1.5,
+        }),
+      );
+    }
+
+    it("shows a new install only the tour", async () => {
+      fakeAuth.reset(null);
+      await seed_storage({ onboarding: { personalized: false } });
+      expect(await render_layout()).toEqual(["intro"]);
+    });
+
+    it("gives the tour's answers to the account made after it and skips the questions", async () => {
+      fakeAuth.reset(null);
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+      await seed_storage({ onboarding: { personalized: false } });
+      await finished_tour("create");
+      expect(await render_layout()).toEqual(["welcome", "create-account", "sign-in", "forgot-password"]);
+      expect(await after_change(() => fakeAuth.set_user(NEW_ACCOUNT))).toEqual(["ready", ...SIGNED_IN_ONLY]);
+      const setup = await load_account_setup("new");
+      expect(setup?.personalizationCompletedAt).not.toBeNull();
+      expect(setup?.widgetsAfterFirstDocument).toBe(true);
+      expect(await load_account_preferences("new")).toMatchObject({
+        purpose: "work",
+        highlightMode: "sentence",
+        defaultPlaybackRate: 1.5,
+      });
+      expect(parse_intro(await AsyncStorage.getItem(INTRO_KEY)).claimedBy).toBe("new");
+    });
+
+    it("asks the usual questions when a new account came through I already have an account", async () => {
+      fakeAuth.reset(null);
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+      await seed_storage({ onboarding: { personalized: false } });
+      await finished_tour("sign-in");
+      await render_layout();
+      expect(await after_change(() => fakeAuth.set_user(NEW_ACCOUNT))).toEqual([
+        "personalize",
+        ...SIGNED_IN_ONLY,
+      ]);
+    });
+
+    it("never gives the tour's answers to an existing account", async () => {
+      fakeAuth.reset(null);
+      fakeSubscriptions.reset({ defaultEntitlement: entitlement_of("none") });
+      await seed_storage({ onboarding: { personalized: false }, accountSetup: "none" });
+      await finished_tour("create");
+      await render_layout();
+      await after_change(() => fakeAuth.set_user({ ...NEW_ACCOUNT, uid: "old", isNewAccount: false }));
+      expect(await load_account_preferences("old")).not.toMatchObject({ purpose: "work" });
+      expect(parse_intro(await AsyncStorage.getItem(INTRO_KEY)).claimedBy).toBeNull();
+    });
   });
 });

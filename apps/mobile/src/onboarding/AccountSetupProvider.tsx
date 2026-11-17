@@ -15,11 +15,14 @@ import {
 } from "./accountPreferences";
 import {
   highlight_mode_for,
+  LISTENING_FOR,
   new_onboarding_state,
   OnboardingState,
   PersonalizationAnswers,
   QUESTIONS,
 } from "./onboardingModel";
+import { useIntro } from "./IntroProvider";
+import { intro_answers_for } from "./introModel";
 import { load_account_setup, save_account_setup } from "./onboardingStorage";
 import { useOnboarding } from "./OnboardingProvider";
 
@@ -36,6 +39,8 @@ type AccountSetupValue = {
    * for accounts that finished setup before it existed).
    */
   widgetsIntroduced: boolean;
+  /** The widgets screen is still to come, after this account's first document rather than during setup. */
+  widgetsLater: boolean;
   /** Saved as answers change, so leaving mid-question loses nothing. */
   set_answers: (answers: PersonalizationAnswers) => void;
   set_step: (step: number) => void;
@@ -63,6 +68,7 @@ export function AccountSetupProvider({
 }: PropsWithChildren<{ now?: () => number }>) {
   const { user, sessionRestored } = useAuth();
   const legacy = useOnboarding();
+  const tour = useIntro();
   const deviceAccessibility = useAccessibilityPreferences();
   const devicePurpose = useVoticPurpose();
   const uid = user?.uid ?? null;
@@ -76,14 +82,27 @@ export function AccountSetupProvider({
   const isNewAccount = Boolean(user?.isNewAccount);
   const legacyPersonalized = legacy.personalized;
   useEffect(() => {
-    if (!uid || !deviceAccessibility.hydrated || !devicePurpose.hydrated) return;
+    if (!uid || !deviceAccessibility.hydrated || !devicePurpose.hydrated || !tour.hydrated) return;
+    // A brand-new account made at the end of the first-launch tour takes the tour's answers instead of the questions.
+    const fromTour = intro_answers_for(tour.intro, { uid, isNewAccount });
     let current = true;
     void Promise.all([
       load_account_setup(uid).catch(() => null),
       load_account_preferences(uid).catch(() => null),
     ]).then(async ([saved, savedPreferences]) => {
       let state = saved;
-      if (!state) {
+      if (!state && fromTour) {
+        const time = now();
+        state = {
+          ...new_onboarding_state(),
+          answers: { ...new_onboarding_state().answers, listening: LISTENING_FOR[fromTour.highlightMode] },
+          personalizationCompletedAt: time,
+          widgetsAfterFirstDocument: true,
+        };
+        await save_account_setup(uid, state).catch(() => {});
+        tour.update({ claimedBy: uid });
+        legacy.complete_personalization();
+      } else if (!state) {
         // No setup saved here: a new account starts setup. An existing account signing in (another
         // device, a reinstall) already went through it. A session from before per-account setup keeps
         // whatever this device had decided.
@@ -102,14 +121,16 @@ export function AccountSetupProvider({
       if (!current) return;
       // Migrate legacy device preferences only into the restored account. A different/new account
       // gets defaults plus its own answers, never the account that just signed out's settings.
-      const baseline: AccountPreferences = sessionRestored
-        ? {
-            explanationStyle: devicePurpose.explanationStyle,
-            highlightMode: deviceAccessibility.highlightMode,
-            defaultPlaybackRate: devicePurpose.defaultPlaybackRate,
-            purpose: devicePurpose.purpose,
-          }
-        : DEFAULT_ACCOUNT_PREFERENCES;
+      const baseline: AccountPreferences = fromTour
+        ? { ...DEFAULT_ACCOUNT_PREFERENCES, ...fromTour }
+        : sessionRestored
+          ? {
+              explanationStyle: devicePurpose.explanationStyle,
+              highlightMode: deviceAccessibility.highlightMode,
+              defaultPlaybackRate: devicePurpose.defaultPlaybackRate,
+              purpose: devicePurpose.purpose,
+            }
+          : DEFAULT_ACCOUNT_PREFERENCES;
       // Preferences saved before the purpose moved here take it from the device on the same terms.
       const value: AccountPreferences = savedPreferences
         ? {
@@ -131,7 +152,7 @@ export function AccountSetupProvider({
     };
     // Only a change of account reloads setup; the facts above are read as they were at that moment.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid, deviceAccessibility.hydrated, devicePurpose.hydrated]);
+  }, [uid, deviceAccessibility.hydrated, devicePurpose.hydrated, tour.hydrated]);
 
   function change_preferences(change: Partial<AccountPreferences>) {
     if (!uid) return;
@@ -170,14 +191,23 @@ export function AccountSetupProvider({
     personalized: Boolean(setup?.personalizationCompletedAt),
     handedOff: Boolean(setup?.completedAt),
     widgetsIntroduced:
-      Platform.OS === "web" || Boolean(setup?.widgetsIntroducedAt) || Boolean(setup?.completedAt),
+      Platform.OS === "web" ||
+      Boolean(setup?.widgetsIntroducedAt) ||
+      Boolean(setup?.completedAt && !setup.widgetsAfterFirstDocument),
+    widgetsLater:
+      Platform.OS !== "web" && Boolean(setup?.widgetsAfterFirstDocument && !setup.widgetsIntroducedAt),
     set_answers: (answers) => update((state) => ({ ...state, answers })),
     set_step: (step) =>
       update((state) => ({ ...state, currentStep: Math.min(QUESTIONS.length - 1, Math.max(0, step)) })),
     finish_personalization({ skipped }) {
       if (setup) apply(setup.answers);
       legacy.complete_personalization();
-      update((state) => ({ ...state, personalizationCompletedAt: now(), personalizationSkipped: skipped }));
+      update((state) => ({
+        ...state,
+        personalizationCompletedAt: now(),
+        personalizationSkipped: skipped,
+        widgetsAfterFirstDocument: true,
+      }));
     },
     save_personalization(answers) {
       apply(answers);
