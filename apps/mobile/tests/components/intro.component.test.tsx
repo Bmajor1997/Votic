@@ -80,7 +80,7 @@ describe("First-launch tour", () => {
 });
 
 describe("Account screen after the tour", () => {
-  it("asks for a free account once the tour is finished", async () => {
+  it("asks for an account once the tour is finished", async () => {
     fakeAuth.reset(null);
     await AsyncStorage.setItem(INTRO_KEY, JSON.stringify({ done: true, toured: true, entry: "create" }));
     await render_with_providers(<Welcome />, { onboarding: { personalized: false } });

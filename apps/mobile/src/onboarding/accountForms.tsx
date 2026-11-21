@@ -80,8 +80,11 @@ export function SocialSignIn({
   onError,
   before_google,
   after_google_stopped,
+  white_google,
 }: {
   disabled?: boolean;
+  /** Google's light (white) button even on a dark screen, as Welcome's dark design uses. */
+  white_google?: boolean;
   on_busy_change?: (busy: boolean) => void;
   onError: (message: string) => void;
   /** Runs first when Continue with Google is tapped (Welcome's V flight); false stops before the account picker. */
@@ -147,6 +150,7 @@ export function SocialSignIn({
       {showGoogle ? (
         <GoogleButton
           busy={busy === "google"}
+          white={Boolean(white_google)}
           disabled={busy !== null || Boolean(disabled)}
           on_press={() => void continue_with("google")}
         />
@@ -178,17 +182,20 @@ const GOOGLE_G = require("../../assets/google-g.png");
  */
 function GoogleButton({
   busy,
+  white,
   disabled,
   on_press,
 }: {
   busy: boolean;
+  white: boolean;
   disabled: boolean;
   on_press: () => void;
 }) {
   const { theme } = useVoticTheme();
-  const colors = theme.isDark
-    ? { fill: "#131314", pressed: "#2A2A2C", border: "#8E918F", text: "#E3E3E3" }
-    : { fill: "#FFFFFF", pressed: "#F2F2F2", border: "#DADCE0", text: "#1F1F1F" };
+  const colors =
+    theme.isDark && !white
+      ? { fill: "#131314", pressed: "#2A2A2C", border: "#8E918F", text: "#E3E3E3" }
+      : { fill: "#FFFFFF", pressed: "#F2F2F2", border: "#DADCE0", text: "#1F1F1F" };
   return (
     <Pressable
       accessibilityRole="button"

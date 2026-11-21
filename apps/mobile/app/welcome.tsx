@@ -1,5 +1,4 @@
 import { editorial } from "../src/design/editorial";
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -7,21 +6,27 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
+import { BookHero } from "../src/onboarding/BookHero";
 import { useIntro } from "../src/onboarding/IntroProvider";
-import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
-import { useVoticTheme } from "../src/theme/ThemeProvider";
+import { useVoticTheme, WelcomeDark } from "../src/theme/ThemeProvider";
 
 /**
- * The first screen. Apple and Google create the account or sign in; "Create account with email" creates a new
- * account; the full-width "Sign in" below it is for existing email accounts. The screen stands still until someone
- * taps one of them, when the V's wings fly off to the right one by one and its stroke flies up and away; then Create
- * account or Sign in opens, or Google's account picker. A tap while the V is flying does nothing.
+ * The first screen, always dark: the Votic logo, an open book whose pages turn to the page being read, then the
+ * headline and the ways in. Apple and Google create the account or sign in; "Create account" opens the email form;
+ * "Already have an account? Sign in" is for existing email accounts. Every button works straight away.
  */
 export default function Welcome() {
+  return (
+    <WelcomeDark>
+      <WelcomeScreen />
+    </WelcomeDark>
+  );
+}
+
+function WelcomeScreen() {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
-  const mark = useMarkFlight();
   const { intro } = useIntro();
   // Straight after the tour: "Create my account" lands here, and "I already have an account" opens Sign in.
   const fromTour = intro.toured && intro.entry === "create" && !intro.claimedBy;
@@ -37,9 +42,8 @@ export default function Welcome() {
         <View style={s.topBar}>
           <VoticLogo />
         </View>
-        {/* Drawn after the top bar so the V's pieces pass over it as they leave. */}
         <View style={s.art}>
-          <BrandMark size={112} flight={mark.flight} />
+          <BookHero />
         </View>
         <View style={s.bottom}>
           <View style={s.copy}>
@@ -47,7 +51,7 @@ export default function Welcome() {
               <>
                 <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
                   Create your{"\n"}
-                  <Text style={{ color: theme.accentText }}>free account.</Text>
+                  <Text style={[s.titleAccent, { color: theme.accentText }]}>account.</Text>
                 </Text>
                 <Text style={[s.subtitle, { color: theme.mutedText }]}>
                   Your choices from the tour are saved to it.
@@ -57,7 +61,7 @@ export default function Welcome() {
               <>
                 <Text accessibilityRole="header" style={[s.title, { color: theme.text }]}>
                   Make room for{"\n"}
-                  <Text style={{ color: theme.accentText }}>what matters.</Text>
+                  <Text style={[s.titleAccent, { color: theme.accentText }]}>what matters.</Text>
                 </Text>
                 <Text style={[s.subtitle, { color: theme.mutedText }]}>
                   A place to read, listen, and keep your ideas.
@@ -65,42 +69,37 @@ export default function Welcome() {
               </>
             )}
           </View>
-          <SocialSignIn
-            on_busy_change={setSocialBusy}
-            onError={setError}
-            // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
-            // comes back together and the screen is ready again.
-            before_google={mark.fly_away}
-            after_google_stopped={mark.land}
-          />
+          <SocialSignIn on_busy_change={setSocialBusy} onError={setError} white_google />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Create account with email"
+            accessibilityLabel="Create account"
+            accessibilityHint="With your email address"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => mark.fly(() => router.push("/create-account"))}
-            style={({ pressed }) => [s.email, { backgroundColor: theme.accent, opacity: pressed ? 0.88 : 1 }]}
-          >
-            <Ionicons name="mail-outline" size={20} color={theme.onAccent} />
-            <Text style={[s.emailText, { color: theme.onAccent }]}>Create account with email</Text>
-          </Pressable>
-          {/* Existing accounts get a full-size choice of their own, so Sign in is never mistaken for sign-up. */}
-          <Text style={[s.returning, { color: theme.mutedText }]}>Already have an account?</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign in"
-            accessibilityHint="For an existing Votic account"
-            disabled={socialBusy}
-            accessibilityState={{ disabled: socialBusy }}
-            onPress={() => mark.fly(() => router.push("/sign-in"))}
+            onPress={() => router.push("/create-account")}
             style={({ pressed }) => [
-              s.signIn,
-              { borderColor: theme.accent, backgroundColor: pressed ? theme.surfaceMuted : theme.background },
+              s.create,
+              { backgroundColor: theme.accent, opacity: socialBusy ? 0.55 : pressed ? 0.88 : 1 },
             ]}
           >
-            <Ionicons name="log-in-outline" size={20} color={theme.accentText} />
-            <Text style={[s.signInText, { color: theme.accentText }]}>Sign in</Text>
+            <Text style={[s.createText, { color: theme.onAccent }]}>Create account</Text>
           </Pressable>
+          {/* One line, but "Sign in" is its own button with a full-size touch area. */}
+          <View style={s.returningRow}>
+            <Text style={[s.returning, { color: theme.mutedText }]}>Already have an account?</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sign in"
+              accessibilityHint="For an existing Votic account"
+              disabled={socialBusy}
+              accessibilityState={{ disabled: socialBusy }}
+              onPress={() => router.push("/sign-in")}
+              hitSlop={12}
+              style={({ pressed }) => [s.signIn, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={[s.signInText, { color: theme.text }]}>Sign in</Text>
+            </Pressable>
+          </View>
           {error ? (
             <Text accessibilityRole="alert" style={[s.message, { color: theme.text }]}>
               {error}
@@ -124,33 +123,32 @@ const s = StyleSheet.create({
     width: "100%",
     alignSelf: "center",
   },
-  topBar: { minHeight: 60, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  art: { flexGrow: 1, alignItems: "center", justifyContent: "center", minHeight: 210, paddingVertical: 10 },
+  topBar: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  // The book runs to the screen's edges; its picture fades into the background on every side.
+  art: { flexGrow: 1, justifyContent: "center", marginHorizontal: -spacing.xl, minHeight: 220 },
   bottom: { gap: 12 },
   copy: { alignItems: "center", gap: 10, marginBottom: 12 },
   title: { ...editorial, fontSize: 38, lineHeight: 44, textAlign: "center" },
+  titleAccent: { fontStyle: "italic" },
   subtitle: { fontSize: 16, lineHeight: 23, textAlign: "center", maxWidth: 300 },
-  email: {
-    minHeight: 54,
+  create: {
+    minHeight: 56,
     paddingVertical: 12,
-    borderRadius: 27,
-    flexDirection: "row",
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
   },
-  emailText: { fontSize: 16, fontWeight: "700" },
-  returning: { fontSize: 15, lineHeight: 21, textAlign: "center", marginTop: 8 },
-  signIn: {
-    minHeight: 54,
-    paddingVertical: 12,
-    borderRadius: 27,
-    borderWidth: 2,
+  createText: { fontSize: 16, fontWeight: "700" },
+  returningRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     justifyContent: "center",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
+    marginTop: 4,
   },
-  signInText: { fontSize: 16, fontWeight: "700" },
+  returning: { fontSize: 15, lineHeight: 21 },
+  signIn: { minHeight: 48, justifyContent: "center", paddingHorizontal: 4 },
+  signInText: { fontSize: 15, lineHeight: 21, fontWeight: "700", textDecorationLine: "underline" },
   message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
 });
