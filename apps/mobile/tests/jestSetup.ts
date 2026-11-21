@@ -4,6 +4,7 @@ import { beforeEach, jest } from "@jest/globals";
 import { forget_status_word } from "../src/components/StatusWordMotion";
 import { fakeAuth } from "./mocks/authBackend";
 import { reset_expo_router_mock } from "./mocks/expoRouter";
+import { reset_expo_video_mock } from "./mocks/expoVideo";
 import { fakeScanPhotos } from "./mocks/scanDraftFiles";
 import { fakeSubscriptions } from "./mocks/subscriptionService";
 
@@ -14,6 +15,7 @@ jest.mock("@react-native-async-storage/async-storage", () =>
 );
 jest.mock("../src/documents/scanDraftFiles", () => require("./mocks/scanDraftFiles"));
 jest.mock("expo-router", () => require("./mocks/expoRouter"));
+jest.mock("expo-video", () => require("./mocks/expoVideo"));
 jest.mock("expo-audio", () => ({
   requestRecordingPermissionsAsync: jest.fn(async () => ({ granted: true })),
   setAudioModeAsync: jest.fn(async () => {}),
@@ -36,6 +38,7 @@ jest.mock("../src/subscription/subscriptionService", () => require("./mocks/subs
 
 beforeEach(async () => {
   forget_status_word();
+  reset_expo_video_mock();
   reset_account_deletion_state();
   fakeScanPhotos.clear();
   await AsyncStorage.clear();
