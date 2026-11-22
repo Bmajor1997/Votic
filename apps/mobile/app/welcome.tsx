@@ -1,4 +1,5 @@
 import { editorial } from "../src/design/editorial";
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -8,24 +9,16 @@ import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
 import { useIntro } from "../src/onboarding/IntroProvider";
 import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
-import { useVoticTheme, WelcomeDark } from "../src/theme/ThemeProvider";
+import { useVoticTheme } from "../src/theme/ThemeProvider";
 
 /**
- * The first screen, always dark: the Votic logo, the V over a soft blue glow, then the headline and the ways in.
- * Apple and Google create the account or sign in; "Create account" opens the email form; "Already have an account?
- * Sign in" is for existing email accounts. The screen stands still until someone taps one of them, when the V's
+ * The first screen: the Votic logo, the V over a soft blue glow, then the headline and the ways in.
+ * Apple and Google create the account or sign in; "Create account" opens the email form; the bold "Sign in →" under
+ * "Already have an account?" is for existing email accounts. The screen stands still until someone taps one of them, when the V's
  * wings fly off to the right one by one and its stroke flies up and away; then Create account or Sign in opens, or
  * Google's account picker. A tap while the V is flying does nothing.
  */
 export default function Welcome() {
-  return (
-    <WelcomeDark>
-      <WelcomeScreen />
-    </WelcomeDark>
-  );
-}
-
-function WelcomeScreen() {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
@@ -76,7 +69,6 @@ function WelcomeScreen() {
           <SocialSignIn
             on_busy_change={setSocialBusy}
             onError={setError}
-            white_google
             // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
             // comes back together and the screen is ready again.
             before_google={mark.fly_away}
@@ -96,9 +88,9 @@ function WelcomeScreen() {
           >
             <Text style={[s.createText, { color: theme.onAccent }]}>Create account</Text>
           </Pressable>
-          {/* One line, but "Sign in" is its own button with a full-size touch area. */}
-          <View style={s.returningRow}>
-            <Text style={[s.returning, { color: theme.mutedText }]}>Already have an account?</Text>
+          {/* Text, not a third big button, so Google and Create account lead; still a full-size touch area. */}
+          <View style={s.returning}>
+            <Text style={[s.returningText, { color: theme.mutedText }]}>Already have an account?</Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Sign in"
@@ -106,10 +98,11 @@ function WelcomeScreen() {
               disabled={socialBusy}
               accessibilityState={{ disabled: socialBusy }}
               onPress={() => mark.fly(() => router.push("/sign-in"))}
-              hitSlop={12}
-              style={({ pressed }) => [s.signIn, { opacity: pressed ? 0.7 : 1 }]}
+              hitSlop={8}
+              style={({ pressed }) => [s.signIn, { opacity: socialBusy ? 0.55 : pressed ? 0.7 : 1 }]}
             >
-              <Text style={[s.signInText, { color: theme.text }]}>Sign in</Text>
+              <Text style={[s.signInText, { color: theme.accentText }]}>Sign in</Text>
+              <Ionicons name="arrow-forward" size={20} color={theme.accentText} />
             </Pressable>
           </View>
           {error ? (
@@ -150,16 +143,16 @@ const s = StyleSheet.create({
     alignItems: "center",
   },
   createText: { fontSize: 16, fontWeight: "700" },
-  returningRow: {
+  returning: { alignItems: "center", marginTop: 4 },
+  returningText: { fontSize: 15, lineHeight: 21, textAlign: "center" },
+  signIn: {
+    minHeight: 48,
+    minWidth: 140,
     flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
-    marginTop: 4,
   },
-  returning: { fontSize: 15, lineHeight: 21 },
-  signIn: { minHeight: 48, justifyContent: "center", paddingHorizontal: 4 },
-  signInText: { fontSize: 15, lineHeight: 21, fontWeight: "700", textDecorationLine: "underline" },
+  signInText: { fontSize: 19, lineHeight: 25, fontWeight: "700" },
   message: { fontSize: 14, lineHeight: 20, textAlign: "center" },
 });

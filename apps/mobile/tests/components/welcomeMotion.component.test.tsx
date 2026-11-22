@@ -3,7 +3,6 @@ import { act, fireEvent, screen } from "@testing-library/react-native";
 import { Animated } from "react-native";
 import { SignInCancelled } from "../../src/auth/authErrors";
 import { GOOGLE_MESSAGES, GoogleSignInProblem } from "../../src/auth/googleSignIn";
-import { WELCOME_BACKGROUND } from "../../src/theme/ThemeProvider";
 import SignIn from "../../app/sign-in";
 import Welcome from "../../app/welcome";
 import { fakeAuth } from "../mocks/authBackend";
@@ -68,14 +67,15 @@ describe("Welcome motion", () => {
     expect(router.push).toHaveBeenLastCalledWith("/create-account");
   });
 
-  it('is dark in every appearance, with Google\'s white button and no "free" in its wording', async () => {
+  it('has two big buttons, with Sign in as bold text under them, and no "free" in its wording', async () => {
     fakeAuth.reset(null);
     await render_with_providers(<Welcome />);
     expect(screen.getByRole("header", { name: "Make room for\nwhat matters." })).toBeTruthy();
     expect(screen.queryByText(/free/i)).toBeNull();
-    const google = screen.getByRole("button", { name: "Continue with Google" });
-    expect(JSON.stringify(google.props.style)).toContain("#FFFFFF");
-    expect(JSON.stringify(screen.toJSON())).toContain(WELCOME_BACKGROUND);
+    expect(screen.getByText("Already have an account?")).toBeTruthy();
+    const signIn = JSON.stringify(screen.getByRole("button", { name: "Sign in" }).props.style);
+    expect(signIn).not.toContain("borderWidth");
+    expect(signIn).not.toContain("borderRadius");
   });
 
   it("keeps Sign in's title and the email form under the V, with Google left on Welcome", async () => {
