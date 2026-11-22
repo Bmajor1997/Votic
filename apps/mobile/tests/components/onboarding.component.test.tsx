@@ -46,7 +46,9 @@ describe("Welcome", () => {
     await render_with_providers(<Welcome />);
     expect(screen.getByRole("header", { name: "Make room for\nwhat matters." })).toBeTruthy();
     expect(screen.getByText("A place to read, listen, and keep your ideas.")).toBeTruthy();
+    // Each opens its screen after the V flies away.
     await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
+    await act(async () => jest.advanceTimersByTime(1500));
     expect(router.push).toHaveBeenCalledWith("/create-account");
     screen.unmount();
     await render_with_providers(<Welcome />);
@@ -557,6 +559,11 @@ it("recaps actual reading and listening preferences before the final paywall", a
   expect(screen.getByRole("button", { name: "Start using Votic" })).toBeTruthy();
 });
 
+/** Welcome's V flies away before Google's account picker opens. */
+async function finish_flight() {
+  await act(async () => jest.advanceTimersByTime(1500));
+}
+
 it.each([
   ["Sign in", SignIn],
   ["Create account", CreateAccount],
@@ -585,6 +592,7 @@ it("explains right under the Google button when Google can't finish in this buil
   // Said up front, and again (specifically) when tapped: never a silent tap.
   expect(screen.getByText(/Google sign-in is unavailable in this build/)).toBeTruthy();
   await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  await finish_flight();
   expect(fakeAuth.calls).toContain("signInWithGoogle");
   const message = screen.getByTestId("google-sign-in-error");
   expect(message.props.children).toBe(GOOGLE_MESSAGES.noClientId.release);
@@ -603,12 +611,14 @@ it("shows Google as busy while the account picker is open, and locks the other w
   fakeAuth.googlePending = new Promise<void>((resolve) => (release = resolve));
   await render_with_providers(<Welcome />);
   await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  await finish_flight();
   const google = screen.getByRole("button", { name: "Continue with Google" });
   expect(google.props.accessibilityState).toMatchObject({ busy: true, disabled: true });
   expect(screen.getByRole("button", { name: "Create account" }).props.accessibilityState.disabled).toBe(true);
   expect(screen.getByRole("button", { name: "Sign in" }).props.accessibilityState.disabled).toBe(true);
   // A second tap while it is open does nothing.
   await fireEvent.press(google);
+  await finish_flight();
   expect(fakeAuth.calls.filter((call) => call === "signInWithGoogle")).toHaveLength(1);
   await act(async () => release());
   expect(fakeAuth.user?.uid).toBe("google");
@@ -619,10 +629,12 @@ it("stays quiet when the person closes Google's account picker, and email still 
   fakeAuth.googleFailure = new SignInCancelled();
   await render_with_providers(<Welcome />);
   await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  await finish_flight();
   expect(fakeAuth.calls).toContain("signInWithGoogle");
   expect(screen.queryByTestId("google-sign-in-error")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
   await fireEvent.press(screen.getByRole("button", { name: "Create account" }));
+  await finish_flight();
   expect(router.push).toHaveBeenLastCalledWith("/create-account");
 });
 
@@ -634,6 +646,7 @@ it.each([
   fakeAuth.socialCreatesAccount = creates;
   await render_with_providers(<Welcome />);
   await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+  await finish_flight();
   expect(fakeAuth.user).toMatchObject({ uid: "google", isNewAccount: creates });
   expect(screen.queryByTestId("google-sign-in-error")).toBeNull();
 });

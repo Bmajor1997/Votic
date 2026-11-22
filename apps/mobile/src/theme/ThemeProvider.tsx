@@ -296,22 +296,6 @@ export function SetupAccent({ active, children }: PropsWithChildren<{ active: bo
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 
-/** The welcome screen's near-black, matched to the edges of its book animation. */
-export const WELCOME_BACKGROUND = "#06070A";
-
-/**
- * Votic's dark palette for one screen, whatever the person's light, dark or sepia setting, with the background the
- * welcome screen's book animation fades into. The chosen accent is kept.
- */
-export function WelcomeDark({ children }: PropsWithChildren) {
-  const parent = useVoticTheme();
-  const value = useMemo(() => {
-    const theme = { ...make_theme(parent.accentName, "dark"), background: WELCOME_BACKGROUND };
-    return { ...parent, theme, resolvedMode: "dark" };
-  }, [parent]);
-  return <C.Provider value={value}>{children}</C.Provider>;
-}
-
 export function useVoticTheme() {
   const c = useContext(C);
   if (!c) throw new Error("useVoticTheme must be used inside ThemeProvider");
