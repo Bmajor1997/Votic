@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+  schedule:
+    # Weekly, so newly published advisories and leaked-secret rules are caught even when the code has not changed.
+    - cron: "41 14 * * 1"
 
 permissions:
   contents: read
