@@ -1,0 +1,118 @@
+name: Final commit review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # Only inline trusted code executes; no PR checkout, artifacts, or dynamic code.
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  # Comments only cause a fresh API read; their bodies are never executed.
+  issue_comment: # zizmor: ignore[dangerous-triggers]
+    types: [created, edited]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number (leave empty to refresh all open PRs)
+        required: false
+        type: string
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+  checks: write
+concurrency:
+  group: review-readiness-${{ github.event.pull_request.number || github.event.issue.number || github.event.inputs.pr_number || 'all' }}
+  cancel-in-progress: false
+jobs:
+  review:
+    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # No checkout: untrusted PR code never receives the check-writing token.
+      - uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          script: |
+            const BOT_ID = 199175422;
+
+            function evaluate_review({ head, comments, reviews, threads }) {
+              const summaries = comments.filter(item => item.user?.id === BOT_ID && item.user?.type === "Bot" && item.body?.startsWith("<!-- codex-pull-request-review-summary -->"))
+                .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
+              let state;
+              for (const item of summaries) {
+                const match = item.body?.match(/<!-- codex-review-state:v1 ([\s\S]*?) -->/);
+                if (match) { state = JSON.parse(match[1]).code_review; break; }
+              }
+              const current = state?.commit_sha === head && state?.status === "completed";
+              const receipt = reviews.some(item => item.user?.id === BOT_ID && item.user?.type === "Bot" && item.commit_id === head && item.state !== "DISMISSED");
+              const unresolved = threads.filter(thread => !thread.isResolved);
+              // A no-findings review can have a summary/👍 without a formal review receipt.
+              const completed = current && (receipt || state.has_any_findings === false);
+              const reasons = [];
+              if (!completed) reasons.push("Codex must complete a review of the current PR head. After a push, request @codex review.");
+              if (unresolved.length) reasons.push(`${unresolved.length} review conversation(s) still need resolution.`);
+              return { completed, ready: completed && unresolved.length === 0, reasons, reviewed: state?.commit_sha || null, unresolved: unresolved.length };
+            }
+
+
+            // This code runs inline in the trusted workflow. It never checks out or executes PR code.
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const payload = context.payload;
+            const number = payload.pull_request?.number || (payload.issue?.pull_request && payload.issue.number) || Number(payload.inputs?.pr_number);
+            const pulls = number ? [(await github.rest.pulls.get({ owner, repo, pull_number: number })).data] : await github.paginate(github.rest.pulls.list, { owner, repo, state: "open", per_page: 100 });
+            for (const pr of pulls) {
+              if (pr.state !== "open" || pr.draft) continue;
+              const head = pr.head.sha;
+              const check = await github.rest.checks.create({ owner, repo, name: "Review readiness", head_sha: head, status: "in_progress" });
+              try {
+                const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: pr.number, per_page: 100 });
+                const reviews = await github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: pr.number, per_page: 100 });
+                const threads = [];
+                let cursor = null;
+                do {
+                  const page = await github.graphql(`query($owner:String!,$repo:String!,$number:Int!,$cursor:String) {
+                    repository(owner:$owner,name:$repo) { pullRequest(number:$number) {
+                      reviewThreads(first:100,after:$cursor) { nodes { isResolved } pageInfo { hasNextPage endCursor } }
+                    } }
+                  }`, { owner, repo, number: pr.number, cursor });
+                  const connection = page.repository.pullRequest.reviewThreads;
+                  threads.push(...connection.nodes);
+                  cursor = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+                } while (cursor);
+                const result = evaluate_review({ head, comments, reviews, threads });
+                const latest = (await github.rest.pulls.get({ owner, repo, pull_number: pr.number })).data;
+                if (latest.head.sha !== head) result.ready = false;
+                const findings = [];
+                for (const review of reviews.filter(item => item.user?.id === BOT_ID)) {
+                  const notes = await github.paginate(github.rest.pulls.listCommentsForReview, { owner, repo, pull_number: pr.number, review_id: review.id, per_page: 100 });
+                  findings.push(...notes.map(note => ({ severity: note.body.match(/P[0-3]/)?.[0] || "Unrated", path: note.path, url: note.html_url })));
+                }
+                const checks = (await github.rest.checks.listForRef({ owner, repo, ref: head, per_page: 100 })).data.check_runs;
+                const failed = checks.filter(item => item.name !== "Review readiness" && ["failure", "timed_out", "cancelled", "action_required"].includes(item.conclusion));
+                const summary = [
+                  `Repository: ${owner}/${repo}; PR #${pr.number}`,
+                  `Current commit: ${head}`,
+                  `Codex reviewed commit: ${result.reviewed || "Not completed"}`,
+                  `Unresolved conversations: ${result.unresolved}`,
+                  `Recorded review findings: ${findings.length} (historical findings may be resolved)`,
+                  ...findings.map(item => `- ${item.severity}: [${item.path}](${item.url})`),
+                  `Failed head-commit checks: ${failed.map(item => item.name).join(", ") || "None reported"}. Required assurance separately enforces all test/build jobs.`,
+                  ...result.reasons,
+                  "Action: fix findings or document why they are accepted, resolve the conversation, and review the final commit. Rerun this workflow after resolving threads.",
+                ].join("\n\n");
+                await github.rest.checks.update({ owner, repo, check_run_id: check.data.id, status: "completed", conclusion: result.ready ? "success" : "failure", output: { title: result.ready ? "Final commit reviewed; conversations resolved" : "Review needs attention", summary } });
+                const marker = "<!-- assurance-review-report:v1 -->";
+                const report = comments.find(item => item.user?.type === "Bot" && item.user?.login === "github-actions[bot]" && item.body?.startsWith(marker));
+                const body = `${marker}\n## Review and check summary\n\n${summary}`;
+                if (report) await github.rest.issues.updateComment({ owner, repo, comment_id: report.id, body });
+                else if (result.completed) await github.rest.issues.createComment({ owner, repo, issue_number: pr.number, body });
+                await core.summary.addHeading(`${owner}/${repo} PR #${pr.number}`).addRaw(summary).write();
+              } catch (error) {
+                await github.rest.checks.update({ owner, repo, check_run_id: check.data.id, status: "completed", conclusion: "failure", output: { title: "Review could not be verified", summary: "The review verification failed. Inspect this workflow's logs and rerun it; a missing review must not count as approval." } });
+                throw error;
+              }
+            }

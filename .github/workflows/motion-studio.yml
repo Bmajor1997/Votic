@@ -1,20 +1,8 @@
 name: Motion Studio
 on:
-  push:
-    paths:
-      [
-        "apps/motion-studio/**",
-        "apps/mobile/src/motion/motionSpec.ts",
-        ".github/workflows/motion-studio.yml",
-      ]
-  pull_request:
-    paths:
-      [
-        "apps/motion-studio/**",
-        "apps/mobile/src/motion/motionSpec.ts",
-        ".github/workflows/motion-studio.yml",
-      ]
+  workflow_call:
   workflow_dispatch:
+
 permissions:
   contents: read
 jobs:
@@ -26,6 +14,8 @@ jobs:
         working-directory: apps/motion-studio
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24

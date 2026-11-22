@@ -1,0 +1,110 @@
+name: Assurance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 14 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: assurance-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      mobile: ${{ steps.paths.outputs.mobile }}
+      web: ${{ steps.paths.outputs.web }}
+      motion: ${{ steps.paths.outputs.motion }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: paths
+        shell: bash
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == schedule || "$EVENT" == workflow_dispatch || -z "$BASE" || "$BASE" =~ ^0+$ ]]; then
+            printf 'mobile=true\nweb=true\nmotion=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git diff --name-only "$BASE" "$HEAD" > "$RUNNER_TEMP/changed-paths"
+          for scope in mobile web motion; do
+            case "$scope" in
+              mobile) pattern='^(apps/mobile/|security/|code_checks/|package|\.github/)' ;;
+              web) pattern='^(admin/|app_parts/|browser_checks/|votic_|browser_check_settings|package|security/|code_checks/|[^/]+\.(css|html)|\.github/)' ;;
+              motion) pattern='^(apps/motion-studio/|apps/mobile/src/motion/|\.github/)' ;;
+            esac
+            if grep -Eq "$pattern" "$RUNNER_TEMP/changed-paths"; then
+              echo "$scope=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$scope=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+  security:
+    needs: changes
+    uses: ./.github/workflows/security-checks.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: write
+  mobile:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    uses: ./.github/workflows/reliability-edge-cases.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+  android:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    uses: ./.github/workflows/android-notification-playback.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+    permissions:
+      contents: read
+      security-events: write
+  ios:
+    needs: changes
+    if: needs.changes.outputs.mobile == 'true'
+    uses: ./.github/workflows/ios-build.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+    permissions:
+      contents: read
+      security-events: write
+  browser:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    uses: ./.github/workflows/browser-checks.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+  motion:
+    needs: changes
+    if: needs.changes.outputs.motion == 'true'
+    uses: ./.github/workflows/motion-studio.yml # zizmor: ignore[self-repository] -- compatible with pinned actionlint
+
+  required:
+    name: Required assurance
+    if: always()
+    needs: [changes, security, mobile, android, ios, browser, motion]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Summarize and enforce results
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          REPOSITORY: ${{ github.repository }}
+          REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const results = JSON.parse(process.env.RESULTS);
+          const mandatory = ['changes', 'security'];
+          let failed = false;
+          const rows = Object.entries(results).map(([name, job]) => {
+            if (!(job.result === 'success' || (job.result === 'skipped' && !mandatory.includes(name)))) failed = true;
+            return `| ${name} | ${job.result} |`;
+          });
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `# ${process.env.REPOSITORY}\n\nCommit: ${process.env.REVISION}\n\n| Suite | Result |\n| --- | --- |\n${rows.join('\n')}\n\nSkipped suites did not match changed paths. Security always runs. Codex review is enforced separately by Review readiness.\n`);
+          if (failed) process.exitCode = 1;
+          NODE

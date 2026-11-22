@@ -14,6 +14,8 @@ export default defineConfig({
         "src/storage/storageUsageFiles.ts",
         "src/documents/throttledSaver.ts",
         "src/subscription/entitlement.ts",
+        "src/subscription/revenueCatService.ts",
+        "src/auth/googleSignIn.ts",
         "src/subscription/storeDeadline.ts",
         "src/api/apiConfig.ts",
         "src/documents/fileTypes.ts",

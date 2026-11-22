@@ -1,35 +1,13 @@
 name: Android Full App & Playback Build
 
 on:
-  push:
-    paths:
-      - "apps/mobile/**"
-      - ".github/workflows/android-notification-playback.yml"
-      - "security/install-android-ndk.sh"
-      - "security/maven-central-mirror.init.gradle"
-      - "security/test-maven-central-mirror.sh"
-      - "security/android-smoke.sh"
-      - "security/android-smoke-screen.py"
-      - "code_checks/android_smoke_test.py"
-  pull_request:
-    paths:
-      - "apps/mobile/**"
-      - ".github/workflows/android-notification-playback.yml"
-      - "security/install-android-ndk.sh"
-      - "security/maven-central-mirror.init.gradle"
-      - "security/test-maven-central-mirror.sh"
-      - "security/android-smoke.sh"
-      - "security/android-smoke-screen.py"
-      - "code_checks/android_smoke_test.py"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
   security-events: write
 
-concurrency:
-  group: notification-playback-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 
 jobs:
   android-module:
@@ -41,6 +19,8 @@ jobs:
         working-directory: apps/mobile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
