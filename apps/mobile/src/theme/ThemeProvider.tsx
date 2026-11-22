@@ -296,7 +296,7 @@ export function SetupAccent({ active, children }: PropsWithChildren<{ active: bo
   return <C.Provider value={value}>{children}</C.Provider>;
 }
 
-/** The welcome screen's near-black, matched to the edges of its book animation. */
+/** The welcome screen's near-black. */
 export const WELCOME_BACKGROUND = "#06070A";
 
 /**

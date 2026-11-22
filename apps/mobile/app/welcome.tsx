@@ -6,14 +6,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { VoticLogo } from "../src/components/VoticLogo";
 import { spacing } from "../src/design/tokens";
 import { LegalLine, NotConfiguredNotice, SocialSignIn } from "../src/onboarding/accountForms";
-import { BookHero } from "../src/onboarding/BookHero";
 import { useIntro } from "../src/onboarding/IntroProvider";
+import { BrandMark, useMarkFlight } from "../src/onboarding/WelcomeMotion";
 import { useVoticTheme, WelcomeDark } from "../src/theme/ThemeProvider";
 
 /**
- * The first screen, always dark: the Votic logo, an open book whose pages turn to the page being read, then the
- * headline and the ways in. Apple and Google create the account or sign in; "Create account" opens the email form;
- * "Already have an account? Sign in" is for existing email accounts. Every button works straight away.
+ * The first screen, always dark: the Votic logo, the V over a soft blue glow, then the headline and the ways in.
+ * Apple and Google create the account or sign in; "Create account" opens the email form; "Already have an account?
+ * Sign in" is for existing email accounts. The screen stands still until someone taps one of them, when the V's
+ * wings fly off to the right one by one and its stroke flies up and away; then Create account or Sign in opens, or
+ * Google's account picker. A tap while the V is flying does nothing.
  */
 export default function Welcome() {
   return (
@@ -27,6 +29,7 @@ function WelcomeScreen() {
   const { theme } = useVoticTheme();
   const [socialBusy, setSocialBusy] = useState(false);
   const [error, setError] = useState("");
+  const mark = useMarkFlight();
   const { intro } = useIntro();
   // Straight after the tour: "Create my account" lands here, and "I already have an account" opens Sign in.
   const fromTour = intro.toured && intro.entry === "create" && !intro.claimedBy;
@@ -42,8 +45,9 @@ function WelcomeScreen() {
         <View style={s.topBar}>
           <VoticLogo />
         </View>
+        {/* Drawn after the top bar so the V's pieces pass over it as they leave. */}
         <View style={s.art}>
-          <BookHero />
+          <BrandMark size={140} flight={mark.flight} />
         </View>
         <View style={s.bottom}>
           <View style={s.copy}>
@@ -69,14 +73,22 @@ function WelcomeScreen() {
               </>
             )}
           </View>
-          <SocialSignIn on_busy_change={setSocialBusy} onError={setError} white_google />
+          <SocialSignIn
+            on_busy_change={setSocialBusy}
+            onError={setError}
+            white_google
+            // The V flies off as for Sign in, then Google's account picker opens; if it's closed or fails, the V
+            // comes back together and the screen is ready again.
+            before_google={mark.fly_away}
+            after_google_stopped={mark.land}
+          />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Create account"
             accessibilityHint="With your email address"
             disabled={socialBusy}
             accessibilityState={{ disabled: socialBusy }}
-            onPress={() => router.push("/create-account")}
+            onPress={() => mark.fly(() => router.push("/create-account"))}
             style={({ pressed }) => [
               s.create,
               { backgroundColor: theme.accent, opacity: socialBusy ? 0.55 : pressed ? 0.88 : 1 },
@@ -93,7 +105,7 @@ function WelcomeScreen() {
               accessibilityHint="For an existing Votic account"
               disabled={socialBusy}
               accessibilityState={{ disabled: socialBusy }}
-              onPress={() => router.push("/sign-in")}
+              onPress={() => mark.fly(() => router.push("/sign-in"))}
               hitSlop={12}
               style={({ pressed }) => [s.signIn, { opacity: pressed ? 0.7 : 1 }]}
             >
@@ -124,8 +136,7 @@ const s = StyleSheet.create({
     alignSelf: "center",
   },
   topBar: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center" },
-  // The book runs to the screen's edges; its picture fades into the background on every side.
-  art: { flexGrow: 1, justifyContent: "center", marginHorizontal: -spacing.xl, minHeight: 220 },
+  art: { flexGrow: 1, alignItems: "center", justifyContent: "center", minHeight: 240, paddingVertical: 10 },
   bottom: { gap: 12 },
   copy: { alignItems: "center", gap: 10, marginBottom: 12 },
   title: { ...editorial, fontSize: 38, lineHeight: 44, textAlign: "center" },

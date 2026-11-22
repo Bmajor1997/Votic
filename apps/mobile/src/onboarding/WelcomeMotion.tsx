@@ -5,8 +5,10 @@ import { useAccessibilityPreferences } from "../accessibility/AccessibilityProvi
 import { useVoticTheme } from "../theme/ThemeProvider";
 
 const BRAND_BLUE = "#2563EB";
-/** Faint, shrinking circles stack into a soft glow, since React Native has no blur. */
-const GLOW_LAYERS = [1, 0.84, 0.68];
+/** Many faint, shrinking circles stack into a smooth glow without visible rings, since React Native has no blur. */
+const GLOW_LAYERS = [1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.42, 0.35];
+/** Each layer's opacity; eight stacked layers give about the brightness the old three gave at the centre. */
+const GLOW_OPACITY = { dark: 0.045, light: 0.026 };
 
 /** The V in four pieces on one canvas, so each piece can move on its own and still line up exactly. */
 const STROKE = require("../../assets/votic-mark-stroke.png");
@@ -92,11 +94,11 @@ export function BrandMark({
               opacity: flight
                 ? flight.glow.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [theme.isDark ? 0.12 : 0.07, 0],
+                    outputRange: [theme.isDark ? GLOW_OPACITY.dark : GLOW_OPACITY.light, 0],
                   })
                 : theme.isDark
-                  ? 0.12
-                  : 0.07,
+                  ? GLOW_OPACITY.dark
+                  : GLOW_OPACITY.light,
             },
           ]}
         />
