@@ -52,7 +52,7 @@ jobs:
       - name: Verify generated Android manifest and resources
         run: node ../../security/verify-generated-android.cjs android/app/src/main
       - name: Initialize native CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: java-kotlin
           build-mode: manual
@@ -72,7 +72,7 @@ jobs:
           VOTIC_CI_VERIFY_BUILD: "1"
           VOTIC_LOCAL_DEBUG_SIGNING: "1"
       - name: Analyze native code
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: native-android
           output: native-sarif

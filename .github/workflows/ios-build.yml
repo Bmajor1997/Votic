@@ -30,7 +30,7 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
       - run: npx pod-install ios
       - name: Initialize native CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: swift
           build-mode: manual
@@ -46,7 +46,7 @@ jobs:
           swiftc targets/widget/VoticSnapshot.swift native-tests/main.swift -o native-test-results/widget-tests
           native-test-results/widget-tests > native-test-results/widget-tests.txt
       - name: Analyze native code
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: native-ios
           output: native-sarif
