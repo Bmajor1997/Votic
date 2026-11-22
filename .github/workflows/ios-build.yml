@@ -1,16 +1,12 @@
 name: iOS App & Widgets Build
 on:
-  pull_request:
-    paths: ["apps/mobile/**", ".github/workflows/ios-build.yml"]
-  push:
-    paths: ["apps/mobile/**", ".github/workflows/ios-build.yml"]
+  workflow_call:
   workflow_dispatch:
+
 permissions:
   contents: read
   security-events: write
-concurrency:
-  group: ios-build-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+
 jobs:
   simulator:
     runs-on: macos-latest
@@ -20,6 +16,8 @@ jobs:
         working-directory: apps/mobile
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
@@ -32,7 +30,7 @@ jobs:
           EXPO_NO_TELEMETRY: "1"
       - run: npx pod-install ios
       - name: Initialize native CodeQL
-        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           languages: swift
           build-mode: manual
@@ -48,7 +46,7 @@ jobs:
           swiftc targets/widget/VoticSnapshot.swift native-tests/main.swift -o native-test-results/widget-tests
           native-test-results/widget-tests > native-test-results/widget-tests.txt
       - name: Analyze native code
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: native-ios
           output: native-sarif

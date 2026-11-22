@@ -107,10 +107,12 @@ export function SocialSignIn({
     setBusy(provider);
     on_busy_change?.(true);
     let signedIn = false;
+    let googleStarted = false;
     try {
       if (provider === "apple") await auth.sign_in_with_apple();
       else {
         if (before_google && !(await before_google())) return;
+        googleStarted = true;
         await auth.sign_in_with_google();
       }
       signedIn = true;
@@ -122,7 +124,7 @@ export function SocialSignIn({
         else onError(message);
       }
     } finally {
-      if (provider === "google" && !signedIn) after_google_stopped?.();
+      if (provider === "google" && googleStarted && !signedIn) after_google_stopped?.();
       started.current = false;
       setBusy(null);
       on_busy_change?.(false);

@@ -47,6 +47,8 @@ jobs:
       EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID: premium
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 24
@@ -70,7 +72,7 @@ jobs:
       - name: Print signing fingerprint
         working-directory: apps/mobile/android
         run: |
-          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          apksigner=$(find "$ANDROID_HOME"/build-tools -name apksigner | sort -V | tail -1)
           "$apksigner" verify --print-certs app/build/outputs/apk/release/*.apk | grep -E "SHA-1|SHA-256"
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -10,6 +10,20 @@ import { router } from "../mocks/expoRouter";
 import { render_with_providers } from "../renderWithProviders";
 
 describe("Welcome motion", () => {
+  it.each(["Sign in", "Create account"])(
+    "keeps the %s flight when Google is tapped before it ends",
+    async (label) => {
+      fakeAuth.reset(null);
+      const moves = watch_moves();
+      await render_with_providers(<Welcome />);
+      await fireEvent.press(screen.getByRole("button", { name: label }));
+      await fireEvent.press(screen.getByRole("button", { name: "Continue with Google" }));
+      await act(async () => jest.advanceTimersByTime(1500));
+      expect(fakeAuth.calls).not.toContain("signInWithGoogle");
+      expect(moves.back()).toEqual([]);
+      expect(router.push.mock.calls).toEqual([[label === "Sign in" ? "/sign-in" : "/create-account"]]);
+    },
+  );
   it("plays the same V flight for Create account as for Sign in, then opens it once", async () => {
     fakeAuth.reset(null);
     const moves = watch_moves();

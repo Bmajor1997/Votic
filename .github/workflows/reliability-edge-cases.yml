@@ -1,34 +1,12 @@
 name: Votic Reliability & Edge-Case Checks
 
 on:
-  push:
-    paths:
-      - "apps/mobile/**"
-      - "app_parts/**"
-      - "votic_server.js"
-      - "code_checks/**"
-      - "security/**"
-      - "package*.json"
-      - ".github/workflows/reliability-edge-cases.yml"
-  pull_request:
-    paths:
-      - "apps/mobile/**"
-      - "app_parts/**"
-      - "votic_server.js"
-      - "code_checks/**"
-      - "security/**"
-      - "package*.json"
-      - ".github/workflows/reliability-edge-cases.yml"
-  schedule:
-    - cron: "23 12 * * 1"
+  workflow_call:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: reliability-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
 
 jobs:
   reliability:
@@ -38,7 +16,8 @@ jobs:
     steps:
       - name: Get Votic's code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
+        with:
+          persist-credentials: false
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
